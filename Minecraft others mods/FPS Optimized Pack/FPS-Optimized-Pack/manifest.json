@@ -1,0 +1,30 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "FPS Optimized Pack",
+    "description": "Flat textures, no animations, clear glass, no particles. Built for 60+ FPS.",
+    "uuid": "a1f3c2e4-5b6d-4e8a-9c0b-1d2e3f4a5b6c",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      21,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "description": "FPS optimized resources",
+      "uuid": "b2e4d3f5-6c7e-4f9b-8d1c-2e3f4a5b6c7d",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}
