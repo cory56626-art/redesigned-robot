@@ -7,57 +7,58 @@
         "idle": {
           "animations": ["idle_twitch"],
           "transitions": [
-            { "alert": "query.property('verity:state') == 'alert'" },
-            { "chase": "query.property('verity:state') == 'chase'" },
-            { "climb": "query.property('verity:state') == 'climb'" },
-            { "crawl": "query.property('verity:state') == 'crawl'" },
-            { "phase": "query.property('verity:state') == 'phase'" }
+            { "alert": "q.property('verity:anim') == 1" },
+            { "chase": "q.property('verity:anim') == 2" },
+            { "climb": "q.property('verity:anim') == 3" },
+            { "crawl": "q.property('verity:anim') == 4" },
+            { "phase": "q.property('verity:anim') == 5" }
           ]
         },
         "alert": {
           "animations": ["detect_shake"],
           "blend_transition": 0.04,
           "transitions": [
-            { "chase": "query.property('verity:state') == 'chase'" },
-            { "idle": "query.property('verity:state') == 'idle'" }
+            { "chase": "q.property('verity:anim') == 2" },
+            { "idle": "q.property('verity:anim') == 0" }
           ]
         },
         "chase": {
           "animations": ["jitter_sprint"],
           "blend_transition": 0.0,
           "transitions": [
-            { "idle": "query.property('verity:state') == 'idle'" },
-            { "alert": "query.property('verity:state') == 'alert'" },
-            { "climb": "query.property('verity:state') == 'climb'" },
-            { "crawl": "query.property('verity:state') == 'crawl'" },
-            { "phase": "query.property('verity:state') == 'phase'" }
+            { "idle": "q.property('verity:anim') == 0" },
+            { "alert": "q.property('verity:anim') == 1" },
+            { "climb": "q.property('verity:anim') == 3" },
+            { "crawl": "q.property('verity:anim') == 4" },
+            { "phase": "q.property('verity:anim') == 5" }
           ]
         },
         "climb": {
           "animations": ["climb"],
-          "blend_transition": 0.05,
+          "blend_transition": 0.1,
           "transitions": [
-            { "chase": "query.property('verity:state') == 'chase'" },
-            { "crawl": "query.property('verity:state') == 'crawl'" },
-            { "idle": "query.property('verity:state') == 'idle'" }
+            { "chase": "q.property('verity:anim') == 2" },
+            { "crawl": "q.property('verity:anim') == 4" },
+            { "phase": "q.property('verity:anim') == 5" },
+            { "idle": "q.property('verity:anim') == 0" }
           ]
         },
         "crawl": {
           "animations": ["crawl"],
-          "blend_transition": 0.05,
+          "blend_transition": 0.1,
           "transitions": [
-            { "chase": "query.property('verity:state') == 'chase'" },
-            { "phase": "query.property('verity:state') == 'phase'" },
-            { "idle": "query.property('verity:state') == 'idle'" }
+            { "chase": "q.property('verity:anim') == 2" },
+            { "phase": "q.property('verity:anim') == 5" },
+            { "idle": "q.property('verity:anim') == 0" }
           ]
         },
         "phase": {
           "animations": ["face_break"],
-          "blend_transition": 0.0,
+          "blend_transition": 0.1,
           "transitions": [
-            { "crawl": "query.property('verity:state') == 'crawl'" },
-            { "chase": "query.property('verity:state') == 'chase'" },
-            { "idle": "query.property('verity:state') == 'idle'" }
+            { "crawl": "q.property('verity:anim') == 4" },
+            { "chase": "q.property('verity:anim') == 2" },
+            { "idle": "q.property('verity:anim') == 0" }
           ]
         }
       }

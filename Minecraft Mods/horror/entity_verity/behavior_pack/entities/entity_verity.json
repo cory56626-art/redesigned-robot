@@ -7,10 +7,10 @@
       "is_summonable": true,
       "is_experimental": false,
       "properties": {
-        "verity:state": {
-          "type": "enum",
-          "values": ["idle", "alert", "chase", "climb", "crawl", "phase"],
-          "default": "idle",
+        "verity:anim": {
+          "type": "int",
+          "range": [0, 5],
+          "default": 0,
           "client_sync": true
         }
       }
@@ -176,7 +176,7 @@
     "events": {
       "minecraft:entity_spawned": {
         "add": { "component_groups": ["verity:dormant"] },
-        "set_property": { "verity:state": "'idle'" }
+        "set_property": { "verity:anim": 0 }
       },
       "verity:on_player_detected": {
         "sequence": [
@@ -199,29 +199,29 @@
             },
             "remove": { "component_groups": ["verity:dormant"] },
             "add": { "component_groups": ["verity:alerting"] },
-            "set_property": { "verity:state": "'alert'" }
+            "set_property": { "verity:anim": 1 }
           }
         ]
       },
       "verity:begin_hunt": {
         "remove": { "component_groups": ["verity:dormant", "verity:alerting"] },
         "add": { "component_groups": ["verity:hunting"] },
-        "set_property": { "verity:state": "'chase'" }
+        "set_property": { "verity:anim": 2 }
       },
       "verity:on_player_lost": {
         "remove": {
           "component_groups": ["verity:alerting", "verity:hunting", "verity:crawl_box"]
         },
         "add": { "component_groups": ["verity:dormant"] },
-        "set_property": { "verity:state": "'idle'" }
+        "set_property": { "verity:anim": 0 }
       },
       "verity:start_crawl": {
         "add": { "component_groups": ["verity:crawl_box"] },
-        "set_property": { "verity:state": "'crawl'" }
+        "set_property": { "verity:anim": 4 }
       },
       "verity:stop_crawl": {
         "remove": { "component_groups": ["verity:crawl_box"] },
-        "set_property": { "verity:state": "'chase'" }
+        "set_property": { "verity:anim": 2 }
       }
     }
   }
