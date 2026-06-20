@@ -26,7 +26,7 @@
       },
       "verity:hunting": {
         "minecraft:ambient_sound_interval": {
-          "value": 0.0,
+          "value": 6.0,
           "range": 0.0,
           "event_name": "ambient"
         },
