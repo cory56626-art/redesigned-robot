@@ -1,283 +1,381 @@
 // Entity Verity — scripted horror behavior layer.
 //
-// The base mob (idle / 1s freeze / jitter-sprint chase / scream / melee) is
-// fully data-driven and works without this script. This module adds:
+// The base mob (jitter-sprint chase + scream + melee) is data-driven via the
+// "verity:hunting" component group. This script owns everything that happens
+// BEFORE/AROUND the chase and cannot be expressed in JSON:
 //
-//   * window breach: while chasing, if the target hides near glass, Verity
-//     vanishes, reappears OUTSIDE the nearest window, breaks it "with its
-//     face", then crawls through. Deliberately slow + telegraphed so the
-//     player actually watches it happen. Verity is frozen in place for the
-//     whole routine so its chase AI can't drag it off the mark.
-//   * a real wall-climb (Bedrock can_climb only does ladders): when the
-//     target is above and Verity is against a wall, it is lifted up the wall
-//     while the climb animation plays.
+//   1. Long-distance stalk -> bone-cracking transformation -> charge.
+//   2. House-breach: crawl to the nearest door, open it, crawl in, stare,
+//      snap upright, chase.
+//   3. Mineshaft ambush: wait silently above the player, lean, then chase.
+//   4. Movement-mirror mode (copies the player with a slight delay).
+//   5. "!" chat commands.
 //
-// Animation state is surfaced to the model through the int entity property
-// "verity:anim": 0 idle, 1 alert, 2 chase, 3 climb, 4 crawl, 5 phase.
+// Animation is surfaced to the model through the int property "verity:anim":
+//   0 idle  1 alert  2 chase  3 climb  4 crawl  5 phase
+//   6 transform  7 mirror  8 stare  9 snap
+// Sound only plays in chase (the scream is on the hunting group) and the
+// scripted bone-crack; every other stage is silent, as specified.
 //
-// World access is wrapped in try/catch: blocks in unloaded chunks throw and
-// entities can despawn between scheduled steps.
+// Note: the "smile" in the stalk can't be shown without editing the texture
+// (which is on the do-not-change list), so the menace is carried by the
+// head-tilt / crouch pose instead.
 
 import { world, system } from "@minecraft/server";
 
 const VERITY = "verity:entity_verity";
-const ANIM = { IDLE: 0, ALERT: 1, CHASE: 2, CLIMB: 3, CRAWL: 4, PHASE: 5 };
+const A = { IDLE: 0, ALERT: 1, CHASE: 2, CLIMB: 3, CRAWL: 4, PHASE: 5, TRANSFORM: 6, MIRROR: 7, STARE: 8, SNAP: 9 };
 
-// tuning
-const SCAN_INTERVAL = 6;        // ticks between scans
-const BREACH_RANGE = 22;        // entity must be within this of the target
-const WINDOW_RADIUS = 6;        // search box around the player for glass
-const WINDOW_VRADIUS = 3;
-const BREACH_COOLDOWN = 500;    // ticks (~25s) between breaches per entity
-const CLIMB_DY = 1.2;           // target this much higher => climb
+// tuning (blocks / ticks; 20 ticks = 1s)
+const SCAN = 4;
+const STALK_NEAR = 14, CHASE_NEAR = 6;
+const MIRROR_MIN = 10, MIRROR_MAX = 18;
+const STARE_TIME = 60, TRANSFORM_TIME = 45;
+const LOOKAWAY_LIMIT = 20;       // ticks of not-looking before mirror -> approach
+const ENCLOSE_LIMIT = 160;       // ticks roofed before a house breach
+const BREACH_RANGE = 22, WINDOW_RADIUS = 6, WINDOW_VRADIUS = 3, DOOR_RADIUS = 8;
+const BREACH_COOLDOWN = 500, CLIMB_DY = 1.2;
 
-const busy = new Set();         // entity ids mid-breach
-const cooldown = new Map();     // entity id -> earliest next-breach tick
+const S = new Map();             // entity id -> behavioral record
+const busy = new Set();          // entity id -> running a one-shot sequence
+const cooldown = new Map();      // entity id -> earliest next auto-breach tick
+const pHist = new Map();         // player id -> [last positions]
+const enclosed = new Map();      // player id -> ticks roofed
 
-function valid(e) {
-  try { return typeof e.isValid === "function" ? e.isValid() : !!e.isValid; }
-  catch (_) { return false; }
+function valid(e) { try { return typeof e.isValid === "function" ? e.isValid() : !!e.isValid; } catch (_) { return false; } }
+function rec(id) {
+  let r = S.get(id);
+  if (!r) { r = { mode: "idle", t0: system.currentTick, lookAway: 0, forced: null, crouch: false }; S.set(id, r); }
+  return r;
 }
-
-function dist2(a, b) {
-  const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
-  return dx * dx + dy * dy + dz * dz;
-}
+function dist2(a, b) { const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z; return dx * dx + dy * dy + dz * dz; }
+function center(l, y) { return { x: l.x + 0.5, y: y !== undefined ? y : l.y, z: l.z + 0.5 }; }
 
 function nearestPlayer(entity) {
-  let best = null, bestD = Infinity;
+  let best = null, bd = Infinity;
   for (const p of world.getAllPlayers()) {
     if (p.dimension.id !== entity.dimension.id) continue;
     const d = dist2(entity.location, p.location);
-    if (d < bestD) { bestD = d; best = p; }
+    if (d < bd) { bd = d; best = p; }
   }
-  return best ? { player: best, d2: bestD } : null;
+  return best ? { player: best, d: Math.sqrt(bd) } : null;
 }
+function setAnim(e, n) { try { if (e.getProperty("verity:anim") !== n) e.setProperty("verity:anim", n); } catch (_) {} }
+function faceTo(e, loc) { try { e.teleport(e.location, { facingLocation: loc }); } catch (_) {} }
+function freeze(e, t) { try { e.addEffect("slowness", t, { amplifier: 250, showParticles: false }); } catch (_) {} }
+function unfreeze(e) { try { e.removeEffect("slowness"); } catch (_) {} }
 
-function setAnim(entity, n) {
-  try { if (entity.getProperty("verity:anim") !== n) entity.setProperty("verity:anim", n); }
-  catch (_) {}
-}
-
-function isGlass(block) {
-  try { return block && block.typeId && block.typeId.includes("glass"); }
-  catch (_) { return false; }
-}
-
-function isSolid(block) {
-  if (!block) return false;
-  try { if (block.isAir) return false; } catch (_) {}
-  try { if (block.isLiquid) return false; } catch (_) {}
+function isGlass(b) { try { return b && b.typeId && b.typeId.includes("glass"); } catch (_) { return false; } }
+function isDoor(b) { try { return b && b.typeId && b.typeId.includes("door") && !b.typeId.includes("trapdoor"); } catch (_) { return false; } }
+function isSolid(b) {
+  if (!b) return false;
+  try { if (b.isAir) return false; } catch (_) {}
+  try { if (b.isLiquid) return false; } catch (_) {}
   return true;
 }
 
-function center(loc, y) {
-  return { x: loc.x + 0.5, y: y !== undefined ? y : loc.y, z: loc.z + 0.5 };
+// crude line-of-sight: sample blocks between the two eye points
+function losClear(dim, a, b) {
+  const ax = a.x, ay = a.y + 2.4, az = a.z;
+  const bx = b.x, by = b.y + 1.5, bz = b.z;
+  const steps = Math.max(2, Math.floor(Math.hypot(bx - ax, by - ay, bz - az)));
+  for (let i = 1; i < steps; i++) {
+    const f = i / steps;
+    const loc = { x: Math.floor(ax + (bx - ax) * f), y: Math.floor(ay + (by - ay) * f), z: Math.floor(az + (bz - az) * f) };
+    let blk; try { blk = dim.getBlock(loc); } catch (_) { return false; }
+    if (isSolid(blk) && !isGlass(blk)) return false;
+  }
+  return true;
+}
+function playerLooking(player, entity) {
+  try {
+    const v = player.getViewDirection();
+    const to = { x: entity.location.x - player.location.x, y: 0, z: entity.location.z - player.location.z };
+    const len = Math.hypot(to.x, to.z) || 1;
+    return (v.x * to.x + v.z * to.z) / len > 0.55;
+  } catch (_) { return false; }
 }
 
-function freeze(entity, ticks) {
-  try { entity.addEffect("slowness", ticks, { amplifier: 250, showParticles: false }); }
-  catch (_) {}
-}
-function unfreeze(entity) {
-  try { entity.removeEffect("slowness"); } catch (_) {}
+function startChase(e) {
+  const r = rec(e.id);
+  r.mode = "chase"; r.forced = null;
+  unfreeze(e);
+  try { e.triggerEvent("verity:begin_hunt"); } catch (_) {}
 }
 
-// Find a glass block near the player, preferring the one nearest the entity.
-function findWindow(entity, player) {
-  const dim = entity.dimension;
-  const px = Math.floor(player.location.x);
-  const py = Math.floor(player.location.y);
-  const pz = Math.floor(player.location.z);
-  let best = null, bestD = Infinity;
-  for (let dy = -WINDOW_VRADIUS; dy <= WINDOW_VRADIUS; dy++) {
-    for (let dx = -WINDOW_RADIUS; dx <= WINDOW_RADIUS; dx++) {
-      for (let dz = -WINDOW_RADIUS; dz <= WINDOW_RADIUS; dz++) {
-        const loc = { x: px + dx, y: py + dy, z: pz + dz };
-        let block;
-        try { block = dim.getBlock(loc); } catch (_) { continue; }
-        if (!isGlass(block)) continue;
-        const d = dist2(entity.location, loc);
-        if (d < bestD) { bestD = d; best = { x: loc.x, y: loc.y, z: loc.z }; }
-      }
-    }
+// 1) STALK -> bone-cracking TRANSFORM -> charge
+function doTransform(e, player) {
+  const id = e.id; busy.add(id); rec(id).mode = "transform";
+  freeze(e, TRANSFORM_TIME + 10);
+  setAnim(e, A.TRANSFORM);
+  faceTo(e, player.location);
+  for (const at of [0, 10, 18, 26, 34]) {
+    system.runTimeout(() => { if (valid(e)) { try { e.dimension.playSound("mob.entity_verity.bonecrack", e.location); } catch (_) {} } }, at);
+  }
+  system.runTimeout(() => { busy.delete(id); if (valid(e)) startChase(e); }, TRANSFORM_TIME);
+}
+
+// quick "snap upright / lean" then charge (mineshaft + house-breach finisher)
+function doSnap(e) {
+  const id = e.id; busy.add(id);
+  freeze(e, 16); setAnim(e, A.SNAP);
+  system.runTimeout(() => { busy.delete(id); if (valid(e)) startChase(e); }, 12);
+}
+
+// 2) HOUSE BREACH via the nearest door
+function findDoor(dim, player) {
+  const px = Math.floor(player.location.x), py = Math.floor(player.location.y), pz = Math.floor(player.location.z);
+  let best = null, bd = Infinity;
+  for (let dy = -2; dy <= 2; dy++) for (let dx = -DOOR_RADIUS; dx <= DOOR_RADIUS; dx++) for (let dz = -DOOR_RADIUS; dz <= DOOR_RADIUS; dz++) {
+    const loc = { x: px + dx, y: py + dy, z: pz + dz };
+    let b; try { b = dim.getBlock(loc); } catch (_) { continue; }
+    if (!isDoor(b)) continue;
+    const d = dx * dx + dz * dz;
+    if (d < bd) { bd = d; best = { x: loc.x, y: loc.y, z: loc.z }; }
   }
   return best;
 }
-
-// Slow, telegraphed window-breach sequence. Times are in ticks (20 = 1s).
-function startBreach(entity, windowLoc, player) {
-  const id = entity.id;
-  busy.add(id);
-  cooldown.set(id, system.currentTick + BREACH_COOLDOWN);
-  const dim = entity.dimension;
-
-  const toInside = {
-    x: player.location.x - (windowLoc.x + 0.5),
-    z: player.location.z - (windowLoc.z + 0.5),
-  };
-  const len = Math.hypot(toInside.x, toInside.z) || 1;
-  const ix = Math.round(toInside.x / len);
-  const iz = Math.round(toInside.z / len);
-  const outsideLoc = { x: windowLoc.x - ix, y: windowLoc.y, z: windowLoc.z - iz };
-  const insideLoc = { x: windowLoc.x + ix, y: windowLoc.y, z: windowLoc.z + iz };
-
-  // keep it pinned for the whole show (~4.4s)
-  freeze(entity, 95);
-
-  // Step 1 (t=0) — vanish in place.
+function openDoor(dim, loc) {
   try {
-    setAnim(entity, ANIM.PHASE);
-    entity.addEffect("invisibility", 60, { showParticles: false });
-    dim.spawnParticle("minecraft:large_explosion", center(entity.location, entity.location.y + 1));
-    dim.playSound("mob.endermen.portal", entity.location);
+    const b = dim.getBlock(loc);
+    if (isDoor(b)) b.setPermutation(b.permutation.withState("open_bit", true));
   } catch (_) {}
+}
+function doDoorBreach(e, player) {
+  const dim = e.dimension;
+  const door = findDoor(dim, player);
+  if (!door) { try { player.sendMessage("§7Verity finds no door…"); } catch (_) {} return; }
+  const id = e.id; busy.add(id); rec(id).mode = "door";
+  cooldown.set(id, system.currentTick + BREACH_COOLDOWN);
 
-  // Step 2 (t=20, 1s) — reappear OUTSIDE the window, facing it, and just stand.
-  system.runTimeout(() => {
-    if (!valid(entity)) { busy.delete(id); return; }
-    try {
-      entity.teleport(center(outsideLoc, outsideLoc.y), {
-        dimension: dim,
-        facingLocation: center(windowLoc, windowLoc.y + 0.5),
-      });
-      entity.removeEffect("invisibility");
-      freeze(entity, 75);
-      setAnim(entity, ANIM.PHASE);
-      dim.playSound("mob.endermen.portal", outsideLoc);
-      dim.playSound("mob.endermen.stare", outsideLoc);
-    } catch (_) {}
-  }, 20);
+  const toIn = { x: player.location.x - (door.x + 0.5), z: player.location.z - (door.z + 0.5) };
+  const len = Math.hypot(toIn.x, toIn.z) || 1;
+  const ix = Math.round(toIn.x / len), iz = Math.round(toIn.z / len);
+  const outside = { x: door.x - ix, y: door.y, z: door.z - iz };
+  const inside = { x: door.x + ix, y: door.y, z: door.z + iz };
+  const standoff = { x: player.location.x - ix * 3, y: player.location.y, z: player.location.z - iz * 3 };
 
-  // Step 3 (t=40, 2s) — slam the glass: top pane first, with cracks.
-  system.runTimeout(() => {
-    if (!valid(entity)) { busy.delete(id); return; }
-    try {
-      const top = { x: windowLoc.x, y: windowLoc.y + 1, z: windowLoc.z };
-      const b = dim.getBlock(top);
-      dim.spawnParticle("minecraft:knockback_roar_particle", center(top, top.y + 0.3));
-      if (isGlass(b)) b.setType("minecraft:air");
-      dim.playSound("random.glass", top);
-    } catch (_) {}
-  }, 40);
+  freeze(e, 150);
+  try { e.triggerEvent("verity:start_crawl"); } catch (_) {} // low spider crawl (anim 4)
 
-  // Step 4 (t=52, ~2.6s) — break the main pane.
-  system.runTimeout(() => {
-    if (!valid(entity)) { busy.delete(id); return; }
-    try {
-      const b = dim.getBlock(windowLoc);
-      dim.spawnParticle("minecraft:knockback_roar_particle", center(windowLoc, windowLoc.y + 0.3));
-      if (isGlass(b)) b.setType("minecraft:air");
-      dim.playSound("random.glass", windowLoc);
-      dim.playSound("random.glass", windowLoc);
-    } catch (_) {}
-  }, 52);
-
-  // Step 5 (t=64, ~3.2s) — crawl through to the inside.
-  system.runTimeout(() => {
-    if (!valid(entity)) { busy.delete(id); return; }
-    try {
-      entity.triggerEvent("verity:start_crawl");
-      freeze(entity, 32);
-      entity.teleport(center(windowLoc, windowLoc.y), {
-        dimension: dim,
-        facingLocation: player.location,
-      });
-    } catch (_) {}
-  }, 64);
-
-  // Step 6 (t=78, ~3.9s) — finish crawling inside.
-  system.runTimeout(() => {
-    if (!valid(entity)) { busy.delete(id); return; }
-    try {
-      entity.teleport(center(insideLoc, windowLoc.y), {
-        dimension: dim,
-        facingLocation: player.location,
-      });
-    } catch (_) {}
-  }, 78);
-
-  // Step 7 (t=88, ~4.4s) — stand up and resume the chase.
-  system.runTimeout(() => {
-    busy.delete(id);
-    if (!valid(entity)) return;
-    try { entity.triggerEvent("verity:stop_crawl"); unfreeze(entity); } catch (_) {}
-  }, 88);
+  system.runTimeout(() => { if (!valid(e)) return busy.delete(id); try { e.teleport(center(outside, outside.y), { dimension: dim, facingLocation: center(door, door.y + 1) }); freeze(e, 120); } catch (_) {} }, 30);
+  system.runTimeout(() => { if (!valid(e)) return busy.delete(id); openDoor(dim, door); openDoor(dim, { x: door.x, y: door.y + 1, z: door.z }); try { dim.playSound("open.wooden_door", door); } catch (_) {} }, 45);
+  system.runTimeout(() => { if (!valid(e)) return busy.delete(id); try { e.teleport(center(inside, inside.y), { dimension: dim, facingLocation: player.location }); } catch (_) {} }, 60);
+  system.runTimeout(() => { if (!valid(e)) return busy.delete(id); try { e.teleport(center({ x: Math.floor(standoff.x), y: Math.floor(standoff.y), z: Math.floor(standoff.z) }, standoff.y), { dimension: dim, facingLocation: player.location }); e.triggerEvent("verity:stop_crawl"); setAnim(e, A.STARE); freeze(e, 60); } catch (_) {} }, 80);
+  system.runTimeout(() => { if (!valid(e)) return busy.delete(id); setAnim(e, A.SNAP); freeze(e, 18); }, 120);
+  system.runTimeout(() => { busy.delete(id); if (valid(e)) startChase(e); }, 138);
 }
 
-function stopClimb(entity) {
-  try { entity.removeEffect("levitation"); } catch (_) {}
-}
-
-// Scripted wall climb. Returns true if Verity is climbing this tick.
-// Bedrock has no data-driven wall climb, and plain gravity would cancel a
-// teleport-based lift between scans, so we drive it with a refreshed
-// levitation effect that only runs while a wall is right in front.
-function tryClimb(entity, player) {
-  const dy = player.location.y - entity.location.y;
-  if (dy < CLIMB_DY) { stopClimb(entity); return false; }
-
-  const dim = entity.dimension;
-  const ex = entity.location.x, ey = entity.location.y, ez = entity.location.z;
-  const dx = player.location.x - ex, dz = player.location.z - ez;
-  const len = Math.hypot(dx, dz) || 1;
-  const sx = Math.round(dx / len), sz = Math.round(dz / len);
-
-  // is there a wall right in front, at chest height, and are we up against it?
-  const horiz2 = dx * dx + dz * dz;
-  if (horiz2 > 6.25) { stopClimb(entity); return false; }
-  const frontLoc = { x: Math.floor(ex) + sx, y: Math.floor(ey) + 1, z: Math.floor(ez) + sz };
-  let front;
-  try { front = dim.getBlock(frontLoc); } catch (_) { stopClimb(entity); return false; }
-  if (!isSolid(front)) { stopClimb(entity); return false; }
-
-  setAnim(entity, ANIM.CLIMB);
-
-  // rise up the wall while there is headroom, otherwise let it mount the top
-  const headLoc = { x: Math.floor(ex), y: Math.floor(ey) + 3, z: Math.floor(ez) };
-  let head;
-  try { head = dim.getBlock(headLoc); } catch (_) { head = undefined; }
-  if (!isSolid(head)) {
-    // levitation lifts it steadily and survives the gap between scans
-    try { entity.addEffect("levitation", 12, { amplifier: 1, showParticles: false }); }
-    catch (_) {}
-  } else {
-    stopClimb(entity);
+// window breach (kept from before; used in chase + by !verityglass)
+function findWindow(dim, entity, player) {
+  const px = Math.floor(player.location.x), py = Math.floor(player.location.y), pz = Math.floor(player.location.z);
+  let best = null, bd = Infinity;
+  for (let dy = -WINDOW_VRADIUS; dy <= WINDOW_VRADIUS; dy++) for (let dx = -WINDOW_RADIUS; dx <= WINDOW_RADIUS; dx++) for (let dz = -WINDOW_RADIUS; dz <= WINDOW_RADIUS; dz++) {
+    const loc = { x: px + dx, y: py + dy, z: pz + dz };
+    let b; try { b = dim.getBlock(loc); } catch (_) { continue; }
+    if (!isGlass(b)) continue;
+    const d = dist2(entity.location, loc);
+    if (d < bd) { bd = d; best = { x: loc.x, y: loc.y, z: loc.z }; }
   }
+  return best;
+}
+function startWindowBreach(e, win, player) {
+  const id = e.id; busy.add(id); rec(id).mode = "glass";
+  cooldown.set(id, system.currentTick + BREACH_COOLDOWN);
+  const dim = e.dimension;
+  const toIn = { x: player.location.x - (win.x + 0.5), z: player.location.z - (win.z + 0.5) };
+  const len = Math.hypot(toIn.x, toIn.z) || 1;
+  const ix = Math.round(toIn.x / len), iz = Math.round(toIn.z / len);
+  const outside = { x: win.x - ix, y: win.y, z: win.z - iz };
+  const inside = { x: win.x + ix, y: win.y, z: win.z + iz };
+
+  freeze(e, 95);
+  try { setAnim(e, A.PHASE); e.addEffect("invisibility", 60, { showParticles: false }); dim.spawnParticle("minecraft:large_explosion", center(e.location, e.location.y + 1)); dim.playSound("mob.endermen.portal", e.location); } catch (_) {}
+  system.runTimeout(() => { if (!valid(e)) return busy.delete(id); try { e.teleport(center(outside, outside.y), { dimension: dim, facingLocation: center(win, win.y + 0.5) }); e.removeEffect("invisibility"); freeze(e, 75); setAnim(e, A.PHASE); dim.playSound("mob.endermen.stare", outside); } catch (_) {} }, 20);
+  system.runTimeout(() => { if (!valid(e)) return busy.delete(id); try { const t = { x: win.x, y: win.y + 1, z: win.z }; const b = dim.getBlock(t); dim.spawnParticle("minecraft:knockback_roar_particle", center(t, t.y + 0.3)); if (isGlass(b)) b.setType("minecraft:air"); dim.playSound("random.glass", t); } catch (_) {} }, 40);
+  system.runTimeout(() => { if (!valid(e)) return busy.delete(id); try { const b = dim.getBlock(win); dim.spawnParticle("minecraft:knockback_roar_particle", center(win, win.y + 0.3)); if (isGlass(b)) b.setType("minecraft:air"); dim.playSound("random.glass", win); } catch (_) {} }, 52);
+  system.runTimeout(() => { if (!valid(e)) return busy.delete(id); try { e.triggerEvent("verity:start_crawl"); freeze(e, 32); e.teleport(center(win, win.y), { dimension: dim, facingLocation: player.location }); } catch (_) {} }, 64);
+  system.runTimeout(() => { if (!valid(e)) return busy.delete(id); try { e.teleport(center(inside, win.y), { dimension: dim, facingLocation: player.location }); } catch (_) {} }, 78);
+  system.runTimeout(() => { busy.delete(id); if (valid(e)) { try { e.triggerEvent("verity:stop_crawl"); unfreeze(e); } catch (_) {} } }, 88);
+}
+
+// scripted wall climb (chase only) — see notes in entity JSON
+function tryClimb(e, player) {
+  const dy = player.location.y - e.location.y;
+  if (dy < CLIMB_DY) { try { e.removeEffect("levitation"); } catch (_) {} return false; }
+  const dim = e.dimension, ex = e.location.x, ey = e.location.y, ez = e.location.z;
+  const dx = player.location.x - ex, dz = player.location.z - ez;
+  if (dx * dx + dz * dz > 6.25) { try { e.removeEffect("levitation"); } catch (_) {} return false; }
+  const l = Math.hypot(dx, dz) || 1, sx = Math.round(dx / l), sz = Math.round(dz / l);
+  let front; try { front = dim.getBlock({ x: Math.floor(ex) + sx, y: Math.floor(ey) + 1, z: Math.floor(ez) + sz }); } catch (_) { return false; }
+  if (!isSolid(front)) { try { e.removeEffect("levitation"); } catch (_) {} return false; }
+  setAnim(e, A.CLIMB);
+  let head; try { head = dim.getBlock({ x: Math.floor(ex), y: Math.floor(ey) + 3, z: Math.floor(ez) }); } catch (_) {}
+  if (!isSolid(head)) { try { e.addEffect("levitation", 12, { amplifier: 1, showParticles: false }); } catch (_) {} }
+  else { try { e.removeEffect("levitation"); } catch (_) {} }
   return true;
 }
 
-let tick = 0;
-system.runInterval(() => {
-  tick++;
-  if (tick % SCAN_INTERVAL !== 0) return;
+// mineshaft check: Verity above the player with an open exit overhead
+function mineshaft(e, player) {
+  const dy = e.location.y - player.location.y;
+  if (dy < 4) return false;
+  const dim = e.dimension;
+  let above; try { above = dim.getBlock({ x: Math.floor(e.location.x), y: Math.floor(e.location.y) + 3, z: Math.floor(e.location.z) }); } catch (_) { return false; }
+  if (isSolid(above)) return false;
+  const dx = e.location.x - player.location.x, dz = e.location.z - player.location.z;
+  return dx * dx + dz * dz < 16;   // roughly stacked above the shaft
+}
 
-  let entities = [];
-  for (const dimId of ["overworld", "nether", "the_end"]) {
-    try { entities = entities.concat(world.getDimension(dimId).getEntities({ type: VERITY })); }
-    catch (_) {}
-  }
+// movement mirror: copy the player's delayed horizontal step
+function mirrorMove(e, player) {
+  const h = pHist.get(player.id);
+  if (!h || h.length < 3) { faceTo(e, player.location); return; }
+  const a = h[h.length - 2], b = h[h.length - 1];   // ~1 scan (0.2s) behind
+  let vx = b.x - a.x, vz = b.z - a.z;
+  const sp = Math.hypot(vx, vz);
+  if (sp > 1.2) { vx *= 1.2 / sp; vz *= 1.2 / sp; }  // clamp teleport jumps
+  const r = rec(e.id);
+  try {
+    if (player.isSneaking && !r.crouch) { e.triggerEvent("verity:start_crawl"); r.crouch = true; }
+    else if (!player.isSneaking && r.crouch) { e.triggerEvent("verity:stop_crawl"); r.crouch = false; }
+  } catch (_) {}
+  setAnim(e, r.crouch ? A.CRAWL : A.MIRROR);
+  try {
+    let vy = 0;
+    const pv = player.getVelocity();
+    if (pv && pv.y > 0.25) vy = 0.55;               // distorted hop mirrors a jump
+    e.teleport({ x: e.location.x + vx, y: e.location.y + vy, z: e.location.z + vz }, { dimension: e.dimension, facingLocation: player.location });
+  } catch (_) {}
+}
 
-  for (const entity of entities) {
-    if (!valid(entity) || busy.has(entity.id)) continue;
+// slow creep toward the player (after losing eye contact, and !veritycome)
+function approach(e, player) {
+  setAnim(e, A.CRAWL);
+  const dx = player.location.x - e.location.x, dz = player.location.z - e.location.z;
+  const l = Math.hypot(dx, dz) || 1;
+  try { e.teleport({ x: e.location.x + (dx / l) * 0.16, y: e.location.y, z: e.location.z + (dz / l) * 0.16 }, { dimension: e.dimension, facingLocation: player.location }); } catch (_) {}
+}
 
-    let state;
-    try { state = entity.getProperty("verity:anim"); } catch (_) { continue; }
-    if (state !== ANIM.CHASE && state !== ANIM.CLIMB) continue;
-
-    const near = nearestPlayer(entity);
-    if (!near) continue;
-    const { player } = near;
-
-    // 1) climbing takes priority over breaching
-    if (tryClimb(entity, player)) continue;
-    if (state === ANIM.CLIMB) setAnim(entity, ANIM.CHASE);
-
-    // 2) window breach
-    if (near.d2 > BREACH_RANGE * BREACH_RANGE) continue;
-    const cd = cooldown.get(entity.id) ?? 0;
-    if (system.currentTick < cd) continue;
-    const windowLoc = findWindow(entity, player);
-    if (windowLoc) startBreach(entity, windowLoc, player);
-  }
+// ---- player attacks Verity -> instant chase ----
+world.afterEvents.entityHurt.subscribe((ev) => {
+  const e = ev.hurtEntity;
+  if (!e || e.typeId !== VERITY) return;
+  const src = ev.damageSource && ev.damageSource.damagingEntity;
+  if (src && src.typeId === "minecraft:player" && !busy.has(e.id)) startChase(e);
 });
+
+// ---- "!" commands ----
+const COMMANDS = new Set(["!verity", "!veritycome", "!veritychase", "!veritystop", "!veritymirror", "!veritydoor", "!verityglass"]);
+function spawnAway(player) {
+  const ang = Math.random() * Math.PI * 2;
+  const loc = { x: player.location.x + Math.cos(ang) * 20, y: player.location.y + 1, z: player.location.z + Math.sin(ang) * 20 };
+  try { return player.dimension.spawnEntity(VERITY, loc); } catch (_) { return undefined; }
+}
+function ensureVerity(player) {
+  let best = null, bd = Infinity;
+  try {
+    for (const e of player.dimension.getEntities({ type: VERITY })) {
+      const d = dist2(e.location, player.location);
+      if (d < bd) { bd = d; best = e; }
+    }
+  } catch (_) {}
+  return best || spawnAway(player);
+}
+function handleCommand(cmd, player) {
+  if (cmd === "!verity") { spawnAway(player); try { player.sendMessage("§cVerity has spawned…"); } catch (_) {} return; }
+  const e = ensureVerity(player);
+  if (!e || !valid(e)) return;
+  const r = rec(e.id);
+  if (busy.has(e.id) && cmd !== "!veritystop") return;
+  switch (cmd) {
+    case "!veritycome": r.mode = "approach"; r.forced = "come"; unfreeze(e); try { e.triggerEvent("verity:start_crawl"); } catch (_) {} break;
+    case "!veritychase": startChase(e); break;
+    case "!veritystop": r.mode = "stop"; r.forced = "stop"; try { e.triggerEvent("verity:go_dormant"); } catch (_) {} setAnim(e, A.IDLE); freeze(e, 200); break;
+    case "!veritymirror": r.mode = "mirror"; r.forced = "mirror"; unfreeze(e); break;
+    case "!veritydoor": doDoorBreach(e, player); break;
+    case "!verityglass": { const w = findWindow(e.dimension, e, player); if (w) startWindowBreach(e, w, player); else try { player.sendMessage("§7No glass near you."); } catch (_) {} break; }
+  }
+}
+world.beforeEvents.chatSend.subscribe((ev) => {
+  const msg = (ev.message || "").trim();
+  if (!msg.startsWith("!")) return;
+  const cmd = msg.toLowerCase().split(/\s+/)[0];
+  if (!COMMANDS.has(cmd)) return;
+  ev.cancel = true;
+  const player = ev.sender;
+  system.run(() => handleCommand(cmd, player));
+});
+
+// ---- main loop ----
+let tk = 0;
+system.runInterval(() => {
+  tk++;
+  if (tk % SCAN !== 0) return;
+  const now = system.currentTick;
+
+  // track player position history + enclosure
+  for (const p of world.getAllPlayers()) {
+    let h = pHist.get(p.id); if (!h) { h = []; pHist.set(p.id, h); }
+    h.push({ x: p.location.x, y: p.location.y, z: p.location.z }); if (h.length > 8) h.shift();
+    let roof = false; try { roof = isSolid(p.dimension.getBlock({ x: Math.floor(p.location.x), y: Math.floor(p.location.y) + 3, z: Math.floor(p.location.z) })); } catch (_) {}
+    enclosed.set(p.id, roof ? (enclosed.get(p.id) ?? 0) + SCAN : 0);
+  }
+
+  let ents = [];
+  for (const d of ["overworld", "nether", "the_end"]) { try { ents = ents.concat(world.getDimension(d).getEntities({ type: VERITY })); } catch (_) {} }
+
+  for (const e of ents) {
+    if (!valid(e) || busy.has(e.id)) continue;
+    const r = rec(e.id);
+    const near = nearestPlayer(e);
+    if (!near) { setAnim(e, A.IDLE); continue; }
+    const { player, d } = near;
+    const los = losClear(e.dimension, e.location, player.location);
+    const looking = playerLooking(player, e);
+
+    switch (r.mode) {
+      case "stop":
+        freeze(e, 12); setAnim(e, A.IDLE);
+        if (d <= STALK_NEAR && los) { r.mode = "idle"; r.forced = null; }   // detects player again
+        break;
+
+      case "chase": {
+        if (tryClimb(e, player)) break;
+        setAnim(e, A.CHASE);
+        if (now >= (cooldown.get(e.id) ?? 0) && d <= BREACH_RANGE) {
+          if ((enclosed.get(player.id) ?? 0) >= ENCLOSE_LIMIT && findDoor(e.dimension, player)) { doDoorBreach(e, player); break; }
+          const w = findWindow(e.dimension, e, player);
+          if (w) { startWindowBreach(e, w, player); break; }
+        }
+        break;
+      }
+
+      case "stare":
+        faceTo(e, player.location); setAnim(e, A.STARE); freeze(e, 12);
+        if (d <= CHASE_NEAR) { startChase(e); break; }
+        if (now - r.t0 >= STARE_TIME) doTransform(e, player);
+        break;
+
+      case "mirror":
+        if (d <= CHASE_NEAR) { startChase(e); break; }
+        if (looking) r.lookAway = 0; else r.lookAway += SCAN;
+        if (r.lookAway >= LOOKAWAY_LIMIT && r.forced !== "mirror") { r.mode = "approach"; break; }
+        mirrorMove(e, player);
+        break;
+
+      case "approach":
+        if (d <= CHASE_NEAR) { startChase(e); break; }
+        approach(e, player);
+        break;
+
+      default: { // "idle" — decide what to do
+        if (mineshaft(e, player)) { faceTo(e, player.location); setAnim(e, A.STARE); freeze(e, 12); if (d <= CHASE_NEAR + 1) doSnap(e); break; }
+        if (d <= CHASE_NEAR) { startChase(e); break; }
+        if (d <= STALK_NEAR && los) { r.mode = "stare"; r.t0 = now; break; }
+        if (d >= MIRROR_MIN && d <= MIRROR_MAX && los) { r.mode = "mirror"; r.lookAway = 0; break; }
+        setAnim(e, A.IDLE);
+      }
+    }
+  }
+}, 1);

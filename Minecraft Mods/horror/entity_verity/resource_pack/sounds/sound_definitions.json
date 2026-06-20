@@ -13,6 +13,17 @@
           "load_on_low_memory": true
         }
       ]
+    },
+    "mob.entity_verity.bonecrack": {
+      "category": "hostile",
+      "min_distance": 4.0,
+      "max_distance": 28.0,
+      "sounds": [
+        {
+          "name": "sounds/mob/entity_verity/bonecrack",
+          "volume": 1.0
+        }
+      ]
     }
   }
 }

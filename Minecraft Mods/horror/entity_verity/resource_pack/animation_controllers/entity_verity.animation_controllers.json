@@ -5,61 +5,353 @@
       "initial_state": "idle",
       "states": {
         "idle": {
-          "animations": ["idle_twitch"],
+          "animations": [
+            "idle_twitch"
+          ],
           "transitions": [
-            { "alert": "q.property('verity:anim') == 1" },
-            { "chase": "q.property('verity:anim') == 2" },
-            { "climb": "q.property('verity:anim') == 3" },
-            { "crawl": "q.property('verity:anim') == 4" },
-            { "phase": "q.property('verity:anim') == 5" }
+            {
+              "alert": "q.property('verity:anim') == 1"
+            },
+            {
+              "chase": "q.property('verity:anim') == 2"
+            },
+            {
+              "climb": "q.property('verity:anim') == 3"
+            },
+            {
+              "crawl": "q.property('verity:anim') == 4"
+            },
+            {
+              "phase": "q.property('verity:anim') == 5"
+            },
+            {
+              "transform": "q.property('verity:anim') == 6"
+            },
+            {
+              "mirror": "q.property('verity:anim') == 7"
+            },
+            {
+              "stare": "q.property('verity:anim') == 8"
+            },
+            {
+              "snap": "q.property('verity:anim') == 9"
+            }
           ]
         },
         "alert": {
-          "animations": ["detect_shake"],
-          "blend_transition": 0.04,
+          "animations": [
+            "detect_shake"
+          ],
           "transitions": [
-            { "chase": "q.property('verity:anim') == 2" },
-            { "idle": "q.property('verity:anim') == 0" }
-          ]
+            {
+              "idle": "q.property('verity:anim') == 0"
+            },
+            {
+              "chase": "q.property('verity:anim') == 2"
+            },
+            {
+              "climb": "q.property('verity:anim') == 3"
+            },
+            {
+              "crawl": "q.property('verity:anim') == 4"
+            },
+            {
+              "phase": "q.property('verity:anim') == 5"
+            },
+            {
+              "transform": "q.property('verity:anim') == 6"
+            },
+            {
+              "mirror": "q.property('verity:anim') == 7"
+            },
+            {
+              "stare": "q.property('verity:anim') == 8"
+            },
+            {
+              "snap": "q.property('verity:anim') == 9"
+            }
+          ],
+          "blend_transition": 0.08
         },
         "chase": {
-          "animations": ["jitter_sprint"],
-          "blend_transition": 0.0,
+          "animations": [
+            "jitter_sprint"
+          ],
           "transitions": [
-            { "idle": "q.property('verity:anim') == 0" },
-            { "alert": "q.property('verity:anim') == 1" },
-            { "climb": "q.property('verity:anim') == 3" },
-            { "crawl": "q.property('verity:anim') == 4" },
-            { "phase": "q.property('verity:anim') == 5" }
-          ]
+            {
+              "idle": "q.property('verity:anim') == 0"
+            },
+            {
+              "alert": "q.property('verity:anim') == 1"
+            },
+            {
+              "climb": "q.property('verity:anim') == 3"
+            },
+            {
+              "crawl": "q.property('verity:anim') == 4"
+            },
+            {
+              "phase": "q.property('verity:anim') == 5"
+            },
+            {
+              "transform": "q.property('verity:anim') == 6"
+            },
+            {
+              "mirror": "q.property('verity:anim') == 7"
+            },
+            {
+              "stare": "q.property('verity:anim') == 8"
+            },
+            {
+              "snap": "q.property('verity:anim') == 9"
+            }
+          ],
+          "blend_transition": 0.0
         },
         "climb": {
-          "animations": ["climb"],
-          "blend_transition": 0.1,
+          "animations": [
+            "climb"
+          ],
           "transitions": [
-            { "chase": "q.property('verity:anim') == 2" },
-            { "crawl": "q.property('verity:anim') == 4" },
-            { "phase": "q.property('verity:anim') == 5" },
-            { "idle": "q.property('verity:anim') == 0" }
-          ]
+            {
+              "idle": "q.property('verity:anim') == 0"
+            },
+            {
+              "alert": "q.property('verity:anim') == 1"
+            },
+            {
+              "chase": "q.property('verity:anim') == 2"
+            },
+            {
+              "crawl": "q.property('verity:anim') == 4"
+            },
+            {
+              "phase": "q.property('verity:anim') == 5"
+            },
+            {
+              "transform": "q.property('verity:anim') == 6"
+            },
+            {
+              "mirror": "q.property('verity:anim') == 7"
+            },
+            {
+              "stare": "q.property('verity:anim') == 8"
+            },
+            {
+              "snap": "q.property('verity:anim') == 9"
+            }
+          ],
+          "blend_transition": 0.08
         },
         "crawl": {
-          "animations": ["crawl"],
-          "blend_transition": 0.1,
+          "animations": [
+            "crawl"
+          ],
           "transitions": [
-            { "chase": "q.property('verity:anim') == 2" },
-            { "phase": "q.property('verity:anim') == 5" },
-            { "idle": "q.property('verity:anim') == 0" }
-          ]
+            {
+              "idle": "q.property('verity:anim') == 0"
+            },
+            {
+              "alert": "q.property('verity:anim') == 1"
+            },
+            {
+              "chase": "q.property('verity:anim') == 2"
+            },
+            {
+              "climb": "q.property('verity:anim') == 3"
+            },
+            {
+              "phase": "q.property('verity:anim') == 5"
+            },
+            {
+              "transform": "q.property('verity:anim') == 6"
+            },
+            {
+              "mirror": "q.property('verity:anim') == 7"
+            },
+            {
+              "stare": "q.property('verity:anim') == 8"
+            },
+            {
+              "snap": "q.property('verity:anim') == 9"
+            }
+          ],
+          "blend_transition": 0.08
         },
         "phase": {
-          "animations": ["face_break"],
-          "blend_transition": 0.1,
+          "animations": [
+            "face_break"
+          ],
           "transitions": [
-            { "crawl": "q.property('verity:anim') == 4" },
-            { "chase": "q.property('verity:anim') == 2" },
-            { "idle": "q.property('verity:anim') == 0" }
-          ]
+            {
+              "idle": "q.property('verity:anim') == 0"
+            },
+            {
+              "alert": "q.property('verity:anim') == 1"
+            },
+            {
+              "chase": "q.property('verity:anim') == 2"
+            },
+            {
+              "climb": "q.property('verity:anim') == 3"
+            },
+            {
+              "crawl": "q.property('verity:anim') == 4"
+            },
+            {
+              "transform": "q.property('verity:anim') == 6"
+            },
+            {
+              "mirror": "q.property('verity:anim') == 7"
+            },
+            {
+              "stare": "q.property('verity:anim') == 8"
+            },
+            {
+              "snap": "q.property('verity:anim') == 9"
+            }
+          ],
+          "blend_transition": 0.0
+        },
+        "transform": {
+          "animations": [
+            "transform"
+          ],
+          "transitions": [
+            {
+              "idle": "q.property('verity:anim') == 0"
+            },
+            {
+              "alert": "q.property('verity:anim') == 1"
+            },
+            {
+              "chase": "q.property('verity:anim') == 2"
+            },
+            {
+              "climb": "q.property('verity:anim') == 3"
+            },
+            {
+              "crawl": "q.property('verity:anim') == 4"
+            },
+            {
+              "phase": "q.property('verity:anim') == 5"
+            },
+            {
+              "mirror": "q.property('verity:anim') == 7"
+            },
+            {
+              "stare": "q.property('verity:anim') == 8"
+            },
+            {
+              "snap": "q.property('verity:anim') == 9"
+            }
+          ],
+          "blend_transition": 0.08
+        },
+        "mirror": {
+          "animations": [
+            "mirror"
+          ],
+          "transitions": [
+            {
+              "idle": "q.property('verity:anim') == 0"
+            },
+            {
+              "alert": "q.property('verity:anim') == 1"
+            },
+            {
+              "chase": "q.property('verity:anim') == 2"
+            },
+            {
+              "climb": "q.property('verity:anim') == 3"
+            },
+            {
+              "crawl": "q.property('verity:anim') == 4"
+            },
+            {
+              "phase": "q.property('verity:anim') == 5"
+            },
+            {
+              "transform": "q.property('verity:anim') == 6"
+            },
+            {
+              "stare": "q.property('verity:anim') == 8"
+            },
+            {
+              "snap": "q.property('verity:anim') == 9"
+            }
+          ],
+          "blend_transition": 0.08
+        },
+        "stare": {
+          "animations": [
+            "stare"
+          ],
+          "transitions": [
+            {
+              "idle": "q.property('verity:anim') == 0"
+            },
+            {
+              "alert": "q.property('verity:anim') == 1"
+            },
+            {
+              "chase": "q.property('verity:anim') == 2"
+            },
+            {
+              "climb": "q.property('verity:anim') == 3"
+            },
+            {
+              "crawl": "q.property('verity:anim') == 4"
+            },
+            {
+              "phase": "q.property('verity:anim') == 5"
+            },
+            {
+              "transform": "q.property('verity:anim') == 6"
+            },
+            {
+              "mirror": "q.property('verity:anim') == 7"
+            },
+            {
+              "snap": "q.property('verity:anim') == 9"
+            }
+          ],
+          "blend_transition": 0.08
+        },
+        "snap": {
+          "animations": [
+            "snap"
+          ],
+          "transitions": [
+            {
+              "idle": "q.property('verity:anim') == 0"
+            },
+            {
+              "alert": "q.property('verity:anim') == 1"
+            },
+            {
+              "chase": "q.property('verity:anim') == 2"
+            },
+            {
+              "climb": "q.property('verity:anim') == 3"
+            },
+            {
+              "crawl": "q.property('verity:anim') == 4"
+            },
+            {
+              "phase": "q.property('verity:anim') == 5"
+            },
+            {
+              "transform": "q.property('verity:anim') == 6"
+            },
+            {
+              "mirror": "q.property('verity:anim') == 7"
+            },
+            {
+              "stare": "q.property('verity:anim') == 8"
+            }
+          ],
+          "blend_transition": 0.0
         }
       }
     }

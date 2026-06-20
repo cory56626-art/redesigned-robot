@@ -24,7 +24,11 @@
         "jitter_sprint": "animation.entity_verity.jitter_sprint",
         "climb": "animation.entity_verity.climb",
         "crawl": "animation.entity_verity.crawl",
-        "face_break": "animation.entity_verity.face_break"
+        "face_break": "animation.entity_verity.face_break",
+        "transform": "animation.entity_verity.transform",
+        "mirror": "animation.entity_verity.mirror",
+        "stare": "animation.entity_verity.stare",
+        "snap": "animation.entity_verity.snap"
       },
       "render_controllers": [
         "controller.render.entity_verity"

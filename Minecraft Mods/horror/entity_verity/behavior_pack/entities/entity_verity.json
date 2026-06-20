@@ -9,7 +9,7 @@
       "properties": {
         "verity:anim": {
           "type": "int",
-          "range": [0, 5],
+          "range": [0, 9],
           "default": 0,
           "client_sync": true
         }
@@ -22,18 +22,6 @@
           "value": 999999,
           "range": 0.0,
           "event_name": "ambient"
-        }
-      },
-      "verity:alerting": {
-        "minecraft:ambient_sound_interval": {
-          "value": 999999,
-          "range": 0.0,
-          "event_name": "ambient"
-        },
-        "minecraft:timer": {
-          "looping": false,
-          "time": 1.0,
-          "time_down_event": { "event": "verity:begin_hunt" }
         }
       },
       "verity:hunting": {
@@ -119,7 +107,7 @@
         "avoid_water": false,
         "avoid_damage_blocks": false,
         "can_pass_doors": true,
-        "can_open_doors": false,
+        "can_open_doors": true,
         "can_break_doors": true
       },
       "minecraft:physics": {},
@@ -136,40 +124,8 @@
         "value": 256,
         "max": 256
       },
-
       "minecraft:behavior.float": {
         "priority": 0
-      },
-
-      "minecraft:entity_sensor": {
-        "subsensors": [
-          {
-            "range": [48.0, 48.0],
-            "minimum_count": 1,
-            "maximum_count": 100,
-            "event": "verity:on_player_detected",
-            "cooldown": 1.0,
-            "require_all": false,
-            "event_filters": {
-              "test": "is_family",
-              "subject": "other",
-              "value": "player"
-            }
-          },
-          {
-            "range": [80.0, 80.0],
-            "minimum_count": 0,
-            "maximum_count": 0,
-            "event": "verity:on_player_lost",
-            "cooldown": 2.0,
-            "require_all": true,
-            "event_filters": {
-              "test": "is_family",
-              "subject": "other",
-              "value": "player"
-            }
-          }
-        ]
       }
     },
 
@@ -178,40 +134,13 @@
         "add": { "component_groups": ["verity:dormant"] },
         "set_property": { "verity:anim": 0 }
       },
-      "verity:on_player_detected": {
-        "sequence": [
-          {
-            "filters": {
-              "all_of": [
-                {
-                  "test": "has_component",
-                  "subject": "self",
-                  "operator": "not",
-                  "value": "minecraft:behavior.nearest_attackable_target"
-                },
-                {
-                  "test": "has_component",
-                  "subject": "self",
-                  "operator": "not",
-                  "value": "minecraft:timer"
-                }
-              ]
-            },
-            "remove": { "component_groups": ["verity:dormant"] },
-            "add": { "component_groups": ["verity:alerting"] },
-            "set_property": { "verity:anim": 1 }
-          }
-        ]
-      },
       "verity:begin_hunt": {
-        "remove": { "component_groups": ["verity:dormant", "verity:alerting"] },
+        "remove": { "component_groups": ["verity:dormant", "verity:crawl_box"] },
         "add": { "component_groups": ["verity:hunting"] },
         "set_property": { "verity:anim": 2 }
       },
-      "verity:on_player_lost": {
-        "remove": {
-          "component_groups": ["verity:alerting", "verity:hunting", "verity:crawl_box"]
-        },
+      "verity:go_dormant": {
+        "remove": { "component_groups": ["verity:hunting", "verity:crawl_box"] },
         "add": { "component_groups": ["verity:dormant"] },
         "set_property": { "verity:anim": 0 }
       },
