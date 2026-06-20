@@ -9,18 +9,61 @@
     },
 
     "component_groups": {
-      "verity:hunting": {
-        "minecraft:ambient_sound_interval": {
-          "value": 0.0,
-          "range": 0.0,
-          "event_name": "ambient"
-        }
-      },
-      "verity:silent": {
+      "verity:dormant": {
+        "minecraft:variant": { "value": 0 },
         "minecraft:ambient_sound_interval": {
           "value": 999999,
           "range": 0.0,
           "event_name": "ambient"
+        }
+      },
+      "verity:alerting": {
+        "minecraft:variant": { "value": 1 },
+        "minecraft:ambient_sound_interval": {
+          "value": 999999,
+          "range": 0.0,
+          "event_name": "ambient"
+        },
+        "minecraft:timer": {
+          "looping": false,
+          "time": 1.0,
+          "time_down_event": { "event": "verity:begin_hunt" }
+        }
+      },
+      "verity:hunting": {
+        "minecraft:variant": { "value": 2 },
+        "minecraft:ambient_sound_interval": {
+          "value": 0.0,
+          "range": 0.0,
+          "event_name": "ambient"
+        },
+        "minecraft:behavior.nearest_attackable_target": {
+          "priority": 2,
+          "must_see": false,
+          "must_reach": false,
+          "reselect_targets": true,
+          "scan_interval": 1,
+          "within_radius": 256,
+          "persist_time": 999,
+          "entity_types": [
+            {
+              "filters": {
+                "test": "is_family",
+                "subject": "other",
+                "value": "player"
+              },
+              "max_dist": 256
+            }
+          ]
+        },
+        "minecraft:behavior.melee_attack": {
+          "priority": 1,
+          "track_target": true,
+          "speed_multiplier": 1.6,
+          "reach_multiplier": 2.0,
+          "cooldown_time": 0.25,
+          "attack_once": false,
+          "require_complete_path": false
         }
       }
     },
@@ -40,26 +83,11 @@
       "minecraft:fire_immune": true,
       "minecraft:damage_sensor": {
         "triggers": [
-          {
-            "cause": "drowning",
-            "deals_damage": false
-          },
-          {
-            "cause": "suffocation",
-            "deals_damage": false
-          },
-          {
-            "cause": "lava",
-            "deals_damage": false
-          },
-          {
-            "cause": "fire",
-            "deals_damage": false
-          },
-          {
-            "cause": "fire_tick",
-            "deals_damage": false
-          }
+          { "cause": "drowning", "deals_damage": false },
+          { "cause": "suffocation", "deals_damage": false },
+          { "cause": "lava", "deals_damage": false },
+          { "cause": "fire", "deals_damage": false },
+          { "cause": "fire_tick", "deals_damage": false }
         ]
       },
       "minecraft:knockback_resistance": {
@@ -101,34 +129,7 @@
       "minecraft:behavior.float": {
         "priority": 0
       },
-      "minecraft:behavior.melee_attack": {
-        "priority": 1,
-        "track_target": true,
-        "speed_multiplier": 1.6,
-        "reach_multiplier": 2.0,
-        "cooldown_time": 0.25,
-        "attack_once": false,
-        "require_complete_path": false
-      },
-      "minecraft:behavior.nearest_attackable_target": {
-        "priority": 2,
-        "must_see": false,
-        "must_reach": false,
-        "reselect_targets": true,
-        "scan_interval": 1,
-        "within_radius": 256,
-        "persist_time": 999,
-        "entity_types": [
-          {
-            "filters": {
-              "test": "is_family",
-              "subject": "other",
-              "value": "player"
-            },
-            "max_dist": 256
-          }
-        ]
-      },
+
       "minecraft:entity_sensor": {
         "subsensors": [
           {
@@ -163,25 +164,39 @@
 
     "events": {
       "minecraft:entity_spawned": {
-        "add": {
-          "component_groups": ["verity:silent"]
-        }
+        "add": { "component_groups": ["verity:dormant"] }
       },
       "verity:on_player_detected": {
-        "remove": {
-          "component_groups": ["verity:silent"]
-        },
-        "add": {
-          "component_groups": ["verity:hunting"]
-        }
+        "sequence": [
+          {
+            "filters": {
+              "all_of": [
+                {
+                  "test": "has_component",
+                  "subject": "self",
+                  "operator": "not",
+                  "value": "minecraft:behavior.nearest_attackable_target"
+                },
+                {
+                  "test": "has_component",
+                  "subject": "self",
+                  "operator": "not",
+                  "value": "minecraft:timer"
+                }
+              ]
+            },
+            "remove": { "component_groups": ["verity:dormant"] },
+            "add": { "component_groups": ["verity:alerting"] }
+          }
+        ]
+      },
+      "verity:begin_hunt": {
+        "remove": { "component_groups": ["verity:dormant", "verity:alerting"] },
+        "add": { "component_groups": ["verity:hunting"] }
       },
       "verity:on_player_lost": {
-        "remove": {
-          "component_groups": ["verity:hunting"]
-        },
-        "add": {
-          "component_groups": ["verity:silent"]
-        }
+        "remove": { "component_groups": ["verity:alerting", "verity:hunting"] },
+        "add": { "component_groups": ["verity:dormant"] }
       }
     }
   }

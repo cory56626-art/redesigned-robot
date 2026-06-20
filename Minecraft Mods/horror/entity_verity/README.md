@@ -11,7 +11,7 @@ dialogue, no extra systems — just **Verity**.
 |------|----------------|
 | **Appearance** | Tall (≈2.9 blocks), thin, yellow humanoid with long limbs and a blank/distorted dark face. Custom geometry + texture. |
 | **Idle movement** | Stands still with small random twitches (`idle_twitch` animation). |
-| **On detection** | Body shakes violently for a brief moment (`detect_shake` animation) before the chase. |
+| **On detection** | Freezes in place and shakes violently for ~1 second (`detect_shake` animation), staring at the player, then launches into the chase. |
 | **Chase movement** | Jitter-sprint — very fast movement with jerky micro-offset "teleport burst" jitter (`jitter_sprint` animation + high movement speed). |
 | **Behavior** | Always knows the player's location (`nearest_attackable_target` with `must_see: false`, 256-block range). Constantly hunts. No retreat, no wandering, no panic behaviors. |
 | **Audio** | Silent when idle. Loud, continuous, distorted scream while chasing (`ambient` event looped at 0s interval). Volume rises as he gets closer via normal 3D distance attenuation. |

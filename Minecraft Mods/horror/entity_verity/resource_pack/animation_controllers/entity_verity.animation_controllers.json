@@ -7,22 +7,24 @@
         "idle": {
           "animations": ["idle_twitch"],
           "transitions": [
-            { "alert": "query.is_moving" }
+            { "alert": "query.variant == 1" },
+            { "chase": "query.variant == 2" }
           ]
         },
         "alert": {
           "animations": ["detect_shake"],
           "blend_transition": 0.05,
           "transitions": [
-            { "idle": "!query.is_moving" },
-            { "chase": "query.all_animations_finished" }
+            { "chase": "query.variant == 2" },
+            { "idle": "query.variant == 0" }
           ]
         },
         "chase": {
           "animations": ["jitter_sprint"],
           "blend_transition": 0.05,
           "transitions": [
-            { "idle": "!query.is_moving" }
+            { "idle": "query.variant == 0" },
+            { "alert": "query.variant == 1" }
           ]
         }
       }
