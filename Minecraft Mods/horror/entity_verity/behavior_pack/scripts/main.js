@@ -374,9 +374,14 @@ function tickLoop() {
           if (now >= (cooldown.get(e.id) ?? 0) && d > CHASE_NEAR && d <= BREACH_RANGE && r.stuck >= STUCK_LIMIT) {
             r.stuck = 0; r.prevDist = undefined;
             const door = findDoor(e.dimension, player);
-            if (door) { doDoorBreach(e, player); break; }
             const w = findWindow(e.dimension, e, player);
+            // both available -> roll a die; otherwise use whichever exists
+            if (door && w) {
+              if (Math.random() < 0.5) doDoorBreach(e, player); else startWindowBreach(e, w, player);
+              break;
+            }
             if (w) { startWindowBreach(e, w, player); break; }
+            if (door) { doDoorBreach(e, player); break; }
           }
           break;
         }
