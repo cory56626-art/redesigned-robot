@@ -316,6 +316,20 @@ function ensureVerity(player) {
 function handleCommand(action, player) {
   if (!player || !valid(player)) return;
   if (action === "spawn") { spawnAway(player); try { player.sendMessage("§cVerity has spawned…"); } catch (_) {} return; }
+
+  // ----- player-only effect tests (no Verity required) -----
+  switch (action) {
+    case "fog": if (fogPlayers.has(player.id)) { fogOff(player); say(player, "§7dread fog OFF"); } else { fogOn(player); say(player, "§7dread fog ON"); } return;
+    case "heartbeat": try { player.dimension.playSound("mob.entity_verity.heartbeat", player.location, { volume: 1.2 }); } catch (_) {} say(player, "§7heartbeat"); return;
+    case "whisper": try { player.dimension.playSound("mob.entity_verity.whisper", player.location, { volume: 1.0 }); } catch (_) {} say(player, "§7whisper"); return;
+    case "footstep": try { player.dimension.playSound("mob.entity_verity.footstep", player.location, { volume: 1.0 }); } catch (_) {} say(player, "§7footstep"); return;
+    case "scream": try { player.dimension.playSound("mob.entity_verity.scream", player.location, { volume: 1.0 }); } catch (_) {} say(player, "§7scream"); return;
+    case "bonecrack": try { player.dimension.playSound("mob.entity_verity.bonecrack", player.location, { volume: 1.5 }); } catch (_) {} say(player, "§7bone crack"); return;
+    case "darkness": try { player.addEffect("darkness", 120, { amplifier: 0, showParticles: false }); } catch (_) {} say(player, "§7darkness"); return;
+    case "message": creepyMessage(player); return;
+  }
+
+  // ----- actions that act on the nearest Verity -----
   const e = ensureVerity(player);
   if (!e || !valid(e)) return;
   const r = rec(e.id);
@@ -326,7 +340,22 @@ function handleCommand(action, player) {
     case "stop": r.mode = "stop"; r.forced = "stop"; try { e.triggerEvent("verity:go_dormant"); } catch (_) {} setAnim(e, A.IDLE); freeze(e, 200); break;
     case "door": doDoorBreach(e, player); break;
     case "glass": { const w = findWindow(e.dimension, e, player); if (w) startWindowBreach(e, w, player); else { try { player.sendMessage("§7No glass near you."); } catch (_) {} } break; }
+    case "peek": placeInFront(e, player, 22); doPeek(e, player); say(player, "§7look away, then back…"); break;
+    case "transform": case "stalk": placeInFront(e, player, 8); r.mode = "stare"; r.t0 = system.currentTick; r.forced = null; unfreeze(e); setAnim(e, A.STARE); say(player, "§7stalk -> transform -> charge"); break;
+    case "climb": placeInFront(e, player, 3); startChase(e); say(player, "§7stand above a wall to see it climb"); break;
+    case "snap": placeInFront(e, player, 4); r.mode = "idle"; r.t0 = system.currentTick; doSnap(e); break;
   }
+}
+
+function say(p, t) { try { p.sendMessage(t); } catch (_) {} }
+
+// teleport Verity to a spot `dist` blocks ahead of the player's gaze, facing them
+function placeInFront(e, player, dist) {
+  let vd; try { vd = player.getViewDirection(); } catch (_) { vd = { x: 0, y: 0, z: 1 }; }
+  const x = player.location.x + vd.x * dist, z = player.location.z + vd.z * dist;
+  const y = groundY(e.dimension, x, z, player.location.y + 4);
+  try { e.removeEffect("invisibility"); } catch (_) {}
+  try { e.teleport({ x, y, z }, { dimension: e.dimension, facingLocation: player.location }); } catch (_) {}
 }
 
 // ---- main per-tick logic ----
@@ -558,7 +587,8 @@ try {
 
 // optional: "!" chat commands (silently skipped if chatSend is unavailable)
 try {
-  const map = { "!verity": "spawn", "!veritycome": "come", "!veritychase": "chase", "!veritystop": "stop", "!veritydoor": "door", "!verityglass": "glass" };
+  const map = { "!verity": "spawn", "!veritycome": "come", "!veritychase": "chase", "!veritystop": "stop", "!veritydoor": "door", "!verityglass": "glass",
+    "!verityfog": "fog", "!verityheartbeat": "heartbeat", "!veritywhisper": "whisper", "!verityfootstep": "footstep", "!verityscream": "scream", "!veritybonecrack": "bonecrack", "!veritydarkness": "darkness", "!veritymessage": "message", "!veritypeek": "peek", "!veritytransform": "transform", "!verityclimb": "climb", "!veritysnap": "snap" };
   world.beforeEvents.chatSend.subscribe((ev) => {
     const action = map[(ev.message || "").trim().toLowerCase().split(/\s+/)[0]];
     if (!action) return;

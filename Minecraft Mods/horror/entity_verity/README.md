@@ -67,6 +67,25 @@ Only `spawn`/`come`/`chase` spawn; the rest act on the nearest existing Verity
 (spawning one 20 blocks away only if none exists). The matching `!verity…` chat
 commands also work on game versions that support chat scripting.
 
+### Test commands (for the dread features)
+
+| Command | Tests |
+|---------|-------|
+| `/scriptevent verity:transform` | Teleports Verity in front of you and runs stalk → bone-crack transform → charge. |
+| `/scriptevent verity:peek` | Verity appears at the edge of view; look at it to make it vanish. |
+| `/scriptevent verity:climb` | Places Verity at a wall (stand on top of one) to see the climb. |
+| `/scriptevent verity:snap` | Plays the snap-upright animation. |
+| `/scriptevent verity:fog` | Toggles the dread fog on you. |
+| `/scriptevent verity:darkness` | Applies the darkness vignette. |
+| `/scriptevent verity:heartbeat` | Plays the heartbeat. |
+| `/scriptevent verity:whisper` | Plays a whisper. |
+| `/scriptevent verity:footstep` | Plays a footstep. |
+| `/scriptevent verity:scream` | Plays the chase scream. |
+| `/scriptevent verity:bonecrack` | Plays the bone-crack. |
+| `/scriptevent verity:message` | Sends a fourth-wall message addressed to you. |
+
+(All also work as `!verity<name>` in chat where chat scripting is supported.)
+
 > The manifest depends on `@minecraft/server` version `1.11.0`. If a future
 > Minecraft version rejects that, bump the version in
 > `behavior_pack/manifest.json` to the one your game ships. Scripts also must be
