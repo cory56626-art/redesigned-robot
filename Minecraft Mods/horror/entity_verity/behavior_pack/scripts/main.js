@@ -34,9 +34,9 @@ const STARE_TIME = 60, TRANSFORM_TIME = 45;
 const LOOKAWAY_LIMIT = 20;       // ticks of not-looking before mirror resolves
 const MIRROR_TIME_MIN = 70, MIRROR_TIME_MAX = 150;  // mirror this long, then flip a coin
 const HIDE_TIME = 120;           // ticks Verity stays vanished after fleeing
-const STUCK_LIMIT = 36;          // ticks of "can't get closer" before a breach
-const BREACH_RANGE = 26, WINDOW_RADIUS = 6, WINDOW_VRADIUS = 3, DOOR_RADIUS = 12;
-const BREACH_COOLDOWN = 500, CLIMB_DY = 1.2;
+const STUCK_LIMIT = 18;          // ticks of "can't get closer" before a breach (~0.9s)
+const BREACH_RANGE = 26, WINDOW_RADIUS = 12, WINDOW_VRADIUS = 4, DOOR_RADIUS = 12;
+const BREACH_COOLDOWN = 140, CLIMB_DY = 1.2;
 
 const S = new Map();             // entity id -> behavioral record
 const busy = new Set();          // entity id -> running a one-shot sequence
@@ -375,9 +375,9 @@ function tickLoop() {
             r.stuck = 0; r.prevDist = undefined;
             const door = findDoor(e.dimension, player);
             const w = findWindow(e.dimension, e, player);
-            // both available -> roll a die; otherwise use whichever exists
+            // both available -> roll a die (favor the window); else use whichever exists
             if (door && w) {
-              if (Math.random() < 0.5) doDoorBreach(e, player); else startWindowBreach(e, w, player);
+              if (Math.random() < 0.6) startWindowBreach(e, w, player); else doDoorBreach(e, player);
               break;
             }
             if (w) { startWindowBreach(e, w, player); break; }
