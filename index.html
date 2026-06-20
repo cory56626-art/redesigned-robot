@@ -101,8 +101,25 @@
 </div>
 
 <script>
+// Surface any error visibly instead of freezing silently.
+window.onerror = function (msg, src, line, col) {
+  var ov = document.getElementById("overlay");
+  if (ov) {
+    ov.style.display = "flex";
+    ov.innerHTML = '<h1 style="color:#ff3b2f">ERROR</h1><p style="color:#fff">' +
+      msg + '<br>(line ' + line + ')</p><p>Try reloading. If this persists, tell Claude.</p>';
+  }
+  return false;
+};
+</script>
+<script>
 "use strict";
 (function () {
+  // Confirm scripts are actually running (proves the file is opened in a real browser).
+  try {
+    var sb = document.getElementById("startBtn");
+    if (sb) sb.textContent = "ENTER THE ARENA  ▶";
+  } catch (e) {}
   // ---------- Canvas ----------
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d");
@@ -869,11 +886,17 @@
   }
 
   // ---------- Start ----------
-  el("startBtn").addEventListener("click", () => {
+  function startGame() {
     el("overlay").style.display = "none";
     resetGame();
     state.running = true;
-  });
+  }
+  // Bind several event types so it works on every device (mouse, touch, pen).
+  const startBtn = el("startBtn");
+  ["click", "touchstart", "pointerdown"].forEach(ev =>
+    startBtn.addEventListener(ev, e => { e.preventDefault(); startGame(); }, { passive: false }));
+  // Also let tapping anywhere on the title screen start the game.
+  el("overlay").addEventListener("touchstart", e => { e.preventDefault(); startGame(); }, { passive: false });
 
   resetGame();      // build world so render works behind overlay
   state.running = false;
