@@ -21,13 +21,16 @@
         "controller_general": "controller.animation.entity_verity.general",
         "idle_twitch": "animation.entity_verity.idle_twitch",
         "detect_shake": "animation.entity_verity.detect_shake",
-        "jitter_sprint": "animation.entity_verity.jitter_sprint"
+        "jitter_sprint": "animation.entity_verity.jitter_sprint",
+        "climb": "animation.entity_verity.climb",
+        "crawl": "animation.entity_verity.crawl",
+        "face_break": "animation.entity_verity.face_break"
       },
       "render_controllers": [
         "controller.render.entity_verity"
       ],
       "spawn_egg": {
-        "base_color": "#e7e23a",
+        "base_color": "#cab84a",
         "overlay_color": "#1a1a1a"
       }
     }

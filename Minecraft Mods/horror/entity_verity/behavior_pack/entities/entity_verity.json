@@ -5,12 +5,19 @@
       "identifier": "verity:entity_verity",
       "is_spawnable": true,
       "is_summonable": true,
-      "is_experimental": false
+      "is_experimental": false,
+      "properties": {
+        "verity:state": {
+          "type": "enum",
+          "values": ["idle", "alert", "chase", "climb", "crawl", "phase"],
+          "default": "idle",
+          "client_sync": true
+        }
+      }
     },
 
     "component_groups": {
       "verity:dormant": {
-        "minecraft:variant": { "value": 0 },
         "minecraft:ambient_sound_interval": {
           "value": 999999,
           "range": 0.0,
@@ -18,7 +25,6 @@
         }
       },
       "verity:alerting": {
-        "minecraft:variant": { "value": 1 },
         "minecraft:ambient_sound_interval": {
           "value": 999999,
           "range": 0.0,
@@ -31,7 +37,6 @@
         }
       },
       "verity:hunting": {
-        "minecraft:variant": { "value": 2 },
         "minecraft:ambient_sound_interval": {
           "value": 0.0,
           "range": 0.0,
@@ -59,11 +64,17 @@
         "minecraft:behavior.melee_attack": {
           "priority": 1,
           "track_target": true,
-          "speed_multiplier": 1.6,
+          "speed_multiplier": 1.9,
           "reach_multiplier": 2.0,
-          "cooldown_time": 0.25,
+          "cooldown_time": 0.18,
           "attack_once": false,
           "require_complete_path": false
+        }
+      },
+      "verity:crawl_box": {
+        "minecraft:collision_box": {
+          "width": 0.6,
+          "height": 0.9
         }
       }
     },
@@ -95,10 +106,10 @@
         "max": 1.0
       },
       "minecraft:movement": {
-        "value": 0.48
+        "value": 0.55
       },
       "minecraft:underwater_movement": {
-        "value": 0.48
+        "value": 0.55
       },
       "minecraft:movement.basic": {},
       "minecraft:jump.static": {},
@@ -164,7 +175,8 @@
 
     "events": {
       "minecraft:entity_spawned": {
-        "add": { "component_groups": ["verity:dormant"] }
+        "add": { "component_groups": ["verity:dormant"] },
+        "set_property": { "verity:state": "'idle'" }
       },
       "verity:on_player_detected": {
         "sequence": [
@@ -186,17 +198,30 @@
               ]
             },
             "remove": { "component_groups": ["verity:dormant"] },
-            "add": { "component_groups": ["verity:alerting"] }
+            "add": { "component_groups": ["verity:alerting"] },
+            "set_property": { "verity:state": "'alert'" }
           }
         ]
       },
       "verity:begin_hunt": {
         "remove": { "component_groups": ["verity:dormant", "verity:alerting"] },
-        "add": { "component_groups": ["verity:hunting"] }
+        "add": { "component_groups": ["verity:hunting"] },
+        "set_property": { "verity:state": "'chase'" }
       },
       "verity:on_player_lost": {
-        "remove": { "component_groups": ["verity:alerting", "verity:hunting"] },
-        "add": { "component_groups": ["verity:dormant"] }
+        "remove": {
+          "component_groups": ["verity:alerting", "verity:hunting", "verity:crawl_box"]
+        },
+        "add": { "component_groups": ["verity:dormant"] },
+        "set_property": { "verity:state": "'idle'" }
+      },
+      "verity:start_crawl": {
+        "add": { "component_groups": ["verity:crawl_box"] },
+        "set_property": { "verity:state": "'crawl'" }
+      },
+      "verity:stop_crawl": {
+        "remove": { "component_groups": ["verity:crawl_box"] },
+        "set_property": { "verity:state": "'chase'" }
       }
     }
   }

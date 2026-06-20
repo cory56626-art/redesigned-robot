@@ -2,7 +2,7 @@
   "format_version": 2,
   "header": {
     "name": "Entity Verity (Behavior)",
-    "description": "Server-side behavior for the hostile mob Entity Verity. A single horror mob that hunts the player with jitter-sprint movement.",
+    "description": "Server-side behavior for the hostile mob Entity Verity. A single horror mob that hunts the player with jitter-sprint movement, climbs, crawls and breaks through windows.",
     "uuid": "a42337be-c7cb-4faf-8376-4f2ea27b07a1",
     "version": [1, 0, 0],
     "min_engine_version": [1, 21, 0]
@@ -12,12 +12,23 @@
       "type": "data",
       "uuid": "cf6ea9a7-b02e-4068-820e-38d21a57052d",
       "version": [1, 0, 0]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "entry": "scripts/main.js",
+      "uuid": "e96f66b1-1a67-4d8e-84c8-e3d35b6a8feb",
+      "version": [1, 0, 0]
     }
   ],
   "dependencies": [
     {
       "uuid": "c691c2e9-b576-43cf-bfde-9763c543f6d1",
       "version": [1, 0, 0]
+    },
+    {
+      "module_name": "@minecraft/server",
+      "version": "1.11.0"
     }
   ]
 }

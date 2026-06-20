@@ -7,24 +7,57 @@
         "idle": {
           "animations": ["idle_twitch"],
           "transitions": [
-            { "alert": "query.variant == 1" },
-            { "chase": "query.variant == 2" }
+            { "alert": "query.property('verity:state') == 'alert'" },
+            { "chase": "query.property('verity:state') == 'chase'" },
+            { "climb": "query.property('verity:state') == 'climb'" },
+            { "crawl": "query.property('verity:state') == 'crawl'" },
+            { "phase": "query.property('verity:state') == 'phase'" }
           ]
         },
         "alert": {
           "animations": ["detect_shake"],
-          "blend_transition": 0.05,
+          "blend_transition": 0.04,
           "transitions": [
-            { "chase": "query.variant == 2" },
-            { "idle": "query.variant == 0" }
+            { "chase": "query.property('verity:state') == 'chase'" },
+            { "idle": "query.property('verity:state') == 'idle'" }
           ]
         },
         "chase": {
           "animations": ["jitter_sprint"],
+          "blend_transition": 0.0,
+          "transitions": [
+            { "idle": "query.property('verity:state') == 'idle'" },
+            { "alert": "query.property('verity:state') == 'alert'" },
+            { "climb": "query.property('verity:state') == 'climb'" },
+            { "crawl": "query.property('verity:state') == 'crawl'" },
+            { "phase": "query.property('verity:state') == 'phase'" }
+          ]
+        },
+        "climb": {
+          "animations": ["climb"],
           "blend_transition": 0.05,
           "transitions": [
-            { "idle": "query.variant == 0" },
-            { "alert": "query.variant == 1" }
+            { "chase": "query.property('verity:state') == 'chase'" },
+            { "crawl": "query.property('verity:state') == 'crawl'" },
+            { "idle": "query.property('verity:state') == 'idle'" }
+          ]
+        },
+        "crawl": {
+          "animations": ["crawl"],
+          "blend_transition": 0.05,
+          "transitions": [
+            { "chase": "query.property('verity:state') == 'chase'" },
+            { "phase": "query.property('verity:state') == 'phase'" },
+            { "idle": "query.property('verity:state') == 'idle'" }
+          ]
+        },
+        "phase": {
+          "animations": ["face_break"],
+          "blend_transition": 0.0,
+          "transitions": [
+            { "crawl": "query.property('verity:state') == 'crawl'" },
+            { "chase": "query.property('verity:state') == 'chase'" },
+            { "idle": "query.property('verity:state') == 'idle'" }
           ]
         }
       }
