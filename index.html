@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>DOOM 2D — Arena Assault</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: "Courier New", monospace; }
+  #game { display: block; width: 100vw; height: 100vh; touch-action: none; background: #111; }
+  #ui { position: fixed; inset: 0; pointer-events: none; color: #ffcf3f; }
+
+  .hud { position: absolute; pointer-events: none; text-shadow: 0 0 4px #000, 2px 2px 0 #000; }
+  #topbar { top: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 14px; font-size: 16px; font-weight: bold;
+            background: rgba(0,0,0,.45); padding: 6px 14px; border: 2px solid #5a1d1d; border-radius: 6px; white-space: nowrap; }
+  #topbar .lbl { color: #ff5b4a; }
+  #healthwrap { position: absolute; left: 10px; bottom: 10px; width: 200px; max-width: 38vw; }
+  #healthbar { height: 16px; background: #300; border: 2px solid #6a0e0e; border-radius: 4px; overflow: hidden; }
+  #healthfill { height: 100%; width: 100%; background: linear-gradient(90deg,#ff2a2a,#ff7a3a); transition: width .15s; }
+  #healthtxt { font-size: 12px; color: #ffb3a3; margin-top: 2px; }
+
+  #weapons { position: absolute; right: 8px; bottom: 96px; display: flex; flex-direction: column; gap: 6px; pointer-events: auto; }
+  .wbtn { width: 118px; padding: 6px 8px; font-size: 12px; font-weight: bold; text-align: left; color: #ffcf3f;
+          background: rgba(20,10,10,.7); border: 2px solid #5a1d1d; border-radius: 6px; cursor: pointer; line-height: 1.1; }
+  .wbtn.sel { border-color: #ffcf3f; background: rgba(80,40,10,.8); color: #fff; }
+  .wbtn small { display: block; color: #c98; font-size: 10px; }
+
+  .actbtn { position: absolute; pointer-events: auto; width: 64px; height: 64px; border-radius: 50%; font-size: 11px; font-weight: bold;
+            color: #fff; background: rgba(30,15,15,.7); border: 2px solid #7a2d2d; display: flex; align-items: center; justify-content: center;
+            text-align: center; cursor: pointer; }
+  #buyBtn { right: 140px; bottom: 16px; }
+  #aiBtn  { left: 10px; top: 56px; width: 92px; height: 38px; border-radius: 8px; }
+  #aiBtn.on { background: rgba(20,90,30,.85); border-color: #4cff7a; color: #dfffe6; }
+  #healBtn { right: 140px; bottom: 88px; }
+
+  #joys { position: absolute; inset: 0; pointer-events: none; }
+  .joy { position: absolute; width: 130px; height: 130px; border-radius: 50%; border: 2px solid rgba(255,255,255,.18);
+         background: rgba(255,255,255,.04); display: none; }
+  .joy .stick { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%;
+                background: rgba(255,255,255,.22); border: 2px solid rgba(255,255,255,.4); }
+  #joyL .stick { background: rgba(90,160,255,.3); border-color: rgba(120,180,255,.6); }
+  #joyR .stick { background: rgba(255,90,70,.3); border-color: rgba(255,140,110,.6); }
+
+  #msg { position: absolute; top: 46%; left: 50%; transform: translate(-50%,-50%); text-align: center; font-size: 22px;
+         color: #ffcf3f; text-shadow: 2px 2px 0 #000; display: none; }
+
+  #overlay { position: fixed; inset: 0; background: rgba(0,0,0,.86); color: #ffcf3f; display: flex; flex-direction: column;
+             align-items: center; justify-content: center; text-align: center; padding: 24px; pointer-events: auto; z-index: 10; }
+  #overlay h1 { font-size: clamp(28px, 7vw, 56px); color: #ff3b2f; letter-spacing: 2px; text-shadow: 3px 3px 0 #000; }
+  #overlay h1 span { color: #ffcf3f; }
+  #overlay p { max-width: 560px; margin: 10px 0; line-height: 1.5; font-size: 14px; color: #e7c089; }
+  #overlay .ctrls { text-align: left; font-size: 13px; color: #cdbf9a; background: rgba(255,255,255,.04); border: 1px solid #4a2a2a;
+                    padding: 12px 16px; border-radius: 8px; margin: 8px 0 14px; }
+  #startBtn { font-size: 20px; font-weight: bold; color: #fff; background: #8a1a1a; border: 2px solid #ff5b4a; padding: 12px 30px;
+              border-radius: 8px; cursor: pointer; }
+  #startBtn:active { transform: scale(.97); }
+  .hint { font-size: 11px; color: #997; margin-top: 10px; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="ui">
+  <div id="topbar" class="hud">
+    <div><span class="lbl">CREDITS</span> <span id="credits">0</span></div>
+    <div><span class="lbl">KILLS</span> <span id="kills">0</span></div>
+    <div><span class="lbl">SQUAD</span> <span id="squad">0</span></div>
+    <div><span class="lbl">WAVE</span> <span id="wave">1</span></div>
+  </div>
+
+  <div id="healthwrap" class="hud">
+    <div id="healthbar"><div id="healthfill"></div></div>
+    <div id="healthtxt">HEALTH 100</div>
+  </div>
+
+  <div id="weapons"></div>
+
+  <div id="aiBtn" class="actbtn">AI: OFF</div>
+  <div id="buyBtn" class="actbtn">BUY<br>ROOM</div>
+  <div id="healBtn" class="actbtn">HEAL<br>50c</div>
+
+  <div id="msg" class="hud"></div>
+
+  <div id="joys">
+    <div id="joyL" class="joy"><div class="stick"></div></div>
+    <div id="joyR" class="joy"><div class="stick"></div></div>
+  </div>
+</div>
+
+<div id="overlay">
+  <h1>DOOM <span>2D</span></h1>
+  <p>Top-down demon-blasting arena combat. Clear waves, earn credits, buy your way into sealed rooms, and rescue prisoners to build a squad that fights at your side.</p>
+  <div class="ctrls">
+    <b>MOBILE:</b> Left thumb = MOVE &nbsp;•&nbsp; Right thumb = AIM + AUTO-FIRE<br>
+    <b>DESKTOP:</b> WASD / Arrows = move &nbsp;•&nbsp; Mouse = aim &nbsp;•&nbsp; Click/Space = shoot<br>
+    <b>1–5</b> switch weapons &nbsp;•&nbsp; <b>B</b> buy room &nbsp;•&nbsp; <b>H</b> heal &nbsp;•&nbsp; <b>Tab</b> AI auto-pilot<br>
+    Walk into a glowing <b>door barrier</b> + press BUY to open a room. Touch a green <b>prisoner</b> to rescue.
+  </div>
+  <button id="startBtn">ENTER THE ARENA</button>
+  <div class="hint">Tip: turn on AI mode anytime to let the auto-pilot take over and fight for you.</div>
+</div>
+
+<script>
+"use strict";
+(function () {
+  // ---------- Canvas ----------
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  let W = 0, H = 0, DPR = 1;
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.floor(W * DPR); canvas.height = Math.floor(H * DPR);
+    canvas.style.width = W + "px"; canvas.style.height = H + "px";
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener("resize", resize); resize();
+
+  // ---------- Helpers ----------
+  const TAU = Math.PI * 2;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const randi = (a, b) => Math.floor(rand(a, b));
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const dist2 = (ax, ay, bx, by) => { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; };
+  function angLerp(a, b, t) { let d = ((b - a + Math.PI) % TAU) - Math.PI; if (d < -Math.PI) d += TAU; return a + d * t; }
+
+  // ---------- World / Map ----------
+  const TILE = 64;
+  const ROOMS_X = 4, ROOMS_Y = 4;     // grid of rooms
+  const RW = 8, RH = 8;               // tiles per room cell (incl shared walls)
+  const GW = ROOMS_X * RW + 1;        // grid width in tiles
+  const GH = ROOMS_Y * RH + 1;
+  let grid;            // 2D array: 0 floor, 1 wall, 2 barrier(locked door) -> stores roomId in barrierRoom
+  let barrierRoom;     // parallel grid storing which room a barrier belongs to
+  let rooms = [];      // {id, rx, ry, cx, cy(px center), locked, cost, cleared}
+  function roomAt(rx, ry) { return rooms[ry * ROOMS_X + rx]; }
+
+  function buildMap() {
+    grid = []; barrierRoom = [];
+    for (let y = 0; y < GH; y++) { grid.push(new Array(GW).fill(1)); barrierRoom.push(new Array(GW).fill(-1)); }
+    rooms = [];
+    for (let ry = 0; ry < ROOMS_Y; ry++) for (let rx = 0; rx < ROOMS_X; rx++) {
+      const id = ry * ROOMS_X + rx;
+      const x0 = rx * RW, y0 = ry * RH;
+      // carve floor interior
+      for (let y = y0 + 1; y < y0 + RH; y++) for (let x = x0 + 1; x < x0 + RW; x++) grid[y][x] = 0;
+      const distFromStart = rx + ry;
+      const locked = !(rx === 0 && ry === 0);
+      rooms.push({
+        id, rx, ry,
+        cx: (x0 + RW / 2) * TILE, cy: (y0 + RH / 2) * TILE,
+        x0, y0,
+        locked, cost: locked ? 60 + distFromStart * 55 : 0,
+        opened: !locked
+      });
+    }
+    // doorways between adjacent rooms
+    function carveDoor(rxa, rya, rxb, ryb) {
+      const a = roomAt(rxa, rya), b = roomAt(rxb, ryb);
+      // shared wall coordinates
+      if (rxa === rxb) { // vertical neighbors -> horizontal door on shared row
+        const wy = Math.max(rya, ryb) * RH;     // shared wall row
+        const dx = rxa * RW + Math.floor(RW / 2);
+        grid[wy][dx] = 0; grid[wy][dx + 1] = 0;
+        markDoor(wy, dx, a, b); markDoor(wy, dx + 1, a, b);
+      } else { // horizontal neighbors -> vertical door on shared col
+        const wx = Math.max(rxa, rxb) * RW;
+        const dy = rya * RH + Math.floor(RH / 2);
+        grid[dy][wx] = 0; grid[dy + 1][wx] = 0;
+        markDoor(dy, wx, a, b, true); markDoor(dy + 1, wx, a, b, true);
+      }
+    }
+    function markDoor(r, c, a, b) {
+      // the door belongs to whichever room is locked (the "further" sealed room)
+      const sealed = a.locked && (!b.locked || b.cost > a.cost) ? a : (b.locked ? b : null);
+      if (sealed) { grid[r][c] = 2; barrierRoom[r][c] = sealed.id; }
+    }
+    for (let ry = 0; ry < ROOMS_Y; ry++) for (let rx = 0; rx < ROOMS_X; rx++) {
+      if (rx + 1 < ROOMS_X) carveDoor(rx, ry, rx + 1, ry);
+      if (ry + 1 < ROOMS_Y) carveDoor(rx, ry, rx, ry + 1);
+    }
+  }
+
+  function isWall(px, py) {
+    const gx = Math.floor(px / TILE), gy = Math.floor(py / TILE);
+    if (gx < 0 || gy < 0 || gx >= GW || gy >= GH) return true;
+    return grid[gy][gx] !== 0;
+  }
+  function tileVal(gx, gy) {
+    if (gx < 0 || gy < 0 || gx >= GW || gy >= GH) return 1;
+    return grid[gy][gx];
+  }
+  function openRoom(room) {
+    room.locked = false; room.opened = true;
+    for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+      if (grid[y][x] === 2 && barrierRoom[y][x] === room.id) { grid[y][x] = 0; barrierRoom[y][x] = -1; }
+    }
+    // spawn its contents
+    for (let i = 0; i < 1 + (room.rx + room.ry > 2 ? 1 : 0); i++) spawnPrisoner(room);
+    for (let i = 0; i < 3 + room.rx + room.ry; i++) spawnEnemyInRoom(room);
+    // treasure
+    state.credits += 25;
+    flash("ROOM BREACHED! +25c");
+  }
+
+  // ---------- Entities ----------
+  const state = {
+    running: false, over: false,
+    credits: 80, kills: 0, wave: 1, waveTimer: 0,
+    ai: false,
+  };
+  let player, enemies, allies, bullets, particles, pickups, prisoners;
+
+  function resetGame() {
+    buildMap();
+    const start = roomAt(0, 0);
+    player = { x: start.cx, y: start.cy, r: 13, hp: 100, maxhp: 100, dir: 0, speed: 165,
+               weapon: 0, cooldown: 0, inv: false, invT: 0, muzzle: 0 };
+    enemies = []; allies = []; bullets = []; particles = []; pickups = []; prisoners = [];
+    state.credits = 80; state.kills = 0; state.wave = 1; state.waveTimer = 3; state.over = false;
+    weapons.forEach(w => w.ammo = w.startAmmo);
+    // initial enemies in start area surroundings (open room only)
+    for (let i = 0; i < 6; i++) spawnEnemyNearPlayer(700);
+    updateWeaponUI();
+    syncHUD();
+  }
+
+  // ---------- Weapons ----------
+  const weapons = [
+    { name: "PISTOL",   key: "1", dmg: 20, cd: 0.30, speed: 560, spread: 0.03, pellets: 1, ammo: Infinity, startAmmo: Infinity, color: "#ffd24a", bsize: 4, rocket: false },
+    { name: "SHOTGUN",  key: "2", dmg: 11, cd: 0.75, speed: 540, spread: 0.26, pellets: 8, ammo: 24,  startAmmo: 24,  color: "#ffae42", bsize: 4, rocket: false },
+    { name: "CHAINGUN", key: "3", dmg: 13, cd: 0.085, speed: 640, spread: 0.10, pellets: 1, ammo: 160, startAmmo: 160, color: "#fff06a", bsize: 4, rocket: false },
+    { name: "PLASMA",   key: "4", dmg: 24, cd: 0.11, speed: 720, spread: 0.02, pellets: 1, ammo: 120, startAmmo: 120, color: "#6ad7ff", bsize: 6, rocket: false },
+    { name: "ROCKET",   key: "5", dmg: 95, cd: 0.90, speed: 420, spread: 0.0, pellets: 1, ammo: 16,  startAmmo: 16,  color: "#ff5b3a", bsize: 8, rocket: true, splash: 95 },
+  ];
+
+  // ---------- Enemy types ----------
+  const eTypes = {
+    zombie:  { hp: 30,  r: 13, speed: 55,  dmg: 8,  touch: true,  color: "#7a9a5a", credit: 6,  range: 0 },
+    imp:     { hp: 45,  r: 14, speed: 80,  dmg: 12, touch: false, color: "#c0552a", credit: 10, range: 360, fireCd: 1.6, pspeed: 320 },
+    demon:   { hp: 110, r: 20, speed: 110, dmg: 22, touch: true,  color: "#d23b2a", credit: 18, range: 0 },
+    soldier: { hp: 60,  r: 13, speed: 70,  dmg: 9,  touch: false, color: "#9a7a3a", credit: 14, range: 420, fireCd: 1.1, pspeed: 400 },
+    baron:   { hp: 260, r: 24, speed: 75,  dmg: 30, touch: false, color: "#3aa84a", credit: 45, range: 380, fireCd: 1.2, pspeed: 340 },
+  };
+
+  function randomFloorInRoom(room) {
+    for (let tries = 0; tries < 30; tries++) {
+      const gx = room.x0 + randi(1, RW), gy = room.y0 + randi(1, RH);
+      if (tileVal(gx, gy) === 0) return { x: (gx + 0.5) * TILE, y: (gy + 0.5) * TILE };
+    }
+    return { x: room.cx, y: room.cy };
+  }
+
+  function pickEnemyType() {
+    const w = state.wave;
+    const roll = Math.random();
+    if (w >= 4 && roll < 0.06) return "baron";
+    if (roll < 0.30) return "zombie";
+    if (roll < 0.58) return "imp";
+    if (roll < 0.80) return "soldier";
+    return "demon";
+  }
+
+  function makeEnemy(x, y, typeName) {
+    const t = eTypes[typeName];
+    return { x, y, r: t.r, hp: t.hp, maxhp: t.hp, type: typeName, t, speed: t.speed,
+             fireCd: 0, hitFlash: 0, wob: Math.random() * TAU };
+  }
+  function spawnEnemyInRoom(room) {
+    const p = randomFloorInRoom(room);
+    enemies.push(makeEnemy(p.x, p.y, pickEnemyType()));
+  }
+  function spawnEnemyNearPlayer(minDist) {
+    const open = rooms.filter(r => r.opened);
+    for (let tries = 0; tries < 40; tries++) {
+      const room = open[randi(0, open.length)];
+      const p = randomFloorInRoom(room);
+      if (dist2(p.x, p.y, player.x, player.y) > minDist * minDist) {
+        enemies.push(makeEnemy(p.x, p.y, pickEnemyType())); return;
+      }
+    }
+  }
+  function spawnPrisoner(room) {
+    const p = randomFloorInRoom(room);
+    prisoners.push({ x: p.x, y: p.y, r: 12, t: Math.random() * TAU });
+  }
+
+  function makeAlly(x, y) {
+    return { x, y, r: 12, hp: 70, maxhp: 70, dir: 0, cooldown: 0, speed: 150, name: "SQUAD" };
+  }
+
+  // ---------- Combat ----------
+  function fireWeapon(owner, dir, isPlayer) {
+    const w = isPlayer ? weapons[owner.weapon] : weapons[0];
+    if (owner.cooldown > 0) return;
+    if (isPlayer && w.ammo <= 0) { if (owner.weapon !== 0) { owner.weapon = 0; updateWeaponUI(); } return; }
+    owner.cooldown = isPlayer ? w.cd : 0.5;
+    if (isPlayer) { owner.muzzle = 0.05; if (w.ammo !== Infinity) { w.ammo--; updateWeaponUI(); } }
+    const pellets = isPlayer ? w.pellets : 1;
+    for (let i = 0; i < pellets; i++) {
+      const a = dir + rand(-w.spread, w.spread);
+      bullets.push({
+        x: owner.x + Math.cos(dir) * (owner.r + 6),
+        y: owner.y + Math.sin(dir) * (owner.r + 6),
+        vx: Math.cos(a) * w.speed, vy: Math.sin(a) * w.speed,
+        dmg: w.dmg, life: 1.4, friendly: true, color: w.color, size: w.bsize,
+        rocket: !!w.rocket, splash: w.splash || 0
+      });
+    }
+    // muzzle particles
+    for (let i = 0; i < 4; i++) particles.push(mkPart(owner.x + Math.cos(dir) * owner.r, owner.y + Math.sin(dir) * owner.r, dir, w.color, 0.2));
+    if (w.rocket) {} // handled on hit
+  }
+
+  function enemyFire(e, dir) {
+    const t = e.t;
+    bullets.push({
+      x: e.x + Math.cos(dir) * (e.r + 4), y: e.y + Math.sin(dir) * (e.r + 4),
+      vx: Math.cos(dir) * t.pspeed, vy: Math.sin(dir) * t.pspeed,
+      dmg: t.dmg, life: 2.0, friendly: false, color: "#ff7b4a", size: 5, rocket: false, splash: 0
+    });
+  }
+
+  function explode(x, y, dmg, radius) {
+    for (let i = 0; i < 22; i++) particles.push(mkPart(x, y, Math.random() * TAU, i % 2 ? "#ffd24a" : "#ff5b3a", 0.5, 200));
+    const r2 = radius * radius;
+    enemies.forEach(e => { if (dist2(e.x, e.y, x, y) < r2) damageEnemy(e, dmg * (1 - Math.sqrt(dist2(e.x, e.y, x, y)) / radius * 0.6)); });
+    if (dist2(player.x, player.y, x, y) < r2 * 0.6) hurtPlayer(dmg * 0.25);
+  }
+
+  function damageEnemy(e, dmg) {
+    e.hp -= dmg; e.hitFlash = 0.08;
+    if (e.hp <= 0 && !e.dead) {
+      e.dead = true;
+      state.kills++;
+      state.credits += e.t.credit;
+      for (let i = 0; i < 10; i++) particles.push(mkPart(e.x, e.y, Math.random() * TAU, "#8a1f1f", 0.6, 160));
+      if (Math.random() < 0.35) pickups.push({ x: e.x, y: e.y, kind: "ammo", r: 10, t: 0 });
+      if (Math.random() < 0.25) pickups.push({ x: e.x, y: e.y, kind: "health", r: 10, t: 0 });
+      syncHUD();
+    }
+  }
+
+  function hurtPlayer(dmg) {
+    if (player.inv) return;
+    player.hp -= dmg; player.inv = true; player.invT = 0.5;
+    for (let i = 0; i < 8; i++) particles.push(mkPart(player.x, player.y, Math.random() * TAU, "#ff3030", 0.4, 140));
+    if (player.hp <= 0) { player.hp = 0; gameOver(); }
+    syncHUD();
+  }
+
+  function mkPart(x, y, dir, color, life, spd) {
+    spd = spd || 120;
+    const a = dir + rand(-0.6, 0.6);
+    return { x, y, vx: Math.cos(a) * rand(40, spd), vy: Math.sin(a) * rand(40, spd), life, max: life, color };
+  }
+
+  // ---------- Line of sight ----------
+  function hasLOS(ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay; const d = Math.hypot(dx, dy);
+    const steps = Math.ceil(d / (TILE * 0.4));
+    for (let i = 1; i < steps; i++) {
+      const t = i / steps;
+      if (isWall(ax + dx * t, ay + dy * t)) return false;
+    }
+    return true;
+  }
+
+  // ---------- Movement with wall collision ----------
+  function moveEntity(ent, nx, ny) {
+    if (!isWall(nx, ent.y - ent.r) && !isWall(nx, ent.y + ent.r) && !isWall(nx + Math.sign(nx - ent.x) * ent.r, ent.y))
+      ent.x = nx;
+    if (!isWall(ent.x, ny - ent.r) && !isWall(ent.x, ny + ent.r) && !isWall(ent.x, ny + Math.sign(ny - ent.y) * ent.r))
+      ent.y = ny;
+  }
+  function tryMove(ent, dx, dy, dt) {
+    if (dx === 0 && dy === 0) return;
+    const len = Math.hypot(dx, dy) || 1;
+    const sp = ent.speed * dt;
+    moveEntity(ent, ent.x + (dx / len) * sp, ent.y + (dy / len) * sp);
+  }
+
+  // ---------- Input ----------
+  const keys = {};
+  let mouse = { x: W / 2, y: H / 2, down: false, active: false };
+  window.addEventListener("keydown", e => {
+    keys[e.key.toLowerCase()] = true;
+    if (["1","2","3","4","5"].includes(e.key)) selectWeapon(+e.key - 1);
+    if (e.key.toLowerCase() === "b") tryBuy();
+    if (e.key.toLowerCase() === "h") tryHeal();
+    if (e.key === "Tab") { e.preventDefault(); toggleAI(); }
+    if (e.key === " ") e.preventDefault();
+  });
+  window.addEventListener("keyup", e => { keys[e.key.toLowerCase()] = false; });
+  canvas.addEventListener("mousemove", e => { mouse.x = e.clientX; mouse.y = e.clientY; mouse.active = true; });
+  canvas.addEventListener("mousedown", e => { mouse.down = true; });
+  window.addEventListener("mouseup", e => { mouse.down = false; });
+
+  // Touch joysticks
+  const joyL = { active: false, id: null, ox: 0, oy: 0, dx: 0, dy: 0, el: document.getElementById("joyL") };
+  const joyR = { active: false, id: null, ox: 0, oy: 0, dx: 0, dy: 0, el: document.getElementById("joyR") };
+  function setJoy(j, x, y) {
+    j.el.style.display = "block";
+    j.el.style.left = (j.ox - 65) + "px"; j.el.style.top = (j.oy - 65) + "px";
+    const dx = x - j.ox, dy = y - j.oy; const d = Math.hypot(dx, dy); const max = 60;
+    const cl = Math.min(d, max);
+    const nx = d ? dx / d : 0, ny = d ? dy / d : 0;
+    j.dx = nx * (cl / max); j.dy = ny * (cl / max);
+    const stick = j.el.querySelector(".stick");
+    stick.style.left = (65 + nx * cl) + "px"; stick.style.top = (65 + ny * cl) + "px";
+  }
+  function clearJoy(j) { j.active = false; j.id = null; j.dx = 0; j.dy = 0; j.el.style.display = "none"; }
+
+  function onTouchStart(e) {
+    for (const t of e.changedTouches) {
+      if (t.clientX < W * 0.5 && !joyL.active) { joyL.active = true; joyL.id = t.identifier; joyL.ox = t.clientX; joyL.oy = t.clientY; setJoy(joyL, t.clientX, t.clientY); }
+      else if (t.clientX >= W * 0.5 && !joyR.active) { joyR.active = true; joyR.id = t.identifier; joyR.ox = t.clientX; joyR.oy = t.clientY; setJoy(joyR, t.clientX, t.clientY); }
+    }
+  }
+  function onTouchMove(e) {
+    for (const t of e.changedTouches) {
+      if (t.identifier === joyL.id) setJoy(joyL, t.clientX, t.clientY);
+      else if (t.identifier === joyR.id) setJoy(joyR, t.clientX, t.clientY);
+    }
+  }
+  function onTouchEnd(e) {
+    for (const t of e.changedTouches) {
+      if (t.identifier === joyL.id) clearJoy(joyL);
+      else if (t.identifier === joyR.id) clearJoy(joyR);
+    }
+  }
+  canvas.addEventListener("touchstart", e => { e.preventDefault(); onTouchStart(e); }, { passive: false });
+  canvas.addEventListener("touchmove", e => { e.preventDefault(); onTouchMove(e); }, { passive: false });
+  canvas.addEventListener("touchend", e => { e.preventDefault(); onTouchEnd(e); }, { passive: false });
+  canvas.addEventListener("touchcancel", e => { e.preventDefault(); onTouchEnd(e); }, { passive: false });
+
+  // ---------- UI ----------
+  const weaponsEl = document.getElementById("weapons");
+  function updateWeaponUI() {
+    weaponsEl.innerHTML = "";
+    weapons.forEach((w, i) => {
+      const b = document.createElement("div");
+      b.className = "wbtn" + (i === player.weapon ? " sel" : "");
+      const ammo = w.ammo === Infinity ? "∞" : w.ammo;
+      b.innerHTML = `${w.key}. ${w.name}<small>AMMO ${ammo}</small>`;
+      b.addEventListener("click", () => selectWeapon(i));
+      b.addEventListener("touchstart", ev => { ev.preventDefault(); selectWeapon(i); }, { passive: false });
+      weaponsEl.appendChild(b);
+    });
+  }
+  function selectWeapon(i) {
+    if (i < 0 || i >= weapons.length) return;
+    if (weapons[i].ammo <= 0) { flash("NO AMMO: " + weapons[i].name); return; }
+    player.weapon = i; updateWeaponUI();
+  }
+
+  const el = id => document.getElementById(id);
+  function syncHUD() {
+    el("credits").textContent = Math.floor(state.credits);
+    el("kills").textContent = state.kills;
+    el("squad").textContent = allies.length;
+    el("wave").textContent = state.wave;
+    const pct = clamp(player.hp / player.maxhp, 0, 1) * 100;
+    el("healthfill").style.width = pct + "%";
+    el("healthtxt").textContent = "HEALTH " + Math.ceil(player.hp);
+  }
+  let msgTimer = 0;
+  function flash(text) { const m = el("msg"); m.textContent = text; m.style.display = "block"; msgTimer = 1.6; }
+
+  el("aiBtn").addEventListener("click", toggleAI);
+  el("buyBtn").addEventListener("click", tryBuy);
+  el("healBtn").addEventListener("click", tryHeal);
+  function bindTouch(id, fn) { el(id).addEventListener("touchstart", e => { e.preventDefault(); fn(); }, { passive: false }); }
+  bindTouch("aiBtn", toggleAI); bindTouch("buyBtn", tryBuy); bindTouch("healBtn", tryHeal);
+
+  function toggleAI() { state.ai = !state.ai; el("aiBtn").textContent = "AI: " + (state.ai ? "ON" : "OFF"); el("aiBtn").classList.toggle("on", state.ai); flash(state.ai ? "AI AUTOPILOT ENGAGED" : "MANUAL CONTROL"); }
+
+  function nearestBarrier() {
+    // find a locked room whose barrier tile is adjacent to player
+    let best = null, bestD = 1e9;
+    rooms.forEach(room => {
+      if (!room.locked) return;
+      const d = dist2(player.x, player.y, room.cx, room.cy);
+    });
+    // check tiles around player
+    const gx = Math.floor(player.x / TILE), gy = Math.floor(player.y / TILE);
+    for (let yy = gy - 1; yy <= gy + 1; yy++) for (let xx = gx - 1; xx <= gx + 1; xx++) {
+      if (tileVal(xx, yy) === 2) {
+        const id = barrierRoom[yy][xx];
+        const room = rooms[id];
+        const cx = (xx + 0.5) * TILE, cy = (yy + 0.5) * TILE;
+        const d = dist2(player.x, player.y, cx, cy);
+        if (d < bestD) { bestD = d; best = room; }
+      }
+    }
+    return best;
+  }
+  function tryBuy() {
+    const room = nearestBarrier();
+    if (!room) { flash("NO DOOR NEARBY"); return; }
+    if (state.credits < room.cost) { flash("NEED " + room.cost + "c (have " + Math.floor(state.credits) + ")"); return; }
+    state.credits -= room.cost; openRoom(room); syncHUD();
+  }
+  function tryHeal() {
+    if (player.hp >= player.maxhp) { flash("HEALTH FULL"); return; }
+    if (state.credits < 50) { flash("NEED 50c TO HEAL"); return; }
+    state.credits -= 50; player.hp = Math.min(player.maxhp, player.hp + 45); flash("+45 HP"); syncHUD();
+  }
+
+  function gameOver() {
+    state.over = true; state.running = false;
+    const ov = el("overlay");
+    ov.style.display = "flex";
+    ov.querySelector("h1").innerHTML = 'YOU <span>DIED</span>';
+    ov.querySelector("p").textContent = `Kills: ${state.kills} • Credits: ${Math.floor(state.credits)} • Squad: ${allies.length} • Wave: ${state.wave}. The demons overran you.`;
+    el("startBtn").textContent = "RESPAWN";
+  }
+
+  // ---------- AI autopilot ----------
+  let aiTarget = null, aiBuyCd = 0;
+  function runAI(dt) {
+    // choose nearest enemy
+    let near = null, nd = 1e9;
+    for (const e of enemies) { const d = dist2(e.x, e.y, player.x, player.y); if (d < nd) { nd = d; near = e; } }
+    // aim & shoot
+    if (near) {
+      const desired = Math.atan2(near.y - player.y, near.x - player.x);
+      player.dir = angLerp(player.dir, desired, 0.35);
+      const ndist = Math.sqrt(nd);
+      if (ndist < 520 && hasLOS(player.x, player.y, near.x, near.y) && Math.abs(((desired - player.dir + Math.PI) % TAU) - Math.PI) < 0.25)
+        fireWeapon(player, player.dir, true);
+      // weapon choice
+      if (ndist > 360 && weapons[3].ammo > 0) maybePick(3);
+      else if (ndist < 130 && weapons[1].ammo > 0) maybePick(1);
+      else if (weapons[2].ammo > 0) maybePick(2);
+      else maybePick(0);
+    }
+    // movement: kite / approach / collect / rescue / buy
+    let tx = player.x, ty = player.y, move = false;
+    // low health -> retreat from nearest enemy & heal
+    if (player.hp < 35 && near) {
+      tx = player.x - (near.x - player.x); ty = player.y - (near.y - player.y); move = true;
+      if (state.credits >= 50) tryHeal();
+    } else {
+      // prefer rescuing prisoner if close
+      let pr = null, pd = 1e9;
+      for (const p of prisoners) { const d = dist2(p.x, p.y, player.x, player.y); if (d < pd) { pd = d; pr = p; } }
+      // pickups
+      let pk = null, kd = 1e9;
+      for (const p of pickups) { const d = dist2(p.x, p.y, player.x, player.y); if (d < kd) { kd = d; pk = p; } }
+      if (pr && pd < 300 * 300) { tx = pr.x; ty = pr.y; move = true; }
+      else if (pk && kd < 260 * 260 && (pk.kind === "health" ? player.hp < 80 : true)) { tx = pk.x; ty = pk.y; move = true; }
+      else if (near) {
+        const ndist = Math.sqrt(nd);
+        // keep medium distance: approach if far, back off if too close
+        const ideal = 240;
+        if (ndist > ideal + 40) { tx = near.x; ty = near.y; move = true; }
+        else if (ndist < ideal - 60) { tx = player.x - (near.x - player.x); ty = player.y - (near.y - player.y); move = true; }
+        else { // strafe
+          const ang = Math.atan2(near.y - player.y, near.x - player.x) + Math.PI / 2;
+          tx = player.x + Math.cos(ang) * 80; ty = player.y + Math.sin(ang) * 80; move = true;
+        }
+      }
+    }
+    // auto-buy nearby room if affordable
+    aiBuyCd -= dt;
+    if (aiBuyCd <= 0) {
+      const room = nearestBarrier();
+      if (room && state.credits >= room.cost) { tryBuy(); aiBuyCd = 1; }
+      else if (!near && prisoners.length === 0) {
+        // explore toward nearest locked room to open the map
+        let lr = null, ld = 1e9;
+        rooms.forEach(r => { if (r.locked) { const d = dist2(r.cx, r.cy, player.x, player.y); if (d < ld) { ld = d; lr = r; } } });
+        if (lr) { tx = lr.cx; ty = lr.cy; move = true; }
+      }
+    }
+    if (move) tryMove(player, tx - player.x, ty - player.y, dt);
+  }
+  function maybePick(i) { if (player.weapon !== i && weapons[i].ammo > 0) { player.weapon = i; updateWeaponUI(); } }
+
+  // ---------- Update ----------
+  function update(dt) {
+    // player input (unless AI)
+    if (!state.ai) {
+      let mx = 0, my = 0;
+      if (keys["w"] || keys["arrowup"]) my -= 1;
+      if (keys["s"] || keys["arrowdown"]) my += 1;
+      if (keys["a"] || keys["arrowleft"]) mx -= 1;
+      if (keys["d"] || keys["arrowright"]) mx += 1;
+      if (joyL.active) { mx += joyL.dx; my += joyL.dy; }
+      tryMove(player, mx, my, dt);
+
+      // aim
+      let shooting = false;
+      if (joyR.active && (Math.abs(joyR.dx) > 0.15 || Math.abs(joyR.dy) > 0.15)) {
+        player.dir = Math.atan2(joyR.dy, joyR.dx); shooting = true;
+      } else if (mouse.active) {
+        player.dir = Math.atan2(mouse.y - H / 2, mouse.x - W / 2);
+      }
+      if (mouse.down || keys[" "] || shooting) fireWeapon(player, player.dir, true);
+    } else {
+      runAI(dt);
+    }
+
+    if (player.cooldown > 0) player.cooldown -= dt;
+    if (player.muzzle > 0) player.muzzle -= dt;
+    if (player.inv) { player.invT -= dt; if (player.invT <= 0) player.inv = false; }
+
+    // wave spawning
+    state.waveTimer -= dt;
+    const aliveCount = enemies.length;
+    const target = 6 + state.wave * 2;
+    if (state.waveTimer <= 0 && aliveCount < Math.min(target, 42)) {
+      spawnEnemyNearPlayer(420);
+      state.waveTimer = Math.max(0.4, 1.6 - state.wave * 0.06);
+    }
+    if (state.kills >= state.wave * 12) { state.wave++; flash("WAVE " + state.wave); syncHUD(); }
+
+    // enemies
+    for (const e of enemies) {
+      if (e.dead) continue;
+      e.hitFlash -= dt; e.fireCd -= dt; e.wob += dt * 3;
+      const toP = Math.atan2(player.y - e.y, player.x - e.x);
+      const d = Math.sqrt(dist2(e.x, e.y, player.x, player.y));
+      const los = hasLOS(e.x, e.y, player.x, player.y);
+      if (e.t.touch) {
+        // melee chaser
+        if (los || d > 60) { e.speed = e.t.speed; tryMove(e, player.x - e.x + Math.cos(e.wob) * 20, player.y - e.y + Math.sin(e.wob) * 20, dt); }
+        if (d < e.r + player.r + 4) hurtPlayer(e.t.dmg * dt * 2.2);
+      } else {
+        // ranged: keep distance, shoot
+        if (d > e.t.range * 0.85) tryMove(e, player.x - e.x, player.y - e.y, dt);
+        else if (d < e.t.range * 0.5) tryMove(e, e.x - player.x, e.y - player.y, dt);
+        else { const ang = toP + Math.PI / 2; tryMove(e, Math.cos(ang), Math.sin(ang), dt); }
+        if (los && d < e.t.range && e.fireCd <= 0) { enemyFire(e, toP + rand(-0.08, 0.08)); e.fireCd = e.t.fireCd; }
+      }
+    }
+    enemies = enemies.filter(e => !e.dead);
+
+    // allies
+    for (const a of allies) {
+      a.cooldown -= dt;
+      // target nearest enemy
+      let near = null, nd = 1e9;
+      for (const e of enemies) { const dd = dist2(e.x, e.y, a.x, a.y); if (dd < nd) { nd = dd; near = e; } }
+      const followDist = 70;
+      const dToP = Math.sqrt(dist2(a.x, a.y, player.x, player.y));
+      if (near && Math.sqrt(nd) < 460) {
+        a.dir = Math.atan2(near.y - a.y, near.x - a.x);
+        if (dToP > 220) tryMove(a, player.x - a.x, player.y - a.y, dt);
+        else if (Math.sqrt(nd) > 200) tryMove(a, near.x - a.x, near.y - a.y, dt);
+        if (a.cooldown <= 0 && hasLOS(a.x, a.y, near.x, near.y)) {
+          a.cooldown = 0.4;
+          bullets.push({ x: a.x + Math.cos(a.dir) * 16, y: a.y + Math.sin(a.dir) * 16,
+            vx: Math.cos(a.dir) * 560, vy: Math.sin(a.dir) * 560, dmg: 16, life: 1.3, friendly: true,
+            color: "#9affb0", size: 4, rocket: false, splash: 0 });
+        }
+      } else {
+        // follow player
+        if (dToP > followDist) tryMove(a, player.x - a.x, player.y - a.y, dt);
+      }
+      // ally takes contact damage
+      for (const e of enemies) { if (e.t.touch && dist2(e.x, e.y, a.x, a.y) < (e.r + a.r) * (e.r + a.r)) a.hp -= e.t.dmg * dt; }
+      if (a.hp <= 0) a.dead = true;
+    }
+    if (allies.some(a => a.dead)) { allies = allies.filter(a => !a.dead); flash("SQUADMATE DOWN"); syncHUD(); }
+
+    // bullets
+    for (const b of bullets) {
+      b.life -= dt;
+      const nx = b.x + b.vx * dt, ny = b.y + b.vy * dt;
+      // wall hit
+      if (isWall(nx, ny)) {
+        if (b.rocket) explode(b.x, b.y, b.dmg, 90);
+        b.life = 0;
+        for (let i = 0; i < 4; i++) particles.push(mkPart(b.x, b.y, Math.atan2(-b.vy, -b.vx), b.color, 0.2));
+        continue;
+      }
+      b.x = nx; b.y = ny;
+      if (b.friendly) {
+        for (const e of enemies) {
+          if (dist2(e.x, e.y, b.x, b.y) < (e.r + b.size) * (e.r + b.size)) {
+            if (b.rocket) { explode(b.x, b.y, b.dmg, 90); } else { damageEnemy(e, b.dmg); }
+            b.life = 0; break;
+          }
+        }
+      } else {
+        if (dist2(player.x, player.y, b.x, b.y) < (player.r + b.size) * (player.r + b.size)) { hurtPlayer(b.dmg); b.life = 0; }
+        for (const a of allies) { if (dist2(a.x, a.y, b.x, b.y) < (a.r + b.size) * (a.r + b.size)) { a.hp -= b.dmg; b.life = 0; } }
+      }
+    }
+    bullets = bullets.filter(b => b.life > 0);
+
+    // particles
+    for (const p of particles) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.92; p.vy *= 0.92; }
+    particles = particles.filter(p => p.life > 0);
+
+    // pickups
+    for (const p of pickups) {
+      p.t += dt;
+      if (dist2(p.x, p.y, player.x, player.y) < (player.r + p.r) * (player.r + p.r)) {
+        if (p.kind === "ammo") { weapons[2].ammo += 30; weapons[3].ammo += 20; weapons[1].ammo += 6; weapons[4].ammo += 1; flash("+AMMO"); updateWeaponUI(); }
+        else { player.hp = Math.min(player.maxhp, player.hp + 18); flash("+18 HP"); syncHUD(); }
+        p.dead = true;
+      }
+    }
+    pickups = pickups.filter(p => !p.dead);
+
+    // prisoners rescue
+    for (const p of prisoners) {
+      p.t += dt;
+      if (dist2(p.x, p.y, player.x, player.y) < (player.r + p.r + 6) * (player.r + p.r + 6)) {
+        allies.push(makeAlly(p.x, p.y)); p.dead = true; state.credits += 10;
+        flash("PRISONER RESCUED! +1 SQUAD"); syncHUD();
+      }
+    }
+    prisoners = prisoners.filter(p => !p.dead);
+
+    if (msgTimer > 0) { msgTimer -= dt; if (msgTimer <= 0) el("msg").style.display = "none"; }
+  }
+
+  // ---------- Render ----------
+  let cam = { x: 0, y: 0 };
+  function render() {
+    cam.x = clamp(player.x - W / 2, 0, GW * TILE - W);
+    cam.y = clamp(player.y - H / 2, 0, GH * TILE - H);
+    if (GW * TILE < W) cam.x = (GW * TILE - W) / 2;
+    if (GH * TILE < H) cam.y = (GH * TILE - H) / 2;
+
+    ctx.fillStyle = "#0a0a0c"; ctx.fillRect(0, 0, W, H);
+
+    const gx0 = Math.max(0, Math.floor(cam.x / TILE)), gy0 = Math.max(0, Math.floor(cam.y / TILE));
+    const gx1 = Math.min(GW, Math.ceil((cam.x + W) / TILE)), gy1 = Math.min(GH, Math.ceil((cam.y + H) / TILE));
+    for (let gy = gy0; gy < gy1; gy++) for (let gx = gx0; gx < gx1; gx++) {
+      const v = grid[gy][gx];
+      const sx = gx * TILE - cam.x, sy = gy * TILE - cam.y;
+      if (v === 0) {
+        ctx.fillStyle = ((gx + gy) & 1) ? "#26201c" : "#221c19";
+        ctx.fillRect(sx, sy, TILE, TILE);
+      } else if (v === 1) {
+        ctx.fillStyle = "#43332b"; ctx.fillRect(sx, sy, TILE, TILE);
+        ctx.fillStyle = "#2c211b"; ctx.fillRect(sx + 3, sy + 3, TILE - 6, TILE - 6);
+        ctx.fillStyle = "#3a2c24"; ctx.fillRect(sx + 3, sy + 3, TILE - 6, 6);
+      } else if (v === 2) {
+        ctx.fillStyle = "#1a1410"; ctx.fillRect(sx, sy, TILE, TILE);
+        const room = rooms[barrierRoom[gy][gx]];
+        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 300);
+        ctx.fillStyle = `rgba(255,${80 + pulse * 60},40,${0.45 + pulse * 0.3})`;
+        ctx.fillRect(sx + 4, sy + 4, TILE - 8, TILE - 8);
+        ctx.fillStyle = "#fff"; ctx.font = "bold 12px monospace"; ctx.textAlign = "center";
+        ctx.fillText(room.cost + "c", sx + TILE / 2, sy + TILE / 2 + 4);
+      }
+    }
+
+    // pickups
+    for (const p of pickups) {
+      const sx = p.x - cam.x, sy = p.y - cam.y + Math.sin(p.t * 4) * 3;
+      ctx.fillStyle = p.kind === "ammo" ? "#ffd24a" : "#48ff6a";
+      ctx.beginPath(); ctx.arc(sx, sy, p.r, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#000"; ctx.font = "bold 11px monospace"; ctx.textAlign = "center";
+      ctx.fillText(p.kind === "ammo" ? "A" : "+", sx, sy + 4);
+    }
+
+    // prisoners
+    for (const p of prisoners) {
+      const sx = p.x - cam.x, sy = p.y - cam.y;
+      const blink = 0.6 + 0.4 * Math.sin(p.t * 5);
+      ctx.fillStyle = `rgba(80,255,120,${blink})`;
+      ctx.beginPath(); ctx.arc(sx, sy, p.r + 4, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#1f7a32"; ctx.beginPath(); ctx.arc(sx, sy, p.r, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#dfffe6"; ctx.font = "bold 10px monospace"; ctx.textAlign = "center";
+      ctx.fillText("SOS", sx, sy - p.r - 6);
+    }
+
+    // particles
+    for (const p of particles) {
+      ctx.globalAlpha = clamp(p.life / p.max, 0, 1);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - cam.x - 2, p.y - cam.y - 2, 4, 4);
+    }
+    ctx.globalAlpha = 1;
+
+    // enemies
+    for (const e of enemies) {
+      const sx = e.x - cam.x, sy = e.y - cam.y;
+      if (sx < -40 || sy < -40 || sx > W + 40 || sy > H + 40) continue;
+      ctx.fillStyle = e.hitFlash > 0 ? "#fff" : e.t.color;
+      ctx.beginPath(); ctx.arc(sx, sy, e.r, 0, TAU); ctx.fill();
+      // eyes toward player
+      const a = Math.atan2(player.y - e.y, player.x - e.x);
+      ctx.fillStyle = "#ffe24a";
+      ctx.beginPath(); ctx.arc(sx + Math.cos(a) * e.r * 0.5, sy + Math.sin(a) * e.r * 0.5, e.r * 0.22, 0, TAU); ctx.fill();
+      // hp bar
+      if (e.hp < e.maxhp) {
+        ctx.fillStyle = "#400"; ctx.fillRect(sx - e.r, sy - e.r - 8, e.r * 2, 4);
+        ctx.fillStyle = "#ff4030"; ctx.fillRect(sx - e.r, sy - e.r - 8, e.r * 2 * (e.hp / e.maxhp), 4);
+      }
+    }
+
+    // allies
+    for (const a of allies) {
+      const sx = a.x - cam.x, sy = a.y - cam.y;
+      ctx.fillStyle = "#3a7aff"; ctx.beginPath(); ctx.arc(sx, sy, a.r, 0, TAU); ctx.fill();
+      ctx.strokeStyle = "#bfe0ff"; ctx.lineWidth = 2; ctx.beginPath();
+      ctx.moveTo(sx, sy); ctx.lineTo(sx + Math.cos(a.dir) * a.r, sy + Math.sin(a.dir) * a.r); ctx.stroke();
+      ctx.fillStyle = "#063"; ctx.fillRect(sx - a.r, sy - a.r - 7, a.r * 2, 3);
+      ctx.fillStyle = "#4cff7a"; ctx.fillRect(sx - a.r, sy - a.r - 7, a.r * 2 * (a.hp / a.maxhp), 3);
+    }
+
+    // bullets
+    for (const b of bullets) {
+      const sx = b.x - cam.x, sy = b.y - cam.y;
+      ctx.fillStyle = b.color;
+      ctx.beginPath(); ctx.arc(sx, sy, b.size, 0, TAU); ctx.fill();
+      if (b.rocket) { ctx.fillStyle = "rgba(255,150,60,.5)"; ctx.beginPath(); ctx.arc(sx - b.vx * 0.01, sy - b.vy * 0.01, b.size + 3, 0, TAU); ctx.fill(); }
+    }
+
+    // player
+    {
+      const sx = player.x - cam.x, sy = player.y - cam.y;
+      if (player.inv && Math.floor(performance.now() / 80) % 2) ctx.globalAlpha = 0.5;
+      ctx.fillStyle = "#4aa3ff"; ctx.beginPath(); ctx.arc(sx, sy, player.r, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#dff1ff"; ctx.beginPath(); ctx.arc(sx, sy, player.r * 0.6, 0, TAU); ctx.fill();
+      // gun
+      ctx.strokeStyle = "#222"; ctx.lineWidth = 5; ctx.beginPath();
+      ctx.moveTo(sx, sy); ctx.lineTo(sx + Math.cos(player.dir) * (player.r + 12), sy + Math.sin(player.dir) * (player.r + 12)); ctx.stroke();
+      if (player.muzzle > 0) { ctx.fillStyle = "#fff3a0"; ctx.beginPath();
+        ctx.arc(sx + Math.cos(player.dir) * (player.r + 14), sy + Math.sin(player.dir) * (player.r + 14), 6, 0, TAU); ctx.fill(); }
+      ctx.globalAlpha = 1;
+      if (state.ai) { ctx.strokeStyle = "#4cff7a"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx, sy, player.r + 6, 0, TAU); ctx.stroke(); }
+    }
+
+    // minimap
+    drawMinimap();
+    // buy prompt
+    const room = nearestBarrier();
+    if (room) {
+      ctx.fillStyle = state.credits >= room.cost ? "#4cff7a" : "#ff6b4a";
+      ctx.font = "bold 16px monospace"; ctx.textAlign = "center";
+      ctx.fillText(`Press BUY to open room — ${room.cost}c`, W / 2, H - 130);
+    }
+  }
+
+  function drawMinimap() {
+    const s = 4, mw = GW * s, mh = GH * s, px = W - mw - 10, py = 40;
+    ctx.globalAlpha = 0.8; ctx.fillStyle = "#000"; ctx.fillRect(px - 2, py - 2, mw + 4, mh + 4);
+    for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++) {
+      const v = grid[gy][gx];
+      if (v === 1) ctx.fillStyle = "#403028";
+      else if (v === 2) ctx.fillStyle = "#ff7b2a";
+      else ctx.fillStyle = "#181410";
+      ctx.fillRect(px + gx * s, py + gy * s, s, s);
+    }
+    ctx.fillStyle = "#ff3030";
+    for (const e of enemies) ctx.fillRect(px + (e.x / TILE) * s - 1, py + (e.y / TILE) * s - 1, 2, 2);
+    ctx.fillStyle = "#48ff6a";
+    for (const p of prisoners) ctx.fillRect(px + (p.x / TILE) * s - 1, py + (p.y / TILE) * s - 1, 2, 2);
+    ctx.fillStyle = "#4aa3ff"; ctx.fillRect(px + (player.x / TILE) * s - 2, py + (player.y / TILE) * s - 2, 4, 4);
+    ctx.globalAlpha = 1;
+  }
+
+  // ---------- Loop ----------
+  let last = 0;
+  function loop(ts) {
+    const dt = Math.min(0.05, (ts - last) / 1000 || 0); last = ts;
+    if (state.running && !state.over) { update(dt); }
+    if (player) render();
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- Start ----------
+  el("startBtn").addEventListener("click", () => {
+    el("overlay").style.display = "none";
+    resetGame();
+    state.running = true;
+  });
+
+  resetGame();      // build world so render works behind overlay
+  state.running = false;
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
