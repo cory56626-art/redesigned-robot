@@ -1,0 +1,10 @@
+{
+  "entity.verity.scream": {
+    "category": "hostile",
+    "sounds": [ { "name": "verity:mob/entity_verity/scream", "stream": true, "volume": 1.0 } ]
+  },
+  "entity.verity.bonecrack": {
+    "category": "hostile",
+    "sounds": [ { "name": "verity:mob/entity_verity/bonecrack", "volume": 1.0 } ]
+  }
+}

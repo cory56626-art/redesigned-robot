@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "verity",
+  "version": "${version}",
+  "name": "Entity Verity",
+  "description": "A single hostile horror mob: Verity. Tall yellow humanoid that stalks, transforms, screams, climbs, and breaks into houses.",
+  "authors": ["cory"],
+  "license": "CC0-1.0",
+  "icon": "assets/verity/textures/entity/entity_verity.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.verity.EntityVerityMod"],
+    "client": ["com.verity.client.VerityClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "~1.20.1",
+    "java": ">=17",
+    "fabric-api": "*",
+    "geckolib": ">=4.4"
+  }
+}
