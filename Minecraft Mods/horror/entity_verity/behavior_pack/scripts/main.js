@@ -330,18 +330,128 @@ function handleCommand(action, player) {
 }
 
 // ---- main per-tick logic ----
+// ===== dread atmosphere (fog / heartbeat / darkness / whispers / messages) =====
+const HEARTBEAT_RANGE = 28, FOG_RANGE = 48, DREAD_MSG_MIN = 600, DREAD_MSG_VAR = 700;
+const fogPlayers = new Set();       // player ids currently under the dread fog
+const heartbeatNext = new Map();    // player id -> next heartbeat tick
+const msgNext = new Map();          // player id -> next message tick
+
+function isNight() {
+  try { const t = world.getTimeOfDay() % 24000; return t >= 13000 && t <= 23000; }
+  catch (_) { return true; }
+}
+function nearestVerity(player) {
+  let best = null, bd = Infinity;
+  try {
+    for (const e of player.dimension.getEntities({ type: VERITY, location: player.location, maxDistance: 64 })) {
+      const dd = dist2(e.location, player.location);
+      if (dd < bd) { bd = dd; best = e; }
+    }
+  } catch (_) {}
+  return best;
+}
+function fogOn(p) {
+  if (!fogPlayers.has(p.id)) { try { p.runCommand("fog @s push verity:dread verity_dread"); } catch (_) {} fogPlayers.add(p.id); }
+}
+function fogOff(p) {
+  if (fogPlayers.has(p.id)) { try { p.runCommand("fog @s remove verity_dread"); } catch (_) {} fogPlayers.delete(p.id); }
+}
+function creepyMessage(p) {
+  let name = "you"; try { name = p.name; } catch (_) {}
+  let hearts = null;
+  try { hearts = Math.max(0, Math.round(p.getComponent("minecraft:health").currentValue / 2)); } catch (_) {}
+  const pool = [
+    `§cI can see you, ${name}.`,
+    `§cWhy did you stop, ${name}?`,
+    `§7${name}… it's so dark out here.`,
+    `§cYou can't run forever, ${name}.`,
+    `§cI know where you sleep, ${name}.`,
+    `§4Behind you, ${name}.`,
+    `§7Still here, ${name}?`,
+    `§cDon't look away, ${name}.`,
+    `§8I remember your face, ${name}.`,
+  ];
+  if (hearts !== null && hearts <= 4) pool.push(`§4${hearts} hearts left, ${name}…`);
+  const msg = pool[Math.floor(Math.random() * pool.length)];
+  try { p.sendMessage(`§k!!§r ${msg} §k!!`); } catch (_) {}
+}
+function handleDread(p, now) {
+  const e = nearestVerity(p);
+  if (!e || !valid(e)) { fogOff(p); return; }
+  const r = rec(e.id);
+  const d = Math.sqrt(dist2(e.location, p.location));
+  const hunting = (r.mode === "chase" || r.mode === "glass" || r.mode === "door");
+  const stalking = (r.mode === "idle" || r.mode === "stare" || r.mode === "transform" ||
+                    r.mode === "mineshaft" || r.mode === "approach" || r.mode === "peek");
+
+  // fog while hunting at night
+  if (hunting && isNight() && d <= FOG_RANGE) fogOn(p); else fogOff(p);
+
+  // heartbeat that quickens as Verity nears
+  if (d <= HEARTBEAT_RANGE) {
+    if (now >= (heartbeatNext.get(p.id) ?? 0)) {
+      try { p.dimension.playSound("mob.entity_verity.heartbeat", p.location, { volume: 1.1 }); } catch (_) {}
+      heartbeatNext.set(p.id, now + Math.round(7 + (d / HEARTBEAT_RANGE) * 22));
+    }
+  }
+
+  // darkness vignette when it's hunting and close
+  if (hunting && d <= 16) {
+    try { p.addEffect("darkness", 70, { amplifier: 0, showParticles: false }); } catch (_) {}
+  }
+
+  // disembodied footsteps / whispers while stalking (pre-chase)
+  if (stalking && !hunting && d <= 26 && Math.random() < 0.07) {
+    const snd = Math.random() < 0.5 ? "mob.entity_verity.footstep" : "mob.entity_verity.whisper";
+    try { p.dimension.playSound(snd, p.location, { volume: 0.9, pitch: 0.85 + Math.random() * 0.25 }); } catch (_) {}
+  }
+
+  // fourth-wall messages (it knows things it shouldn't)
+  if ((hunting || stalking) && d <= 44 && now >= (msgNext.get(p.id) ?? (now + 200))) {
+    creepyMessage(p);
+    msgNext.set(p.id, now + DREAD_MSG_MIN + Math.floor(Math.random() * DREAD_MSG_VAR));
+  }
+}
+
+// peek-and-vanish: appear at the edge of view, gone the moment you look
+function doPeek(e, player) {
+  const r = rec(e.id);
+  let vd; try { vd = player.getViewDirection(); } catch (_) { vd = { x: 0, y: 0, z: 1 }; }
+  const dist = 18 + Math.random() * 8;
+  const ang = (Math.random() < 0.5 ? 1 : -1) * (0.22 + Math.random() * 0.18);
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const dx = vd.x * c - vd.z * s, dz = vd.x * s + vd.z * c;
+  const x = player.location.x + dx * dist, z = player.location.z + dz * dist;
+  const y = groundY(e.dimension, x, z, player.location.y + 6);
+  try { e.removeEffect("invisibility"); } catch (_) {}
+  try { e.teleport({ x, y, z }, { dimension: e.dimension, facingLocation: player.location }); } catch (_) {}
+  setAnim(e, A.STARE);
+  r.mode = "peek"; r.t0 = system.currentTick; r.peekNext = system.currentTick + 900 + Math.floor(Math.random() * 800);
+}
+function vanishPeek(e, player) {
+  const r = rec(e.id);
+  try { e.dimension.playSound("mob.entity_verity.whisper", player.location, { volume: 0.8 }); } catch (_) {}
+  try { e.dimension.spawnParticle("minecraft:large_explosion", center(e.location, e.location.y + 1)); } catch (_) {}
+  try { e.addEffect("invisibility", 60, { showParticles: false }); } catch (_) {}
+  try { e.triggerEvent("verity:go_dormant"); } catch (_) {}
+  const spot = findHidden(e, player);
+  try { e.teleport(spot, { dimension: e.dimension }); } catch (_) {}
+  setAnim(e, A.IDLE); r.mode = "idle";
+}
+
 function tickLoop() {
   tk++;
   if (tk % SCAN !== 0) return;
   const now = system.currentTick;
 
-  // track player position history + enclosure
+  // track player position history + enclosure, and run the dread atmosphere
   for (const p of world.getAllPlayers()) {
     try {
       let h = pHist.get(p.id); if (!h) { h = []; pHist.set(p.id, h); }
       h.push({ x: p.location.x, y: p.location.y, z: p.location.z }); if (h.length > 8) h.shift();
       let roof = false; try { roof = isSolid(p.dimension.getBlock({ x: Math.floor(p.location.x), y: Math.floor(p.location.y) + 3, z: Math.floor(p.location.z) })); } catch (_) {}
       enclosed.set(p.id, roof ? (enclosed.get(p.id) ?? 0) + SCAN : 0);
+      handleDread(p, now);
     } catch (_) {}
   }
 
@@ -397,10 +507,20 @@ function tickLoop() {
           approach(e, player);
           break;
 
+        case "peek":
+          freeze(e, 12); faceTo(e, player.location); setAnim(e, A.STARE);
+          if (d <= STALK_NEAR && los) { r.mode = "stare"; r.t0 = now; break; }  // you came closer
+          if (playerLooking(player, e) || now - r.t0 > 70) { vanishPeek(e, player); }  // you looked / timed out
+          break;
+
         default: { // "idle" — decide what to do
           if (mineshaft(e, player)) { faceTo(e, player.location); setAnim(e, A.STARE); freeze(e, 12); if (d <= CHASE_NEAR + 1) doSnap(e); break; }
           if (d <= CHASE_NEAR) { startChase(e); break; }
           if (d <= STALK_NEAR && los) { r.mode = "stare"; r.t0 = now; break; }
+          // occasional peek-and-vanish sighting at the edge of view
+          if (d >= 16 && d <= 40 && now >= (r.peekNext ?? 0) && !playerLooking(player, e) && Math.random() < 0.2) {
+            doPeek(e, player); break;
+          }
           if (d <= 40) { startChase(e); break; }   // baseline: it always knows where you are
           setAnim(e, A.IDLE);
         }

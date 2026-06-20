@@ -24,6 +24,24 @@
           "volume": 1.0
         }
       ]
+    },
+    "mob.entity_verity.heartbeat": {
+      "category": "hostile",
+      "min_distance": 8.0,
+      "max_distance": 24.0,
+      "sounds": [ { "name": "sounds/mob/entity_verity/heartbeat", "volume": 1.0 } ]
+    },
+    "mob.entity_verity.whisper": {
+      "category": "hostile",
+      "min_distance": 6.0,
+      "max_distance": 24.0,
+      "sounds": [ { "name": "sounds/mob/entity_verity/whisper", "volume": 0.9 } ]
+    },
+    "mob.entity_verity.footstep": {
+      "category": "hostile",
+      "min_distance": 6.0,
+      "max_distance": 20.0,
+      "sounds": [ { "name": "sounds/mob/entity_verity/footstep", "volume": 0.9 } ]
     }
   }
 }

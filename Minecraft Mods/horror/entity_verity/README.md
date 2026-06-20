@@ -38,6 +38,18 @@ Animation is exposed to the model through the int property `verity:anim`
 | **Mineshaft ambush** | When Verity is above you with an open exit overhead, it waits silently, then leans/snaps and charges when you get close. |
 | **Climb** | Real scripted wall-climb (Bedrock `can_climb` only does ladders), via a refreshed levitation while against a wall. |
 
+### Dread atmosphere
+
+Leaning into Verity's lore (a "friend" that knows things it shouldn't, then hunts you):
+
+| Effect | What happens |
+|--------|--------------|
+| **Fog + darkness** | While hunting at night, a thick near-black fog closes to ~16 blocks and a darkness vignette pulses when it's close. |
+| **Heartbeat** | A heartbeat plays when Verity is within ~28 blocks and **quickens as it nears**. |
+| **Stalking dread** | Before the chase you hear disembodied **footsteps / whispers** from the dark. |
+| **Peek-and-vanish** | It sometimes appears at the **edge of your view**, staring — and is gone the instant you look at it. |
+| **It knows you** | Verity sends fourth-wall chat messages **by your name** (and notices when you're low on hearts). |
+
 ### Commands (`/scriptevent`)
 
 Run these from chat or a command block:
