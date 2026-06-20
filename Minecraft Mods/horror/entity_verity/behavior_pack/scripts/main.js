@@ -31,7 +31,9 @@ const SCAN = 4;
 const STALK_NEAR = 14, CHASE_NEAR = 6;
 const MIRROR_MIN = 10, MIRROR_MAX = 18;
 const STARE_TIME = 60, TRANSFORM_TIME = 45;
-const LOOKAWAY_LIMIT = 20;       // ticks of not-looking before mirror -> approach
+const LOOKAWAY_LIMIT = 20;       // ticks of not-looking before mirror resolves
+const MIRROR_TIME_MIN = 70, MIRROR_TIME_MAX = 150;  // mirror this long, then flip a coin
+const HIDE_TIME = 120;           // ticks Verity stays vanished after fleeing
 const ENCLOSE_LIMIT = 160;       // ticks roofed before a house breach
 const BREACH_RANGE = 22, WINDOW_RADIUS = 6, WINDOW_VRADIUS = 3, DOOR_RADIUS = 8;
 const BREACH_COOLDOWN = 500, CLIMB_DY = 1.2;
@@ -257,6 +259,43 @@ function approach(e, player) {
   try { e.teleport({ x: e.location.x + (dx / l) * 0.16, y: e.location.y, z: e.location.z + (dz / l) * 0.16 }, { dimension: e.dimension, facingLocation: player.location }); } catch (_) {}
 }
 
+// find the ground (top of first solid block) under x,z
+function groundY(dim, x, z, yStart) {
+  const ix = Math.floor(x), iz = Math.floor(z);
+  for (let y = Math.floor(yStart); y > yStart - 18; y--) {
+    let b; try { b = dim.getBlock({ x: ix, y, z: iz }); } catch (_) { return yStart; }
+    if (isSolid(b)) return y + 1;
+  }
+  return yStart;
+}
+// a spot ~dist away from the player, on the far side of Verity, behind cover if possible
+function findHidden(e, player) {
+  const base = Math.atan2(e.location.z - player.location.z, e.location.x - player.location.x);
+  for (const dd of [10, 8, 12, 14]) {
+    for (const off of [0, 0.6, -0.6, 1.2, -1.2]) {
+      const a = base + off;
+      const x = player.location.x + Math.cos(a) * dd, z = player.location.z + Math.sin(a) * dd;
+      const spot = { x, y: groundY(e.dimension, x, z, player.location.y + 6), z };
+      if (!losClear(e.dimension, spot, player.location)) return spot; // blocked = behind cover
+    }
+  }
+  let dx = e.location.x - player.location.x, dz = e.location.z - player.location.z;
+  const l = Math.hypot(dx, dz) || 1;
+  const x = e.location.x + (dx / l) * 10, z = e.location.z + (dz / l) * 10;
+  return { x, y: groundY(e.dimension, x, z, e.location.y + 4), z };
+}
+// "tails" — bolt behind cover and vanish for a while
+function enterHidden(e, player) {
+  const dim = e.dimension, r = rec(e.id);
+  try { dim.spawnParticle("minecraft:large_explosion", center(e.location, e.location.y + 1)); dim.playSound("mob.endermen.portal", e.location); } catch (_) {}
+  const spot = findHidden(e, player);
+  try { e.teleport(spot, { dimension: dim, facingLocation: player.location }); } catch (_) {}
+  try { e.addEffect("invisibility", HIDE_TIME + 20, { showParticles: false }); } catch (_) {}
+  try { e.triggerEvent("verity:go_dormant"); } catch (_) {}
+  setAnim(e, A.IDLE);
+  r.mode = "hidden"; r.forced = null; r.t0 = system.currentTick;
+}
+
 // ---- commands (shared by /scriptevent and, if available, "!" chat) ----
 function spawnAway(player) {
   const ang = Math.random() * Math.PI * 2;
@@ -343,11 +382,25 @@ function tickLoop() {
           if (now - r.t0 >= STARE_TIME) doTransform(e, player);
           break;
 
-        case "mirror":
-          if (d <= CHASE_NEAR) { startChase(e); break; }
+        case "mirror": {
+          if (d <= CHASE_NEAR) { startChase(e); break; }              // too close -> chase
           if (looking) r.lookAway = 0; else r.lookAway += SCAN;
-          if (r.lookAway >= LOOKAWAY_LIMIT && r.forced !== "mirror") { r.mode = "approach"; break; }
+          if (!r.coinAt) r.coinAt = now + MIRROR_TIME_MIN + Math.floor(Math.random() * (MIRROR_TIME_MAX - MIRROR_TIME_MIN));
+          // after mirroring a while (or the moment you look away), flip a coin
+          if (r.forced !== "mirror" && (now >= r.coinAt || r.lookAway >= LOOKAWAY_LIMIT)) {
+            r.coinAt = 0;
+            if (Math.random() < 0.5) startChase(e);   // heads: charge
+            else enterHidden(e, player);              // tails: flee behind cover and vanish
+            break;
+          }
           mirrorMove(e, player);
+          break;
+        }
+
+        case "hidden":
+          freeze(e, 14); setAnim(e, A.IDLE);
+          try { e.addEffect("invisibility", 30, { showParticles: false }); } catch (_) {}
+          if (now - r.t0 >= HIDE_TIME) { try { e.removeEffect("invisibility"); } catch (_) {} r.mode = "idle"; r.forced = null; }
           break;
 
         case "approach":
@@ -359,7 +412,7 @@ function tickLoop() {
           if (mineshaft(e, player)) { faceTo(e, player.location); setAnim(e, A.STARE); freeze(e, 12); if (d <= CHASE_NEAR + 1) doSnap(e); break; }
           if (d <= CHASE_NEAR) { startChase(e); break; }
           if (d <= STALK_NEAR && los) { r.mode = "stare"; r.t0 = now; break; }
-          if (d >= MIRROR_MIN && d <= MIRROR_MAX && los) { r.mode = "mirror"; r.lookAway = 0; break; }
+          if (d >= MIRROR_MIN && d <= MIRROR_MAX && los) { r.mode = "mirror"; r.lookAway = 0; r.coinAt = 0; break; }
           if (d <= 40) { startChase(e); break; }   // baseline: it always knows where you are
           setAnim(e, A.IDLE);
         }

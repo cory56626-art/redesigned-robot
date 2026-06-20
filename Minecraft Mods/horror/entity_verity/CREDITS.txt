@@ -1,0 +1,13 @@
+Audio credits
+=============
+
+resource_pack/sounds/mob/entity_verity/scream.ogg
+  Derived from "ahhh" by UncleSigmund (freesound.org), released under
+  CC0 1.0 (Public Domain Dedication) and mirrored on Wikimedia Commons:
+  https://commons.wikimedia.org/wiki/File:UncleSigmund_-_ahhh_(cc0)_(freesound).mp3
+  Pitched down, detuned, distorted, given a sub-rumble bed and cavernous
+  reverb, then loop-prepared for Verity's chase scream.
+  CC0 requires no attribution; this note is provided as a courtesy.
+
+resource_pack/sounds/mob/entity_verity/bonecrack.ogg
+  Original synthesized sound effect (no external source).
