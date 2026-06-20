@@ -1,0 +1,28 @@
+{
+	"schemaVersion": 1,
+	"id": "lobber",
+	"version": "${version}",
+	"name": "The Lobber",
+	"description": "Adds the Lobber: a mischievous, enderman-like stalker that creeps in on lone players a few nights into the world, steals and destroys blocks, and hurls them at anyone who dares to look its way.",
+	"authors": [
+		"Lobber Mod"
+	],
+	"contact": {},
+	"license": "MIT",
+	"icon": "assets/lobber/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.lobber.LobberMod"
+		],
+		"client": [
+			"com.lobber.client.LobberClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.15.0",
+		"minecraft": "~1.20.1",
+		"java": ">=17",
+		"fabric-api": "*"
+	}
+}
