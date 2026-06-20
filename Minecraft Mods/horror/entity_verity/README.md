@@ -42,12 +42,12 @@ entity_verity/
 
 ## Installation
 
-1. Copy `behavior_pack/` into your world's `behavior_packs/` folder and
-   `resource_pack/` into `resource_packs/` (or zip each as a `.mcpack` and
-   import them).
-2. Enable **both** packs on the world (the behavior pack depends on the
-   resource pack).
-3. Add the scream audio: drop a `scream.ogg` into
-   `resource_pack/sounds/mob/entity_verity/` (see the note file there).
+**Easiest:** double-click `Entity_Verity.mcaddon` to import both packs into
+Minecraft, then enable them on your world.
 
-> The scream audio is not bundled — supply any `.ogg` scream you have rights to.
+**Manual:** copy `behavior_pack/` into your world's `behavior_packs/` folder and
+`resource_pack/` into `resource_packs/`, then enable **both** packs (the
+behavior pack depends on the resource pack).
+
+The chase scream (`scream.ogg`) is bundled. To use your own, replace
+`resource_pack/sounds/mob/entity_verity/scream.ogg` with any `.ogg` file.
