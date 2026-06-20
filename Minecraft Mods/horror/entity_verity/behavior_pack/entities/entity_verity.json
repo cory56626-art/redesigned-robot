@@ -1,0 +1,188 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "verity:entity_verity",
+      "is_spawnable": true,
+      "is_summonable": true,
+      "is_experimental": false
+    },
+
+    "component_groups": {
+      "verity:hunting": {
+        "minecraft:ambient_sound_interval": {
+          "value": 0.0,
+          "range": 0.0,
+          "event_name": "ambient"
+        }
+      },
+      "verity:silent": {
+        "minecraft:ambient_sound_interval": {
+          "value": 999999,
+          "range": 0.0,
+          "event_name": "ambient"
+        }
+      }
+    },
+
+    "components": {
+      "minecraft:type_family": {
+        "family": ["entity_verity", "monster", "mob"]
+      },
+      "minecraft:collision_box": {
+        "width": 0.6,
+        "height": 2.9
+      },
+      "minecraft:health": {
+        "value": 120,
+        "max": 120
+      },
+      "minecraft:fire_immune": true,
+      "minecraft:damage_sensor": {
+        "triggers": [
+          {
+            "cause": "drowning",
+            "deals_damage": false
+          },
+          {
+            "cause": "suffocation",
+            "deals_damage": false
+          },
+          {
+            "cause": "lava",
+            "deals_damage": false
+          },
+          {
+            "cause": "fire",
+            "deals_damage": false
+          },
+          {
+            "cause": "fire_tick",
+            "deals_damage": false
+          }
+        ]
+      },
+      "minecraft:knockback_resistance": {
+        "value": 1.0,
+        "max": 1.0
+      },
+      "minecraft:movement": {
+        "value": 0.48
+      },
+      "minecraft:underwater_movement": {
+        "value": 0.48
+      },
+      "minecraft:movement.basic": {},
+      "minecraft:jump.static": {},
+      "minecraft:can_climb": {},
+      "minecraft:navigation.walk": {
+        "can_path_over_water": true,
+        "avoid_water": false,
+        "avoid_damage_blocks": false,
+        "can_pass_doors": true,
+        "can_open_doors": false,
+        "can_break_doors": true
+      },
+      "minecraft:physics": {},
+      "minecraft:pushable": {
+        "is_pushable": false,
+        "is_pushable_by_piston": true
+      },
+      "minecraft:persistent": {},
+      "minecraft:nameable": {},
+      "minecraft:attack": {
+        "damage": 8
+      },
+      "minecraft:follow_range": {
+        "value": 256,
+        "max": 256
+      },
+
+      "minecraft:behavior.float": {
+        "priority": 0
+      },
+      "minecraft:behavior.melee_attack": {
+        "priority": 1,
+        "track_target": true,
+        "speed_multiplier": 1.6,
+        "reach_multiplier": 2.0,
+        "cooldown_time": 0.25,
+        "attack_once": false,
+        "require_complete_path": false
+      },
+      "minecraft:behavior.nearest_attackable_target": {
+        "priority": 2,
+        "must_see": false,
+        "must_reach": false,
+        "reselect_targets": true,
+        "scan_interval": 1,
+        "within_radius": 256,
+        "persist_time": 999,
+        "entity_types": [
+          {
+            "filters": {
+              "test": "is_family",
+              "subject": "other",
+              "value": "player"
+            },
+            "max_dist": 256
+          }
+        ]
+      },
+      "minecraft:entity_sensor": {
+        "subsensors": [
+          {
+            "range": [48.0, 48.0],
+            "minimum_count": 1,
+            "maximum_count": 100,
+            "event": "verity:on_player_detected",
+            "cooldown": 1.0,
+            "require_all": false,
+            "event_filters": {
+              "test": "is_family",
+              "subject": "other",
+              "value": "player"
+            }
+          },
+          {
+            "range": [80.0, 80.0],
+            "minimum_count": 0,
+            "maximum_count": 0,
+            "event": "verity:on_player_lost",
+            "cooldown": 2.0,
+            "require_all": true,
+            "event_filters": {
+              "test": "is_family",
+              "subject": "other",
+              "value": "player"
+            }
+          }
+        ]
+      }
+    },
+
+    "events": {
+      "minecraft:entity_spawned": {
+        "add": {
+          "component_groups": ["verity:silent"]
+        }
+      },
+      "verity:on_player_detected": {
+        "remove": {
+          "component_groups": ["verity:silent"]
+        },
+        "add": {
+          "component_groups": ["verity:hunting"]
+        }
+      },
+      "verity:on_player_lost": {
+        "remove": {
+          "component_groups": ["verity:hunting"]
+        },
+        "add": {
+          "component_groups": ["verity:silent"]
+        }
+      }
+    }
+  }
+}

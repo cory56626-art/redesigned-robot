@@ -1,0 +1,17 @@
+{
+  "entity_sounds": {
+    "entities": {
+      "verity:entity_verity": {
+        "volume": 1.0,
+        "pitch": [0.75, 1.0],
+        "events": {
+          "ambient": {
+            "sound": "mob.entity_verity.scream",
+            "volume": 1.0,
+            "pitch": [0.7, 1.05]
+          }
+        }
+      }
+    }
+  }
+}

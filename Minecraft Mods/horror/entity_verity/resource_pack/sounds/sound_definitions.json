@@ -1,0 +1,18 @@
+{
+  "format_version": "1.14.0",
+  "sound_definitions": {
+    "mob.entity_verity.scream": {
+      "category": "hostile",
+      "min_distance": 1.0,
+      "max_distance": 48.0,
+      "sounds": [
+        {
+          "name": "sounds/mob/entity_verity/scream",
+          "stream": true,
+          "volume": 1.0,
+          "load_on_low_memory": true
+        }
+      ]
+    }
+  }
+}

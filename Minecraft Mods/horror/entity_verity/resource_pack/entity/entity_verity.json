@@ -1,0 +1,35 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "verity:entity_verity",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/entity/entity_verity"
+      },
+      "geometry": {
+        "default": "geometry.entity_verity"
+      },
+      "scripts": {
+        "animate": [
+          "controller_general"
+        ]
+      },
+      "animations": {
+        "controller_general": "controller.animation.entity_verity.general",
+        "idle_twitch": "animation.entity_verity.idle_twitch",
+        "detect_shake": "animation.entity_verity.detect_shake",
+        "jitter_sprint": "animation.entity_verity.jitter_sprint"
+      },
+      "render_controllers": [
+        "controller.render.entity_verity"
+      ],
+      "spawn_egg": {
+        "base_color": "#e7e23a",
+        "overlay_color": "#1a1a1a"
+      }
+    }
+  }
+}

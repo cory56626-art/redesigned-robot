@@ -1,0 +1,105 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.entity_verity.idle_twitch": {
+      "loop": true,
+      "bones": {
+        "head": {
+          "rotation": [
+            "math.random(-2.0, 2.0)",
+            "math.random(-3.0, 3.0)",
+            "math.random(-1.5, 1.5)"
+          ]
+        },
+        "body": {
+          "rotation": [0, "math.random(-1.0, 1.0)", 0]
+        },
+        "rightArm": {
+          "rotation": ["math.random(-1.5, 1.5)", 0, "math.random(-1.0, 1.0)"]
+        },
+        "leftArm": {
+          "rotation": ["math.random(-1.5, 1.5)", 0, "math.random(-1.0, 1.0)"]
+        }
+      }
+    },
+
+    "animation.entity_verity.detect_shake": {
+      "loop": false,
+      "animation_length": 0.5,
+      "bones": {
+        "root": {
+          "position": [
+            "math.random(-1.5, 1.5)",
+            "math.random(-1.0, 1.0)",
+            "math.random(-1.5, 1.5)"
+          ]
+        },
+        "body": {
+          "rotation": [
+            "math.random(-10.0, 10.0)",
+            "math.random(-12.0, 12.0)",
+            "math.random(-8.0, 8.0)"
+          ]
+        },
+        "head": {
+          "rotation": [
+            "math.random(-15.0, 15.0)",
+            "math.random(-20.0, 20.0)",
+            "math.random(-15.0, 15.0)"
+          ]
+        },
+        "rightArm": {
+          "rotation": ["math.random(-25.0, 25.0)", 0, "math.random(-10.0, 10.0)"]
+        },
+        "leftArm": {
+          "rotation": ["math.random(-25.0, 25.0)", 0, "math.random(-10.0, 10.0)"]
+        }
+      }
+    },
+
+    "animation.entity_verity.jitter_sprint": {
+      "loop": true,
+      "anim_time_update": "query.modified_distance_moved",
+      "bones": {
+        "root": {
+          "position": [
+            "math.random(-2.0, 2.0)",
+            "math.random(-1.0, 1.0)",
+            "math.random(-2.0, 2.0)"
+          ],
+          "rotation": [0, "math.random(-4.0, 4.0)", 0]
+        },
+        "body": {
+          "rotation": [20, "math.random(-6.0, 6.0)", "math.random(-4.0, 4.0)"]
+        },
+        "head": {
+          "rotation": [
+            "-15 + math.random(-8.0, 8.0)",
+            "math.random(-12.0, 12.0)",
+            "math.random(-10.0, 10.0)"
+          ]
+        },
+        "rightArm": {
+          "rotation": [
+            "math.cos(query.anim_time * 2400) * 55 + math.random(-15, 15)",
+            0,
+            0
+          ]
+        },
+        "leftArm": {
+          "rotation": [
+            "math.cos(query.anim_time * 2400 + 180) * 55 + math.random(-15, 15)",
+            0,
+            0
+          ]
+        },
+        "rightLeg": {
+          "rotation": ["math.cos(query.anim_time * 2400 + 180) * 60", 0, 0]
+        },
+        "leftLeg": {
+          "rotation": ["math.cos(query.anim_time * 2400) * 60", 0, 0]
+        }
+      }
+    }
+  }
+}

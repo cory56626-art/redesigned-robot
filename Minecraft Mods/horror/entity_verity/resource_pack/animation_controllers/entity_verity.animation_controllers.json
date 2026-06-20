@@ -1,0 +1,31 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.entity_verity.general": {
+      "initial_state": "idle",
+      "states": {
+        "idle": {
+          "animations": ["idle_twitch"],
+          "transitions": [
+            { "alert": "query.is_moving" }
+          ]
+        },
+        "alert": {
+          "animations": ["detect_shake"],
+          "blend_transition": 0.05,
+          "transitions": [
+            { "idle": "!query.is_moving" },
+            { "chase": "query.all_animations_finished" }
+          ]
+        },
+        "chase": {
+          "animations": ["jitter_sprint"],
+          "blend_transition": 0.05,
+          "transitions": [
+            { "idle": "!query.is_moving" }
+          ]
+        }
+      }
+    }
+  }
+}
