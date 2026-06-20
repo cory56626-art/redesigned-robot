@@ -33,10 +33,9 @@ Animation is exposed to the model through the int property `verity:anim`
 | Mode | What happens |
 |------|--------------|
 | **Stalk → transform → charge** | Detected at ≤14 blocks with line-of-sight: Verity stares (silent) ~3s, then **bone-cracks** while it twists its spine and folds into a crouch, then charges. |
-| **House breach** | If you stay roofed/enclosed too long, Verity crawls to the nearest **door**, opens it, crawls in, stops a few blocks away, stares ~3s, snaps upright, and chases. |
+| **House breach** | While chasing, if Verity can't close the distance (you're walled in), it crawls to the nearest **door**, opens it, crawls in, stops a few blocks away, stares ~3s, snaps upright, and chases. |
 | **Window breach** | While chasing near glass: vanish → reappear outside → smash the pane "with its face" → crawl in (~4.4s). |
 | **Mineshaft ambush** | When Verity is above you with an open exit overhead, it waits silently, then leans/snaps and charges when you get close. |
-| **Movement mirror** | At 10–18 blocks with line-of-sight (and not chasing): copies your delayed movement with a broken stance. Exits to chase within 6 blocks or if you attack it; if you look away >1s it stops and slowly creeps in. |
 | **Climb** | Real scripted wall-climb (Bedrock `can_climb` only does ladders), via a refreshed levitation while against a wall. |
 
 ### Commands (`/scriptevent`)
@@ -49,7 +48,6 @@ Run these from chat or a command block:
 | `/scriptevent verity:come` | Make the nearest Verity creep toward you. |
 | `/scriptevent verity:chase` | Force instant chase. |
 | `/scriptevent verity:stop` | Freeze it until it detects you again. |
-| `/scriptevent verity:mirror` | Force movement-mirror mode. |
 | `/scriptevent verity:door` | Run the door house-breach now. |
 | `/scriptevent verity:glass` | Run the window breach on the nearest glass. |
 

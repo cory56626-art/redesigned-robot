@@ -34,8 +34,8 @@ const STARE_TIME = 60, TRANSFORM_TIME = 45;
 const LOOKAWAY_LIMIT = 20;       // ticks of not-looking before mirror resolves
 const MIRROR_TIME_MIN = 70, MIRROR_TIME_MAX = 150;  // mirror this long, then flip a coin
 const HIDE_TIME = 120;           // ticks Verity stays vanished after fleeing
-const ENCLOSE_LIMIT = 160;       // ticks roofed before a house breach
-const BREACH_RANGE = 22, WINDOW_RADIUS = 6, WINDOW_VRADIUS = 3, DOOR_RADIUS = 8;
+const STUCK_LIMIT = 36;          // ticks of "can't get closer" before a breach
+const BREACH_RANGE = 26, WINDOW_RADIUS = 6, WINDOW_VRADIUS = 3, DOOR_RADIUS = 12;
 const BREACH_COOLDOWN = 500, CLIMB_DY = 1.2;
 
 const S = new Map();             // entity id -> behavioral record
@@ -100,7 +100,7 @@ function playerLooking(player, entity) {
 
 function startChase(e) {
   const r = rec(e.id);
-  r.mode = "chase"; r.forced = null;
+  r.mode = "chase"; r.forced = null; r.prevDist = undefined; r.stuck = 0;
   unfreeze(e);
   try { e.triggerEvent("verity:begin_hunt"); } catch (_) {}
 }
@@ -324,7 +324,6 @@ function handleCommand(action, player) {
     case "come": r.mode = "approach"; r.forced = "come"; unfreeze(e); try { e.triggerEvent("verity:start_crawl"); } catch (_) {} break;
     case "chase": startChase(e); break;
     case "stop": r.mode = "stop"; r.forced = "stop"; try { e.triggerEvent("verity:go_dormant"); } catch (_) {} setAnim(e, A.IDLE); freeze(e, 200); break;
-    case "mirror": r.mode = "mirror"; r.forced = "mirror"; r.lookAway = 0; unfreeze(e); break;
     case "door": doDoorBreach(e, player); break;
     case "glass": { const w = findWindow(e.dimension, e, player); if (w) startWindowBreach(e, w, player); else { try { player.sendMessage("§7No glass near you."); } catch (_) {} } break; }
   }
@@ -368,8 +367,14 @@ function tickLoop() {
         case "chase": {
           if (tryClimb(e, player)) break;
           setAnim(e, A.CHASE);
-          if (now >= (cooldown.get(e.id) ?? 0) && d <= BREACH_RANGE) {
-            if ((enclosed.get(player.id) ?? 0) >= ENCLOSE_LIMIT && findDoor(e.dimension, player)) { doDoorBreach(e, player); break; }
+          // "can't reach you" detector: if the gap stops closing, you're hiding
+          if (r.prevDist === undefined) { r.prevDist = d; r.stuck = 0; }
+          if (d < r.prevDist - 0.05) r.stuck = 0; else r.stuck += SCAN;
+          r.prevDist = d;
+          if (now >= (cooldown.get(e.id) ?? 0) && d > CHASE_NEAR && d <= BREACH_RANGE && r.stuck >= STUCK_LIMIT) {
+            r.stuck = 0; r.prevDist = undefined;
+            const door = findDoor(e.dimension, player);
+            if (door) { doDoorBreach(e, player); break; }
             const w = findWindow(e.dimension, e, player);
             if (w) { startWindowBreach(e, w, player); break; }
           }
@@ -382,27 +387,6 @@ function tickLoop() {
           if (now - r.t0 >= STARE_TIME) doTransform(e, player);
           break;
 
-        case "mirror": {
-          if (d <= CHASE_NEAR) { startChase(e); break; }              // too close -> chase
-          if (looking) r.lookAway = 0; else r.lookAway += SCAN;
-          if (!r.coinAt) r.coinAt = now + MIRROR_TIME_MIN + Math.floor(Math.random() * (MIRROR_TIME_MAX - MIRROR_TIME_MIN));
-          // after mirroring a while (or the moment you look away), flip a coin
-          if (r.forced !== "mirror" && (now >= r.coinAt || r.lookAway >= LOOKAWAY_LIMIT)) {
-            r.coinAt = 0;
-            if (Math.random() < 0.5) startChase(e);   // heads: charge
-            else enterHidden(e, player);              // tails: flee behind cover and vanish
-            break;
-          }
-          mirrorMove(e, player);
-          break;
-        }
-
-        case "hidden":
-          freeze(e, 14); setAnim(e, A.IDLE);
-          try { e.addEffect("invisibility", 30, { showParticles: false }); } catch (_) {}
-          if (now - r.t0 >= HIDE_TIME) { try { e.removeEffect("invisibility"); } catch (_) {} r.mode = "idle"; r.forced = null; }
-          break;
-
         case "approach":
           if (d <= CHASE_NEAR) { startChase(e); break; }
           approach(e, player);
@@ -412,7 +396,6 @@ function tickLoop() {
           if (mineshaft(e, player)) { faceTo(e, player.location); setAnim(e, A.STARE); freeze(e, 12); if (d <= CHASE_NEAR + 1) doSnap(e); break; }
           if (d <= CHASE_NEAR) { startChase(e); break; }
           if (d <= STALK_NEAR && los) { r.mode = "stare"; r.t0 = now; break; }
-          if (d >= MIRROR_MIN && d <= MIRROR_MAX && los) { r.mode = "mirror"; r.lookAway = 0; r.coinAt = 0; break; }
           if (d <= 40) { startChase(e); break; }   // baseline: it always knows where you are
           setAnim(e, A.IDLE);
         }
@@ -450,7 +433,7 @@ try {
 
 // optional: "!" chat commands (silently skipped if chatSend is unavailable)
 try {
-  const map = { "!verity": "spawn", "!veritycome": "come", "!veritychase": "chase", "!veritystop": "stop", "!veritymirror": "mirror", "!veritydoor": "door", "!verityglass": "glass" };
+  const map = { "!verity": "spawn", "!veritycome": "come", "!veritychase": "chase", "!veritystop": "stop", "!veritydoor": "door", "!verityglass": "glass" };
   world.beforeEvents.chatSend.subscribe((ev) => {
     const action = map[(ev.message || "").trim().toLowerCase().split(/\s+/)[0]];
     if (!action) return;
