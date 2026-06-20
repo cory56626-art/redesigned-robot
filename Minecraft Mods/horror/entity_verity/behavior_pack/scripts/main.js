@@ -122,18 +122,18 @@ function startBreach(entity, windowLoc, player) {
   const outsideLoc = { x: windowLoc.x - ix, y: windowLoc.y, z: windowLoc.z - iz };
   const insideLoc = { x: windowLoc.x + ix, y: windowLoc.y, z: windowLoc.z + iz };
 
-  // keep it pinned for the whole show (~9s)
-  freeze(entity, 190);
+  // keep it pinned for the whole show (~4.4s)
+  freeze(entity, 95);
 
   // Step 1 (t=0) — vanish in place.
   try {
     setAnim(entity, ANIM.PHASE);
-    entity.addEffect("invisibility", 200, { showParticles: false });
+    entity.addEffect("invisibility", 60, { showParticles: false });
     dim.spawnParticle("minecraft:large_explosion", center(entity.location, entity.location.y + 1));
     dim.playSound("mob.endermen.portal", entity.location);
   } catch (_) {}
 
-  // Step 2 (t=40, 2s) — reappear OUTSIDE the window, facing it, and just stand.
+  // Step 2 (t=20, 1s) — reappear OUTSIDE the window, facing it, and just stand.
   system.runTimeout(() => {
     if (!valid(entity)) { busy.delete(id); return; }
     try {
@@ -142,14 +142,14 @@ function startBreach(entity, windowLoc, player) {
         facingLocation: center(windowLoc, windowLoc.y + 0.5),
       });
       entity.removeEffect("invisibility");
-      freeze(entity, 150);
+      freeze(entity, 75);
       setAnim(entity, ANIM.PHASE);
       dim.playSound("mob.endermen.portal", outsideLoc);
       dim.playSound("mob.endermen.stare", outsideLoc);
     } catch (_) {}
-  }, 40);
+  }, 20);
 
-  // Step 3 (t=90, ~4.5s) — slam the glass: top pane first, with cracks.
+  // Step 3 (t=40, 2s) — slam the glass: top pane first, with cracks.
   system.runTimeout(() => {
     if (!valid(entity)) { busy.delete(id); return; }
     try {
@@ -159,9 +159,9 @@ function startBreach(entity, windowLoc, player) {
       if (isGlass(b)) b.setType("minecraft:air");
       dim.playSound("random.glass", top);
     } catch (_) {}
-  }, 90);
+  }, 40);
 
-  // Step 4 (t=110, ~5.5s) — break the main pane.
+  // Step 4 (t=52, ~2.6s) — break the main pane.
   system.runTimeout(() => {
     if (!valid(entity)) { busy.delete(id); return; }
     try {
@@ -171,22 +171,22 @@ function startBreach(entity, windowLoc, player) {
       dim.playSound("random.glass", windowLoc);
       dim.playSound("random.glass", windowLoc);
     } catch (_) {}
-  }, 110);
+  }, 52);
 
-  // Step 5 (t=135, ~6.75s) — crawl through to the inside, slowly.
+  // Step 5 (t=64, ~3.2s) — crawl through to the inside.
   system.runTimeout(() => {
     if (!valid(entity)) { busy.delete(id); return; }
     try {
       entity.triggerEvent("verity:start_crawl");
-      freeze(entity, 70);
+      freeze(entity, 32);
       entity.teleport(center(windowLoc, windowLoc.y), {
         dimension: dim,
         facingLocation: player.location,
       });
     } catch (_) {}
-  }, 135);
+  }, 64);
 
-  // Step 6 (t=165, ~8.25s) — finish crawling inside.
+  // Step 6 (t=78, ~3.9s) — finish crawling inside.
   system.runTimeout(() => {
     if (!valid(entity)) { busy.delete(id); return; }
     try {
@@ -195,14 +195,14 @@ function startBreach(entity, windowLoc, player) {
         facingLocation: player.location,
       });
     } catch (_) {}
-  }, 165);
+  }, 78);
 
-  // Step 7 (t=190, ~9.5s) — stand up and resume the chase.
+  // Step 7 (t=88, ~4.4s) — stand up and resume the chase.
   system.runTimeout(() => {
     busy.delete(id);
     if (!valid(entity)) return;
     try { entity.triggerEvent("verity:stop_crawl"); unfreeze(entity); } catch (_) {}
-  }, 190);
+  }, 88);
 }
 
 function stopClimb(entity) {
