@@ -257,16 +257,7 @@ function approach(e, player) {
   try { e.teleport({ x: e.location.x + (dx / l) * 0.16, y: e.location.y, z: e.location.z + (dz / l) * 0.16 }, { dimension: e.dimension, facingLocation: player.location }); } catch (_) {}
 }
 
-// ---- player attacks Verity -> instant chase ----
-world.afterEvents.entityHurt.subscribe((ev) => {
-  const e = ev.hurtEntity;
-  if (!e || e.typeId !== VERITY) return;
-  const src = ev.damageSource && ev.damageSource.damagingEntity;
-  if (src && src.typeId === "minecraft:player" && !busy.has(e.id)) startChase(e);
-});
-
-// ---- "!" commands ----
-const COMMANDS = new Set(["!verity", "!veritycome", "!veritychase", "!veritystop", "!veritymirror", "!veritydoor", "!verityglass"]);
+// ---- commands (shared by /scriptevent and, if available, "!" chat) ----
 function spawnAway(player) {
   const ang = Math.random() * Math.PI * 2;
   const loc = { x: player.location.x + Math.cos(ang) * 20, y: player.location.y + 1, z: player.location.z + Math.sin(ang) * 20 };
@@ -282,100 +273,136 @@ function ensureVerity(player) {
   } catch (_) {}
   return best || spawnAway(player);
 }
-function handleCommand(cmd, player) {
-  if (cmd === "!verity") { spawnAway(player); try { player.sendMessage("§cVerity has spawned…"); } catch (_) {} return; }
+// action is one of: spawn come chase stop mirror door glass
+function handleCommand(action, player) {
+  if (!player || !valid(player)) return;
+  if (action === "spawn") { spawnAway(player); try { player.sendMessage("§cVerity has spawned…"); } catch (_) {} return; }
   const e = ensureVerity(player);
   if (!e || !valid(e)) return;
   const r = rec(e.id);
-  if (busy.has(e.id) && cmd !== "!veritystop") return;
-  switch (cmd) {
-    case "!veritycome": r.mode = "approach"; r.forced = "come"; unfreeze(e); try { e.triggerEvent("verity:start_crawl"); } catch (_) {} break;
-    case "!veritychase": startChase(e); break;
-    case "!veritystop": r.mode = "stop"; r.forced = "stop"; try { e.triggerEvent("verity:go_dormant"); } catch (_) {} setAnim(e, A.IDLE); freeze(e, 200); break;
-    case "!veritymirror": r.mode = "mirror"; r.forced = "mirror"; unfreeze(e); break;
-    case "!veritydoor": doDoorBreach(e, player); break;
-    case "!verityglass": { const w = findWindow(e.dimension, e, player); if (w) startWindowBreach(e, w, player); else try { player.sendMessage("§7No glass near you."); } catch (_) {} break; }
+  if (busy.has(e.id) && action !== "stop") return;
+  switch (action) {
+    case "come": r.mode = "approach"; r.forced = "come"; unfreeze(e); try { e.triggerEvent("verity:start_crawl"); } catch (_) {} break;
+    case "chase": startChase(e); break;
+    case "stop": r.mode = "stop"; r.forced = "stop"; try { e.triggerEvent("verity:go_dormant"); } catch (_) {} setAnim(e, A.IDLE); freeze(e, 200); break;
+    case "mirror": r.mode = "mirror"; r.forced = "mirror"; r.lookAway = 0; unfreeze(e); break;
+    case "door": doDoorBreach(e, player); break;
+    case "glass": { const w = findWindow(e.dimension, e, player); if (w) startWindowBreach(e, w, player); else { try { player.sendMessage("§7No glass near you."); } catch (_) {} } break; }
   }
 }
-world.beforeEvents.chatSend.subscribe((ev) => {
-  const msg = (ev.message || "").trim();
-  if (!msg.startsWith("!")) return;
-  const cmd = msg.toLowerCase().split(/\s+/)[0];
-  if (!COMMANDS.has(cmd)) return;
-  ev.cancel = true;
-  const player = ev.sender;
-  system.run(() => handleCommand(cmd, player));
-});
 
-// ---- main loop ----
-let tk = 0;
-system.runInterval(() => {
+// ---- main per-tick logic ----
+function tickLoop() {
   tk++;
   if (tk % SCAN !== 0) return;
   const now = system.currentTick;
 
   // track player position history + enclosure
   for (const p of world.getAllPlayers()) {
-    let h = pHist.get(p.id); if (!h) { h = []; pHist.set(p.id, h); }
-    h.push({ x: p.location.x, y: p.location.y, z: p.location.z }); if (h.length > 8) h.shift();
-    let roof = false; try { roof = isSolid(p.dimension.getBlock({ x: Math.floor(p.location.x), y: Math.floor(p.location.y) + 3, z: Math.floor(p.location.z) })); } catch (_) {}
-    enclosed.set(p.id, roof ? (enclosed.get(p.id) ?? 0) + SCAN : 0);
+    try {
+      let h = pHist.get(p.id); if (!h) { h = []; pHist.set(p.id, h); }
+      h.push({ x: p.location.x, y: p.location.y, z: p.location.z }); if (h.length > 8) h.shift();
+      let roof = false; try { roof = isSolid(p.dimension.getBlock({ x: Math.floor(p.location.x), y: Math.floor(p.location.y) + 3, z: Math.floor(p.location.z) })); } catch (_) {}
+      enclosed.set(p.id, roof ? (enclosed.get(p.id) ?? 0) + SCAN : 0);
+    } catch (_) {}
   }
 
   let ents = [];
   for (const d of ["overworld", "nether", "the_end"]) { try { ents = ents.concat(world.getDimension(d).getEntities({ type: VERITY })); } catch (_) {} }
 
   for (const e of ents) {
-    if (!valid(e) || busy.has(e.id)) continue;
-    const r = rec(e.id);
-    const near = nearestPlayer(e);
-    if (!near) { setAnim(e, A.IDLE); continue; }
-    const { player, d } = near;
-    const los = losClear(e.dimension, e.location, player.location);
-    const looking = playerLooking(player, e);
+    try {
+      if (!valid(e) || busy.has(e.id)) continue;
+      const r = rec(e.id);
+      const near = nearestPlayer(e);
+      if (!near) { setAnim(e, A.IDLE); continue; }
+      const { player, d } = near;
+      const los = losClear(e.dimension, e.location, player.location);
+      const looking = playerLooking(player, e);
 
-    switch (r.mode) {
-      case "stop":
-        freeze(e, 12); setAnim(e, A.IDLE);
-        if (d <= STALK_NEAR && los) { r.mode = "idle"; r.forced = null; }   // detects player again
-        break;
+      switch (r.mode) {
+        case "stop":
+          freeze(e, 12); setAnim(e, A.IDLE);
+          if (d <= STALK_NEAR && los) { r.mode = "idle"; r.forced = null; }   // detects player again
+          break;
 
-      case "chase": {
-        if (tryClimb(e, player)) break;
-        setAnim(e, A.CHASE);
-        if (now >= (cooldown.get(e.id) ?? 0) && d <= BREACH_RANGE) {
-          if ((enclosed.get(player.id) ?? 0) >= ENCLOSE_LIMIT && findDoor(e.dimension, player)) { doDoorBreach(e, player); break; }
-          const w = findWindow(e.dimension, e, player);
-          if (w) { startWindowBreach(e, w, player); break; }
+        case "chase": {
+          if (tryClimb(e, player)) break;
+          setAnim(e, A.CHASE);
+          if (now >= (cooldown.get(e.id) ?? 0) && d <= BREACH_RANGE) {
+            if ((enclosed.get(player.id) ?? 0) >= ENCLOSE_LIMIT && findDoor(e.dimension, player)) { doDoorBreach(e, player); break; }
+            const w = findWindow(e.dimension, e, player);
+            if (w) { startWindowBreach(e, w, player); break; }
+          }
+          break;
         }
-        break;
+
+        case "stare":
+          faceTo(e, player.location); setAnim(e, A.STARE); freeze(e, 12);
+          if (d <= CHASE_NEAR) { startChase(e); break; }
+          if (now - r.t0 >= STARE_TIME) doTransform(e, player);
+          break;
+
+        case "mirror":
+          if (d <= CHASE_NEAR) { startChase(e); break; }
+          if (looking) r.lookAway = 0; else r.lookAway += SCAN;
+          if (r.lookAway >= LOOKAWAY_LIMIT && r.forced !== "mirror") { r.mode = "approach"; break; }
+          mirrorMove(e, player);
+          break;
+
+        case "approach":
+          if (d <= CHASE_NEAR) { startChase(e); break; }
+          approach(e, player);
+          break;
+
+        default: { // "idle" — decide what to do
+          if (mineshaft(e, player)) { faceTo(e, player.location); setAnim(e, A.STARE); freeze(e, 12); if (d <= CHASE_NEAR + 1) doSnap(e); break; }
+          if (d <= CHASE_NEAR) { startChase(e); break; }
+          if (d <= STALK_NEAR && los) { r.mode = "stare"; r.t0 = now; break; }
+          if (d >= MIRROR_MIN && d <= MIRROR_MAX && los) { r.mode = "mirror"; r.lookAway = 0; break; }
+          if (d <= 40) { startChase(e); break; }   // baseline: it always knows where you are
+          setAnim(e, A.IDLE);
+        }
       }
-
-      case "stare":
-        faceTo(e, player.location); setAnim(e, A.STARE); freeze(e, 12);
-        if (d <= CHASE_NEAR) { startChase(e); break; }
-        if (now - r.t0 >= STARE_TIME) doTransform(e, player);
-        break;
-
-      case "mirror":
-        if (d <= CHASE_NEAR) { startChase(e); break; }
-        if (looking) r.lookAway = 0; else r.lookAway += SCAN;
-        if (r.lookAway >= LOOKAWAY_LIMIT && r.forced !== "mirror") { r.mode = "approach"; break; }
-        mirrorMove(e, player);
-        break;
-
-      case "approach":
-        if (d <= CHASE_NEAR) { startChase(e); break; }
-        approach(e, player);
-        break;
-
-      default: { // "idle" — decide what to do
-        if (mineshaft(e, player)) { faceTo(e, player.location); setAnim(e, A.STARE); freeze(e, 12); if (d <= CHASE_NEAR + 1) doSnap(e); break; }
-        if (d <= CHASE_NEAR) { startChase(e); break; }
-        if (d <= STALK_NEAR && los) { r.mode = "stare"; r.t0 = now; break; }
-        if (d >= MIRROR_MIN && d <= MIRROR_MAX && los) { r.mode = "mirror"; r.lookAway = 0; break; }
-        setAnim(e, A.IDLE);
-      }
-    }
+    } catch (_) {}
   }
-}, 1);
+}
+
+// ---- registrations ----
+// The loop is registered FIRST and wrapped, so nothing below can stop it.
+let tk = 0;
+system.runInterval(() => { try { tickLoop(); } catch (_) {} }, 1);
+
+// player attacks Verity -> instant chase
+try {
+  world.afterEvents.entityHurt.subscribe((ev) => {
+    const e = ev.hurtEntity;
+    if (!e || e.typeId !== VERITY) return;
+    const src = ev.damageSource && ev.damageSource.damagingEntity;
+    if (src && src.typeId === "minecraft:player" && !busy.has(e.id)) startChase(e);
+  });
+} catch (_) {}
+
+// commands via:  /scriptevent verity:spawn|come|chase|stop|mirror|door|glass
+try {
+  system.afterEvents.scriptEventReceive.subscribe((ev) => {
+    const id = ev.id || "";
+    if (!id.startsWith("verity:")) return;
+    const action = id.slice(7);
+    let player = ev.sourceEntity;
+    if (!player || player.typeId !== "minecraft:player") player = world.getAllPlayers()[0];
+    if (player) system.run(() => handleCommand(action, player));
+  });
+} catch (_) {}
+
+// optional: "!" chat commands (silently skipped if chatSend is unavailable)
+try {
+  const map = { "!verity": "spawn", "!veritycome": "come", "!veritychase": "chase", "!veritystop": "stop", "!veritymirror": "mirror", "!veritydoor": "door", "!verityglass": "glass" };
+  world.beforeEvents.chatSend.subscribe((ev) => {
+    const action = map[(ev.message || "").trim().toLowerCase().split(/\s+/)[0]];
+    if (!action) return;
+    ev.cancel = true;
+    const player = ev.sender;
+    system.run(() => handleCommand(action, player));
+  });
+} catch (_) {}
