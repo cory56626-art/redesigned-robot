@@ -1,0 +1,37 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "§cHarder Survival§r",
+    "description": "Makes Bedrock survival MUCH harder.\n§7Buffed mobs, brutal nights, scarce loot & more.§r\n§8v1.0.0§r",
+    "uuid": "ed43eb05-ed06-4d66-b207-adea390c496d",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 20, 0]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "653be8b4-7de1-4649-8205-53616bd3ba1f",
+      "version": [1, 0, 0]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "c6153d11-d9d5-45a2-8aa6-4818e2e4ee9a",
+      "version": [1, 0, 0],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "1.11.0"
+    }
+  ],
+  "metadata": {
+    "authors": ["Harder Survival Add-On"],
+    "license": "MIT",
+    "generated_with": {
+      "claude_code": ["1.0.0"]
+    }
+  }
+}
