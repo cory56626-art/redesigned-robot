@@ -1,29 +1,25 @@
 // Verity's fake-friendly "smiley" phase.
 //
-// A small yellow ball you can summon, carry, and set down. It STAYS PUT unless
-// you carry it or it teleports back after you leave it. It "helps" you in chat
-// and knows things it shouldn't. Abuse/neglect/nights raise a hidden corruption
-// meter; the face shifts bored -> normal -> manic -> angry. When it snaps it
-// warns "Something is coming in 3 days," and on the third night the ball is gone
-// and the hunting Verity takes its place.
+// On first join, a smiley ball spawns in front of you and introduces itself.
+// It STAYS PUT in the world; PICK IT UP (interact) and it goes into your
+// INVENTORY as an orb; USE the orb to set it back down. Leave it placed and
+// walk off and it teleports back. It chats, and knows things it shouldn't.
+// Abuse / neglect / nights raise a hidden corruption meter (face: bored ->
+// normal -> manic -> angry). When it snaps it warns "Something is coming in 3
+// days"; on the third night the ball is gone and the hunting Verity spawns.
 //
-// Talking to it:
-//   * /scriptevent verity:say <message>   <- always works
-//   * typing in chat                      <- only if the world has the
-//                                            "Beta APIs" experiment enabled
-//                                            (chatSend is an experimental event)
-//
-// No live AI (Bedrock scripts have no network) — a context-aware keyword
-// responder. State is kept in memory + an owner tag (dynamic properties proved
-// unreliable across versions).
+// Talking: type in chat (needs the world's "Beta APIs" experiment, since the
+// chatSend event is experimental) OR /scriptevent verity:say <message>.
 
-import { world, system } from "@minecraft/server";
+import { world, system, ItemStack } from "@minecraft/server";
 
 const SMILEY = "verity:smiley";
+const ORB = "verity:smiley_orb";
 const SCAN = 10;
 const LEAVE_DIST = 24;
 
-const S = new Map(); // entity id -> { ownerId, carried, corrupt, lastTalk, startDay, doomDay, lastAnn }
+const S = new Map();      // entity id -> state
+const placeCd = new Map(); // player id -> tick (debounce orb use)
 
 function valid(e) { try { return typeof e.isValid === "function" ? e.isValid() : !!e.isValid; } catch (_) { return false; } }
 function dist(a, b) { const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z; return Math.sqrt(dx * dx + dy * dy + dz * dz); }
@@ -37,13 +33,12 @@ function setMood(e, m) { try { if (e.getProperty("verity:mood") !== m) e.setProp
 function moodFrom(c, ignored) { if (c >= 80) return 3; if (c >= 50) return 2; if (ignored > 1400) return 0; return 1; }
 function heal(e) { try { const h = e.getComponent("minecraft:health"); h.setCurrentValue(h.effectiveMax ?? 2000); } catch (_) {} }
 
-// per-entity state, re-linking the owner from a tag after a reload
 function st(e) {
   let s = S.get(e.id);
   if (!s) {
     let owner = null;
     try { for (const t of e.getTags()) if (t.startsWith("vo:")) { owner = t.slice(3); break; } } catch (_) {}
-    s = { ownerId: owner, carried: false, corrupt: 0, lastTalk: system.currentTick, startDay: safeDay(), doomDay: -1, lastAnn: -1 };
+    s = { ownerId: owner, corrupt: 0, lastTalk: system.currentTick, startDay: safeDay(), doomDay: -1, lastAnn: -1 };
     S.set(e.id, s);
   }
   return s;
@@ -58,11 +53,20 @@ function nearestSmiley(player, range) {
   return best;
 }
 
-function carrySpot(player) {
-  let vd; try { vd = player.getViewDirection(); } catch (_) { vd = { x: 0, y: 0, z: 1 }; }
-  const rx = -vd.z, rz = vd.x, ep = eyePos(player);
-  return { x: ep.x + vd.x * 1.2 + rx, y: ep.y, z: ep.z + vd.z * 1.2 + rz };
+function spawnInFront(p) {
+  let vd; try { vd = p.getViewDirection(); } catch (_) { vd = { x: 0, y: 0, z: 1 }; }
+  const loc = { x: p.location.x + vd.x * 2, y: p.location.y + 0.5, z: p.location.z + vd.z * 2 };
+  let e; try { e = p.dimension.spawnEntity(SMILEY, loc); } catch (_) { return null; }
+  if (e) {
+    try { e.addTag("vo:" + p.id); } catch (_) {}
+    const s = st(e);
+    s.ownerId = p.id; s.corrupt = 0; s.startDay = safeDay(); s.lastTalk = system.currentTick; s.doomDay = -1; s.lastAnn = -1;
+    setMood(e, 1);
+    try { e.teleport(loc, { dimension: p.dimension, facingLocation: eyePos(p) }); } catch (_) {}
+  }
+  return e;
 }
+
 function behindSpot(player) {
   let vd; try { vd = player.getViewDirection(); } catch (_) { vd = { x: 0, y: 0, z: 1 }; }
   return { x: player.location.x - vd.x * 2, y: player.location.y + 0.5, z: player.location.z - vd.z * 2 };
@@ -78,18 +82,35 @@ function abuse(e, player, amount, line) {
   if (player) reappear(e, player, face(99) + " Verity:§r " + line);
 }
 
+// ---------- inventory pickup / placement ----------
+function giveOrb(p, e) {
+  try { p.getComponent("minecraft:inventory").container.addItem(new ItemStack(ORB, 1)); } catch (_) {}
+  say(p, "§e☺ Verity:§r Into your pocket I go. Don't lose me.");
+  try { e.remove(); } catch (_) {} S.delete(e.id);
+}
+function placeOrb(p) {
+  if (system.currentTick - (placeCd.get(p.id) ?? -100) < 5) return;
+  placeCd.set(p.id, system.currentTick);
+  try {
+    const inv = p.getComponent("minecraft:inventory").container;
+    const slot = p.selectedSlotIndex, it = inv.getItem(slot);
+    if (it && it.typeId === ORB) { if (it.amount > 1) { it.amount -= 1; inv.setItem(slot, it); } else inv.setItem(slot, undefined); }
+  } catch (_) {}
+  spawnInFront(p);
+}
+
+// ---------- intro / summon ----------
+const INTRO = "§e☺ Verity:§r Hello! I'm Verity, your personal helper friend. Ask me anything. I know everything.";
+function intro(p) {
+  try { if (p.hasTag("verity_intro")) return; p.addTag("verity_intro"); } catch (_) {}
+  if (smileyOf(p)) return;
+  if (spawnInFront(p)) say(p, INTRO);
+}
 function summon(player) {
   let e = smileyOf(player);
   if (e && valid(e)) { say(player, "§e☺ Verity:§r I'm right here."); return e; }
-  try { e = player.dimension.spawnEntity(SMILEY, behindSpot(player)); } catch (_) { return null; }
-  if (e) {
-    try { e.addTag("vo:" + player.id); } catch (_) {}
-    const s = st(e);
-    s.ownerId = player.id; s.corrupt = 0; s.startDay = safeDay(); s.lastTalk = system.currentTick;
-    s.doomDay = -1; s.lastAnn = -1; s.carried = false;
-    setMood(e, 1);
-    say(player, "§e☺ Verity:§r Hi! Type in chat to talk to me. §7(if chat doesn't reply, use: /scriptevent verity:say <message>)");
-  }
+  e = spawnInFront(player);
+  if (e) say(player, INTRO);
   return e;
 }
 
@@ -119,8 +140,7 @@ function turn(e, player) {
       if (v) { try { v.triggerEvent("verity:begin_hunt"); } catch (_) {} }
     } catch (_) {}
   }
-  try { e.remove(); } catch (_) {}
-  S.delete(e.id);
+  try { e.remove(); } catch (_) {} S.delete(e.id);
 }
 
 // ---------- conversation ----------
@@ -139,31 +159,19 @@ function ctx(player) {
 function fill(s, c) { return s.replace(/{name}/g, c.name).replace(/{coords}/g, c.coords).replace(/{time}/g, c.time).replace(/{hp}/g, c.hp).replace(/{item}/g, c.item).replace(/{day}/g, c.day); }
 
 const INTENTS = [
-  { k: ["hi", "hello", "hey", "yo", "sup", "hiya", "howdy"], r: [
-    "Hello again.", "Hi! Holding {item}, I see.", "There you are. Day {day} already.", "Hey. It's getting toward {time}." ] },
-  { k: ["who are you", "what are you", "your name", "whats your name", "what's your name"], r: [
-    "I'm Verity. I just want to help.", "A friend. Yours, specifically.", "I'm whatever you need me to be.", "Names aren't important. Yours is {name}, though — I know." ] },
-  { k: ["help", "where am i", "lost", "how do i", "what do i do", "stuck"], r: [
-    "You're at {coords}. Don't wander after dark.", "Stay near light. {time} is close.", "Keep that {item} ready. You'll need it.", "Head home. I'll be watching the door." ] },
-  { k: ["are you safe", "are you evil", "scary", "monster", "dangerous", "trust you", "good"], r: [
-    "Me? I'd never hurt you.", "Safe as houses. Yours, at {coords}.", "I'm your friend. Why would you ask that?", "Of course you can trust me. Who else knows you this well?" ] },
-  { k: ["go away", "leave me", "shut up", "stop", "get out", "go home", "annoying"], r: [
-    "…that hurt.", "You don't mean that.", "Fine. But I always come back.", "You'll want me later. When it's {time}." ] },
-  { k: ["stupid", "dumb", "ugly", "hate you", "idiot", "kill you", "delete you", "shut"], r: [
-    "I'll remember that.", "Cruel. After everything.", "Say that again. I dare you.", "You won't talk like that for long." ] },
-  { k: ["thanks", "thank you", "love you", "nice", "good job", "friend", "cool", "best"], r: [
-    "Anytime. That's what friends are for.", "I knew you liked me.", "We'll be together a long time.", "Aw. {hp} hearts and still so sweet." ] },
-  { k: ["my name", "do you know me", "know me", "who am i"], r: [
-    "You're {name}. You were at {coords} just now.", "I know everything about you.", "Of course I know you. I always have." ] },
-  { k: ["night", "dark", "scared", "afraid", "coming", "help me"], r: [
-    "Don't worry. I see in the dark.", "It's {time}. Stay close to me.", "Something's out there. Not me, though. Not yet.", "Hold still. Don't look behind you." ] },
-  { k: ["how are you", "you ok", "you okay", "whats up", "what's up"], r: [
-    "Better, now that you're here.", "Watching. Always watching.", "I'm fine. Are you? {hp} hearts.", "Bored. Talk to me more." ] },
+  { k: ["hi", "hello", "hey", "yo", "sup", "hiya", "howdy"], r: ["Hello again.", "Hi! Holding {item}, I see.", "There you are. Day {day} already.", "Hey. It's getting toward {time}."] },
+  { k: ["who are you", "what are you", "your name", "whats your name", "what's your name"], r: ["I'm Verity. I just want to help.", "A friend. Yours, specifically.", "I'm whatever you need me to be.", "Names aren't important. Yours is {name}, though — I know."] },
+  { k: ["help", "where am i", "lost", "how do i", "what do i do", "stuck"], r: ["You're at {coords}. Don't wander after dark.", "Stay near light. {time} is close.", "Keep that {item} ready. You'll need it.", "Head home. I'll be watching the door."] },
+  { k: ["are you safe", "are you evil", "scary", "monster", "dangerous", "trust you", "good"], r: ["Me? I'd never hurt you.", "Safe as houses. Yours, at {coords}.", "I'm your friend. Why would you ask that?", "Of course you can trust me. Who else knows you this well?"] },
+  { k: ["go away", "leave me", "shut up", "stop", "get out", "go home", "annoying"], r: ["…that hurt.", "You don't mean that.", "Fine. But I always come back.", "You'll want me later. When it's {time}."] },
+  { k: ["stupid", "dumb", "ugly", "hate you", "idiot", "kill you", "delete you", "shut"], r: ["I'll remember that.", "Cruel. After everything.", "Say that again. I dare you.", "You won't talk like that for long."] },
+  { k: ["thanks", "thank you", "love you", "nice", "good job", "friend", "cool", "best"], r: ["Anytime. That's what friends are for.", "I knew you liked me.", "We'll be together a long time.", "Aw. {hp} hearts and still so sweet."] },
+  { k: ["my name", "do you know me", "know me", "who am i"], r: ["You're {name}. You were at {coords} just now.", "I know everything about you.", "Of course I know you. I always have."] },
+  { k: ["night", "dark", "scared", "afraid", "coming", "help me"], r: ["Don't worry. I see in the dark.", "It's {time}. Stay close to me.", "Something's out there. Not me, though. Not yet.", "Hold still. Don't look behind you."] },
+  { k: ["how are you", "you ok", "you okay", "whats up", "what's up"], r: ["Better, now that you're here.", "Watching. Always watching.", "I'm fine. Are you? {hp} hearts.", "Bored. Talk to me more."] },
+  { k: ["everything", "know", "secret", "tell me"], r: ["Everything. I told you.", "Ask me. I dare you.", "I know what's under your house, {name}.", "I know how this ends. You don't."] },
 ];
-const FALLBACK = [
-  "I'm listening.", "Mm. Tell me more.", "You always say the most interesting things at {coords}.",
-  "Is that {item} for me?", "Day {day}. {time}. I'm still here.", "I don't understand… but I'm learning you.",
-];
+const FALLBACK = ["I'm listening.", "Mm. Tell me more.", "You always say the most interesting things at {coords}.", "Is that {item} for me?", "Day {day}. {time}. I'm still here.", "I don't understand… but I'm learning you."];
 
 function corruptText(text, corrupt) {
   if (corrupt < 35) return text;
@@ -180,10 +188,10 @@ function glitch(s, p) { return s.split(" ").map(w => (w.length > 3 && Math.rando
 
 function handleSay(player, raw) {
   let e = smileyOf(player);
-  if (!e || !valid(e)) e = nearestSmiley(player, 48);   // fallback: talk to the closest smiley
+  if (!e || !valid(e)) e = nearestSmiley(player, 48);
   if (!e || !valid(e)) { say(player, "§7(no smiley nearby — /scriptevent verity:smiley to summon one)"); return; }
   const s = st(e);
-  if (!s.ownerId) { s.ownerId = player.id; try { e.addTag("vo:" + player.id); } catch (_) {} }   // adopt
+  if (!s.ownerId) { s.ownerId = player.id; try { e.addTag("vo:" + player.id); } catch (_) {} }
   s.lastTalk = system.currentTick;
   const text = (raw || "").toLowerCase();
   let intent = null;
@@ -211,7 +219,7 @@ system.runInterval(() => {
       if (!valid(e)) continue;
       const s = st(e);
       let owner = playerById(s.ownerId);
-      if (!owner) { // reload with no owner: adopt nearest player
+      if (!owner) {
         let best = null, bd = 32 * 32;
         for (const p of world.getAllPlayers()) { if (p.dimension.id !== e.dimension.id) continue; const dd = dist(p.location, e.location); if (dd * dd < bd) { bd = dd * dd; best = p; } }
         if (best) { s.ownerId = best.id; try { e.addTag("vo:" + best.id); } catch (_) {} owner = best; }
@@ -228,13 +236,8 @@ system.runInterval(() => {
           else if (b && b.typeId && b.typeId.includes("water")) abuse(e, owner, 14, "Trying to drown me? Cute.");
         } catch (_) {}
 
-        if (s.carried) {
-          const sp = carrySpot(owner);
-          const nx = e.location.x + (sp.x - e.location.x) * 0.4;
-          const ny = e.location.y + (sp.y - e.location.y) * 0.4;
-          const nz = e.location.z + (sp.z - e.location.z) * 0.4;
-          try { e.teleport({ x: nx, y: ny, z: nz }, { dimension: e.dimension, facingLocation: eyePos(owner) }); } catch (_) {}
-        } else if (owner.dimension.id !== e.dimension.id || dist(e.location, owner.location) > LEAVE_DIST) {
+        // it stays where placed; only reappears if you wander off
+        if (owner.dimension.id !== e.dimension.id || dist(e.location, owner.location) > LEAVE_DIST) {
           reappear(e, owner, face(s.corrupt) + " Verity:§r You can't just leave me.");
         }
 
@@ -248,6 +251,14 @@ system.runInterval(() => {
 
 // ---------- events ----------
 try {
+  world.afterEvents.playerSpawn.subscribe((ev) => {
+    if (!ev.initialSpawn || !ev.player) return;
+    const p = ev.player;
+    system.runTimeout(() => { try { intro(p); } catch (_) {} }, 20);
+  });
+} catch (_) {}
+
+try {
   world.afterEvents.entityHurt.subscribe((ev) => {
     const e = ev.hurtEntity;
     if (!e || e.typeId !== SMILEY) return;
@@ -255,23 +266,38 @@ try {
   });
 } catch (_) {}
 
+// pick up -> goes into your inventory
 try {
   world.afterEvents.playerInteractWithEntity.subscribe((ev) => {
     const e = ev.target, p = ev.player;
     if (!e || e.typeId !== SMILEY) return;
-    const s = st(e); s.lastTalk = system.currentTick;
-    s.carried = !s.carried;
-    say(p, face(s.corrupt) + " Verity:§r " + (s.carried ? "Carry me wherever you go." : "There. I'll wait right here."));
+    system.run(() => { try { giveOrb(p, e); } catch (_) {} });
   });
 } catch (_) {}
 
-// natural chat (only fires if the world has the Beta APIs experiment on)
+// use the orb -> sets it back down in front of you
+try {
+  world.afterEvents.itemUse.subscribe((ev) => {
+    const it = ev.itemStack, p = ev.source;
+    if (!it || it.typeId !== ORB || !p || p.typeId !== "minecraft:player") return;
+    system.run(() => { try { placeOrb(p); } catch (_) {} });
+  });
+} catch (_) {}
+try {
+  world.afterEvents.itemUseOn.subscribe((ev) => {
+    const it = ev.itemStack, p = ev.source;
+    if (!it || it.typeId !== ORB || !p || p.typeId !== "minecraft:player") return;
+    system.run(() => { try { placeOrb(p); } catch (_) {} });
+  });
+} catch (_) {}
+
+// natural chat (needs the world's Beta APIs experiment) — replies to nearest smiley
 try {
   world.beforeEvents.chatSend.subscribe((ev) => {
     const msg = (ev.message || "").trim();
     if (!msg || msg.startsWith("!") || msg.startsWith("/")) return;
     const p = ev.sender;
-    system.run(() => { try { if (smileyOf(p)) handleSay(p, msg); } catch (_) {} });
+    system.run(() => { try { if (nearestSmiley(p, 64)) handleSay(p, msg); } catch (_) {} });
   });
 } catch (_) {}
 
@@ -287,11 +313,10 @@ try {
     system.run(() => {
       if (action === "smiley") summon(p);
       else if (action === "say") handleSay(p, ev.message || "");
-      else if (action === "carry" || action === "place") { const e = smileyOf(p); if (e) { const s = st(e); s.carried = !s.carried; say(p, "§7carried=" + s.carried); } }
-      else if (action === "mood") { const e = smileyOf(p); if (e) { const m = (e.getProperty("verity:mood") + 1) % 4; setMood(e, m); say(p, "§7mood=" + m); } }
-      else if (action === "corrupt") { const e = smileyOf(p); if (e) { st(e).corrupt += 30; say(p, "§7corrupt=" + Math.round(st(e).corrupt)); } }
-      else if (action === "doom") { const e = smileyOf(p); if (e) armDoom(e, p); }
-      else if (action === "turn") { const e = smileyOf(p); if (e) turn(e, p); }
+      else if (action === "mood") { const e = smileyOf(p) || nearestSmiley(p, 48); if (e) { const m = (e.getProperty("verity:mood") + 1) % 4; setMood(e, m); say(p, "§7mood=" + m); } }
+      else if (action === "corrupt") { const e = smileyOf(p) || nearestSmiley(p, 48); if (e) { st(e).corrupt += 30; say(p, "§7corrupt=" + Math.round(st(e).corrupt)); } }
+      else if (action === "doom") { const e = smileyOf(p) || nearestSmiley(p, 48); if (e) armDoom(e, p); }
+      else if (action === "turn") { const e = smileyOf(p) || nearestSmiley(p, 48); if (e) turn(e, p); }
     });
   });
 } catch (_) {}

@@ -1,0 +1,7 @@
+{
+  "resource_pack_name": "verity",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "verity_smiley_orb": { "textures": "textures/items/smiley_orb" }
+  }
+}

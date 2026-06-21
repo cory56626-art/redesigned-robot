@@ -58,8 +58,10 @@ shouldn't** — your name, coordinates, the time, what you're holding.
 
 - **Faces:** bored (flat) → normal (smile) → manic (toothy) → angry, driven by a
   hidden corruption meter.
-- **Pick up / place:** interact to set it down; interact again to carry it. Leave
-  it behind and **it teleports back to you**.
+- **Spawns on first join** in front of you and introduces itself.
+- **Pick up = inventory:** interact with it and it becomes a **Verity orb item**
+  in your inventory. **Use the orb** to set it back down in front of you. Leave a
+  placed ball behind and **it teleports back to you**.
 - **It won't die:** throw it in lava, water, or off a cliff and it **reappears,
   angrier** (corruption spikes).
 - **Talk to it:** use `/scriptevent verity:say <text>` (always works). Typing

@@ -1,0 +1,14 @@
+{
+  "format_version": "1.20.50",
+  "minecraft:item": {
+    "description": {
+      "identifier": "verity:smiley_orb",
+      "menu_category": { "category": "items" }
+    },
+    "components": {
+      "minecraft:max_stack_size": 1,
+      "minecraft:icon": { "texture": "verity_smiley_orb" },
+      "minecraft:hand_equipped": false
+    }
+  }
+}
