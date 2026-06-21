@@ -1,0 +1,9 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_furnace": {
+    "description": { "identifier": "hs:purify_water" },
+    "tags": ["furnace"],
+    "input": "hs:dirty_water_bottle",
+    "output": "hs:purified_water_bottle"
+  }
+}

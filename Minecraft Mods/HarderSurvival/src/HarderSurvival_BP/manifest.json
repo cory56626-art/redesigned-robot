@@ -2,10 +2,10 @@
   "format_version": 2,
   "header": {
     "name": "§cHarder Survival§r",
-    "description": "Makes Bedrock survival MUCH harder.\n§7Buffed mobs, brutal nights, scarce loot & more.§r\n§8v1.0.0§r",
+    "description": "Makes Bedrock survival MUCH harder.\n§7Buffed mobs, brutal nights, scarce loot & a thirst/water system.§r\n§8v1.1.0§r",
     "uuid": "ed43eb05-ed06-4d66-b207-adea390c496d",
-    "version": [1, 0, 0],
-    "min_engine_version": [1, 20, 0]
+    "version": [1, 1, 0],
+    "min_engine_version": [1, 20, 10]
   },
   "modules": [
     {
@@ -17,7 +17,7 @@
       "type": "script",
       "language": "javascript",
       "uuid": "c6153d11-d9d5-45a2-8aa6-4818e2e4ee9a",
-      "version": [1, 0, 0],
+      "version": [1, 1, 0],
       "entry": "scripts/main.js"
     }
   ],
@@ -25,6 +25,10 @@
     {
       "module_name": "@minecraft/server",
       "version": "1.11.0"
+    },
+    {
+      "uuid": "df27d3a3-ae12-43e9-94a9-26f91723e965",
+      "version": [1, 0, 0]
     }
   ],
   "metadata": {

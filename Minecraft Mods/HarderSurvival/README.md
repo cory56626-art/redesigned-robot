@@ -1,6 +1,6 @@
 # Harder Survival — Minecraft Bedrock Add-On
 
-Makes vanilla **Bedrock survival much harder**. No experimental toggles required.
+Makes vanilla **Bedrock survival much harder**, now with a full **thirst / water-purification system**. No experimental toggles required.
 
 ## Download
 
@@ -9,6 +9,13 @@ Makes vanilla **Bedrock survival much harder**. No experimental toggles required
 > On the GitHub web UI, open the file and click **Download** (or **View raw**).
 
 ## What it does
+
+**Thirst & water (NEW)**
+- You now have a **Water bar** shown on the action bar (`Water ▮▮▮▮▮▯▯▯▯▯ 50%`). It drains over time — **faster when sprinting and in the Nether**.
+- Filling a glass bottle from any water (lake/river/ocean) gives **Murky Water**. Drinking it **poisons** you (poison + nausea, sometimes hunger) and barely hydrates.
+- **Smelt Murky Water in a furnace** to get **Purified Water**, which is safe and restores a lot of thirst.
+- Juicy foods (melon, apple, berries, milk, …) give minor hydration.
+- Running low on water hurts: **30%** → slowness, **15%** → weakness + slowness, **0%** → you take damage until you drink.
 
 **Mobs are deadlier**
 - Every hostile mob is buffed the instant it spawns: **Strength II, Speed, Regeneration, Resistance, and Fire Resistance**. They hit harder, chase faster, tank more, heal themselves, and laugh at your lava traps.
@@ -31,7 +38,7 @@ Makes vanilla **Bedrock survival much harder**. No experimental toggles required
 ### Mobile / Console / Win10 (recommended)
 1. Download `HarderSurvival.mcaddon`.
 2. Open it — Minecraft launches and imports the pack automatically.
-3. Create/Edit a world → **Behavior Packs** → **Activate** "Harder Survival".
+3. Create/Edit a world → **Behavior Packs** → **Activate** "Harder Survival" (the matching resource pack auto-activates for the water-bottle textures; if not, also activate "Harder Survival Resources" under **Resource Packs**).
 4. Make sure **Difficulty** is Normal or Hard for the full effect. Hardcore mode pairs nicely.
 
 ### Manual
@@ -41,8 +48,10 @@ Makes vanilla **Bedrock survival much harder**. No experimental toggles required
 3. Activate it on your world as above.
 
 ## Notes / Compatibility
-- Requires **min engine version 1.20.0+** and the stable `@minecraft/server` scripting module (ships with the game, no experiments).
+- Requires **min engine version 1.20.10+** and the stable `@minecraft/server` scripting module (ships with the game, no experiments).
+- The Water bar is drawn on the **action bar** (Bedrock has no API to add a true extra HUD gauge without fragile UI hacks); other add-ons that write to the action bar may flicker against it.
 - Spawn-rule files intentionally override the vanilla zombie/skeleton/creeper/spider spawn rules; other spawn-rule add-ons for those mobs may conflict.
 - Loot-table files override the vanilla cow/pig/chicken/sheep tables.
+- Filling a glass bottle that's part of a **stack** may leave a plain (inert) water bottle; fill bottles one at a time for guaranteed Murky Water.
 
-Source for the pack lives in [`src/HarderSurvival_BP/`](./src/HarderSurvival_BP). Rebuild the `.mcaddon` by zipping that folder (see `build.sh`).
+Source for the packs lives in [`src/HarderSurvival_BP/`](./src/HarderSurvival_BP) (behavior) and [`src/HarderSurvival_RP/`](./src/HarderSurvival_RP) (resources). Rebuild the `.mcaddon` with `build.sh`.

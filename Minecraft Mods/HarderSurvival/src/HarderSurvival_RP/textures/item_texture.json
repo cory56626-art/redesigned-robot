@@ -1,0 +1,8 @@
+{
+  "resource_pack_name": "harder_survival",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "hs_dirty_water": { "textures": "textures/items/hs_dirty_water" },
+    "hs_purified_water": { "textures": "textures/items/hs_purified_water" }
+  }
+}
