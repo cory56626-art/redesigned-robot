@@ -1,0 +1,32 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "tnt_mod:rainbow_tnt"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:tnt"
+      },
+      {
+        "item": "minecraft:red_dye"
+      },
+      {
+        "item": "minecraft:green_dye"
+      },
+      {
+        "item": "minecraft:blue_dye"
+      },
+      {
+        "item": "minecraft:yellow_dye"
+      }
+    ],
+    "result": {
+      "item": "tnt_mod:rainbow_tnt",
+      "count": 1
+    }
+  }
+}

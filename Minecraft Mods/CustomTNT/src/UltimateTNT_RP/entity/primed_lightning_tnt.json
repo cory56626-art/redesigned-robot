@@ -1,0 +1,23 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "tnt_mod:primed_lightning_tnt",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/entity/tnt/primed_lightning_tnt"
+      },
+      "geometry": {
+        "default": "geometry.tnt_mod_cube"
+      },
+      "render_controllers": [
+        "controller.render.default"
+      ],
+      "spawn_egg": {
+        "texture": "lightning_tnt_side"
+      }
+    }
+  }
+}

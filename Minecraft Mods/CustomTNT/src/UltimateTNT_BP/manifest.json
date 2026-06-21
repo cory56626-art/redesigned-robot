@@ -1,0 +1,54 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Ultimate TNT [Behavior]",
+    "description": "7 custom TNTs: radioactive, chain, mini, nuke, lightning, ender, rainbow.",
+    "uuid": "2c61275c-9e6b-6cf8-950e-87d7f5606615",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      21,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "6dbca290-a9ea-b706-1f00-bca0042db923",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "f26fff4c-c4fd-394d-4c10-a4fe30cffdda",
+      "version": [
+        1,
+        0,
+        0
+      ],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "1.11.0"
+    },
+    {
+      "uuid": "a26b351e-6c80-42c5-6814-a2bc786a6d2d",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+## Ultimate TNT
+tile.tnt_mod:radioactive_tnt.name=Radioactive TNT
+tile.tnt_mod:chain_tnt.name=Chain TNT
+tile.tnt_mod:mini_tnt.name=Mini TNT
+tile.tnt_mod:nuke_tnt.name=Nuclear TNT
+tile.tnt_mod:lightning_tnt.name=Lightning TNT
+tile.tnt_mod:ender_tnt.name=Ender TNT
+tile.tnt_mod:rainbow_tnt.name=Rainbow TNT

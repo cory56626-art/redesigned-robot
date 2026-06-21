@@ -1,0 +1,39 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Ultimate TNT [Resources]",
+    "description": "Textures & models for Ultimate TNT.",
+    "uuid": "a26b351e-6c80-42c5-6814-a2bc786a6d2d",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      21,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "d4c08880-a5a4-666d-5476-0e7fbc051c6c",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "2c61275c-9e6b-6cf8-950e-87d7f5606615",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

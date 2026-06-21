@@ -1,0 +1,71 @@
+{
+  "resource_pack_name": "ultimate_tnt",
+  "texture_name": "atlas.terrain",
+  "padding": 8,
+  "num_mip_levels": 4,
+  "texture_data": {
+    "radioactive_tnt_side": {
+      "textures": "textures/blocks/radioactive_tnt_side"
+    },
+    "radioactive_tnt_top": {
+      "textures": "textures/blocks/radioactive_tnt_top"
+    },
+    "radioactive_tnt_bottom": {
+      "textures": "textures/blocks/radioactive_tnt_bottom"
+    },
+    "chain_tnt_side": {
+      "textures": "textures/blocks/chain_tnt_side"
+    },
+    "chain_tnt_top": {
+      "textures": "textures/blocks/chain_tnt_top"
+    },
+    "chain_tnt_bottom": {
+      "textures": "textures/blocks/chain_tnt_bottom"
+    },
+    "mini_tnt_side": {
+      "textures": "textures/blocks/mini_tnt_side"
+    },
+    "mini_tnt_top": {
+      "textures": "textures/blocks/mini_tnt_top"
+    },
+    "mini_tnt_bottom": {
+      "textures": "textures/blocks/mini_tnt_bottom"
+    },
+    "nuke_tnt_side": {
+      "textures": "textures/blocks/nuke_tnt_side"
+    },
+    "nuke_tnt_top": {
+      "textures": "textures/blocks/nuke_tnt_top"
+    },
+    "nuke_tnt_bottom": {
+      "textures": "textures/blocks/nuke_tnt_bottom"
+    },
+    "lightning_tnt_side": {
+      "textures": "textures/blocks/lightning_tnt_side"
+    },
+    "lightning_tnt_top": {
+      "textures": "textures/blocks/lightning_tnt_top"
+    },
+    "lightning_tnt_bottom": {
+      "textures": "textures/blocks/lightning_tnt_bottom"
+    },
+    "ender_tnt_side": {
+      "textures": "textures/blocks/ender_tnt_side"
+    },
+    "ender_tnt_top": {
+      "textures": "textures/blocks/ender_tnt_top"
+    },
+    "ender_tnt_bottom": {
+      "textures": "textures/blocks/ender_tnt_bottom"
+    },
+    "rainbow_tnt_side": {
+      "textures": "textures/blocks/rainbow_tnt_side"
+    },
+    "rainbow_tnt_top": {
+      "textures": "textures/blocks/rainbow_tnt_top"
+    },
+    "rainbow_tnt_bottom": {
+      "textures": "textures/blocks/rainbow_tnt_bottom"
+    }
+  }
+}

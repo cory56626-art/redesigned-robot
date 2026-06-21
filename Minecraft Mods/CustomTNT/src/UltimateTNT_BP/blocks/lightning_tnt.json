@@ -1,0 +1,37 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:block": {
+    "description": {
+      "identifier": "tnt_mod:lightning_tnt",
+      "menu_category": {
+        "category": "construction",
+        "group": "itemGroup.name.tnt"
+      }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 0.4
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 0
+      },
+      "minecraft:friction": 0.6,
+      "minecraft:map_color": "#78c8ff",
+      "minecraft:light_dampening": 0,
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "lightning_tnt_side",
+          "render_method": "opaque"
+        },
+        "up": {
+          "texture": "lightning_tnt_top",
+          "render_method": "opaque"
+        },
+        "down": {
+          "texture": "lightning_tnt_bottom",
+          "render_method": "opaque"
+        }
+      }
+    }
+  }
+}
