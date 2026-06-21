@@ -4,20 +4,20 @@
     "name": "Entity Verity (Resource)",
     "description": "Client-side appearance, animations and audio for the hostile mob Entity Verity.",
     "uuid": "c691c2e9-b576-43cf-bfde-9763c543f6d1",
-    "version": [1, 0, 0],
+    "version": [1, 1, 0],
     "min_engine_version": [1, 21, 0]
   },
   "modules": [
     {
       "type": "resources",
       "uuid": "23158f2d-9e93-4df9-ac9e-b7e309f6af18",
-      "version": [1, 0, 0]
+      "version": [1, 1, 0]
     }
   ],
   "dependencies": [
     {
       "uuid": "a42337be-c7cb-4faf-8376-4f2ea27b07a1",
-      "version": [1, 0, 0]
+      "version": [1, 1, 0]
     }
   ]
 }
