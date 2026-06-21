@@ -1,0 +1,14 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.smiley.float": {
+      "loop": true,
+      "bones": {
+        "body": {
+          "position": [0, "math.sin(query.life_time * 90) * 1.2", 0],
+          "rotation": [0, 0, "math.sin(query.life_time * 70) * 4"]
+        }
+      }
+    }
+  }
+}

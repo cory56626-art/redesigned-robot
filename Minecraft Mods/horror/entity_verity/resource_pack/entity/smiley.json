@@ -1,0 +1,19 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "verity:smiley",
+      "materials": { "default": "entity_alphatest" },
+      "textures": {
+        "bored": "textures/entity/smiley_bored",
+        "normal": "textures/entity/smiley_normal",
+        "manic": "textures/entity/smiley_manic",
+        "angry": "textures/entity/smiley_angry"
+      },
+      "geometry": { "default": "geometry.smiley" },
+      "scripts": { "animate": ["float"] },
+      "animations": { "float": "animation.smiley.float" },
+      "render_controllers": [ "controller.render.smiley" ]
+    }
+  }
+}

@@ -22,6 +22,7 @@
 // head-tilt / crouch pose instead.
 
 import { world, system } from "@minecraft/server";
+import "./smiley.js";
 
 const VERITY = "verity:entity_verity";
 const A = { IDLE: 0, ALERT: 1, CHASE: 2, CLIMB: 3, CRAWL: 4, PHASE: 5, TRANSFORM: 6, MIRROR: 7, STARE: 8, SNAP: 9 };
@@ -329,7 +330,9 @@ function handleCommand(action, player) {
     case "message": creepyMessage(player); return;
   }
 
-  // ----- actions that act on the nearest Verity -----
+  // ----- actions that act on the nearest Verity (smiley actions handled in smiley.js) -----
+  const ENTITY_ACTIONS = new Set(["come", "chase", "stop", "door", "glass", "peek", "transform", "stalk", "climb", "snap"]);
+  if (!ENTITY_ACTIONS.has(action)) return;
   const e = ensureVerity(player);
   if (!e || !valid(e)) return;
   const r = rec(e.id);

@@ -1,0 +1,15 @@
+{
+  "format_version": "1.10.0",
+  "render_controllers": {
+    "controller.render.smiley": {
+      "geometry": "Geometry.default",
+      "materials": [ { "*": "Material.default" } ],
+      "arrays": {
+        "textures": {
+          "Array.faces": [ "Texture.bored", "Texture.normal", "Texture.manic", "Texture.angry" ]
+        }
+      },
+      "textures": [ "Array.faces[q.property('verity:mood')]" ]
+    }
+  }
+}

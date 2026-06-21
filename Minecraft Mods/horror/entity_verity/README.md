@@ -50,6 +50,28 @@ Leaning into Verity's lore (a "friend" that knows things it shouldn't, then hunt
 | **Peek-and-vanish** | It sometimes appears at the **edge of your view**, staring — and is gone the instant you look at it. |
 | **It knows you** | Verity sends fourth-wall chat messages **by your name** (and notices when you're low on hearts). |
 
+### Fake-friendly smiley phase
+
+Summon the "friendly" form with `/scriptevent verity:smiley`. A small yellow
+smiley hovers and follows you and talks in chat. **It knows things it
+shouldn't** — your name, coordinates, the time, what you're holding.
+
+- **Faces:** bored (flat) → normal (smile) → manic (toothy) → angry, driven by a
+  hidden corruption meter.
+- **Pick up / place:** interact to set it down; interact again to carry it. Leave
+  it behind and **it teleports back to you**.
+- **It won't die:** throw it in lava, water, or off a cliff and it **reappears,
+  angrier** (corruption spikes).
+- **Talk to it:** just type in chat (or `/scriptevent verity:say <text>` where
+  chat scripting is blocked). It replies by intent, getting subtly *wronger* and
+  glitchier as it corrupts.
+- **The turn:** corruption rises over nights and from how you treat it
+  (ignoring, hitting, abusing). At full corruption it drops the act and **spawns
+  the hunting Verity**.
+
+> No live AI is used (Bedrock scripts have no internet). It's a context-aware
+> keyword responder — evasive and degrading on purpose.
+
 ### Commands (`/scriptevent`)
 
 Run these from chat or a command block:
@@ -83,6 +105,12 @@ commands also work on game versions that support chat scripting.
 | `/scriptevent verity:scream` | Plays the chase scream. |
 | `/scriptevent verity:bonecrack` | Plays the bone-crack. |
 | `/scriptevent verity:message` | Sends a fourth-wall message addressed to you. |
+| `/scriptevent verity:smiley` | Summons the fake-friendly smiley. |
+| `/scriptevent verity:say <text>` | Talk to the smiley (fallback for typing in chat). |
+| `/scriptevent verity:mood` | Cycles the smiley's face (bored/normal/manic/angry). |
+| `/scriptevent verity:corrupt` | +30 corruption (speeds up the turn). |
+| `/scriptevent verity:turn` | Forces the smiley to turn into the hunter now. |
+| `/scriptevent verity:place` | Toggles place/carry on the smiley. |
 
 (All also work as `!verity<name>` in chat where chat scripting is supported.)
 

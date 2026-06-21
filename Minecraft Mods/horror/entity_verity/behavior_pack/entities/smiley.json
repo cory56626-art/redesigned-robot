@@ -1,0 +1,43 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "verity:smiley",
+      "is_spawnable": false,
+      "is_summonable": true,
+      "is_experimental": false,
+      "properties": {
+        "verity:mood": {
+          "type": "int",
+          "range": [0, 3],
+          "default": 1,
+          "client_sync": true
+        }
+      }
+    },
+    "components": {
+      "minecraft:type_family": { "family": ["smiley", "verity_friend"] },
+      "minecraft:collision_box": { "width": 0.6, "height": 0.6 },
+      "minecraft:health": { "value": 2000, "max": 2000 },
+      "minecraft:fire_immune": true,
+      "minecraft:damage_sensor": {
+        "triggers": [
+          { "cause": "drowning", "deals_damage": false },
+          { "cause": "suffocation", "deals_damage": false },
+          { "cause": "lava", "deals_damage": false },
+          { "cause": "fire", "deals_damage": false },
+          { "cause": "fire_tick", "deals_damage": false },
+          { "cause": "fall", "deals_damage": false },
+          { "cause": "void", "deals_damage": false }
+        ]
+      },
+      "minecraft:knockback_resistance": { "value": 1.0, "max": 1.0 },
+      "minecraft:physics": { "has_gravity": false, "has_collision": false },
+      "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": false },
+      "minecraft:persistent": {},
+      "minecraft:nameable": {},
+      "minecraft:collision_box": { "width": 0.6, "height": 0.6 }
+    },
+    "events": {}
+  }
+}
