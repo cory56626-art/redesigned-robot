@@ -1,0 +1,34 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "§5Mob Summoner Staff §7BP",
+    "description": "Craft a magic staff that summons loyal mobs to fight for you.\n§7Use = summon  •  Sneak + Use = switch ability",
+    "uuid": "fd7e0a27-06c0-4b22-ae6b-408a4a341806",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 20]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "1f6588cb-a7e0-4e5e-9ea9-c2493be0286b",
+      "version": [1, 0, 0]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "dd4537e9-2f66-4b35-9367-e6fc450dedad",
+      "version": [1, 0, 0],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "1.13.0"
+    },
+    {
+      "uuid": "f7498001-0981-4c0e-a581-20d0c3a5f1ce",
+      "version": [1, 0, 0]
+    }
+  ]
+}

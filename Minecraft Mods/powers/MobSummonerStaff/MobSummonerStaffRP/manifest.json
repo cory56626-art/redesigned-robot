@@ -1,0 +1,23 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "§5Mob Summoner Staff §7RP",
+    "description": "Textures for the Mob Summoner Staff add-on.",
+    "uuid": "f7498001-0981-4c0e-a581-20d0c3a5f1ce",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 20]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "47af1af6-fbd6-4b4d-986d-5e64df02bd26",
+      "version": [1, 0, 0]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "fd7e0a27-06c0-4b22-ae6b-408a4a341806",
+      "version": [1, 0, 0]
+    }
+  ]
+}

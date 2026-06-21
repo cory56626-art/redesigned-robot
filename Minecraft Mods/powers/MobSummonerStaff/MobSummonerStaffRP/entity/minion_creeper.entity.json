@@ -1,0 +1,33 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "mss:minion_creeper",
+      "materials": {
+        "default": "creeper"
+      },
+      "textures": {
+        "default": "textures/entity/creeper/creeper"
+      },
+      "geometry": {
+        "default": "geometry.creeper.v1.8"
+      },
+      "animations": {
+        "legs": "animation.creeper.legs",
+        "head": "animation.common.look_at_target"
+      },
+      "scripts": {
+        "animate": [
+          "legs",
+          "head"
+        ],
+        "pre_animation": [
+          "variable.leg_rot = Math.cos(query.modified_distance_moved * 38.17326) * 80.22 * query.modified_move_speed;"
+        ]
+      },
+      "render_controllers": [
+        "controller.render.mss_default"
+      ]
+    }
+  }
+}

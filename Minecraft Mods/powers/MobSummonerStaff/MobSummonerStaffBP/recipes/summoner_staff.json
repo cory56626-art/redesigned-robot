@@ -1,0 +1,23 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "mss:summoner_staff"
+    },
+    "tags": ["crafting_table"],
+    "pattern": [
+      " E ",
+      " D ",
+      " B "
+    ],
+    "key": {
+      "E": { "item": "minecraft:ender_eye" },
+      "D": { "item": "minecraft:diamond" },
+      "B": { "item": "minecraft:blaze_rod" }
+    },
+    "result": {
+      "item": "mss:summoner_staff",
+      "count": 1
+    }
+  }
+}
