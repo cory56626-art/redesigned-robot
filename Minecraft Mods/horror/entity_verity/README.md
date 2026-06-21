@@ -62,9 +62,10 @@ shouldn't** — your name, coordinates, the time, what you're holding.
   it behind and **it teleports back to you**.
 - **It won't die:** throw it in lava, water, or off a cliff and it **reappears,
   angrier** (corruption spikes).
-- **Talk to it:** just type in chat (or `/scriptevent verity:say <text>` where
-  chat scripting is blocked). It replies by intent, getting subtly *wronger* and
-  glitchier as it corrupts.
+- **Talk to it:** use `/scriptevent verity:say <text>` (always works). Typing
+  directly in chat also works **only if the world has the "Beta APIs"
+  experiment enabled** — `chatSend` is an experimental event, so without that
+  toggle the game can't hand your chat to the script.
 - **The turn:** corruption rises over nights and from how you treat it
   (ignoring, hitting, abusing). At full corruption it drops the act and **spawns
   the hunting Verity**.
