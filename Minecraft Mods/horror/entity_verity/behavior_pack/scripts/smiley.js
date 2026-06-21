@@ -11,7 +11,7 @@
 // Talking: type in chat (needs the world's "Beta APIs" experiment, since the
 // chatSend event is experimental) OR /scriptevent verity:say <message>.
 
-import { world, system, ItemStack } from "@minecraft/server";
+import { world, system } from "@minecraft/server";
 
 const SMILEY = "verity:smiley";
 const ORB = "verity:smiley_orb";
@@ -84,7 +84,7 @@ function abuse(e, player, amount, line) {
 
 // ---------- inventory pickup / placement ----------
 function giveOrb(p, e) {
-  try { p.getComponent("minecraft:inventory").container.addItem(new ItemStack(ORB, 1)); } catch (_) {}
+  try { p.runCommand("give @s " + ORB + " 1"); } catch (_) {}
   say(p, "§e☺ Verity:§r Into your pocket I go. Don't lose me.");
   try { e.remove(); } catch (_) {} S.delete(e.id);
 }
@@ -205,8 +205,9 @@ function handleSay(player, raw) {
   say(player, face(s.corrupt) + " Verity:§r " + line);
 }
 
-// ---------- per-tick management ----------
+// ---------- registration (called from main.js inside try/catch) ----------
 let tk = 0;
+export function initSmiley() {
 system.runInterval(() => {
   tk++;
   if (tk % SCAN !== 0) return;
@@ -320,3 +321,4 @@ try {
     });
   });
 } catch (_) {}
+}

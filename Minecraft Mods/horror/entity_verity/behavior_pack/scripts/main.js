@@ -22,7 +22,9 @@
 // head-tilt / crouch pose instead.
 
 import { world, system } from "@minecraft/server";
-import "./smiley.js";
+import { initSmiley } from "./smiley.js";
+// keep the smiley system fully isolated: if it ever errors, the core mob still runs
+try { initSmiley(); } catch (_) {}
 
 const VERITY = "verity:entity_verity";
 const A = { IDLE: 0, ALERT: 1, CHASE: 2, CLIMB: 3, CRAWL: 4, PHASE: 5, TRANSFORM: 6, MIRROR: 7, STARE: 8, SNAP: 9 };
