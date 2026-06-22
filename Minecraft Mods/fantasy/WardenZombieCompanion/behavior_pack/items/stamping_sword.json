@@ -1,0 +1,23 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:item": {
+    "description": {
+      "identifier": "wac:stamping_sword",
+      "menu_category": {
+        "category": "equipment",
+        "group": "itemGroup.name.sword"
+      }
+    },
+    "components": {
+      "minecraft:max_stack_size": 1,
+      "minecraft:hand_equipped": true,
+      "minecraft:display_name": { "value": "Stamping Sword" },
+      "minecraft:icon": { "texture": "stamping_sword" },
+      "minecraft:damage": 7,
+      "minecraft:durability": { "max_durability": 450 },
+      "minecraft:enchantable": { "slot": "sword", "value": 14 },
+      "minecraft:can_destroy_in_creative": true,
+      "minecraft:tags": { "tags": ["minecraft:is_sword"] }
+    }
+  }
+}

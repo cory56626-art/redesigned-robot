@@ -1,0 +1,118 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "wac:guardian_zombie",
+      "is_spawnable": false,
+      "is_summonable": true,
+      "is_experimental": false,
+      "runtime_identifier": "minecraft:zombie",
+      "properties": {
+        "wac:guarding": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        }
+      }
+    },
+
+    "components": {
+      "minecraft:type_family": {
+        "family": ["wac_companion", "mob"]
+      },
+
+      "minecraft:health": { "value": 40, "max": 40 },
+      "minecraft:attack": { "damage": 6 },
+      "minecraft:knockback_resistance": { "value": 0.7 },
+      "minecraft:follow_range": { "value": 48, "max": 48 },
+
+      "minecraft:movement": { "value": 0.32 },
+      "minecraft:underwater_movement": { "value": 0.18 },
+      "minecraft:movement.basic": {},
+      "minecraft:jump.static": {},
+      "minecraft:can_climb": {},
+
+      "minecraft:navigation.walk": {
+        "can_path_over_water": true,
+        "can_walk": true,
+        "can_sink": false,
+        "avoid_water": false,
+        "can_pass_doors": true,
+        "can_open_doors": true,
+        "can_break_doors": false,
+        "avoid_damage_blocks": true
+      },
+
+      "minecraft:physics": {},
+      "minecraft:collision_box": { "width": 0.6, "height": 1.9 },
+      "minecraft:pushable": { "is_pushable": true, "is_pushable_by_piston": true },
+      "minecraft:nameable": {},
+
+      "minecraft:tameable": {
+        "probability": 1.0,
+        "tame_items": ["minecraft:rotten_flesh"]
+      },
+
+      "minecraft:hurt_on_condition": {
+        "damage_conditions": [
+          {
+            "filters": { "test": "in_lava", "subject": "self", "operator": "==", "value": true },
+            "cause": "lava",
+            "damage_per_tick": 4
+          }
+        ]
+      },
+
+      "minecraft:conditional_bandwidth_optimization": {},
+
+      "minecraft:behavior.float": { "priority": 0 },
+
+      "minecraft:behavior.nearest_attackable_target": {
+        "priority": 2,
+        "must_see": false,
+        "must_reach": false,
+        "reselect_targets": true,
+        "scan_interval": 8,
+        "within_radius": 32,
+        "entity_types": [
+          {
+            "filters": {
+              "all_of": [
+                { "test": "has_tag", "subject": "other", "value": "wac_enemy" }
+              ]
+            },
+            "max_dist": 32
+          }
+        ]
+      },
+
+      "minecraft:behavior.melee_attack": {
+        "priority": 3,
+        "speed_multiplier": 1.25,
+        "track_target": true,
+        "reach_multiplier": 1.6,
+        "require_complete_path": false
+      },
+
+      "minecraft:behavior.follow_owner": {
+        "priority": 5,
+        "speed_multiplier": 1.35,
+        "start_distance": 5,
+        "stop_distance": 2
+      },
+
+      "minecraft:behavior.random_stroll": {
+        "priority": 7,
+        "speed_multiplier": 1.0
+      },
+
+      "minecraft:behavior.look_at_player": {
+        "priority": 8,
+        "look_distance": 8,
+        "probability": 0.4
+      },
+
+      "minecraft:behavior.random_look_around": { "priority": 9 }
+    }
+  }
+}

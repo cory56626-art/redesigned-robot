@@ -1,0 +1,12 @@
+{
+  "resource_pack_name": "warden_zombie_companion",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "warden_staff": {
+      "textures": "textures/items/warden_staff"
+    },
+    "stamping_sword": {
+      "textures": "textures/items/stamping_sword"
+    }
+  }
+}

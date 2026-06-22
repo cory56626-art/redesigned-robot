@@ -1,0 +1,18 @@
+{
+  "format_version": "1.12.0",
+  "minecraft:recipe_shaped": {
+    "description": { "identifier": "wac:warden_staff" },
+    "tags": ["crafting_table"],
+    "pattern": [
+      "E",
+      "S",
+      "I"
+    ],
+    "key": {
+      "E": { "item": "minecraft:echo_shard" },
+      "S": { "item": "minecraft:stick" },
+      "I": { "item": "minecraft:iron_ingot" }
+    },
+    "result": { "item": "wac:warden_staff" }
+  }
+}
