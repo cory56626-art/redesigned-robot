@@ -1,10 +1,12 @@
 package com.lobber;
 
+import com.lobber.command.LobberCommand;
 import com.lobber.config.LobberConfig;
 import com.lobber.entity.ModEntities;
 import com.lobber.spawn.LobberSpawner;
 import com.lobber.world.ModWorldGen;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +23,10 @@ public class LobberMod implements ModInitializer {
 
 		// Drives the custom, single-Lobber-per-world spawning rules.
 		ServerTickEvents.END_WORLD_TICK.register(LobberSpawner::tick);
+
+		// Test/debug commands.
+		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
+				LobberCommand.register(dispatcher));
 
 		LOGGER.info("The Lobber is lurking...");
 	}

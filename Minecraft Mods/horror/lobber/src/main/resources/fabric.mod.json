@@ -3,7 +3,7 @@
 	"id": "lobber",
 	"version": "${version}",
 	"name": "The Lobber",
-	"description": "Adds the Lobber: a mischievous, enderman-like stalker that arrives on the first night as a shy little goblin and matures over days into an obsessive, malicious tormentor - knocking on doors, shattering windows, staring through them as you sleep, burning your base, and hurling blocks at anyone who dares look its way. Includes underground lore shrines.",
+	"description": "Adds the Lobber: a curious little goblin that arrives on the first night, plays devious pranks, and can be befriended by feeding/petting it to build Trust. Trust buys you a grace period once it matures over days into an obsessive, malicious tormentor - knocking on doors, shattering windows, staring through them as you sleep, burning your base, and hurling blocks at anyone who dares look its way. Includes underground lore shrines, a trust info screen (press R near a trusted Lobber), and /lobber test commands.",
 	"authors": [
 		"Lobber Mod"
 	],

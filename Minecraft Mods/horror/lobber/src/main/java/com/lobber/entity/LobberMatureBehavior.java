@@ -120,26 +120,76 @@ public class LobberMatureBehavior {
 		if (sleeping && homeKnown) {
 			if (lob.getRandom().nextBoolean()) {
 				this.beginStare(lob, world, player);
-			} else {
-				this.beginKillPet(lob, world, player, cfg);
+			} else if (cfg.enablePetKilling) {
+				this.beginKillPet(lob, world, player);
 			}
 		} else if (night && homeKnown && homeDistSq < 48 * 48) {
 			switch (lob.getRandom().nextInt(4)) {
 				case 0 -> this.beginKnock(lob, world);
-				case 1 -> this.beginShatter(cfg);
+				case 1 -> {
+					if (cfg.enableGriefing) {
+						this.beginShatter();
+					}
+				}
 				case 2 -> this.beginBreakIn(lob, world);
-				default -> this.beginKillPet(lob, world, player, cfg);
+				default -> {
+					if (cfg.enablePetKilling) {
+						this.beginKillPet(lob, world, player);
+					}
+				}
 			}
 		} else if (!night && homeKnown && homeDistSq > 64 * 64) {
 			// Player is off exploring - strike the home or the people they love.
 			switch (lob.getRandom().nextInt(3)) {
-				case 0 -> this.beginArson(cfg);
-				case 1 -> this.beginVillagerHunt(lob, world, cfg);
-				default -> this.beginKillPet(lob, world, player, cfg);
+				case 0 -> {
+					if (cfg.enableArson) {
+						this.beginArson();
+					}
+				}
+				case 1 -> {
+					if (cfg.enableVillagerHunting) {
+						this.beginVillagerHunt(lob, world);
+					}
+				}
+				default -> {
+					if (cfg.enablePetKilling) {
+						this.beginKillPet(lob, world, player);
+					}
+				}
 			}
 		} else {
 			this.beginKnock(lob, world); // idle taunt
 		}
+	}
+
+	/** Forces a named event for testing via the /lobber command, bypassing config gates. */
+	public boolean forceEvent(String name, LobberEntity lob, ServerWorld world) {
+		PlayerEntity player = world.getClosestPlayer(lob, 128.0);
+		if (this.home == null) {
+			this.home = player != null ? player.getBlockPos() : lob.getBlockPos();
+		}
+		this.endEvent();
+		switch (name.toLowerCase()) {
+			case "knock" -> this.beginKnock(lob, world);
+			case "shatter", "window" -> this.beginShatter();
+			case "breakin", "break_in" -> this.beginBreakIn(lob, world);
+			case "stare" -> {
+				if (player != null) {
+					this.beginStare(lob, world, player);
+				}
+			}
+			case "killpet", "pet" -> {
+				if (player != null) {
+					this.beginKillPet(lob, world, player);
+				}
+			}
+			case "arson", "fire" -> this.beginArson();
+			case "villager" -> this.beginVillagerHunt(lob, world);
+			default -> {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	private void tickEvent(LobberEntity lob, ServerWorld world) {
@@ -201,8 +251,8 @@ public class LobberMatureBehavior {
 	// Shattering windows
 	// ------------------------------------------------------------------
 
-	private void beginShatter(LobberConfig cfg) {
-		if (!cfg.enableGriefing || this.home == null) {
+	private void beginShatter() {
+		if (this.home == null) {
 			return;
 		}
 		this.eventTarget = this.home;
@@ -308,10 +358,7 @@ public class LobberMatureBehavior {
 	// Killing an outdoor pet/animal
 	// ------------------------------------------------------------------
 
-	private void beginKillPet(LobberEntity lob, ServerWorld world, PlayerEntity player, LobberConfig cfg) {
-		if (!cfg.enablePetKilling) {
-			return;
-		}
+	private void beginKillPet(LobberEntity lob, ServerWorld world, PlayerEntity player) {
 		BlockPos center = this.home != null ? this.home : player.getBlockPos();
 		List<AnimalEntity> animals = world.getEntitiesByClass(AnimalEntity.class,
 				new Box(center).expand(16.0),
@@ -346,8 +393,8 @@ public class LobberMatureBehavior {
 	// Arson - burning the base while the player is away
 	// ------------------------------------------------------------------
 
-	private void beginArson(LobberConfig cfg) {
-		if (!cfg.enableArson || this.home == null) {
+	private void beginArson() {
+		if (this.home == null) {
 			return;
 		}
 		this.eventTarget = this.home;
@@ -394,10 +441,7 @@ public class LobberMatureBehavior {
 	// Hunting villagers out of jealousy
 	// ------------------------------------------------------------------
 
-	private void beginVillagerHunt(LobberEntity lob, ServerWorld world, LobberConfig cfg) {
-		if (!cfg.enableVillagerHunting) {
-			return;
-		}
+	private void beginVillagerHunt(LobberEntity lob, ServerWorld world) {
 		BlockPos center = this.home != null ? this.home : lob.getBlockPos();
 		List<VillagerEntity> villagers = world.getEntitiesByClass(VillagerEntity.class,
 				new Box(center).expand(32.0), v -> v.isAlive());

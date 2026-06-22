@@ -13,9 +13,9 @@ gets visibly **bigger, louder, and bolder**:
 
 | Stage | Size & voice | Behavior |
 |-------|--------------|----------|
-| **Young** (shy goblin) | small, quiet, high-pitched | avoidant — keeps its distance, bolts/teleports if you look at it, only playfully pockets the odd block |
-| **Growing** | larger, louder | bolder mischief — steals, smashes blocks, snatches animals; meeting its gaze now **provokes** it |
-| **Mature** (stalker) | full-size, deep-voiced | a sadistic harassment campaign (see below) |
+| **Young** (curious goblin) | small, quiet, high-pitched | curious — creeps closer to watch you; plays devious pranks while it doesn't trust you, but can be **befriended** (see Trust) |
+| **Growing** | larger, louder | bolder mischief — steals, smashes blocks, snatches animals |
+| **Mature** (stalker) | full-size, deep-voiced | a sadistic harassment campaign — unless you've earned enough trust to delay it (see below) |
 
 ### Spawning rules
 Custom spawner (it is **not** added to normal mob spawning). It appears only when **all** are true:
@@ -28,9 +28,23 @@ Custom spawner (it is **not** added to normal mob spawning). It appears only whe
 ## Behavior
 
 ### While young / calm
-- **Stalking:** shadows the lone player from a wary distance, slipping away (teleporting) if you get
-  too close — far more skittish when young.
-- **Mischief:** pockets/steals blocks, smashes blocks, spirits away animals (rarer & gentler when young).
+- **Curious, not aggressive:** a young Lobber edges *closer* to its chosen player to watch them
+  (the more it trusts you, the closer it dares to come) instead of fleeing.
+- **Devious pranks (low trust):** while it doesn't trust you it plays tricks — **walling you into your
+  mineshaft** while you dig, or **snatching the item out of your hand** and tossing it just out of reach.
+- **Mischief:** pockets/steals blocks, smashes blocks, spirits away animals.
+
+### Taming & Trust
+A young Lobber can be **befriended**:
+
+- **Right-click it with empty hand** to pet it (+small trust), or **with food** to feed it (+more trust).
+  Hanging around it peacefully (especially while **sneaking**) also slowly builds trust.
+- Reach **Trust 20+** and it becomes your **friend** — pranks and mischief stop while it's young.
+- Press **R** while looking at (or standing next to) a trusted Lobber to open an **info screen**
+  showing its **Health, Age, and Trust**.
+- **Trust is a safety net:** when it matures, high trust grants a **grace period** where it stays
+  friendly (no harassment, won't aggro on your gaze) — the higher the trust, the longer the grace.
+  Trust slowly decays once mature, so eventually its true nature returns. **Hitting it costs trust.**
 
 ### Provoked
 - **Looking directly at a grown Lobber** (enderman-style stare) or **hitting it** turns it hostile.
@@ -69,7 +83,21 @@ A config file is written to `config/lobber.json` on first run:
 }
 ```
 
-Turn off any of the destructive habits, or change how long it takes to mature.
+Turn off any of the destructive habits, or change how long it takes to mature. Changes apply on
+startup, or live via `/lobber reload`.
+
+## Test / debug commands
+
+All require op (permission level 2) and act on the **nearest Lobber within 64 blocks**:
+
+| Command | Effect |
+|---------|--------|
+| `/lobber age <0-100>` | Set its age/growth % (also fast-forwards the maturity timer). |
+| `/lobber trust <0-100>` | Set its trust toward you. |
+| `/lobber event <type>` | Force an event: `knock`, `shatter`, `breakin`, `stare`, `killpet`, `arson`, `villager`. |
+| `/lobber spawn` | Spawn a fresh baby Lobber in front of you. |
+| `/lobber info` | Print its health/age/trust/state in chat. |
+| `/lobber reload` | Reload `config/lobber.json`. |
 
 ## Building
 
@@ -79,10 +107,10 @@ Requirements: a JDK (17+). Network access for the first build (downloads Minecra
 ./gradlew build
 ```
 
-The finished mod jar is written to `build/libs/lobber-1.2.0.jar` (ignore the `*-sources.jar`).
+The finished mod jar is written to `build/libs/lobber-1.2.1.jar` (ignore the `*-sources.jar`).
 
 ## Installing
 
 1. Install [Fabric Loader](https://fabricmc.net/use/) for Minecraft 1.20.1.
 2. Put [Fabric API](https://modrinth.com/mod/fabric-api) (0.92.x for 1.20.1) in your `mods` folder.
-3. Put `lobber-1.2.0.jar` in your `mods` folder.
+3. Put `lobber-1.2.1.jar` in your `mods` folder.

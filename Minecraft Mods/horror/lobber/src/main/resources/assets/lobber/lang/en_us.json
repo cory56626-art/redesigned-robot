@@ -1,3 +1,8 @@
 {
-	"entity.lobber.lobber": "Lobber"
+	"entity.lobber.lobber": "Lobber",
+	"key.categories.lobber": "The Lobber",
+	"key.lobber.info": "Inspect Lobber",
+	"screen.lobber.info": "Lobber",
+	"message.lobber.none": "No Lobber nearby to inspect.",
+	"message.lobber.untrusting": "This Lobber doesn't trust you enough yet..."
 }

@@ -36,24 +36,35 @@ public class LobberConfig {
 	public static void load() {
 		try {
 			Path path = FabricLoader.getInstance().getConfigDir().resolve("lobber.json");
+			// The config directory may not exist yet on a fresh instance; make sure it does
+			// before we try to read or write, otherwise the file silently never gets created.
+			Files.createDirectories(path.getParent());
+
 			if (Files.exists(path)) {
 				try (Reader reader = Files.newBufferedReader(path)) {
 					LobberConfig loaded = GSON.fromJson(reader, LobberConfig.class);
 					if (loaded != null) {
 						INSTANCE = loaded;
 					}
+				} catch (Exception parseError) {
+					LobberMod.LOGGER.warn("Lobber config was malformed, regenerating defaults", parseError);
+					INSTANCE = new LobberConfig();
 				}
 			}
-			// (Re)write so new/missing keys get sensible defaults filled in.
+			if (INSTANCE.daysToMature < 1) {
+				INSTANCE.daysToMature = 1;
+			}
+			// (Re)write so new/missing keys get sensible defaults filled in and a corrupt file self-heals.
 			try (Writer writer = Files.newBufferedWriter(path)) {
 				GSON.toJson(INSTANCE, writer);
 			}
+			LobberMod.LOGGER.info(
+					"Lobber config loaded: griefing={}, arson={}, petKilling={}, villagerHunting={}, shrines={}, daysToMature={}",
+					INSTANCE.enableGriefing, INSTANCE.enableArson, INSTANCE.enablePetKilling,
+					INSTANCE.enableVillagerHunting, INSTANCE.generateShrines, INSTANCE.daysToMature);
 		} catch (Exception e) {
 			LobberMod.LOGGER.warn("Could not load Lobber config, using defaults", e);
 			INSTANCE = new LobberConfig();
-		}
-		if (INSTANCE.daysToMature < 1) {
-			INSTANCE.daysToMature = 1;
 		}
 	}
 }

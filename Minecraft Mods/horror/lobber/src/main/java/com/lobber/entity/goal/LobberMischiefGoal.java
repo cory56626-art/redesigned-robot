@@ -32,6 +32,10 @@ public class LobberMischiefGoal extends Goal {
 				|| !(this.lobber.getWorld() instanceof ServerWorld)) {
 			return false;
 		}
+		// A befriended youngster behaves itself.
+		if (!this.lobber.isMature() && this.lobber.isFriendly()) {
+			return false;
+		}
 		// Bolder (more frequent) as it grows: ~1/400 chance when tiny, ~1/100 once nearly grown.
 		int rate = Math.max(80, 400 - this.lobber.getGrowth() * 3);
 		return this.lobber.getRandom().nextInt(rate) == 0

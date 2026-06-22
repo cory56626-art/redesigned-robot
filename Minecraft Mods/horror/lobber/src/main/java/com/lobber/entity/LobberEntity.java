@@ -1,7 +1,9 @@
 package com.lobber.entity;
 
 import com.lobber.config.LobberConfig;
+import com.lobber.entity.goal.LobberCuriosityGoal;
 import com.lobber.entity.goal.LobberMischiefGoal;
+import com.lobber.entity.goal.LobberPrankGoal;
 import com.lobber.entity.goal.LobberStalkGoal;
 import com.lobber.entity.goal.LobberThrowBlockGoal;
 import net.minecraft.block.BlockState;
@@ -27,14 +29,19 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.particle.ParticleTypes;
 import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.sound.SoundEvents;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
+
+import java.util.UUID;
 
 public class LobberEntity extends HostileEntity {
 	private static final TrackedData<Boolean> PROVOKED =
@@ -42,11 +49,22 @@ public class LobberEntity extends HostileEntity {
 	// 0 = freshly spawned hatchling, 100 = fully matured stalker. Tracked so the client can scale it.
 	private static final TrackedData<Integer> GROWTH =
 			DataTracker.registerData(LobberEntity.class, TrackedDataHandlerRegistry.INTEGER);
+	// 0..100 trust toward its bonded player. Tracked so the info screen can read it client-side.
+	private static final TrackedData<Integer> TRUST =
+			DataTracker.registerData(LobberEntity.class, TrackedDataHandlerRegistry.INTEGER);
+
+	public static final int MAX_TRUST = 100;
+	// At/above this, a young Lobber is your friend (no pranks) and a mature one extends a grace period.
+	public static final int TRUST_FRIENDLY = 20;
 
 	// Once the target is lost, the Lobber stays angry for a little while before calming back into a stalker.
 	private int calmCooldown = 0;
 	// Ticks spent stalking a player; drives maturity.
 	private long maturityTicks = 0L;
+	// The single player this Lobber has fixated on.
+	private UUID bondedPlayer = null;
+	// Brief cooldown between hand-pets so trust can't be spammed up instantly.
+	private int petCooldown = 0;
 	// The malicious adult behavior engine, only used once mature.
 	private final LobberMatureBehavior matureBehavior = new LobberMatureBehavior();
 
@@ -69,11 +87,13 @@ public class LobberEntity extends HostileEntity {
 		this.goalSelector.add(0, new SwimGoal(this));
 		this.goalSelector.add(2, new LobberThrowBlockGoal(this));
 		this.goalSelector.add(3, new MeleeAttackGoal(this, 1.25, false));
-		this.goalSelector.add(4, new LobberMischiefGoal(this));
-		this.goalSelector.add(5, new LobberStalkGoal(this));
-		this.goalSelector.add(6, new WanderAroundFarGoal(this, 0.8));
-		this.goalSelector.add(7, new LookAtEntityGoal(this, PlayerEntity.class, 14.0f));
-		this.goalSelector.add(8, new LookAroundGoal(this));
+		this.goalSelector.add(4, new LobberCuriosityGoal(this));
+		this.goalSelector.add(5, new LobberPrankGoal(this));
+		this.goalSelector.add(6, new LobberMischiefGoal(this));
+		this.goalSelector.add(7, new LobberStalkGoal(this));
+		this.goalSelector.add(8, new WanderAroundFarGoal(this, 0.8));
+		this.goalSelector.add(9, new LookAtEntityGoal(this, PlayerEntity.class, 14.0f));
+		this.goalSelector.add(10, new LookAroundGoal(this));
 
 		this.targetSelector.add(1, new RevengeGoal(this));
 		// Only ever actually targets a player once it has been provoked.
@@ -86,6 +106,7 @@ public class LobberEntity extends HostileEntity {
 		super.initDataTracker();
 		this.dataTracker.startTracking(PROVOKED, false);
 		this.dataTracker.startTracking(GROWTH, 0);
+		this.dataTracker.startTracking(TRUST, 0);
 	}
 
 	public boolean isProvoked() {
@@ -105,12 +126,110 @@ public class LobberEntity extends HostileEntity {
 		this.dataTracker.set(GROWTH, Math.max(0, Math.min(100, growth)));
 	}
 
+	/** Sets growth AND the underlying maturity timer so /lobber age doesn't get undone next tick. */
+	public void debugSetGrowth(int growth) {
+		int clamped = Math.max(0, Math.min(100, growth));
+		this.setGrowth(clamped);
+		this.maturityTicks = (long) LobberConfig.INSTANCE.daysToMature * 24000L * clamped / 100L;
+	}
+
 	public boolean isMature() {
 		return this.getGrowth() >= 100;
 	}
 
 	public boolean hasActiveEvent() {
 		return this.matureBehavior.hasActiveEvent();
+	}
+
+	/** 0..100 trust toward the bonded player. */
+	public int getTrust() {
+		return this.dataTracker.get(TRUST);
+	}
+
+	public void setTrust(int trust) {
+		this.dataTracker.set(TRUST, Math.max(0, Math.min(MAX_TRUST, trust)));
+	}
+
+	public void addTrust(int delta) {
+		this.setTrust(this.getTrust() + delta);
+	}
+
+	/** True while trust is high enough to keep the Lobber friendly toward its bonded player. */
+	public boolean isFriendly() {
+		return this.getTrust() >= TRUST_FRIENDLY;
+	}
+
+	public UUID getBondedPlayerUuid() {
+		return this.bondedPlayer;
+	}
+
+	public void setBondedPlayer(UUID uuid) {
+		this.bondedPlayer = uuid;
+	}
+
+	private PlayerEntity getBondedPlayer() {
+		if (this.bondedPlayer != null) {
+			PlayerEntity p = this.getWorld().getPlayerByUuid(this.bondedPlayer);
+			if (p != null && p.isAlive() && !p.isSpectator()) {
+				return p;
+			}
+		}
+		// No bond yet (or it's gone): latch onto the nearest reasonable player.
+		PlayerEntity nearest = this.getWorld().getClosestPlayer(this, 24.0);
+		if (nearest != null && !nearest.isSpectator() && this.bondedPlayer == null) {
+			this.bondedPlayer = nearest.getUuid();
+		}
+		return nearest;
+	}
+
+	/** Used by the /lobber event test command to force a specific mature event. */
+	public boolean triggerEvent(String name) {
+		if (this.getWorld() instanceof ServerWorld serverWorld) {
+			return this.matureBehavior.forceEvent(name, this, serverWorld);
+		}
+		return false;
+	}
+
+	@Override
+	public ActionResult interactMob(PlayerEntity player, Hand hand) {
+		if (this.isProvoked()) {
+			return super.interactMob(player, hand);
+		}
+		if (this.getWorld().isClient) {
+			// Let the client show the arm swing; the real effect happens server-side.
+			return ActionResult.SUCCESS;
+		}
+
+		ItemStack stack = player.getStackInHand(hand);
+		this.bondedPlayer = player.getUuid();
+
+		if (stack.isFood()) {
+			if (!player.getAbilities().creativeMode) {
+				stack.decrement(1);
+			}
+			this.addTrust(8);
+			this.spawnTrustParticles();
+			this.playSound(SoundEvents.ENTITY_GENERIC_EAT, 0.8f, 1.4f);
+			return ActionResult.CONSUME;
+		}
+
+		if (stack.isEmpty()) {
+			if (this.petCooldown <= 0) {
+				this.addTrust(2);
+				this.petCooldown = 20;
+				this.spawnTrustParticles();
+			}
+			return ActionResult.SUCCESS;
+		}
+
+		return super.interactMob(player, hand);
+	}
+
+	private void spawnTrustParticles() {
+		if (this.getWorld() instanceof ServerWorld serverWorld) {
+			serverWorld.spawnParticles(ParticleTypes.HEART,
+					this.getX(), this.getEyeY() + 0.3, this.getZ(), 3, 0.3, 0.3, 0.3, 0.0);
+		}
 	}
 
 	/** Visual + hitbox scale: small goblin when young, full-size when matured. */
@@ -146,7 +265,11 @@ public class LobberEntity extends HostileEntity {
 		super.writeCustomDataToNbt(nbt);
 		nbt.putBoolean("Provoked", this.isProvoked());
 		nbt.putInt("Growth", this.getGrowth());
+		nbt.putInt("Trust", this.getTrust());
 		nbt.putLong("Maturity", this.maturityTicks);
+		if (this.bondedPlayer != null) {
+			nbt.putUuid("BondedPlayer", this.bondedPlayer);
+		}
 		this.matureBehavior.writeNbt(nbt);
 	}
 
@@ -155,16 +278,29 @@ public class LobberEntity extends HostileEntity {
 		super.readCustomDataFromNbt(nbt);
 		this.setProvoked(nbt.getBoolean("Provoked"));
 		this.setGrowth(nbt.getInt("Growth"));
+		this.setTrust(nbt.getInt("Trust"));
 		this.maturityTicks = nbt.getLong("Maturity");
+		if (nbt.containsUuid("BondedPlayer")) {
+			this.bondedPlayer = nbt.getUuid("BondedPlayer");
+		}
 		this.matureBehavior.readNbt(nbt);
 	}
 
 	@Override
 	public boolean damage(DamageSource source, float amount) {
-		// Hitting a Lobber always sets it off, even if you were just minding your own business.
 		if (!this.getWorld().isClient && source.getAttacker() != null) {
-			this.setProvoked(true);
-			this.calmCooldown = 600;
+			// Betrayal costs trust no matter the age.
+			this.addTrust(-15);
+			if (this.isMature()) {
+				// A grown Lobber forgives only while real trust remains; otherwise it turns on you.
+				if (!this.isFriendly()) {
+					this.setProvoked(true);
+					this.calmCooldown = 600;
+				}
+			} else if (source.getAttacker() instanceof PlayerEntity player) {
+				// A youngster is too timid to fight back - it just bolts, hurt.
+				this.fleeFrom(player);
+			}
 		}
 		return super.damage(source, amount);
 	}
@@ -178,6 +314,10 @@ public class LobberEntity extends HostileEntity {
 	}
 
 	private void serverBehaviorTick() {
+		if (this.petCooldown > 0) {
+			this.petCooldown--;
+		}
+
 		if (this.isProvoked()) {
 			if (this.getTarget() != null && this.getTarget().isAlive()) {
 				this.calmCooldown = 600;
@@ -188,9 +328,10 @@ public class LobberEntity extends HostileEntity {
 		}
 
 		this.ageUp();
+		this.trustTick();
 
-		// Once fully grown, the malicious harassment campaign takes over.
-		if (this.isMature() && this.getWorld() instanceof ServerWorld serverWorld) {
+		// Once fully grown AND the grace of trust has run out, the harassment campaign takes over.
+		if (this.isMature() && !this.isFriendly() && this.getWorld() instanceof ServerWorld serverWorld) {
 			this.matureBehavior.tick(this, serverWorld);
 		}
 
@@ -199,26 +340,29 @@ public class LobberEntity extends HostileEntity {
 			return;
 		}
 
-		if (this.isPlayerStaring(nearest)) {
-			if (this.getGrowth() >= 50) {
-				// Bold enough now: meeting its gaze sets it off, enderman-style.
-				this.setProvoked(true);
-				this.setTarget(nearest);
-				this.calmCooldown = 600;
-				this.playSound(SoundEvents.ENTITY_ENDERMAN_STARE, this.getSoundVolume(), 0.8f);
-			} else {
-				// Shy youngster: caught looking, it panics and bolts.
-				this.fleeFrom(nearest);
-				this.playSound(SoundEvents.ENTITY_ENDERMAN_SCREAM, 0.4f, 1.8f);
-			}
-			return;
+		// Being looked at only sets off a grown, untrusting Lobber. Young or befriended ones tolerate it.
+		if (this.isPlayerStaring(nearest) && this.isMature() && !this.isFriendly()) {
+			this.setProvoked(true);
+			this.setTarget(nearest);
+			this.calmCooldown = 600;
+			this.playSound(SoundEvents.ENTITY_ENDERMAN_STARE, this.getSoundVolume(), 0.8f);
 		}
+	}
 
-		// If the player wanders too close without noticing, slip away to keep its distance.
-		// Younger Lobbers are far more skittish about it.
-		int skittishness = this.getGrowth() >= 50 ? 40 : 14;
-		if (this.squaredDistanceTo(nearest) < 16.0 && this.random.nextInt(skittishness) == 0) {
-			this.fleeFrom(nearest);
+	/** Builds trust while young and calm; spends it down (the grace period) once mature. */
+	private void trustTick() {
+		if (!this.isMature()) {
+			// Curious youngster warms up to a player who hangs around peacefully and doesn't hit it.
+			PlayerEntity bonded = this.getBondedPlayer();
+			if (bonded != null && this.hurtTime == 0 && this.squaredDistanceTo(bonded) < 36.0
+					&& this.getTrust() < MAX_TRUST && this.age % 40 == 0) {
+				this.addTrust(bonded.isSneaking() ? 2 : 1);
+			}
+		} else {
+			// Grown: the friendship slowly fades, eventually exposing its true nature.
+			if (this.getTrust() > 0 && this.age % 100 == 0) {
+				this.addTrust(-1);
+			}
 		}
 	}
 
