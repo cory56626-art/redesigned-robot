@@ -1,0 +1,28 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "§4The Knocker §8» Resources",
+    "description": "§7Model, textures, animations and original sounds for The Knocker.\n§8Resource Pack.",
+    "uuid": "289aace2-99e8-4834-9860-563d02c7196e",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 0]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "b87cac36-527c-4769-a7d6-92490c10dea6",
+      "version": [1, 0, 0]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "0f634ed6-4580-46e7-845f-19122c875e1c",
+      "version": [1, 0, 0]
+    }
+  ],
+  "metadata": {
+    "authors": ["redesigned-robot"],
+    "license": "MIT",
+    "product_type": "addon"
+  }
+}

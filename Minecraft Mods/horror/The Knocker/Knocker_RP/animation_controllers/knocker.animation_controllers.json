@@ -1,0 +1,49 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.knocker.main": {
+      "initial_state": "stand",
+      "states": {
+        "stand": {
+          "animations": [
+            "idle",
+            { "walk": "query.modified_move_speed > 0.04" }
+          ],
+          "transitions": [
+            { "crawl": "query.mark_variant == 2" },
+            { "scream": "query.mark_variant == 3" },
+            { "knock": "query.mark_variant == 4" }
+          ]
+        },
+        "crawl": {
+          "animations": [
+            "crawl"
+          ],
+          "transitions": [
+            { "stand": "query.mark_variant != 2" }
+          ]
+        },
+        "scream": {
+          "animations": [
+            "scream"
+          ],
+          "blend_transition": 0.15,
+          "transitions": [
+            { "stand": "query.mark_variant != 3" }
+          ]
+        },
+        "knock": {
+          "animations": [
+            "knock",
+            { "walk": "query.modified_move_speed > 0.04" }
+          ],
+          "transitions": [
+            { "stand": "query.mark_variant != 4" },
+            { "crawl": "query.mark_variant == 2" },
+            { "scream": "query.mark_variant == 3" }
+          ]
+        }
+      }
+    }
+  }
+}

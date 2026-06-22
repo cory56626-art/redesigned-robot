@@ -1,0 +1,39 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "§4The Knocker §8» Behavior",
+    "description": "§7A psychological horror stalker. It knocks. It watches. It hunts.\n§8Behavior Pack — requires the matching Resource Pack.",
+    "uuid": "0f634ed6-4580-46e7-845f-19122c875e1c",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 0]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "a44ceceb-62ac-4b42-8f5a-d90634e0fdc6",
+      "version": [1, 0, 0]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "7031b927-260f-4059-a60f-caf1f783a337",
+      "version": [1, 0, 0],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "1.14.0"
+    },
+    {
+      "uuid": "289aace2-99e8-4834-9860-563d02c7196e",
+      "version": [1, 0, 0]
+    }
+  ],
+  "metadata": {
+    "authors": ["redesigned-robot"],
+    "license": "MIT",
+    "product_type": "addon"
+  }
+}
