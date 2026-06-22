@@ -1,0 +1,23 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "The Knocker · Resources",
+    "description": "§7A pale-faced stalker that knocks before it kills.\n§8Resource Pack — by The Knocker addon",
+    "uuid": "322fb5f6-5620-4a40-87e8-6b8444bdd027",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 60]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "fd5c140d-a2ee-4456-b31e-93dfd466c8a6",
+      "version": [1, 0, 0]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "3a59255f-3071-4d95-a260-68d33a6d88a9",
+      "version": [1, 0, 0]
+    }
+  ]
+}

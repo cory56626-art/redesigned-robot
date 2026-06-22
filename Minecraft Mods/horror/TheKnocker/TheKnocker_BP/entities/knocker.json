@@ -1,0 +1,160 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "knocker:the_knocker",
+      "is_spawnable": true,
+      "is_summonable": true,
+      "is_experimental": false
+    },
+    "component_groups": {
+      "knocker:stalking": {
+        "minecraft:movement": { "value": 0.23 },
+        "minecraft:nameable": { "always_show": false }
+      },
+      "knocker:hostile": {
+        "minecraft:movement": { "value": 0.34 },
+        "minecraft:behavior.nearest_attackable_target": {
+          "priority": 2,
+          "must_see": false,
+          "must_reach": false,
+          "reselect_targets": true,
+          "within_radius": 40.0,
+          "entity_types": [
+            {
+              "filters": { "test": "is_family", "subject": "other", "value": "player" },
+              "max_dist": 40.0
+            }
+          ]
+        },
+        "minecraft:behavior.melee_attack": {
+          "priority": 3,
+          "speed_multiplier": 1.1,
+          "track_target": true,
+          "reach_multiplier": 1.6
+        },
+        "minecraft:on_target_acquired": {
+          "event": "knocker:on_rage"
+        }
+      },
+      "knocker:crawling": {
+        "minecraft:collision_box": { "width": 0.6, "height": 0.55 },
+        "minecraft:scale": { "value": 1.0 },
+        "minecraft:movement": { "value": 0.18 },
+        "minecraft:is_sneaking": {}
+      },
+      "knocker:standing": {
+        "minecraft:collision_box": { "width": 0.6, "height": 1.95 }
+      }
+    },
+    "components": {
+      "minecraft:type_family": {
+        "family": ["knocker", "monster", "mob"]
+      },
+      "minecraft:health": {
+        "value": 60,
+        "max": 60
+      },
+      "minecraft:attack": {
+        "damage": 7
+      },
+      "minecraft:movement": {
+        "value": 0.23
+      },
+      "minecraft:navigation.walk": {
+        "can_path_over_water": true,
+        "can_open_doors": true,
+        "can_break_doors": true,
+        "avoid_water": false,
+        "can_pass_doors": true
+      },
+      "minecraft:movement.basic": {},
+      "minecraft:jump.static": {},
+      "minecraft:can_climb": {},
+      "minecraft:physics": {},
+      "minecraft:collision_box": {
+        "width": 0.6,
+        "height": 1.95
+      },
+      "minecraft:knockback_resistance": {
+        "value": 0.5
+      },
+      "minecraft:persistent": {},
+      "minecraft:despawn": {
+        "despawn_from_distance": { "max_distance": 128, "min_distance": 96 },
+        "remove_child_entities": false,
+        "min_range_inactivity_timer": 0
+      },
+      "minecraft:fire_immune": {},
+      "minecraft:damage_sensor": {
+        "triggers": [
+          {
+            "cause": "fire",
+            "deals_damage": false
+          },
+          {
+            "cause": "fire_tick",
+            "deals_damage": false
+          },
+          {
+            "cause": "lava",
+            "deals_damage": false
+          }
+        ]
+      },
+      "minecraft:equipment": {},
+      "minecraft:equippable": {
+        "slots": [
+          {
+            "slot": 0,
+            "accepts": ["minecraft:iron_axe", "minecraft:iron_pickaxe"]
+          }
+        ]
+      },
+      "minecraft:behavior.float": { "priority": 0 },
+      "minecraft:behavior.melee_attack": {
+        "priority": 3,
+        "speed_multiplier": 1.0,
+        "track_target": true
+      },
+      "minecraft:behavior.random_stroll": {
+        "priority": 7,
+        "speed_multiplier": 0.7
+      },
+      "minecraft:behavior.look_at_player": {
+        "priority": 8,
+        "look_distance": 12.0,
+        "probability": 1.0
+      },
+      "minecraft:behavior.hurt_by_target": {
+        "priority": 1
+      },
+      "minecraft:conditional_bandwidth_optimization": {}
+    },
+    "events": {
+      "minecraft:entity_spawned": {
+        "add": { "component_groups": ["knocker:stalking", "knocker:standing"] }
+      },
+      "knocker:on_rage": {
+        "add": { "component_groups": ["knocker:hostile"] },
+        "remove": { "component_groups": ["knocker:stalking"] }
+      },
+      "knocker:become_hostile": {
+        "add": { "component_groups": ["knocker:hostile", "knocker:standing"] },
+        "remove": { "component_groups": ["knocker:stalking", "knocker:crawling"] }
+      },
+      "knocker:become_passive": {
+        "add": { "component_groups": ["knocker:stalking", "knocker:standing"] },
+        "remove": { "component_groups": ["knocker:hostile", "knocker:crawling"] }
+      },
+      "knocker:start_crawling": {
+        "add": { "component_groups": ["knocker:crawling"] },
+        "remove": { "component_groups": ["knocker:standing"] }
+      },
+      "knocker:stop_crawling": {
+        "add": { "component_groups": ["knocker:standing"] },
+        "remove": { "component_groups": ["knocker:crawling"] }
+      }
+    }
+  }
+}

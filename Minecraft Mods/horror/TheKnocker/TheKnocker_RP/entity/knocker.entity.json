@@ -1,0 +1,32 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "knocker:the_knocker",
+      "materials": {
+        "default": "entity_alphatest",
+        "enchanted": "entity_alphatest_glint"
+      },
+      "textures": {
+        "default": "textures/entity/knocker"
+      },
+      "geometry": {
+        "default": "geometry.knocker"
+      },
+      "animations": {
+        "walk": "animation.knocker.walk",
+        "idle": "animation.knocker.idle",
+        "crawl": "animation.knocker.crawl",
+        "move_controller": "controller.animation.knocker.move"
+      },
+      "scripts": {
+        "animate": ["move_controller"]
+      },
+      "render_controllers": ["controller.render.default"],
+      "spawn_egg": {
+        "base_color": "#0b0b0b",
+        "overlay_color": "#e8e4dc"
+      }
+    }
+  }
+}

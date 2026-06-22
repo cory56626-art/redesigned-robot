@@ -1,0 +1,22 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.knocker.move": {
+      "initial_state": "standing",
+      "states": {
+        "standing": {
+          "animations": ["idle", "walk"],
+          "transitions": [
+            { "crawling": "query.is_sneaking" }
+          ]
+        },
+        "crawling": {
+          "animations": ["crawl"],
+          "transitions": [
+            { "standing": "!query.is_sneaking" }
+          ]
+        }
+      }
+    }
+  }
+}
