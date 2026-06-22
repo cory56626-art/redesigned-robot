@@ -7,4 +7,6 @@ import net.minecraft.util.Identifier;
 public class ModModelLayers {
 	public static final EntityModelLayer LOBBER =
 			new EntityModelLayer(new Identifier(LobberMod.MOD_ID, "lobber"), "main");
+	public static final EntityModelLayer LOBBER_ADULT =
+			new EntityModelLayer(new Identifier(LobberMod.MOD_ID, "lobber_adult"), "main");
 }

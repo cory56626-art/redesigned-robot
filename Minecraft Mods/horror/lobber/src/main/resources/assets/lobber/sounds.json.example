@@ -1,0 +1,24 @@
+{
+  "_comment": "TEMPLATE. Rename this file to 'sounds.json' (same folder) once you add the .ogg files referenced below to assets/lobber/sounds/. Until then the mod uses vanilla sounds for atmosphere. Good CC0/royalty-free sources: Freesound.org (filter License: Creative Commons 0), Pixabay Sound Effects, OpenGameArt (CC0). Ogg Vorbis only.",
+
+  "lobber.adult_ambient": {
+    "subtitle": "subtitles.lobber.adult_ambient",
+    "sounds": [ { "name": "lobber:adult_ambient", "stream": false } ]
+  },
+  "lobber.adult_scream": {
+    "subtitle": "subtitles.lobber.adult_scream",
+    "sounds": [ { "name": "lobber:adult_scream" } ]
+  },
+  "lobber.hunt_music": {
+    "subtitle": "subtitles.lobber.hunt_music",
+    "sounds": [ { "name": "lobber:hunt_music", "stream": true } ]
+  },
+  "lobber.knock": {
+    "subtitle": "subtitles.lobber.knock",
+    "sounds": [ { "name": "lobber:knock" } ]
+  },
+  "lobber.whisper": {
+    "subtitle": "subtitles.lobber.whisper",
+    "sounds": [ { "name": "lobber:whisper", "stream": false } ]
+  }
+}

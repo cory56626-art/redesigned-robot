@@ -13,9 +13,9 @@ gets visibly **bigger, louder, and bolder**:
 
 | Stage | Size & voice | Behavior |
 |-------|--------------|----------|
-| **Young** (curious goblin) | small, quiet, high-pitched | curious — creeps closer to watch you; plays devious pranks while it doesn't trust you, but can be **befriended** (see Trust) |
+| **Young** (curious goblin) | small, quiet, high-pitched | curious — creeps closer to watch you; plays devious pranks at low/negative trust, can be **befriended**, and can even be made a **worker** (see below) |
 | **Growing** | larger, louder | bolder mischief — steals, smashes blocks, snatches animals |
-| **Mature** (stalker) | full-size, deep-voiced | a sadistic harassment campaign — unless you've earned enough trust to delay it (see below) |
+| **Mature** (stalker) | tall & gaunt **custom model**, deep & wrong-sounding | a haunting harassment campaign + time-limited hunts; trust no longer protects you |
 
 ### Spawning rules
 Custom spawner (it is **not** added to normal mob spawning). It appears only when **all** are true:
@@ -40,16 +40,27 @@ A young Lobber can be **befriended**:
 - **Right-click it with empty hand** to pet it (+small trust), or **with food** to feed it (+more trust).
   Hanging around it peacefully (especially while **sneaking**) also slowly builds trust.
 - Reach **Trust 20+** and it becomes your **friend** — pranks and mischief stop while it's young.
-- Press **R** while looking at (or standing next to) a trusted Lobber to open an **info screen**
+- Press **R** while looking at (or standing next to) a trusted Lobber to open an **info/worker screen**
   showing its **Health, Age, and Trust**.
-- **Trust is a safety net:** when it matures, high trust grants a **grace period** where it stays
-  friendly (no harassment, won't aggro on your gaze) — the higher the trust, the longer the grace.
-  Trust slowly decays once mature, so eventually its true nature returns. **Hitting it costs trust.**
+- **Trust can go negative.** Hitting it, never feeding it, or simply ignoring it erodes trust into the
+  negatives — then it **shuns you**, keeping its distance and playing nastier pranks.
+- **Trust matters far less once it's mature** — a grown Lobber is driven by obsession, not affection.
 
-### Provoked
-- **Looking directly at a grown Lobber** (enderman-style stare) or **hitting it** turns it hostile.
-- It then keeps its distance, **grabs blocks** and **throws them at you** — damage scales with the
-  block (an **iron block hits far harder than wood**).
+### Worker companion (young only)
+Hand a young Lobber (trust ≥ 0) a **pickaxe/axe/shovel** (right-click it with the tool) and it becomes
+a little helper:
+
+- Open its screen (**R**) and pick what to gather: **Ores**, **Wood**, or **Stone**.
+- It fans out near you, mines matching blocks into a small satchel, and **brings the haul back** when
+  full. Use **Collect haul** to grab its satchel early, or **Take tool back** to retire it.
+- A working Lobber won't prank or grief you. (Its satchel/tool drop safely if it ever leaves or dies.)
+
+### Provoked — time-limited, escalating hunts
+- **Looking directly at a grown Lobber** or **hitting it** begins a **hunt**.
+- It keeps its distance, **grabs blocks** and **throws them** (damage scales with the block — iron hits
+  far harder than wood), and floods you with **Darkness** and a slow **heartbeat**.
+- Crucially, it **does not chase forever**: after a while it **disengages and vanishes**… and the next
+  one to find you comes back **angrier**, hunting longer. (Young Lobbers never fight — if hit, they flee.)
 
 ### Mature — the harassment campaign
 Once fully grown it runs **time-of-day-dependent events** against your home (which it learns by spotting
@@ -62,6 +73,22 @@ your doors/beds/chests while stalking):
 - **Kills pets/animals** left outside alone.
 - **Burns your base down** while you are away exploring (never while you're watching).
 - **Hunts villagers** you live near, out of jealousy.
+
+## Atmosphere & dread (mature)
+- A **fully custom 3D model**: tall, gaunt, hunched, with a small skull-like head, a thin ribbed chest,
+  and long spindly limbs — inspired by internet horror (Mandela Catalogue / Vitas Carnis / Gemini Home
+  Entertainment).
+- **Stalker poses** while it lurks: leaning out from behind a tree to watch, or a slow distant stare.
+- While **hunting** it inflicts **Darkness** and a creeping **heartbeat**, and a pale **smiling face
+  slowly fades onto your screen** the closer it gets — pure paranoia fuel.
+- Layered unsettling **vanilla sounds** (Warden ambience/heartbeat, cave ambience, distant "wrong"
+  whispers). See *Custom sounds* below to drop in your own audio.
+
+## Custom sounds
+Real audio (`.ogg`) isn't bundled. A ready template lives at `assets/lobber/sounds.json.example` —
+add your CC0/royalty-free `.ogg` files under `assets/lobber/sounds/`, rename the template to
+`sounds.json`, and wire them up. Good CC0 sources: **Freesound.org** (License: Creative Commons 0),
+**Pixabay**, **OpenGameArt**.
 
 ## Underground lore shrines
 Cramped tombs of cracked deepslate and cobwebs generate throughout the **mines**, guarded by a
@@ -107,10 +134,10 @@ Requirements: a JDK (17+). Network access for the first build (downloads Minecra
 ./gradlew build
 ```
 
-The finished mod jar is written to `build/libs/lobber-1.2.1.jar` (ignore the `*-sources.jar`).
+The finished mod jar is written to `build/libs/lobber-1.5.0.jar` (ignore the `*-sources.jar`).
 
 ## Installing
 
 1. Install [Fabric Loader](https://fabricmc.net/use/) for Minecraft 1.20.1.
 2. Put [Fabric API](https://modrinth.com/mod/fabric-api) (0.92.x for 1.20.1) in your `mods` folder.
-3. Put `lobber-1.2.1.jar` in your `mods` folder.
+3. Put `lobber-1.5.0.jar` in your `mods` folder.

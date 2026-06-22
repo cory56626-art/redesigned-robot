@@ -21,6 +21,8 @@ import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
 
 import java.util.List;
 import java.util.function.Predicate;
@@ -128,7 +130,7 @@ public class LobberMatureBehavior {
 				case 0 -> this.beginKnock(lob, world);
 				case 1 -> {
 					if (cfg.enableGriefing) {
-						this.beginShatter();
+						this.beginShatter(world);
 					}
 				}
 				case 2 -> this.beginBreakIn(lob, world);
@@ -171,7 +173,7 @@ public class LobberMatureBehavior {
 		this.endEvent();
 		switch (name.toLowerCase()) {
 			case "knock" -> this.beginKnock(lob, world);
-			case "shatter", "window" -> this.beginShatter();
+			case "shatter", "window" -> this.beginShatter(world);
 			case "breakin", "break_in" -> this.beginBreakIn(lob, world);
 			case "stare" -> {
 				if (player != null) {
@@ -195,7 +197,7 @@ public class LobberMatureBehavior {
 	private void tickEvent(LobberEntity lob, ServerWorld world) {
 		switch (this.activeEvent) {
 			case EVENT_KNOCK -> this.tickKnock(lob, world);
-			case EVENT_SHATTER -> this.tickShatter(world);
+			case EVENT_SHATTER -> this.tickShatter(lob, world);
 			case EVENT_BREAK_IN -> this.tickBreakIn(lob, world);
 			case EVENT_STARE -> this.tickStare(lob, world);
 			case EVENT_KILL_PET -> this.tickKillPet(lob, world);
@@ -251,30 +253,53 @@ public class LobberMatureBehavior {
 	// Shattering windows
 	// ------------------------------------------------------------------
 
-	private void beginShatter() {
+	private void beginShatter(ServerWorld world) {
 		if (this.home == null) {
 			return;
 		}
-		this.eventTarget = this.home;
-		this.eventTimer = 84;
+		BlockPos glass = findNearest(world, this.home, 14, LobberMatureBehavior::isGlass);
+		if (glass == null) {
+			return;
+		}
+		this.eventTarget = glass;
+		this.eventTimer = 160;
 		this.activeEvent = EVENT_SHATTER;
 	}
 
-	private void tickShatter(ServerWorld world) {
+	private void tickShatter(LobberEntity lob, ServerWorld world) {
 		if (this.eventTarget == null || --this.eventTimer <= 0) {
 			this.endEvent();
 			return;
 		}
-		if (this.eventTimer % 12 == 0) {
-			BlockPos glass = findNearest(world, this.eventTarget, 12, LobberMatureBehavior::isGlass);
-			if (glass == null) {
-				this.endEvent();
-				return;
+		Vec3d center = Vec3d.ofCenter(this.eventTarget);
+		lob.getLookControl().lookAt(center.x, center.y, center.z);
+
+		// Physically stalk up to the window before smashing it.
+		if (lob.squaredDistanceTo(center) > 4.0) {
+			lob.getNavigation().startMovingTo(center.x, this.eventTarget.getY(), center.z, 1.1);
+			return;
+		}
+
+		// Arrived: smash the pane (and its neighbours) to taunt, then crawl in after the player.
+		if (isGlass(world.getBlockState(this.eventTarget).getBlock())) {
+			world.breakBlock(this.eventTarget, false);
+			world.playSound(null, this.eventTarget, SoundEvents.BLOCK_GLASS_BREAK,
+					SoundCategory.HOSTILE, 1.3f, 0.6f);
+			world.spawnParticles(ParticleTypes.CRIT, center.x, center.y, center.z, 16, 0.3, 0.3, 0.3, 0.06);
+			for (Direction dir : Direction.values()) {
+				BlockPos neighbor = this.eventTarget.offset(dir);
+				if (isGlass(world.getBlockState(neighbor).getBlock())) {
+					world.breakBlock(neighbor, false);
+				}
 			}
-			world.breakBlock(glass, false);
-			world.playSound(null, glass, SoundEvents.BLOCK_GLASS_BREAK, SoundCategory.HOSTILE, 1.0f, 0.8f);
-			world.spawnParticles(ParticleTypes.CRIT,
-					glass.getX() + 0.5, glass.getY() + 0.5, glass.getZ() + 0.5, 8, 0.3, 0.3, 0.3, 0.05);
+		}
+		// Crawl inside toward the player.
+		PlayerEntity player = world.getClosestPlayer(lob, 24.0);
+		if (player != null) {
+			lob.getNavigation().startMovingTo(player, 1.0);
+		}
+		if (this.eventTimer > 50) {
+			this.eventTimer = 50;
 		}
 	}
 

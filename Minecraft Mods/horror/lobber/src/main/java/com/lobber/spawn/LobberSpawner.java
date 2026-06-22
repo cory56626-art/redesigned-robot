@@ -121,6 +121,12 @@ public class LobberSpawner {
 				pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
 				world.random.nextFloat() * 360.0f, 0.0f);
 		lobber.initialize(world, world.getLocalDifficulty(pos), SpawnReason.NATURAL, null, null);
+
+		// Carry over its grudge and its memory of the player from previous encounters.
+		com.lobber.entity.LobberState state = com.lobber.entity.LobberState.get(world);
+		java.util.UUID bond = state.hasBond ? new java.util.UUID(state.bondMost, state.bondLeast) : null;
+		lobber.applyContinuity(state.aggression, state.trust, bond);
+
 		world.spawnEntity(lobber);
 	}
 }

@@ -3,6 +3,7 @@ package com.lobber;
 import com.lobber.command.LobberCommand;
 import com.lobber.config.LobberConfig;
 import com.lobber.entity.ModEntities;
+import com.lobber.network.LobberNetworking;
 import com.lobber.spawn.LobberSpawner;
 import com.lobber.world.ModWorldGen;
 import net.fabricmc.api.ModInitializer;
@@ -20,6 +21,7 @@ public class LobberMod implements ModInitializer {
 		LobberConfig.load();
 		ModEntities.registerEntities();
 		ModWorldGen.register();
+		LobberNetworking.registerServer();
 
 		// Drives the custom, single-Lobber-per-world spawning rules.
 		ServerTickEvents.END_WORLD_TICK.register(LobberSpawner::tick);

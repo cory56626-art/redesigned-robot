@@ -30,7 +30,8 @@ public class LobberPrankGoal extends Goal {
 	@Override
 	public boolean canStart() {
 		if (this.lobber.isProvoked() || this.lobber.isMature() || this.lobber.isFriendly()
-				|| this.lobber.hasActiveEvent() || !LobberConfig.INSTANCE.enableGriefing
+				|| this.lobber.isWorker() || this.lobber.hasActiveEvent()
+				|| !LobberConfig.INSTANCE.enableGriefing
 				|| !(this.lobber.getWorld() instanceof ServerWorld)) {
 			return false;
 		}
