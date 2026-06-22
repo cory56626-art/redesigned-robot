@@ -667,6 +667,19 @@ world.afterEvents.entityHitEntity.subscribe((e) => {
     if (dmg.typeId === "minecraft:player" && dmg.hasTag(OWNER_TAG)) markEnemy(hit);
     if (mainhandId(dmg) === SWORD_ID) applyStamp(dmg, hit);
     if (isCompanion(dmg)) {
+      // drive the sword-swing animation
+      try {
+        dmg.setProperty("wac:attacking", true);
+        system.runTimeout(() => {
+          try {
+            dmg.setProperty("wac:attacking", false);
+          } catch (e) {
+            /* ignore */
+          }
+        }, 9);
+      } catch (e) {
+        /* ignore */
+      }
       try {
         if (dmg.hasTag(CRIT_TAG)) applyCrit(dmg, hit);
       } catch (err) {

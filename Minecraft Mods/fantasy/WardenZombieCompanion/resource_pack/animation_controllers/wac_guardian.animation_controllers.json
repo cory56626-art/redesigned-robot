@@ -1,0 +1,18 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.wac_guardian.main": {
+      "initial_state": "default",
+      "states": {
+        "default": {
+          "animations": ["zombie_pose"],
+          "transitions": [{ "attack": "query.property('wac:attacking')" }]
+        },
+        "attack": {
+          "animations": ["zombie_pose", "attack"],
+          "transitions": [{ "default": "!query.property('wac:attacking')" }]
+        }
+      }
+    }
+  }
+}

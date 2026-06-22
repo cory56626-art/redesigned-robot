@@ -1,0 +1,55 @@
+{
+  "format_version": "1.10.0",
+  "animations": {
+    "animation.wac_guardian.zombie_pose": {
+      "loop": true,
+      "bones": {
+        "rightarm": {
+          "rotation": [
+            "-90 + math.sin(query.life_time * 76.78) * 2.86",
+            0,
+            "math.cos(query.life_time * 103.13) * 2.86 + 2.86"
+          ]
+        },
+        "leftarm": {
+          "rotation": [
+            "-78 - math.sin(query.life_time * 76.78) * 2.86",
+            0,
+            "math.cos(query.life_time * 103.13) * -2.86 - 2.86"
+          ]
+        },
+        "rightleg": {
+          "rotation": ["math.cos(query.modified_distance_moved * 38.17) * 42 * query.modified_move_speed", 0, 0]
+        },
+        "leftleg": {
+          "rotation": ["math.cos(query.modified_distance_moved * 38.17 + 180.0) * 42 * query.modified_move_speed", 0, 0]
+        },
+        "body": {
+          "rotation": [0, 0, "math.sin(query.life_time * 80.0) * 1.6"]
+        },
+        "head": {
+          "rotation": [
+            "math.sin(query.life_time * 82.0) * 2.0",
+            0,
+            "math.sin(query.life_time * 61.0) * 2.0"
+          ]
+        }
+      }
+    },
+
+    "animation.wac_guardian.attack": {
+      "loop": false,
+      "animation_length": 0.45,
+      "bones": {
+        "rightarm": {
+          "rotation": {
+            "0.0": [0, 0, 0],
+            "0.08": [-35, 0, 0],
+            "0.2": [55, 0, 15],
+            "0.45": [0, 0, 0]
+          }
+        }
+      }
+    }
+  }
+}

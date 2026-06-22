@@ -14,12 +14,13 @@
         "default": "geometry.wac_guardian"
       },
       "animations": {
-        "base": "animation.humanoid.base_pose",
-        "move": "animation.humanoid.move",
-        "look": "animation.humanoid.look_at_target.default"
+        "zombie_pose": "animation.wac_guardian.zombie_pose",
+        "attack": "animation.wac_guardian.attack",
+        "look": "animation.humanoid.look_at_target.default",
+        "ctrl": "controller.animation.wac_guardian.main"
       },
       "scripts": {
-        "animate": ["base", "move", "look"]
+        "animate": ["ctrl", "look"]
       },
       "render_controllers": ["controller.render.wac_guardian"],
       "spawn_egg": {

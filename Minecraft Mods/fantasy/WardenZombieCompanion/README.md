@@ -141,13 +141,23 @@ Entity stats (health, speed, damage, follow range, navigation flags) live in
 
 ## Notes & limitations
 
-- **Rendering:** the guardian uses a custom client-entity model
+- **Appearance:** the guardian uses a custom client-entity model
   (`resource_pack/models/entity/wac_guardian.geo.json`) built on vanilla humanoid
-  proportions and bone names, so it reuses the vanilla walk / look-at animations.
-  Its **iron armor, Stamping Sword, and a visibly raised shield are part of the
-  model**, so they always render correctly. The script still equips real iron armor
-  in the entity's armor slots, so the armor's damage reduction applies on top of the
-  look.
+  proportions and bone names. It's styled as a **classic green zombie** — green
+  zombie face/head, green hands, cyan shirt peeking out — **wearing iron armor**,
+  with the **Stamping Sword** and a **visibly raised shield** baked into the model so
+  they always render. The script still equips real iron armor in the entity's armor
+  slots, so the armor's damage reduction applies on top of the look.
+- **Animations** (`resource_pack/animations/wac_guardian.animation.json`, driven by
+  `resource_pack/animation_controllers/...`):
+  - **Zombie shamble** — the iconic arms-straight-out pose (`rotation.x = -90`, matching
+    vanilla) with a subtle idle sway.
+  - **Walk** — legs swing only while actually moving (scaled by `query.modified_move_speed`),
+    so it stands still cleanly and strides when it walks.
+  - **Sword swing** — a real attack animation that fires the moment the guardian lands
+    a hit, driven from the script via the client-synced `wac:attacking` entity property.
+  - **Head tracking** — looks toward its current target/owner via the vanilla
+    `look_at_target` animation.
 - **Why it was invisible before (fixed):** the resource pack and behavior pack
   declared each other as dependencies (a circular dependency), which stopped the
   resource pack from loading — making the staff icon and the entity invisible. The RP
