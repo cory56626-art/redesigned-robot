@@ -141,13 +141,18 @@ Entity stats (health, speed, damage, follow range, navigation flags) live in
 
 ## Notes & limitations
 
-- **Rendering:** the guardian uses `runtime_identifier: "minecraft:zombie"`, so it
-  renders as a normal zombie and its **iron armor and Stamping Sword show in-world**,
-  fully animated.
-- **Shield model:** the shield is equipped in the off-hand and its blocking is fully
-  functional, but Bedrock does not reliably render an off-hand shield on a *mob's*
-  body, so the block is communicated with a shield-block sound + spark rather than a
-  visible raised shield. The mechanic works regardless.
+- **Rendering:** the guardian uses a custom client-entity model
+  (`resource_pack/models/entity/wac_guardian.geo.json`) built on vanilla humanoid
+  proportions and bone names, so it reuses the vanilla walk / look-at animations.
+  Its **iron armor, Stamping Sword, and a visibly raised shield are part of the
+  model**, so they always render correctly. The script still equips real iron armor
+  in the entity's armor slots, so the armor's damage reduction applies on top of the
+  look.
+- **Why it was invisible before (fixed):** the resource pack and behavior pack
+  declared each other as dependencies (a circular dependency), which stopped the
+  resource pack from loading — making the staff icon and the entity invisible. The RP
+  now only declares the script dependency it needs, and the entity renders from a real
+  client-entity definition instead of the unreliable `runtime_identifier`.
 - Built and verified against `@minecraft/server` **1.13.0** (Bedrock 1.21). If you're
   on a newer engine and the script logs a module-version error, bump the version in
   `behavior_pack/manifest.json` to the matching `@minecraft/server` version.

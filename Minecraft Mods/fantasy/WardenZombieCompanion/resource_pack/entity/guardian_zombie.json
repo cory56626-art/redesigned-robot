@@ -1,0 +1,31 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "wac:guardian_zombie",
+      "min_engine_version": "1.8.0",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/entity/wac_guardian"
+      },
+      "geometry": {
+        "default": "geometry.wac_guardian"
+      },
+      "animations": {
+        "base": "animation.humanoid.base_pose",
+        "move": "animation.humanoid.move",
+        "look": "animation.humanoid.look_at_target.default"
+      },
+      "scripts": {
+        "animate": ["base", "move", "look"]
+      },
+      "render_controllers": ["controller.render.wac_guardian"],
+      "spawn_egg": {
+        "base_color": "#3fae5a",
+        "overlay_color": "#0f5a3a"
+      }
+    }
+  }
+}
