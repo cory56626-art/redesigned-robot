@@ -1,9 +1,12 @@
 package com.lobber.entity;
 
+import com.lobber.config.LobberConfig;
 import com.lobber.entity.goal.LobberMischiefGoal;
 import com.lobber.entity.goal.LobberStalkGoal;
 import com.lobber.entity.goal.LobberThrowBlockGoal;
 import net.minecraft.block.BlockState;
+import net.minecraft.entity.EntityDimensions;
+import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.ai.goal.ActiveTargetGoal;
 import net.minecraft.entity.ai.goal.LookAroundGoal;
@@ -36,9 +39,16 @@ import net.minecraft.world.World;
 public class LobberEntity extends HostileEntity {
 	private static final TrackedData<Boolean> PROVOKED =
 			DataTracker.registerData(LobberEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
+	// 0 = freshly spawned hatchling, 100 = fully matured stalker. Tracked so the client can scale it.
+	private static final TrackedData<Integer> GROWTH =
+			DataTracker.registerData(LobberEntity.class, TrackedDataHandlerRegistry.INTEGER);
 
 	// Once the target is lost, the Lobber stays angry for a little while before calming back into a stalker.
 	private int calmCooldown = 0;
+	// Ticks spent stalking a player; drives maturity.
+	private long maturityTicks = 0L;
+	// The malicious adult behavior engine, only used once mature.
+	private final LobberMatureBehavior matureBehavior = new LobberMatureBehavior();
 
 	public LobberEntity(EntityType<? extends HostileEntity> entityType, World world) {
 		super(entityType, world);
@@ -75,6 +85,7 @@ public class LobberEntity extends HostileEntity {
 	protected void initDataTracker() {
 		super.initDataTracker();
 		this.dataTracker.startTracking(PROVOKED, false);
+		this.dataTracker.startTracking(GROWTH, 0);
 	}
 
 	public boolean isProvoked() {
@@ -85,16 +96,67 @@ public class LobberEntity extends HostileEntity {
 		this.dataTracker.set(PROVOKED, provoked);
 	}
 
+	/** 0..100 maturity. */
+	public int getGrowth() {
+		return this.dataTracker.get(GROWTH);
+	}
+
+	public void setGrowth(int growth) {
+		this.dataTracker.set(GROWTH, Math.max(0, Math.min(100, growth)));
+	}
+
+	public boolean isMature() {
+		return this.getGrowth() >= 100;
+	}
+
+	public boolean hasActiveEvent() {
+		return this.matureBehavior.hasActiveEvent();
+	}
+
+	/** Visual + hitbox scale: small goblin when young, full-size when matured. */
+	public float getGrowthScale() {
+		return 0.5f + 0.5f * (this.getGrowth() / 100.0f);
+	}
+
+	@Override
+	public EntityDimensions getDimensions(EntityPose pose) {
+		return super.getDimensions(pose).scaled(this.getGrowthScale());
+	}
+
+	@Override
+	protected float getActiveEyeHeight(EntityPose pose, EntityDimensions dimensions) {
+		return dimensions.height * 0.85f;
+	}
+
+	@Override
+	public void onTrackedDataSet(TrackedData<?> data) {
+		if (GROWTH.equals(data)) {
+			this.calculateDimensions();
+		}
+		super.onTrackedDataSet(data);
+	}
+
+	/** Exposes the internal teleport for the mature-behavior event engine. */
+	public boolean lobberTeleport(double x, double y, double z) {
+		return this.teleportTo(x, y, z);
+	}
+
 	@Override
 	public void writeCustomDataToNbt(NbtCompound nbt) {
 		super.writeCustomDataToNbt(nbt);
 		nbt.putBoolean("Provoked", this.isProvoked());
+		nbt.putInt("Growth", this.getGrowth());
+		nbt.putLong("Maturity", this.maturityTicks);
+		this.matureBehavior.writeNbt(nbt);
 	}
 
 	@Override
 	public void readCustomDataFromNbt(NbtCompound nbt) {
 		super.readCustomDataFromNbt(nbt);
 		this.setProvoked(nbt.getBoolean("Provoked"));
+		this.setGrowth(nbt.getInt("Growth"));
+		this.maturityTicks = nbt.getLong("Maturity");
+		this.matureBehavior.readNbt(nbt);
 	}
 
 	@Override
@@ -116,8 +178,6 @@ public class LobberEntity extends HostileEntity {
 	}
 
 	private void serverBehaviorTick() {
-		PlayerEntity nearest = this.getWorld().getClosestPlayer(this, 32.0);
-
 		if (this.isProvoked()) {
 			if (this.getTarget() != null && this.getTarget().isAlive()) {
 				this.calmCooldown = 600;
@@ -127,28 +187,64 @@ public class LobberEntity extends HostileEntity {
 			return;
 		}
 
+		this.ageUp();
+
+		// Once fully grown, the malicious harassment campaign takes over.
+		if (this.isMature() && this.getWorld() instanceof ServerWorld serverWorld) {
+			this.matureBehavior.tick(this, serverWorld);
+		}
+
+		PlayerEntity nearest = this.getWorld().getClosestPlayer(this, 32.0);
 		if (nearest == null) {
 			return;
 		}
 
-		// Spotted while stalking -> turns aggressive, just like meeting an enderman's gaze.
 		if (this.isPlayerStaring(nearest)) {
-			this.setProvoked(true);
-			this.setTarget(nearest);
-			this.calmCooldown = 600;
-			this.playSound(SoundEvents.ENTITY_ENDERMAN_STARE, 1.0f, 0.8f);
+			if (this.getGrowth() >= 50) {
+				// Bold enough now: meeting its gaze sets it off, enderman-style.
+				this.setProvoked(true);
+				this.setTarget(nearest);
+				this.calmCooldown = 600;
+				this.playSound(SoundEvents.ENTITY_ENDERMAN_STARE, this.getSoundVolume(), 0.8f);
+			} else {
+				// Shy youngster: caught looking, it panics and bolts.
+				this.fleeFrom(nearest);
+				this.playSound(SoundEvents.ENTITY_ENDERMAN_SCREAM, 0.4f, 1.8f);
+			}
 			return;
 		}
 
 		// If the player wanders too close without noticing, slip away to keep its distance.
-		if (this.squaredDistanceTo(nearest) < 16.0 && this.random.nextInt(20) == 0) {
-			double angle = this.random.nextDouble() * Math.PI * 2.0;
-			double distance = 12.0 + this.random.nextDouble() * 6.0;
-			this.teleportTo(
-					nearest.getX() + Math.cos(angle) * distance,
-					nearest.getY(),
-					nearest.getZ() + Math.sin(angle) * distance);
+		// Younger Lobbers are far more skittish about it.
+		int skittishness = this.getGrowth() >= 50 ? 40 : 14;
+		if (this.squaredDistanceTo(nearest) < 16.0 && this.random.nextInt(skittishness) == 0) {
+			this.fleeFrom(nearest);
 		}
+	}
+
+	private void ageUp() {
+		if (this.getGrowth() >= 100) {
+			return;
+		}
+		// It only matures while it has a player to stalk.
+		if (this.getWorld().getClosestPlayer(this, 64.0) == null) {
+			return;
+		}
+		this.maturityTicks++;
+		long ticksToMature = (long) LobberConfig.INSTANCE.daysToMature * 24000L;
+		int growth = (int) Math.min(100L, this.maturityTicks * 100L / ticksToMature);
+		if (growth != this.getGrowth()) {
+			this.setGrowth(growth);
+		}
+	}
+
+	private void fleeFrom(PlayerEntity player) {
+		double angle = this.random.nextDouble() * Math.PI * 2.0;
+		double distance = 12.0 + this.random.nextDouble() * 6.0;
+		this.teleportTo(
+				player.getX() + Math.cos(angle) * distance,
+				player.getY(),
+				player.getZ() + Math.sin(angle) * distance);
 	}
 
 	private boolean isPlayerStaring(PlayerEntity player) {
@@ -219,6 +315,10 @@ public class LobberEntity extends HostileEntity {
 
 	@Override
 	protected SoundEvent getAmbientSound() {
+		// Young Lobbers stay quiet to avoid drawing attention.
+		if (this.getGrowth() < 40 && this.random.nextInt(3) != 0) {
+			return null;
+		}
 		return SoundEvents.ENTITY_ENDERMAN_AMBIENT;
 	}
 
@@ -230,5 +330,17 @@ public class LobberEntity extends HostileEntity {
 	@Override
 	protected SoundEvent getDeathSound() {
 		return SoundEvents.ENTITY_ENDERMAN_DEATH;
+	}
+
+	@Override
+	protected float getSoundVolume() {
+		// Hushed when small, full-voiced once grown and bold.
+		return 0.25f + 0.75f * (this.getGrowth() / 100.0f);
+	}
+
+	@Override
+	public float getSoundPitch() {
+		// Higher, sillier voice when young; deeper as it matures.
+		return super.getSoundPitch() * (1.5f - 0.5f * (this.getGrowth() / 100.0f));
 	}
 }

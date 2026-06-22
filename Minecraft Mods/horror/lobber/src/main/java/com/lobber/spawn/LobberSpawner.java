@@ -15,14 +15,14 @@ import java.util.List;
 
 /**
  * Custom spawning for the Lobber. It only appears:
- *   - a few in-game days into the world,
+ *   - from the very first night onward (it then matures over time),
  *   - at night,
  *   - to a player who is completely alone,
  *   - in low light, out near (but not on top of) that player,
  *   - and only ever ONE at a time across the whole world.
  */
 public class LobberSpawner {
-	private static final long FIRST_SPAWN_DAY = 3;       // "a handful of days"
+	private static final long FIRST_SPAWN_DAY = 0;       // arrives on night one as a hatchling
 	private static final int CHECK_INTERVAL = 200;       // attempt every 10 seconds
 	private static final double SOLITUDE_RADIUS_SQ = 48.0 * 48.0;
 	private static final int MAX_BLOCK_LIGHT = 7;

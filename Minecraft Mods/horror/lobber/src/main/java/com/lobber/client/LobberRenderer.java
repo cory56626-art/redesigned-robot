@@ -17,8 +17,9 @@ public class LobberRenderer extends MobEntityRenderer<LobberEntity, LobberModel>
 
 	@Override
 	protected void scale(LobberEntity entity, MatrixStack matrices, float amount) {
-		// Shorter and slighter than a player/enderman.
-		matrices.scale(0.9f, 0.9f, 0.9f);
+		// Grows from a small goblin to a full-size stalker as it matures.
+		float s = entity.getGrowthScale();
+		matrices.scale(s, s, s);
 	}
 
 	@Override

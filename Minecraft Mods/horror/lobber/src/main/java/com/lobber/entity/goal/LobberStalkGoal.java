@@ -24,7 +24,7 @@ public class LobberStalkGoal extends Goal {
 
 	@Override
 	public boolean canStart() {
-		if (this.lobber.isProvoked()) {
+		if (this.lobber.isProvoked() || this.lobber.hasActiveEvent()) {
 			return false;
 		}
 		this.stalked = this.lobber.getWorld().getClosestPlayer(this.lobber, 32.0);
@@ -34,6 +34,7 @@ public class LobberStalkGoal extends Goal {
 	@Override
 	public boolean shouldContinue() {
 		return !this.lobber.isProvoked()
+				&& !this.lobber.hasActiveEvent()
 				&& this.stalked != null
 				&& this.stalked.isAlive()
 				&& this.lobber.squaredDistanceTo(this.stalked) < 48.0 * 48.0;

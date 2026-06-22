@@ -1,5 +1,6 @@
 package com.lobber.entity.goal;
 
+import com.lobber.config.LobberConfig;
 import com.lobber.entity.LobberEntity;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.ai.goal.Goal;
@@ -27,10 +28,13 @@ public class LobberMischiefGoal extends Goal {
 
 	@Override
 	public boolean canStart() {
-		// Rare, so it nibbles at a base over time rather than leveling it instantly.
-		return !this.lobber.isProvoked()
-				&& this.lobber.getWorld() instanceof ServerWorld
-				&& this.lobber.getRandom().nextInt(200) == 0
+		if (this.lobber.isProvoked() || this.lobber.hasActiveEvent()
+				|| !(this.lobber.getWorld() instanceof ServerWorld)) {
+			return false;
+		}
+		// Bolder (more frequent) as it grows: ~1/400 chance when tiny, ~1/100 once nearly grown.
+		int rate = Math.max(80, 400 - this.lobber.getGrowth() * 3);
+		return this.lobber.getRandom().nextInt(rate) == 0
 				&& this.lobber.getWorld().getClosestPlayer(this.lobber, 24.0) != null;
 	}
 
@@ -41,10 +45,31 @@ public class LobberMischiefGoal extends Goal {
 
 	@Override
 	public void start() {
+		boolean canGrief = LobberConfig.INSTANCE.enableGriefing;
+		// Young Lobbers are shy and silly - they only pocket the odd block to play with.
+		// Bolder, older ones start smashing things and snatching animals.
+		if (this.lobber.getGrowth() < 40) {
+			if (canGrief) {
+				this.stealNearbyBlock();
+			}
+			return;
+		}
 		switch (this.lobber.getRandom().nextInt(3)) {
-			case 0 -> this.destroyNearbyBlock();
-			case 1 -> this.stealNearbyBlock();
-			default -> this.stealNearbyAnimal();
+			case 0 -> {
+				if (canGrief) {
+					this.destroyNearbyBlock();
+				}
+			}
+			case 1 -> {
+				if (canGrief) {
+					this.stealNearbyBlock();
+				}
+			}
+			default -> {
+				if (LobberConfig.INSTANCE.enablePetKilling) {
+					this.stealNearbyAnimal();
+				}
+			}
 		}
 	}
 
