@@ -1,0 +1,9 @@
+{
+  "resource_pack_name": "mythic_morsels",
+  "texture_name": "atlas.terrain",
+  "padding": 8,
+  "num_mip_levels": 4,
+  "texture_data": {
+    "mm_glimmerstone": { "textures": "textures/blocks/glimmerstone" }
+  }
+}

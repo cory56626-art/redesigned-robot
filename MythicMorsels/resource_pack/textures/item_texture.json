@@ -1,0 +1,9 @@
+{
+  "resource_pack_name": "mythic_morsels",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "mm_fae_feather": { "textures": "textures/items/fae_feather" },
+    "mm_mythic_cookie": { "textures": "textures/items/mythic_cookie" },
+    "mm_mooncheese": { "textures": "textures/items/mooncheese" }
+  }
+}

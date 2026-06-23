@@ -1,0 +1,23 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Mythic Morsels RP",
+    "description": "Magical food & relics - resource pack",
+    "uuid": "ccb5b77b-34fa-42b0-9559-3ce85494886e",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 0]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "9c715cc8-20ce-4785-a6b0-a6a1f0b3342f",
+      "version": [1, 0, 0]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "3a1992d1-6147-46ea-a176-845db22d5c90",
+      "version": [1, 0, 0]
+    }
+  ]
+}

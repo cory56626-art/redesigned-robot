@@ -1,0 +1,16 @@
+{
+  "format_version": "1.21.10",
+  "minecraft:recipe_shapeless": {
+    "description": { "identifier": "mm:glimmerstone" },
+    "tags": [ "crafting_table" ],
+    "ingredients": [
+      { "item": "minecraft:stone" },
+      { "item": "minecraft:stone" },
+      { "item": "minecraft:stone" },
+      { "item": "minecraft:stone" },
+      { "item": "mm:fae_feather" },
+      { "item": "minecraft:glowstone_dust" }
+    ],
+    "result": { "item": "mm:glimmerstone", "count": 4 }
+  }
+}

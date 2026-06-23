@@ -1,0 +1,34 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Mythic Morsels BP",
+    "description": "Magical food & relics - behavior pack",
+    "uuid": "3a1992d1-6147-46ea-a176-845db22d5c90",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 0]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "440571ae-8ad0-43d1-90b6-6c83dbf75ea9",
+      "version": [1, 0, 0]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "cf282bc2-649f-4db4-af6d-72d62c199a01",
+      "version": [1, 0, 0],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "ccb5b77b-34fa-42b0-9559-3ce85494886e",
+      "version": [1, 0, 0]
+    },
+    {
+      "module_name": "@minecraft/server",
+      "version": "1.14.0"
+    }
+  ]
+}
