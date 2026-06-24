@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>First-Person 3D Raycaster - Horror Maze</title>
+    <style>
+        body {
+            background-color: #111;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            border: 4px solid #333;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+        }
+        canvas {
+            display: block;
+            background: black;
+        }
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            text-align: center;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            letter-spacing: 3px;
+            text-shadow: 0 0 10px red;
+        }
+        p {
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+            color: #ccc;
+            max-width: 500px;
+            line-height: 1.5;
+        }
+        button {
+            background-color: #800;
+            color: white;
+            border: 2px solid #f00;
+            padding: 12px 30px;
+            font-size: 1.2rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+        button:hover {
+            background-color: #f00;
+            box-shadow: 0 0 20px #f00;
+            transform: scale(1.05);
+        }
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px #000;
+            pointer-events: none;
+            z-index: 5;
+        }
+        .hud-item {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 5px 15px;
+            border-radius: 4px;
+            border: 1px solid #444;
+        }
+        #batteryBarContainer {
+            width: 120px;
+            height: 15px;
+            background: #333;
+            border: 1px solid #fff;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 10px;
+        }
+        #batteryBar {
+            height: 100%;
+            background: #0f0;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="hud">
+            <div class="hud-item">FUSES: <span id="fuseCount" style="color: #0ff;">0/4</span></div>
+            <div class="hud-item">
+                BATTERY: 
+                <div id="batteryBarContainer">
+                    <div id="batteryBar"></div>
+                </div>
+            </div>
+        </div>
+
+        <canvas id="canvas" width="800" height="600"></canvas>
+
+        <!-- Start Overlay -->
+        <div id="startOverlay" class="overlay">
+            <h1 style="color: #e00;">DARK MAZE</h1>
+            <p>Find 4 glowing FUSES and escape through the RED EXIT PORTAL before your flashlight battery dies. Use W/A/S/D to move and Arrow Keys to look around.</p>
+            <button id="startBtn">ENTER THE DARKNESS</button>
+        </div>
+
+        <!-- Win Overlay -->
+        <div id="winOverlay" class="overlay" style="display: none;">
+            <h1 style="color: #0f0; text-shadow: 0 0 10px #0f0;">YOU ESCAPED</h1>
+            <p>You found all the fuses and made it out of the maze alive!</p>
+            <button class="restartBtn">PLAY AGAIN</button>
+        </div>
+
+        <!-- Lose Overlay -->
+        <div id="loseOverlay" class="overlay" style="display: none;">
+            <h1 style="color: #f00;">LOST IN THE DARK</h1>
+            <p>Your flashlight battery died. Something in the shadows found you...</p>
+            <button class="restartBtn">TRY AGAIN</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const startOverlay = document.getElementById('startOverlay');
+        const winOverlay = document.getElementById('winOverlay');
+        const loseOverlay = document.getElementById('loseOverlay');
+        const startBtn = document.getElementById('startBtn');
+        const restartBtns = document.querySelectorAll('.restartBtn');
+        const fuseCountEl = document.getElementById('fuseCount');
+        const batteryBar = document.getElementById('batteryBar');
+
+        // Map: 1 = Wall, 0 = Empty, 2 = Exit Portal
+        let map = [
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1],
+            [1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1],
+            [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1],
+            [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+            [1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1],
+            [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+            [1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1],
+            [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1],
+            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1], // 2 is the Exit
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        ];
+
+        let player = {
+            x: 1.5,
+            y: 1.5,
+            dir: 0
+        };
+
+        let fuses = [];
+        let collectedFuses = 0;
+        let battery = 100;
+        let started = false;
+        let gameOver = false;
+        let depthBuffer = new Float32Array(canvas.width);
+
+        // Monster
+        let monster = {
+            x: 10.5,
+            y: 10.5,
+            speed: 0.01,
+            size: 0.3,
+            color: 'rgba(255, 200, 200, 0.8)'
+        };
+
+        // Audio
+        let heartbeatSound;
+        let audioContext;
+        let gainNode;
+
+        // Screen effects
+        let shakeIntensity = 0;
+        let vignetteIntensity = 0;
+
+        // Flashlight settings
+        const MAX_VISIBLE_DIST = 5.5; // Fog cutoff distance
+
+        function initGame() {
+            player.x = 1.5;
+            player.y = 1.5;
+            player.dir = 0.5;
+            collectedFuses = 0;
+            battery = 100;
+            gameOver = false;
+
+            // Spawn 4 fuses in specific empty spots
+            fuses = [
+                { x: 4.5, y: 5.5, collected: false, color: '#0ff' },
+                { x: 9.5, y: 1.5, collected: false, color: '#0ff' },
+                { x: 13.5, y: 9.5, collected: false, color: '#0ff' },
+                { x: 7.5, y: 7.5, collected: false, color: '#0ff' }
+            ];
+
+            // Reset monster
+            monster.x = 10.5;
+            monster.y = 10.5;
+            monster.speed = 0.01;
+
+            updateHUD();
+            winOverlay.style.display = 'none';
+            loseOverlay.style.display = 'none';
+
+            // Reset screen effects
+            shakeIntensity = 0;
+            vignetteIntensity = 0;
+        }
+
+        function updateHUD() {
+            fuseCountEl.textContent = `${collectedFuses}/4`;
+            batteryBar.style.width = `${battery}%`;
+            if (battery > 50) {
+                batteryBar.style.backgroundColor = '#0f0';
+            } else if (battery > 20) {
+                batteryBar.style.backgroundColor = '#ff0';
+            } else {
+                batteryBar.style.backgroundColor = '#f00';
+            }
+        }
+
+        startBtn.addEventListener('click', () => {
+            startOverlay.style.display = 'none';
+            started = true;
+            initGame();
+
+            // Initialize audio on first interaction
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                gainNode = audioContext.createGain();
+                gainNode.gain.value = 0;
+                gainNode.connect(audioContext.destination);
+
+                heartbeatSound = audioContext.createOscillator();
+                heartbeatSound.type = 'sine';
+                heartbeatSound.frequency.value = 60;
+                heartbeatSound.connect(gainNode);
+                heartbeatSound.start();
+            } catch (e) {
+                console.log("Audio not supported");
+            }
+        });
+
+        restartBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                initGame();
+                started = true;
+            });
+        });
+
+        function render() {
+            // Apply screen shake
+            if (shakeIntensity > 0) {
+                const shakeX = (Math.random() - 0.5) * shakeIntensity * 2;
+                const shakeY = (Math.random() - 0.5) * shakeIntensity * 2;
+                ctx.save();
+                ctx.translate(shakeX, shakeY);
+            }
+
+            // Clear screen (darkness)
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw ceiling and floor with ambient dark gradient
+            let halfHeight = canvas.height / 2;
+            let floorGrad = ctx.createLinearGradient(0, halfHeight, 0, canvas.height);
+            floorGrad.addColorStop(0, '#050505');
+            floorGrad.addColorStop(1, '#111');
+            ctx.fillStyle = floorGrad;
+            ctx.fillRect(0, halfHeight, canvas.width, halfHeight);
+
+            // Raycast walls
+            const fov = Math.PI / 3; // 60 degrees Field of View
+            for (let x = 0; x < canvas.width; x++) {
+                let angleOffset = ((x / canvas.width) - 0.5) * fov;
+                let rayDir = player.dir + angleOffset;
+                let dist = 0;
+                let hit = false;
+                let hitType = 0;
+
+                while (!hit && dist < MAX_VISIBLE_DIST) {
+                    let rayX = player.x + Math.cos(rayDir) * dist;
+                    let rayY = player.y + Math.sin(rayDir) * dist;
+
+                    let mapX = Math.floor(rayX);
+                    let mapY = Math.floor(rayY);
+
+                    // Check bounds
+                    if (mapY < 0 || mapY >= map.length || mapX < 0 || mapX >= map[0].length) {
+                        dist = MAX_VISIBLE_DIST;
+                        break;
+                    }
+
+                    if (map[mapY][mapX] > 0) {
+                        hit = true;
+                        hitType = map[mapY][mapX];
+                    } else {
+                        dist += 0.04;
+                    }
+                }
+
+                // Save depth for sprite occlusion
+                depthBuffer[x] = dist;
+
+                if (dist < MAX_VISIBLE_DIST) {
+                    // Correct fish-eye effect
+                    let correctedDist = dist * Math.cos(angleOffset);
+                    let wallHeight = canvas.height / correctedDist;
+                    let wallY = halfHeight - wallHeight / 2;
+
+                    // Flashlight falloff (fog)
+                    let brightness = Math.max(0, 1 - (dist / MAX_VISIBLE_DIST));
+
+                    if (hitType === 2) {
+                        // Exit Portal (Glowing Red)
+                        ctx.fillStyle = `rgba(255, 0, 0, ${brightness})`;
+                    } else {
+                        // Standard Wall (Grey)
+                        let colorVal = Math.floor(150 * brightness);
+                        ctx.fillStyle = `rgb(${colorVal}, ${colorVal}, ${colorVal})`;
+                    }
+                    ctx.fillRect(x, wallY, 1, wallHeight);
+                }
+            }
+
+            // Render Monster
+            if (!gameOver) {
+                let monsterDist = Math.hypot(monster.x - player.x, monster.y - player.y);
+                if (monsterDist < MAX_VISIBLE_DIST && monsterDist > 0.1) {
+                    // Relative position to player
+                    let spriteX = monster.x - player.x;
+                    let spriteY = monster.y - player.y;
+
+                    // Transform with player rotation
+                    let spriteAngle = Math.atan2(spriteY, spriteX) - player.dir;
+
+                    // Normalize angle to -PI to PI
+                    while (spriteAngle < -Math.PI) spriteAngle += Math.PI * 2;
+                    while (spriteAngle > Math.PI) spriteAngle -= Math.PI * 2;
+
+                    const fov = Math.PI / 3;
+                    // Check if inside FOV (with some margin)
+                    if (Math.abs(spriteAngle) < fov) {
+                        let spriteScreenX = (canvas.width / 2) + Math.tan(spriteAngle) * (canvas.width / 2);
+                        let spriteSize = Math.min(1000, canvas.height / monsterDist);
+
+                        let startX = Math.floor(spriteScreenX - spriteSize / 2);
+                        let endX = Math.floor(spriteScreenX + spriteSize / 2);
+
+                        let brightness = Math.max(0, 1 - (monsterDist / MAX_VISIBLE_DIST));
+
+                        // Draw vertical slices of the monster, respecting depth buffer
+                        for (let stripe = startX; stripe < endX; stripe++) {
+                            if (stripe >= 0 && stripe < canvas.width) {
+                                if (depthBuffer[stripe] > monsterDist) {
+                                    // Draw monster as a pale figure
+                                    let wallY = halfHeight - spriteSize / 2;
+
+                                    // Draw eyes
+                                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                                    ctx.fillRect(
+                                        stripe + spriteSize * 0.3,
+                                        wallY + spriteSize * 0.35,
+                                        spriteSize * 0.15,
+                                        spriteSize * 0.1
+                                    );
+                                    ctx.fillRect(
+                                        stripe + spriteSize * 0.55,
+                                        wallY + spriteSize * 0.35,
+                                        spriteSize * 0.15,
+                                        spriteSize * 0.1
+                                    );
+
+                                    // Draw pale body
+                                    ctx.fillStyle = monster.color;
+                                    ctx.fillRect(
+                                        stripe + spriteSize * 0.2,
+                                        wallY + spriteSize * 0.45,
+                                        spriteSize * 0.6,
+                                        spriteSize * 0.4
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Render Sprites (Fuses & Exit Portal Indicator)
+            let sprites = [];
+            fuses.forEach(f => {
+                if (!f.collected) sprites.push(f);
+            });
+
+            // Sort sprites by distance (far to near)
+            sprites.forEach(s => {
+                s.dist = Math.hypot(s.x - player.x, s.y - player.y);
+            });
+            sprites.sort((a, b) => b.dist - a.dist);
+
+            sprites.forEach(sprite => {
+                if (sprite.dist > MAX_VISIBLE_DIST || sprite.dist < 0.2) return;
+
+                // Relative position to player
+                let spriteX = sprite.x - player.x;
+                let spriteY = sprite.y - player.y;
+
+                // Transform with player rotation
+                let spriteAngle = Math.atan2(spriteY, spriteX) - player.dir;
+
+                // Normalize angle to -PI to PI
+                while (spriteAngle < -Math.PI) spriteAngle += Math.PI * 2;
+                while (spriteAngle > Math.PI) spriteAngle -= Math.PI * 2;
+
+                const fov = Math.PI / 3;
+                // Check if inside FOV (with some margin)
+                if (Math.abs(spriteAngle) < fov) {
+                    let spriteScreenX = (canvas.width / 2) + Math.tan(spriteAngle) * (canvas.width / 2);
+                    let spriteSize = Math.min(1000, canvas.height / sprite.dist);
+
+                    let startX = Math.floor(spriteScreenX - spriteSize / 2);
+                    let endX = Math.floor(spriteScreenX + spriteSize / 2);
+
+                    let brightness = Math.max(0, 1 - (sprite.dist / MAX_VISIBLE_DIST));
+
+                    // Draw vertical slices of the sprite, respecting depth buffer
+                    for (let stripe = startX; stripe < endX; stripe++) {
+                        if (stripe >= 0 && stripe < canvas.width) {
+                            if (depthBuffer[stripe] > sprite.dist) {
+                                // Draw a glowing vertical line for the fuse
+                                let wallY = halfHeight - spriteSize / 2;
+
+                                // Draw glowing core
+                                ctx.strokeStyle = `rgba(0, 255, 255, ${brightness})`;
+                                ctx.lineWidth = 2;
+                                ctx.beginPath();
+                                ctx.moveTo(stripe, wallY + spriteSize * 0.3);
+                                ctx.lineTo(stripe, wallY + spriteSize * 0.7);
+                                ctx.stroke();
+
+                                // Draw outer glow aura
+                                ctx.strokeStyle = `rgba(0, 255, 255, ${brightness * 0.2})`;
+                                ctx.lineWidth = 8;
+                                ctx.beginPath();
+                                ctx.moveTo(stripe, wallY + spriteSize * 0.25);
+                                ctx.lineTo(stripe, wallY + spriteSize * 0.75);
+                                ctx.stroke();
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Apply vignette effect
+            if (vignetteIntensity > 0) {
+                ctx.fillStyle = `rgba(255, 0, 0, ${vignetteIntensity * 0.3})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            if (shakeIntensity > 0) {
+                ctx.restore();
+            }
+        }
+
+        function update() {
+            if (!started || gameOver) return;
+
+            // Battery drain
+            battery -= 0.04; // Slowly drains
+            if (battery <= 0) {
+                battery = 0;
+                gameOver = true;
+                loseOverlay.style.display = 'flex';
+            }
+            updateHUD();
+
+            let speed = 0.06;
+            let rotSpeed = 0.04;
+            let dx = 0;
+            let dy = 0;
+
+            // Movement controls
+            if (keys['w'] || keys['W']) {
+                dx += Math.cos(player.dir) * speed;
+                dy += Math.sin(player.dir) * speed;
+            }
+            if (keys['s'] || keys['S']) {
+                dx -= Math.cos(player.dir) * speed;
+                dy -= Math.sin(player.dir) * speed;
+            }
+            if (keys['a'] || keys['A']) {
+                dx -= Math.sin(player.dir) * speed;
+                dy += Math.cos(player.dir) * speed;
+            }
+            if (keys['d'] || keys['D']) {
+                dx += Math.sin(player.dir) * speed;
+                dy -= Math.cos(player.dir) * speed;
+            }
+
+            // Collision detection (sliding along walls)
+            let newX = player.x + dx;
+            let newY = player.y + dy;
+
+            // Check X movement
+            if (map[Math.floor(player.y)][Math.floor(newX)] !== 1) {
+                player.x = newX;
+            }
+            // Check Y movement
+            if (map[Math.floor(newY)][Math.floor(player.x)] !== 1) {
+                player.y = newY;
+            }
+
+            // Rotation controls
+            if (keys['ArrowLeft']) {
+                player.dir -= rotSpeed;
+            }
+            if (keys['ArrowRight']) {
+                player.dir += rotSpeed;
+            }
+
+            // Keep player direction normalized
+            player.dir = (player.dir + Math.PI * 2) % (Math.PI * 2);
+
+            // Check Fuse Pickups
+            fuses.forEach(f => {
+                if (!f.collected) {
+                    let dist = Math.hypot(f.x - player.x, f.y - player.y);
+                    if (dist < 0.4) {
+                        f.collected = true;
+                        collectedFuses++;
+                        updateHUD();
+                    }
+                }
+            });
+
+            // Check Exit Portal Collision
+            let currentCellX = Math.floor(player.x);
+            let currentCellY = Math.floor(player.y);
+            if (map[currentCellY][currentCellX] === 2) {
+                if (collectedFuses >= 4) {
+                    gameOver = true;
+                    winOverlay.style.display = 'flex';
+                }
+            }
+
+            // Monster AI - move toward player through empty cells
+            let monsterDist = Math.hypot(monster.x - player.x, monster.y - player.y);
+            if (monsterDist > 0.4) {
+                // Find direction to player
+                let dirX = player.x - monster.x;
+                let dirY = player.y - monster.y;
+                let angle = Math.atan2(dirY, dirX);
+
+                // Try to move in that direction
+                let newMonsterX = monster.x + Math.cos(angle) * monster.speed;
+                let newMonsterY = monster.y + Math.sin(angle) * monster.speed;
+
+                // Check if new position is valid (not a wall)
+                let mapX = Math.floor(newMonsterX);
+                let mapY = Math.floor(newMonsterY);
+
+                if (map[mapY][mapX] === 0) {
+                    monster.x = newMonsterX;
+                    monster.y = newMonsterY;
+                }
+
+                // Increase speed as monster gets closer
+                monster.speed = 0.01 + (1 - Math.min(1, monsterDist / 5)) * 0.03;
+            } else {
+                // Player caught!
+                gameOver = true;
+                loseOverlay.style.display = 'flex';
+            }
+
+            // Update screen effects based on monster distance
+            let effectIntensity = Math.min(1, (5 - monsterDist) / 5);
+            shakeIntensity = effectIntensity * 3;
+            vignetteIntensity = effectIntensity * 0.5;
+
+            // Update heartbeat sound
+            if (audioContext) {
+                try {
+                    gainNode.gain.value = effectIntensity * 0.5;
+                    heartbeatSound.frequency.value = 60 + (1 - effectIntensity) * 40;
+                } catch (e) {
+                    // Ignore audio errors
+                }
+            }
+        }
+
+        let keys = {};
+
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        function loop() {
+            update();
+            render();
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
+</body>
+</html>
