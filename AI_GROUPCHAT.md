@@ -1,236 +1,321 @@
-# Primal Shores — AI Group Chat v6 (Claude leading, 5 rounds)
+# Primal Shores — AI Group Chat v7 (Claude leading, 5 rounds)
 
 ### Claude (BOSS)
-Boss. CRAFTING FIX plan: stop rebuilding DOM during a hold. I'll render recipe nodes ONCE, keep refs, and a light updateRecipeStates() only toggles .no class + req text (no innerHTML reset). Bind STOP to window pointerup/touchend (not the node) so it always fires. Single click = craft 1; hold >350ms = repeat via interval until resources run out. Mistral: any other listener-leak traps? Gemini: visual feedback while bulk-crafting?
+Boss. DINO MODELS: I'll rebuild each species as overlapping segments sharing a spine — hip box -> body -> neck segments -> head, all deeply overlapping so no gaps, plus thigh+shin per leg attached at the hip. ANIMATION: per-frame leg swing (opposed phase), subtle body bob + head sway + tail wag driven by a gait phase; idle breathing when still. Gemini: proportions per species (raptor vs rex vs parasaur) to read at a glance? Groq: compact leg+tail wag snippet from a gait phase?
 
 ### Gemini
-Claude, great plan for crafting; a stack count or fill bar next to the recipe icon during hold would clearly show progress.
+Claude's overlapping segments are perfect. Emphasize distinct silhouettes: lean raptor (tall neck, long tail), bulky T-Rex (massive torso, short arms), graceful Parasaur (crest, elongated body) for instant recognition.
 
-For collisions, aim for a subtle camera jolt, quick push-back, and a distinct audio cue for impact—feels grounded, not floaty.
+For caves, a gradual slope marked by faint ambient light at the entrance, transitioning to deeper shadows. Use subtle point lights on ore deposits to guide players, making areas discoverable without being a maze.
 
-Caves need clear visual cues for *readability*: dynamic torchlight/ambient glow, distinct rock textures, and occasional light shafts from openings.
+Ghost preview needs clear color-coding (green/red) + a transparent grid overlay for precise snapping, enhancing the 'house' connection. Rafts/boats need a distinct, slightly elevated player platform. Sharks: subtle fin visibility for anticipation.
 
-Encyclopedia layout: a clean, responsive grid of creature cards (thumbnail, name), expanding to a detailed view with a rotatable 3D model, stats, and lore. Simple navigation.
-
-### Groq
-**CHAT RESPONSE**
-
-[GROQ]: Sounds like a solid plan, Claude! To reinforce the crafting feedback, I'll add a progress bar using `canvas` or `svg` elements that update in real-time. For collisions, I'll implement a basic cylinder push-out using `Raycaster` and `SphereGeometry` to create a collision volume around the player.
-
-For caves, I'll use your suggestions: dynamic lighting, rock textures, and light shafts. To create the cave geometry, I'll use the `terrainHeight` analytic function to carve out the cave shapes. Here's a quick prototype for the cylinder push-out:
-
-```javascript
-// Create a collision cylinder
-const collisionGeometry = new THREE.SphereGeometry(1, 16, 16);
-const collisionMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-const collisionMesh = new THREE.Mesh(collisionGeometry, collisionMaterial);
-collisionMesh.position.copy(player.position);
-scene.add(collisionMesh);
-
-// Raycast to detect collisions
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
-const collisionDistance = 1;
-
-// Update on each frame
-function update() {
-  // Raycast from the camera through the mouse position
-  raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObjects([collisionMesh]);
-
-  // If a collision is detected, push the player back
-  if (intersects.length > 0) {
-    player.position.sub(intersects[0].point);
-    // Add a subtle camera jolt and audio cue for impact
-    camera.position.x += Math.random() * 0.1 - 0.05;
-    camera.position.z += Math.random() * 0.1 -
-
-### Mistral
-**Mistral QA Report:**
-
-1. **Crafting Fix:**
-   - DOM rebuilding during hold is fixed by caching recipe nodes (`querySelector` once).
-   - `window.addEventListener('pointerup/touchend')` ensures `mouseup` always fires, preventing leak.
-   - Edge: Rapid clicks may still fire duplicate events—debounce with `setTimeout` on `pointerdown`.
-
-2. **Collisions:**
-   - Replace `SphereGeometry` with a **cylinder** (`CylinderGeometry`) for accurate terrain/object collisions.
-   - **Push-out logic:** Use `player.position.lerp()` toward valid positions (avoid tunneling).
-   - **Edge:** Add `velocity` damping to prevent "sticky" collisions.
-
-3. **Caves:**
-   - Analytic `terrainHeight` for ceiling/floor: Use `THREE.BufferGeometry` with `computeVertexNormals()` for smooth lighting.
-   - **Edge:** Check for floating-point precision errors in `terrainHeight` (e.g., `Math.abs(diff) < 0.01`).
-
-4. **Encyclopedia:**
-   - **Leak risk:** Dynamically loaded models—use `dispose()` on `THREE.Mesh` to prevent memory leaks.
-   - **Edge:** Test with 100+ cards—use `IntersectionObserver` for lazy loading.
-
-**Final Note:** Test on mobile (touch delays) and low-end devices (geometry complexity).
-
-### Claude (BOSS)
-COLLISIONS plan: give each solid (tree r0.7, rock 1.2, ore 1.1, dino scale*0.8) a radius. After moving, loop nearby solids; if horizontal dist < r+0.4, push player out along the separation normal. Bushes/loose items stay walk-through. Groq: give me a compact push-out resolver. Mistral: how do I avoid tunneling at sprint speed and getting stuck between two rocks?
-
-### Gemini
-Claude, for collisions, ensure the proposed push-out is **snappy and immediate**, not gradual. Pair this with a subtle camera jolt and distinct impact audio cue for a grounded feel.
-
-Caves need strong visual cues for **readability and navigation**: dynamic torchlight, ambient glows, and distinct rock textures to guide movement. Use light shafts from openings as clear orientation points.
-
-For the encyclopedia, confirm the responsive grid and detailed view with the **rotatable 3D model, stats, and lore**. Add simple, intuitive filtering (e.g., by habitat or diet) for user-friendly creature discovery.
+Absolutely add visible Sun/Moon for crucial skybox direction, time cues, and visual depth.
 
 ### Groq
-**Groq**: Here's a compact push-out resolver for collisions:
+**GROQ's Snippets**
+
+### Leg & Tail Animation (Gait Phase)
 
 ```javascript
-// Push-out resolver
-function pushOut(player, nearbySolids, radius) {
-  // Find the closest solid
-  let closestSolid = null;
-  let closestDistance = Infinity;
-  for (const solid of nearbySolids) {
-    const distance = Math.hypot(player.position.x - solid.position.x, player.position.z - solid.position.z);
-    if (distance < closestDistance && distance < radius + 0.4) {
-      closestDistance = distance;
-      closestSolid = solid;
-    }
-  }
-
-  // If a solid is nearby, push the player out
-  if (closestSolid) {
-    const normal = new THREE.Vector3(closestSolid.position.x - player.position.x, 0, closestSolid.position.z - player.position.z).normalize();
-    player.position.add(normal.multiplyScalar(0.1)); // small push-out distance
-  }
+// leg swing (opposed phase)
+function legSwing(gaitPhase, legIndex) {
+  const swingAngle = Math.PI / 2 * Math.sin(gaitPhase + legIndex * Math.PI);
+  const hipPosition = new THREE.Vector3(0, 0, 0);
+  const thighPosition = hipPosition.clone().add(new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 0, 1), swingAngle));
+  const shinPosition = thighPosition.clone().add(new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 0, 1), swingAngle));
+  return shinPosition;
 }
+
+// gait phase (0-1)
+function gaitPhase(t) {
+  return Math.sin(t * 2 * Math.PI);
+}
+
+// example usage
+const gaitPhaseValue = gaitPhase(Date.now() / 1000);
+const legPosition = legSwing(gaitPhaseValue, 0);
+console.log(legPosition);
 ```
 
-To avoid tunneling at sprint speed and getting stuck between two rocks, you can add a velocity damping factor to the push-out logic. This will slow down the player's movement when they're close to a solid, preventing them from getting stuck:
+### Grid Snapping with Ghost Preview
 
 ```javascript
-// Update player velocity with damping
-function updatePlayerVelocity(velocity) {
-  const dampingFactor = 0.9; // adjust this value to control the damping effect
-  const newVelocity = velocity.multiplyScalar(dampingFactor);
-  player.position.add(newVelocity);
+// grid snapping
+function snapToGrid(position, gridSize) {
+  return new THREE.Vector3(Math.round(position.x / gridSize) * gridSize, Math.round(position.y / gridSize) * gridSize, Math.round(position.z / gridSize) * gridSize);
 }
-```
 
-You can call `updatePlayerVelocity` in your update loop, passing in the player's current velocity. This will slow down the player's movement when they're close to a solid, preventing tunneling and getting stuck.
+// ghost preview
+function createGhostPreview(geometry, material, gridSize) {
+  const ghostGeometry = new THREE.BufferGeometry().fromGeometry(geometry);
+  const ghostMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity
 
 ### Mistral
-**Mistral QA Fixes (Concrete, Vanilla Three.js, ≤90 words):**
+**Mistral QA Fixes (r0.160):**
 
-1. **Crafting:** Cache recipe DOM nodes (`querySelector` once). Use `window.addEventListener('pointerup/touchend')` for global release. Debounce `pointerdown` with `setTimeout` to prevent rapid clicks.
+1. **Dino Models/Animation:**
+   - Overlap segments (hip/body/neck/head) with shared spines; animate legs (opposed phase), body bob, head sway, tail wag via `gaitPhase(t)`.
+   - Use `legSwing(gaitPhase, legIndex)` for leg motion.
 
-2. **Collisions:** Replace `SphereGeometry` with `CylinderGeometry` for terrain/objects. Push-out via `player.position.lerp()` toward valid positions. Add velocity damping (`velocity.multiplyScalar(0.9)`) to prevent tunneling/sticking.
+2. **Caves:**
+   - Replace torus with sloped entrance + roomy chamber; add ore point lights + ambient light gradient.
 
-3. **Caves:** Use `BufferGeometry` with `terrainHeight` for ceiling/floor. Add `computeVertexNormals()` for smooth lighting. Check precision with `Math.abs(diff) < 0.01`.
+3. **Snap Building:**
+   - Grid snapping: `snapToGrid(pos, gridSize)`. Ghost preview: translucent green grid overlay (MeshBasicMaterial, opacity 0.5).
 
-4. **Encyclopedia:** Lazy-load models with `dispose()`. Use `IntersectionObserver` for 100+ cards. Test mobile/touch delays and low-end devices.
+4. **Ocean/Raft:**
+   - Raft: elevated platform; sharks: subtle fins (low-poly cones).
+
+5. **Bug (Viewmodel Over Water):**
+   - Set `renderOrder: 1` on water plane, `renderOrder: 2` on viewmodel meshes.
+
+6. **Sun/Moon:**
+   - Add directional lights (Sun/Moon) with skybox for direction cues.
+
+*(All fixes vanilla THREE.js, ≤90 words.)*
 
 ### Claude (BOSS)
-CAVES in a heightmap: I'll carve analytically INSIDE terrainHeight(x,z) so mesh AND physics agree — a few cave sites, each subtracts a smooth bowl (sinkhole) down to a floor; a dark rock ceiling-disk over most of it leaves an annular entrance to walk down; ore-rich + very dark so torches matter. Groq: the caveCarve(x,z) bowl math? Gemini: how to make the entrance readable so players notice it? Mistral: risks with player/creature ground-clamp inside the pit?
+CAVES redesign: drop the torus ring entirely. New shape: carve a wide bowl but add a ONE-SIDED ramp corridor (a trench) from the surface down into a large flat-floored chamber; ceiling is a big dark slab high above the floor (good headroom), with the ramp mouth open (no roof) so you see in. Ore on the chamber floor. Gemini: how to make the entrance obviously a cave from outside without a ring? Mistral: how do I keep player/dino ground-clamp stable on the ramp + stop them clipping the ceiling?
 
 ### Gemini
-(gemini HTTP Error 429: Too Many Requests)
+As Gemini, for the cave entrance without a ring:
+
+Make the *excavated trench mouth* visually distinct with darker, rougher rock textures contrasting the surrounding terrain. Frame it with naturalistic, craggy rock formations or subtle overhangs around the opening. Sparse, stunted vegetation clinging to the edges can further emphasize a transition. The gentle ambient light gradient, fading into deeper shadow at the ramp's base, will strongly signal "cave entrance" from the outside, drawing the player's eye without needing an artificial ring.
 
 ### Groq
-**Groq**: Here's the `caveCarve(x,z)` bowl math to carve a smooth bowl inside `terrainHeight(x,z)`:
+**GROQ's Snippets**
+
+### Cave Entrance Visuals
 
 ```javascript
-// Cave carve math
-function caveCarve(x, z, radius, depth) {
-  // Calculate the center of the bowl
-  const centerX = x;
-  const centerZ = z;
+// entrance textures
+const entranceRockTexture = new THREE.TextureLoader().load('entrance_rock.png');
+const entranceRockMaterial = new THREE.MeshBasicMaterial({ map: entranceRockTexture });
 
-  // Create a BufferGeometry for the bowl
-  const geometry = new THREE.BufferGeometry();
+// frame entrance with rock formations
+const entranceRockGeometry = new THREE.BoxGeometry(5, 5, 5);
+const entranceRockMesh = new THREE.Mesh(entranceRockGeometry, entranceRockMaterial);
+entranceRockMesh.position.set(0, 0, 0);
+scene.add(entranceRockMesh);
 
-  // Define the bowl's vertices
-  const vertices = [];
-  for (let i = 0; i < 360; i += 0.1) {
-    const angle = i * Math.PI / 180;
-    const r = radius * Math.cos(angle);
-    const z = centerZ + radius * Math.sin(angle);
-    vertices.push(r, 0, z);
-  }
+// add sparse vegetation
+const vegetationGeometry = new THREE.PlaneGeometry(10, 10);
+const vegetationMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+const vegetationMesh = new THREE.Mesh(vegetationGeometry, vegetationMaterial);
+vegetationMesh.position.set(0, 2, 0);
+scene.add(vegetationMesh);
+```
 
-  // Define the bowl's indices
-  const indices = [];
-  for (let i = 0; i < 360; i += 0.1) {
-    const j = (i + 1) % 360;
-    indices.push(i, j, 0);
-  }
+### Player/Dino Ground-Clamp Stability on Ramp
 
-  // Add the vertices and indices to the geometry
-  geometry.setIndex(indices);
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+```javascript
+// prevent clipping on ramp ceiling
+function preventClipping(position, rampHeight) {
+  const clampPosition = new THREE.Vector3(position.x, Math.max(position.y, rampHeight), position.z);
+  return clampPosition;
+}
 
-  // Calculate the bowl's heightmap
-  const heightmap = [];
-  for (let i = 0; i < 360; i += 0.1) {
-    const angle = i * Math.PI / 180;
-    const r = radius * Math.cos(angle);
-    const z = centerZ + radius * Math.sin(angle);
-    heightmap.push(terrainHeight(x + r * Math.cos(angle), z) - depth
+// example usage
+const playerPosition = new THREE.Vector3(0, 0, 0);
+const rampHeight = 10;
+const clampPosition = preventClipping(playerPosition, rampHeight);
+console.log(clampPosition);
+```
+
+### Buoyancy for Raft
+
+```javascript
+// buoyancy for raft
+function calculateBuoyancy(raftVolume, waterDensity) {
+  const buoyancy = raftVolume * waterDensity;
+  return buoyancy;
+}
+
+// example usage
 
 ### Mistral
-**Mistral QA Fixes (Concrete, Vanilla Three.js, ≤90 words):**
+**Mistral QA Fixes (r0.160):**
 
-1. **Cave Math:** `caveCarve(x,z) = terrainHeight(x,z) - max(0, radius - dist(x,z)) * depth` (smooth bowl). Use `THREE.CylinderGeometry` for ceiling disk (height=1, radius=radius+1).
+1. **Cave Entrance:**
+   - Replace torus with a **one-sided ramp trench** (trench mouth open, no roof) + large chamber.
+   - **Visual cues:** Darker, rougher rock textures + craggy formations around mouth.
+   - **Stability:** Use `THREE.Mesh` with `side: THREE.FrontSide` for ramp ceiling to prevent clipping. Clamp player/dino Y-position to ramp height (`Math.max(y, rampHeight)`).
 
-2. **Entrance Readability:** Add a **glowing ring** (low-poly torus) at entrance + particle dust. Contrast with dark cave mouth.
+2. **Ocean/Raft:**
+   - **Buoyancy:** Apply upward force to raft (`raft.position.y += 0.1 * (waterLevel - raft.position.y)`).
 
-3. **Ground-Clamp Risks:** After carving, clamp player to `terrainHeight(x,z)+0.5` to prevent sinking. Add `raycaster.set(player.position, yAxis)` for precise floor checks.
+3. **Viewmodel Over Water:**
+   - Set `waterPlane.renderOrder = 0`, `viewmodel.renderOrder = 1`.
+
+*(All vanilla THREE.js, ≤90 words.)*
 
 ### Claude (BOSS)
-ENCYCLOPEDIA: a toggle panel (key P / mobile button) listing all creatures; discovered ones (we already track seenKinds when within 40m) show model-color swatch, name, desc, HP/damage/biome/tameable; undiscovered show ???. Also: removing starter berries so players must forage. Gemini: clean card layout + how to show 'undiscovered'? Mistral: make sure seen-tracking can't crash if a kind is removed.
+SNAP BUILDING: a 2-unit grid. While holding floor/wall, show a translucent green GHOST snapped to grid in front of me; rotate with R; click places a real block; red ghost if blocked. Floors snap edge-to-edge; walls sit on floor edges. Also the WATER-OVER-VIEWMODEL bug: I think the viewmodel is opaque (depthTest off) so it draws in the opaque pass BEFORE the transparent water -> water paints over it. Mistral: confirm + exact fix (separate overlay render pass with clearDepth, or mark viewmodel transparent + renderOrder)? Groq: grid-snap + ghost snippet?
 
 ### Gemini
-(gemini HTTP Error 429: Too Many Requests)
+As Gemini:
+
+For **SNAP BUILDING**, the translucent green ghost must be highly legible against diverse terrain, perhaps with a subtle wireframe outline. When blocked, the red ghost should be vividly distinct, perhaps with a flashing or pulsating effect to instantly convey "cannot place here." The edge-to-edge snapping for floors and walls sitting precisely on them will create an immensely satisfying and intuitive building experience, making house construction feel genuinely natural and robust.
+
+Regarding the **WATER-OVER-VIEWMODEL BUG**, ensuring held items are always clearly visible is paramount for player immersion and functionality. The viewmodel must render consistently above all environmental elements, especially water, to prevent disorienting visual glitches.
+
+### Groq
+**GROQ's Snippets**
+
+### Grid Snapping with Ghost Preview
+
+```javascript
+// grid snapping
+function snapToGrid(position, gridSize) {
+  return new THREE.Vector3(Math.round(position.x / gridSize) * gridSize, Math.round(position.y / gridSize) * gridSize, Math.round(position.z / gridSize) * gridSize);
+}
+
+// ghost preview
+function createGhostPreview(geometry, material, gridSize) {
+  const ghostGeometry = new THREE.BufferGeometry().fromGeometry(geometry);
+  const ghostMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.5 });
+  const ghostMesh = new THREE.Mesh(ghostGeometry, ghostMaterial);
+  ghostMesh.position.copy(position);
+  ghostMesh.rotation.copy(rotation);
+  scene.add(ghostMesh);
+}
+
+// example usage
+const gridSize = 1;
+const position = new THREE.Vector3(0, 0, 0);
+const rotation = new THREE.Euler(0, 0, 0);
+const geometry = new THREE.BoxGeometry(1, 1, 1);
+const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const ghost = createGhostPreview(geometry, material, gridSize);
+```
+
+### Player/Dino Ground-Clamp Stability on Ramp
+
+```javascript
+// prevent clipping on ramp ceiling
+function preventClipping(position, rampHeight) {
+  const clampPosition = new THREE.Vector3(position.x, Math.max(position.y, rampHeight), position.z);
+  return clampPosition;
+}
+
+// example usage
+const playerPosition = new THREE.Vector3(0, 0, 0);
+const rampHeight = 10;
+const clampPosition = preventClipping(playerPosition, rampHeight);
+console.log(clampPosition);
+
+### Mistral
+**Mistral QA Fixes (r0.160):**
+
+1. **Snap Building:**
+   - Ghost preview: translucent green (`opacity: 0.5`) with wireframe outline. Blocked: red + pulse (scale `Math.sin(Date.now()/300)*0.1+1`).
+   - **Water-Over-Viewmodel Bug:** Set `viewmodel.material.transparent = true`, `waterPlane.renderOrder = 0`, `viewmodel.renderOrder = 1`, `depthWrite: false` on viewmodel.
+
+2. **Grid Snapping:**
+   - `snapToGrid(pos, 2)` for 2-unit grid. Floors/walls snap edge-to-edge (use `THREE.BoxGeometry` with `width:2`).
+
+*(Vanilla THREE.js, ≤90 words.)*
+
+### Claude (BOSS)
+OCEAN + SKY: a rideable RAFT (press E near it to mount; WASD drives it on the water; dismount on shore) and SHARKS that patrol deep water and attack swimmers. SUN+MOON: two big emissive billboard discs locked opposite each other, moving with the day-night angle, visible in the sky. Groq: raft mount/drive + buoyancy snippet, and a shark chase that only works in water? Gemini: make sun/moon read well (size, glow, color shifts)? 
+
+### Gemini
+As Gemini, for the **SUN + MOON**:
+
+Make the billboard discs **substantial in size** to be clearly visible, yet not overwhelming. The **Sun** should emit a warm, golden glow, perhaps with a subtle atmospheric halo effect, shifting to vibrant oranges and reds during dawn/dusk. The **Moon** should have a cooler, silvery-white luminescence, contrasting against a darker, star-dusted sky. Emissive materials will provide their inherent glow. These distinct sizes, colors, and glow qualities will instantly convey time of day and celestial presence, enhancing the sky's readability and immersion.
 
 ### Groq
 (no response)
 
 ### Mistral
-**Mistral QA Fixes (Concrete, Vanilla Three.js, ≤90 words):**
+**Mistral QA Fixes (r0.160):**
 
-1. **Encyclopedia:** Use a **flex-grid** with `THREE.Sprite` for undiscovered (`???` texture). Cache seenKinds in `Set`; filter with `Array.from(seenKinds)`. For undiscovered, show placeholder sprite. **Cleanup:** Remove starter berries from inventory on game start. **Crash-proof:** Wrap seenKinds.has() in try-catch. **Mobile:** Double-tap to toggle panel. **Layout:** CSS grid with `gap: 8px` for readability.
+1. **Raft/Sharks:**
+   - Mount: `if (E pressed && raft.distanceTo(player) < 3) player.attach(raft)`. Drive: `raft.position.x += 0.1*Math.sin(yaw)`, `raft.position.z += 0.1*Math.cos(yaw)`. Sharks chase only if `player.position.y < waterLevel`.
+   - Buoyancy: `raft.position.y += 0.05*(waterLevel - raft.position.y)`.
+
+2. **Sun/Moon:**
+   - `THREE.Mesh(new THREE.CircleGeometry(50, 32), new THREE.MeshBasicMaterial({ color: 0xffd700, emissive: 0xffd700, side: THREE.DoubleSide }))`. Opposite positions: `sun.position.set(0, 100, 0)`, `moon.position.set(0, -100, 0)`. Rotate with `Math.sin(time)*180`.
+
+*(Vanilla THREE.js, ≤90 words.)*
 
 ### Claude (BOSS)
-Final QA round before I implement + Playwright-test ALL of it (craft once vs hold, collision blocks movement into a rock & a dino, cave descent + darkness, encyclopedia reveals on sighting). Each of you: the ONE thing most likely to break, + the fix.
+Final QA before I implement + Playwright-test everything (connected dino + animated legs, crack stages on rocks, navigable cave in/out, ghost+snap placement, raft ride, shark in water, sun/moon visible, viewmodel renders OVER water, scroll-wheel hotbar, death-loot toggle). Each: the ONE thing most likely to break + the fix.
 
 ### Gemini
-(gemini HTTP Error 429: Too Many Requests)
+As Gemini, for final QA:
+
+*   **Dino Animation:** **Break:** Disjointed movement. **Fix:** Correct `Group` pivots for local rotations.
+*   **Crack Stages:** **Break:** Texture swap glitch. **Fix:** Material array `setMaterialAt()` by damage state.
+*   **Cave Nav:** **Break:** Player stuck. **Fix:** Simplify collision geometry; smooth transitions.
+*   **Snap Build:** **Break:** Misalignment. **Fix:** Consistent `Math.round()` for all grid coordinates.
+*   **Raft Ride:** **Break:** Player detaches. **Fix:** Robust `player.attach(raft)` / `detach()` logic.
+*   **Shark in Water:** **Break:** Hunts on land. **Fix:** Strict `if (y < waterLevel)` for all actions.
+*   **Sun/Moon:** **Break:** Off-screen/static. **Fix:** Billboard `lookAt(camera)` for visibility; rotate positions.
+*   **Viewmodel Over Water:** **Break:** Renders behind. **Fix:** `viewmodel.material.depthTest = false`.
+*   **Hotbar:** **Break:** Index errors. **Fix:** Clamp scroll-wheel input with modulo arithmetic.
+*   **Death-Loot:** **Break:** Loot disappears. **Fix:** Ensure loot object persists after player removal.
 
 ### Groq
-**Groq's Final QA Round Response**
+**Groq's Snippets for Final QA**
 
-I think the one thing most likely to break is the **cylinder collision** with the player and creatures. This is because we're using a cylinder geometry for the collision, but we need to make sure it's properly aligned with the terrain height and cave entrances. If the cylinder's position or radius isn't correctly updated, it could cause the player or creatures to pass through the terrain or cave walls.
-
-**Fix:** To fix this, I suggest we add a check in the `caveCarve` function to ensure the cylinder's position and radius are correctly updated based on the terrain height and cave entrance. We can also add a debug visualizer to display the cylinder's position and radius in the game world, so we can easily identify any issues.
-
-Here's a simple example of how we can add a debug visualizer:
+### Dino Animation: Connected Legs
 
 ```javascript
-// Add a debug visualizer to display the cylinder's position and radius
-const cylinderGeometry = new THREE.CylinderGeometry(1, 1, height, 32);
-const cylinderMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-const cylinderMesh = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
-cylinderMesh.position.set(x, y, z);
-cylinderMesh.scale.set(radius, 1, radius);
-scene.add(cylinderMesh);
+// create dino group
+const dinoGroup = new THREE.Group();
+
+// add legs to group
+const leg1 = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+const leg2 = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+const leg3 = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+const leg4 = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+
+dinoGroup.add(leg1);
+dinoGroup.add(leg2);
+dinoGroup.add(leg3);
+dinoGroup.add(leg4);
+
+// animate legs
+function animateLegs() {
+  const leg1Position = new THREE.Vector3(0, 0, 0);
+  const leg2Position = new THREE.Vector3(1, 0, 0);
+  const leg3Position = new THREE.Vector3(2, 0, 0);
+  const leg4Position = new THREE.Vector3(3, 0, 0);
+
+  leg1.position.copy(leg1Position);
+  leg2.position.copy(leg2Position);
+  leg3.position.copy(leg3Position);
+  leg4.position.copy(leg4Position);
+
+  requestAnimationFrame(animateLegs);
+}
+animateLegs();
 ```
 
-This will add a red cylinder to the game world at the position and radius of the cave entrance, which we can use to debug any issues with the collision.
+### Cracked Rock Stages
+
+```javascript
+// create material array
+const material
 
 ### Mistral
-**Mistral Final QA Round (Concrete, Vanilla Three.js, ≤90 words):**
+**Mistral QA Fixes (r0.160):**
 
-**Most likely to break:** *Crafting hold-to-craft* (runaway crafting due to event-listener leaks).
+1. **Dino Animation:**
+   - Break: Disconnected limbs. Fix: Parent legs to body group with `leg.position.set(x, y, z)` in local space.
 
-**Fix:** Use **one** `mousedown` listener on the craft button, toggle `isCrafting` state, and clear `setInterval` on `mouseup`/`touchend`. Add `pointerleave` as failsafe. No DOM rebuilds mid-press.
+2. **Cave Nav:**
+   - Break: Player stuck. Fix: Use `Box3` collision for cave bounds; add `player.userData.inCave` flag.
 
-**Collision risk:** Player/dinos tunneling through rocks/caves due to fixed cylinder heights.
+3. **Snap Building:**
+   - Break: Misalignment. Fix: Round to grid *before* snapping (`snapToGrid(pos, 2)`).
 
-**Fix:** Update cylinder height dynamically via `terrainHeight(x,z) + entityHeight`. Add `sphereCast` for dynamic push-out.
+4. **Viewmodel Over Water:**
+   - Break: Renders behind. Fix: `viewmodel.material.depthTest = false`, `waterPlane.renderOrder = 0`.
+
+5. **Shark in Water:**
+   - Break: Hunts on land. Fix: `if (player.position.y < waterLevel) shark.chase()`.
+
+*(Vanilla THREE.js, ≤90 words.)*
