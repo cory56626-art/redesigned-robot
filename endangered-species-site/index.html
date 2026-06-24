@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Endangered Earth — Populations, Family Trees & Jimmy</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Jimmy: pixel-art assistant, top right -->
+  <div id="jimmy-wrap" role="button" tabindex="0" aria-expanded="false"
+       aria-controls="jimmy-bubble" aria-label="Jimmy the assistant — activate for a tip"
+       title="Click me!">
+    <canvas id="jimmy" width="64" height="64" aria-hidden="true"></canvas>
+    <div id="jimmy-bubble" class="hidden" role="status" aria-live="polite"></div>
+  </div>
+
+  <header>
+    <h1>🌍 Endangered Earth</h1>
+    <p class="tagline">Live-style population tracker, evolutionary family trees, and the plants on the brink.</p>
+  </header>
+
+  <main>
+    <section id="picker-section">
+      <label for="animal-select"><strong>Choose an animal to explore its family tree:</strong></label>
+      <select id="animal-select" aria-label="Select an animal"></select>
+      <div id="detail" class="detail-card"></div>
+    </section>
+
+    <section>
+      <h2>🐾 Endangered Animals</h2>
+      <p class="section-sub">Approximate wild populations. Click a card to load it above.</p>
+      <div id="animal-grid" class="grid"></div>
+    </section>
+
+    <section>
+      <h2>🌱 Endangered Plants</h2>
+      <p class="section-sub">Often forgotten, just as threatened.</p>
+      <div id="plant-grid" class="grid"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Educational demo. Population &amp; divergence figures are approximate, IUCN-style estimates.</p>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
