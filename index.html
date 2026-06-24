@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Endangered Animals Tracker · with Miku ♪</title>
+  <meta name="description" content="Live-ish populations of endangered animals, with family trees, evolution trees, predator/prey history — and a draggable Hatsune Miku buddy." />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🐆</text></svg>" />
+</head>
+<body>
+  <header class="site">
+    <h1>🌍 Endangered Animals Tracker</h1>
+    <p>Current population estimates for some of the world's most threatened species. Hit <b>Explore</b> on any card to walk its family tree, evolutionary lineage, and the eras it was predator vs prey. Your guide <b>Miku</b> is draggable — grab her and move her anywhere. ♪</p>
+  </header>
+
+  <div class="toolbar">
+    <input id="search" type="search" placeholder="🔎 Search name, species or region…" aria-label="Search animals" />
+    <select id="sort" aria-label="Sort animals">
+      <option value="name">Sort: Name (A–Z)</option>
+      <option value="pop-asc">Sort: Population (low → high)</option>
+      <option value="pop-desc">Sort: Population (high → low)</option>
+    </select>
+    <span id="count" class="count"></span>
+  </div>
+
+  <main>
+    <section id="grid" class="grid" aria-live="polite"></section>
+  </main>
+
+  <footer class="site">
+    Population figures are published estimates with the year shown on each card; treat them as approximate.
+    Built as a static site — open <code>index.html</code> anywhere. 🐾
+  </footer>
+
+  <!-- Explore modal -->
+  <div id="modal-backdrop" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="mhead">
+        <span id="modal-emoji" class="emoji" aria-hidden="true">🐾</span>
+        <div>
+          <h2 id="modal-title">Animal</h2>
+          <div id="modal-sci" class="sci"></div>
+        </div>
+        <button class="close" aria-label="Close">✕</button>
+      </div>
+      <div id="modal-body" class="mbody"></div>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+  <script src="miku.js"></script>
+</body>
+</html>
