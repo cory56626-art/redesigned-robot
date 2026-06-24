@@ -283,7 +283,7 @@
   <header class="app">
     <div>
       <h1>AI Model Ranking Dashboard</h1>
-      <p class="sub">Weighted, real-world scoring across reasoning, coding, speed, cost, availability, context &amp; reliability — fully offline.</p>
+      <p class="sub">Weighted ranking from <b>official benchmarks</b> — GPQA Diamond (reasoning), SWE-bench Verified (coding), official price &amp; context window. Fully offline.</p>
     </div>
     <div class="stat-pills">
       <span class="pill"><b id="statCount">0</b> models</span>
@@ -301,13 +301,11 @@
       <label for="sortBy">Sort by</label>
       <select id="sortBy">
         <option value="score">Final score</option>
-        <option value="reasoning">Reasoning</option>
-        <option value="coding">Coding</option>
-        <option value="speed">Speed</option>
+        <option value="reasoning">Reasoning (GPQA-D)</option>
+        <option value="coding">Coding (SWE-bench)</option>
         <option value="cost">Cost efficiency</option>
         <option value="availability">Availability</option>
-        <option value="context">Context length</option>
-        <option value="reliability">Reliability</option>
+        <option value="context">Context window</option>
         <option value="name">Name (A–Z)</option>
       </select>
     </div>
@@ -345,7 +343,10 @@
   <div class="ranking" id="ranking"></div>
   <div class="empty" id="emptyState" style="display:none;">No models match your search / filter.</div>
 
-  <p class="foot-note">All data is stored locally in JavaScript. Edit any model's benchmarks to watch the rankings recalculate and reorder in real time. No external APIs · no network calls · single offline file.</p>
+  <p class="foot-note">
+    <b>Data sources (June 2026):</b> Reasoning = GPQA Diamond and Coding = SWE-bench Verified leaderboards (BenchLM / Vals.ai); pricing &amp; context windows from vendor docs via LM Council and ofox leaderboards.
+    Reasoning/coding scores are the published benchmark percentages; cost &amp; context are normalized 0–100 from official figures; availability is factual. “N/A” means no official value was published — that factor is excluded from the model's weighted score (weights renormalize). Speed and a reliability benchmark are intentionally omitted (no authoritative official benchmark). Scores update live when you edit values. No external APIs · no network calls · single offline file.
+  </p>
 </div>
 
 <!-- Compare bar -->
@@ -392,26 +393,22 @@
    Data lives in JS; rankings recompute dynamically on change.
    ============================================================ */
 
-// ---- Scoring factor definitions ----
+// ---- Scoring factor definitions (each backed by an official/factual metric) ----
 const FACTORS = [
-  { key: "reasoning",    label: "Reasoning",     desc: "Logical, math & problem-solving ability" },
-  { key: "coding",       label: "Coding",        desc: "Code generation & debugging quality" },
-  { key: "speed",        label: "Speed",         desc: "Throughput / latency (higher = faster)" },
-  { key: "cost",         label: "Cost efficiency", desc: "Value per dollar (higher = cheaper for quality)" },
-  { key: "availability", label: "Availability",  desc: "Derived from free / open-source / paid access" },
-  { key: "context",      label: "Context length", desc: "Derived from max context window" },
-  { key: "reliability",  label: "Reliability",   desc: "Uptime, consistency & low hallucination" },
+  { key: "reasoning",    label: "Reasoning",  short: "GPQA-D",    desc: "GPQA Diamond accuracy (official benchmark, %)" },
+  { key: "coding",       label: "Coding",     short: "SWE-bench", desc: "SWE-bench Verified resolved rate (official benchmark, %)" },
+  { key: "cost",         label: "Cost",       short: "$/M tok",   desc: "Cost efficiency derived from official blended price per 1M tokens" },
+  { key: "availability", label: "Availability", short: "access",  desc: "Derived from free / open-weight / paid-API access (factual)" },
+  { key: "context",      label: "Context",    short: "window",    desc: "Derived from official max context window (factual)" },
 ];
 
-// ---- Default weights (will be normalized to sum to 1) ----
+// ---- Default weights (normalized to sum to 1; capability-weighted) ----
 const DEFAULT_WEIGHTS = {
-  reasoning: 26, coding: 22, speed: 9, cost: 9,
-  availability: 11, context: 7, reliability: 16,
+  reasoning: 30, coding: 28, cost: 16, availability: 12, context: 14,
 };
 let weights = { ...DEFAULT_WEIGHTS };
 
-// ---- Tunable scoring config (kept as named constants, no magic numbers) ----
-// Tier cutoffs: a score >= cutoff earns that tier (checked high → low).
+// ---- Tunable scoring config (named constants, no magic numbers) ----
 const TIERS = [
   { tier: "S", min: 90 },
   { tier: "A", min: 80 },
@@ -420,27 +417,40 @@ const TIERS = [
   { tier: "D", min: 50 },
   { tier: "F", min: 0 },
 ];
-// Availability is "how reachable is this model". Any access channel earns a
-// base; each additional channel (free tier, open weights, paid API) adds more.
+// Availability: any access channel earns a base; each extra channel adds more.
 const ACCESS_POINTS = { base: 50, free: 25, open: 20, paid: 15 };
 // Context-score scale (log10): tokens at MIN → 0, at MAX → 100.
 const CTX_MIN_TOKENS = 1000;
 const CTX_MAX_TOKENS = 2000000;
+// Cost-score scale (log10 of blended $/1M tokens): cheaper → higher score.
+const COST_REF = 0.3;   // reference price at the high end of the scale
+const COST_SLOPE = 30;  // points lost per 10x price increase
 
 // ---- Helpers ----
 const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
 
-// Map a context window (tokens) to a 0–100 score (log scale).
+// Blended price = average of input & output $/1M tokens (null if unknown).
+function blendedPrice(m) {
+  if (m.priceIn == null || m.priceOut == null) return null;
+  return (m.priceIn + m.priceOut) / 2;
+}
+// Cost efficiency 0–100 from blended price (null if price unknown).
+function costScore(m) {
+  const p = blendedPrice(m);
+  if (p == null || p <= 0) return null;
+  return clamp(Math.round(100 - COST_SLOPE * Math.log10(p / COST_REF)));
+}
+// Context score 0–100 from token window (null if unknown, log scale).
 function contextScore(tokens) {
+  if (tokens == null) return null;
   if (!tokens || isNaN(tokens) || tokens <= CTX_MIN_TOKENS) return 0;
   const s = (Math.log10(tokens) - Math.log10(CTX_MIN_TOKENS)) /
             (Math.log10(CTX_MAX_TOKENS) - Math.log10(CTX_MIN_TOKENS)) * 100;
   return clamp(Math.round(s));
 }
-
-// Availability score derived from access flags.
+// Availability 0–100 from access flags (always known).
 function availabilityScore(m) {
-  if (!m.free && !m.open && !m.paid) return 0; // genuinely inaccessible
+  if (!m.free && !m.open && !m.paid) return 0;
   let s = ACCESS_POINTS.base;
   if (m.free) s += ACCESS_POINTS.free;
   if (m.open) s += ACCESS_POINTS.open;
@@ -448,59 +458,58 @@ function availabilityScore(m) {
   return clamp(s);
 }
 
-// ---- Model dataset (real-world models, locally stored) ----
-// Factor values are 0–100 estimates of relative real-world performance.
-// Current lineup as of early 2026. Factor values (0–100) are informed estimates
-// of relative real-world performance, not official benchmark numbers.
+// ---- Model dataset — OFFICIAL benchmark & factual data (June 2026) ----
+// gpqa = GPQA Diamond %, swe = SWE-bench Verified %, priceIn/priceOut = official
+// USD per 1M tokens, ctxTokens = official max context. null = no published value
+// (rendered as N/A and excluded from that model's weighted score).
+// Sources: BenchLM GPQA-Diamond & SWE-bench Verified leaderboards; vendor pricing
+// via LM Council / ofox June-2026 leaderboards (see "Data sources" note below).
 let MODELS = [
   // Anthropic
-  { id: 1,  name: "Claude Opus 4.8",      vendor: "Anthropic",  reasoning: 98, coding: 97, speed: 70, cost: 56, reliability: 96, ctxTokens: 200000,   free: false, open: false, paid: true },
-  { id: 2,  name: "Claude Sonnet 4.6",    vendor: "Anthropic",  reasoning: 93, coding: 94, speed: 85, cost: 78, reliability: 94, ctxTokens: 1000000,  free: true,  open: false, paid: true },
-  { id: 3,  name: "Claude Haiku 4.5",     vendor: "Anthropic",  reasoning: 85, coding: 86, speed: 96, cost: 90, reliability: 91, ctxTokens: 200000,   free: true,  open: false, paid: true },
-  { id: 4,  name: "Claude Fable 5",       vendor: "Anthropic",  reasoning: 95, coding: 90, speed: 80, cost: 68, reliability: 94, ctxTokens: 200000,   free: true,  open: false, paid: true },
+  { id: 1,  name: "Claude Opus 4.8",     vendor: "Anthropic",   gpqa: 93.6, swe: 88.6, priceIn: 5.00, priceOut: 25.00, ctxTokens: 1000000, free: false, open: false, paid: true },
+  { id: 2,  name: "Claude Opus 4.7",     vendor: "Anthropic",   gpqa: 94.2, swe: 87.6, priceIn: 5.00, priceOut: 25.00, ctxTokens: 1000000, free: false, open: false, paid: true },
+  { id: 3,  name: "Claude Opus 4.6",     vendor: "Anthropic",   gpqa: 89.2, swe: 80.8, priceIn: 5.00, priceOut: 25.00, ctxTokens: 1000000, free: false, open: false, paid: true },
+  { id: 4,  name: "Claude Opus 4.5",     vendor: "Anthropic",   gpqa: null, swe: 80.9, priceIn: 5.00, priceOut: 25.00, ctxTokens: 200000,  free: false, open: false, paid: true },
+  { id: 5,  name: "Claude Sonnet 4.6",   vendor: "Anthropic",   gpqa: null, swe: 79.6, priceIn: 3.00, priceOut: 15.00, ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 6,  name: "Claude Haiku 4.5",    vendor: "Anthropic",   gpqa: null, swe: 73.3, priceIn: null, priceOut: null,  ctxTokens: 200000,  free: true,  open: false, paid: true },
+  { id: 7,  name: "Claude 3.5 Sonnet",   vendor: "Anthropic",   gpqa: null, swe: 49.0, priceIn: 3.00, priceOut: 15.00, ctxTokens: 200000,  free: true,  open: false, paid: true },
   // OpenAI
-  { id: 5,  name: "GPT-5.1",              vendor: "OpenAI",     reasoning: 97, coding: 95, speed: 73, cost: 60, reliability: 93, ctxTokens: 400000,   free: true,  open: false, paid: true },
-  { id: 6,  name: "GPT-5",                vendor: "OpenAI",     reasoning: 96, coding: 94, speed: 72, cost: 60, reliability: 93, ctxTokens: 400000,   free: true,  open: false, paid: true },
-  { id: 7,  name: "GPT-5 mini",           vendor: "OpenAI",     reasoning: 86, coding: 85, speed: 93, cost: 90, reliability: 90, ctxTokens: 400000,   free: true,  open: false, paid: true },
-  { id: 8,  name: "o3",                   vendor: "OpenAI",     reasoning: 95, coding: 90, speed: 62, cost: 55, reliability: 90, ctxTokens: 200000,   free: false, open: false, paid: true },
-  { id: 9,  name: "o4-mini",              vendor: "OpenAI",     reasoning: 90, coding: 87, speed: 88, cost: 84, reliability: 89, ctxTokens: 200000,   free: true,  open: false, paid: true },
-  { id: 10, name: "gpt-oss-120b",         vendor: "OpenAI",     reasoning: 88, coding: 86, speed: 80, cost: 92, reliability: 84, ctxTokens: 131072,   free: true,  open: true,  paid: true },
-  { id: 11, name: "gpt-oss-20b",          vendor: "OpenAI",     reasoning: 80, coding: 78, speed: 90, cost: 95, reliability: 81, ctxTokens: 131072,   free: true,  open: true,  paid: true },
+  { id: 8,  name: "GPT-5.5",             vendor: "OpenAI",      gpqa: 93.6, swe: 80.6, priceIn: 4.25, priceOut: 25.50, ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 9,  name: "GPT-5.4",             vendor: "OpenAI",      gpqa: 92.8, swe: 76.9, priceIn: null, priceOut: null,  ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 10, name: "GPT-5.2",             vendor: "OpenAI",      gpqa: null, swe: 80.0, priceIn: null, priceOut: null,  ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 11, name: "GPT-4.1",            vendor: "OpenAI",      gpqa: null, swe: 54.6, priceIn: 2.00, priceOut: 8.00,  ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 12, name: "GPT-4.1 mini",       vendor: "OpenAI",      gpqa: null, swe: 23.6, priceIn: 0.40, priceOut: 1.60,  ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 13, name: "o3-mini",            vendor: "OpenAI",      gpqa: null, swe: 49.3, priceIn: 1.10, priceOut: 4.40,  ctxTokens: 200000,  free: false, open: false, paid: true },
   // Google
-  { id: 12, name: "Gemini 2.5 Pro",       vendor: "Google",     reasoning: 95, coding: 92, speed: 78, cost: 72, reliability: 91, ctxTokens: 1000000,  free: true,  open: false, paid: true },
-  { id: 13, name: "Gemini 2.5 Flash",     vendor: "Google",     reasoning: 87, coding: 85, speed: 94, cost: 90, reliability: 89, ctxTokens: 1000000,  free: true,  open: false, paid: true },
-  { id: 14, name: "Gemini 2.0 Flash",     vendor: "Google",     reasoning: 83, coding: 82, speed: 95, cost: 92, reliability: 88, ctxTokens: 1000000,  free: true,  open: false, paid: true },
-  { id: 15, name: "Gemma 3 27B",          vendor: "Google",     reasoning: 78, coding: 76, speed: 88, cost: 94, reliability: 82, ctxTokens: 128000,   free: true,  open: true,  paid: false },
-  // Meta
-  { id: 16, name: "Llama 4 Maverick",     vendor: "Meta",       reasoning: 89, coding: 87, speed: 82, cost: 86, reliability: 86, ctxTokens: 1000000,  free: true,  open: true,  paid: true },
-  { id: 17, name: "Llama 4 Scout",        vendor: "Meta",       reasoning: 84, coding: 82, speed: 88, cost: 90, reliability: 84, ctxTokens: 10000000, free: true,  open: true,  paid: true },
-  { id: 18, name: "Llama 3.3 70B",        vendor: "Meta",       reasoning: 82, coding: 80, speed: 86, cost: 89, reliability: 85, ctxTokens: 128000,   free: true,  open: true,  paid: true },
+  { id: 14, name: "Gemini 3.1 Pro",     vendor: "Google",      gpqa: 94.3, swe: null, priceIn: 2.00, priceOut: 12.00, ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 15, name: "Gemini 3.5 Flash",   vendor: "Google",      gpqa: 92.7, swe: 78.8, priceIn: 1.50, priceOut: 9.00,  ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 16, name: "Gemini 2.5 Pro",     vendor: "Google",      gpqa: null, swe: 63.8, priceIn: 1.25, priceOut: 10.00, ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 17, name: "Gemma 4 12B",        vendor: "Google",      gpqa: 78.8, swe: null, priceIn: null, priceOut: null,  ctxTokens: 128000,  free: true,  open: true,  paid: false },
   // DeepSeek
-  { id: 19, name: "DeepSeek R1",          vendor: "DeepSeek",   reasoning: 93, coding: 89, speed: 66, cost: 89, reliability: 84, ctxTokens: 128000,   free: true,  open: true,  paid: true },
-  { id: 20, name: "DeepSeek V3.2",        vendor: "DeepSeek",   reasoning: 89, coding: 90, speed: 84, cost: 92, reliability: 86, ctxTokens: 128000,   free: true,  open: true,  paid: true },
+  { id: 18, name: "DeepSeek V4 Pro",    vendor: "DeepSeek",    gpqa: 90.1, swe: 80.6, priceIn: 0.45, priceOut: 0.88,  ctxTokens: 1000000, free: true,  open: true,  paid: true },
+  { id: 19, name: "DeepSeek V4 Flash",  vendor: "DeepSeek",    gpqa: 71.2, swe: 73.7, priceIn: null, priceOut: null,  ctxTokens: 1000000, free: true,  open: true,  paid: true },
+  { id: 20, name: "DeepSeek V3",        vendor: "DeepSeek",    gpqa: null, swe: 42.0, priceIn: 0.27, priceOut: 1.10,  ctxTokens: 128000,  free: true,  open: true,  paid: true },
   // xAI
-  { id: 21, name: "Grok 4",               vendor: "xAI",        reasoning: 95, coding: 92, speed: 74, cost: 62, reliability: 89, ctxTokens: 256000,   free: true,  open: false, paid: true },
-  { id: 22, name: "Grok 3",               vendor: "xAI",        reasoning: 89, coding: 85, speed: 76, cost: 66, reliability: 85, ctxTokens: 131072,   free: false, open: false, paid: true },
-  // Mistral
-  { id: 23, name: "Mistral Large 2",      vendor: "Mistral AI", reasoning: 86, coding: 86, speed: 83, cost: 80, reliability: 87, ctxTokens: 128000,   free: true,  open: true,  paid: true },
-  { id: 24, name: "Mistral Medium 3",     vendor: "Mistral AI", reasoning: 84, coding: 84, speed: 86, cost: 85, reliability: 86, ctxTokens: 128000,   free: true,  open: false, paid: true },
-  { id: 25, name: "Magistral Medium",     vendor: "Mistral AI", reasoning: 88, coding: 83, speed: 72, cost: 82, reliability: 83, ctxTokens: 128000,   free: true,  open: true,  paid: true },
-  { id: 26, name: "Codestral 25.01",      vendor: "Mistral AI", reasoning: 78, coding: 90, speed: 90, cost: 88, reliability: 85, ctxTokens: 256000,   free: true,  open: false, paid: true },
+  { id: 21, name: "Grok 4.20",          vendor: "xAI",         gpqa: 88.5, swe: 76.7, priceIn: 4.00, priceOut: 12.00, ctxTokens: 2000000, free: true,  open: false, paid: true },
+  { id: 22, name: "Grok Code Fast 1",   vendor: "xAI",         gpqa: null, swe: 70.8, priceIn: null, priceOut: null,  ctxTokens: 256000,  free: true,  open: false, paid: true },
   // Alibaba
-  { id: 27, name: "Qwen3 235B",           vendor: "Alibaba",    reasoning: 90, coding: 88, speed: 76, cost: 88, reliability: 85, ctxTokens: 128000,   free: true,  open: true,  paid: true },
-  { id: 28, name: "Qwen2.5 Coder 32B",    vendor: "Alibaba",    reasoning: 80, coding: 89, speed: 86, cost: 92, reliability: 83, ctxTokens: 131072,   free: true,  open: true,  paid: true },
-  // Cohere
-  { id: 29, name: "Command A",            vendor: "Cohere",     reasoning: 84, coding: 82, speed: 85, cost: 80, reliability: 87, ctxTokens: 256000,   free: true,  open: true,  paid: true },
-  // Microsoft
-  { id: 30, name: "Phi-4",                vendor: "Microsoft",  reasoning: 79, coding: 80, speed: 93, cost: 95, reliability: 80, ctxTokens: 16000,    free: true,  open: true,  paid: false },
+  { id: 23, name: "Qwen3.7 Max",        vendor: "Alibaba",     gpqa: 92.4, swe: 80.4, priceIn: 2.50, priceOut: 7.50,  ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 24, name: "Qwen3.7 Plus",       vendor: "Alibaba",     gpqa: 90.3, swe: 77.7, priceIn: 0.40, priceOut: 1.60,  ctxTokens: 1000000, free: true,  open: true,  paid: true },
   // Moonshot AI
-  { id: 31, name: "Kimi K2",              vendor: "Moonshot AI",reasoning: 89, coding: 88, speed: 78, cost: 90, reliability: 84, ctxTokens: 256000,   free: true,  open: true,  paid: true },
+  { id: 25, name: "Kimi K2.6",          vendor: "Moonshot AI", gpqa: 90.5, swe: 80.2, priceIn: 0.95, priceOut: 4.00,  ctxTokens: 262144,  free: true,  open: true,  paid: true },
   // Zhipu AI
-  { id: 32, name: "GLM-4.6",              vendor: "Zhipu AI",   reasoning: 88, coding: 87, speed: 80, cost: 89, reliability: 84, ctxTokens: 200000,   free: true,  open: true,  paid: true },
-  // Amazon
-  { id: 33, name: "Amazon Nova Pro",      vendor: "Amazon",     reasoning: 82, coding: 80, speed: 88, cost: 84, reliability: 86, ctxTokens: 300000,   free: false, open: false, paid: true },
+  { id: 26, name: "GLM-5.2",            vendor: "Zhipu AI",    gpqa: 91.2, swe: null, priceIn: null, priceOut: null,  ctxTokens: 200000,  free: true,  open: true,  paid: true },
+  { id: 27, name: "GLM-5.1",            vendor: "Zhipu AI",    gpqa: 86.2, swe: null, priceIn: 1.40, priceOut: 4.40,  ctxTokens: 200000,  free: true,  open: true,  paid: true },
+  { id: 28, name: "GLM-5",              vendor: "Zhipu AI",    gpqa: 86.0, swe: 77.8, priceIn: null, priceOut: null,  ctxTokens: 200000,  free: true,  open: true,  paid: true },
+  { id: 29, name: "GLM-4.7",            vendor: "Zhipu AI",    gpqa: null, swe: 73.8, priceIn: null, priceOut: null,  ctxTokens: 200000,  free: true,  open: true,  paid: true },
+  // NVIDIA
+  { id: 30, name: "Nemotron 3 Ultra",   vendor: "NVIDIA",      gpqa: 87.0, swe: 71.9, priceIn: null, priceOut: null,  ctxTokens: null,    free: true,  open: true,  paid: true },
+  // MiniMax
+  { id: 31, name: "MiniMax M3",         vendor: "MiniMax",     gpqa: null, swe: 80.5, priceIn: null, priceOut: null,  ctxTokens: null,    free: true,  open: true,  paid: true },
+  // Mistral
+  { id: 32, name: "Mistral Medium 3.5", vendor: "Mistral AI",  gpqa: null, swe: 77.6, priceIn: null, priceOut: null,  ctxTokens: 128000,  free: true,  open: false, paid: true },
 ];
-let nextId = 34;
+let nextId = 33;
 
 // ---- UI state ----
 let compareMode = false;
@@ -509,37 +518,41 @@ let editingId = null;
 let prevOrder = []; // for rank-change deltas & FLIP animation
 
 // ---- Core scoring ----
-function normalizedWeights() {
-  const total = FACTORS.reduce((s, f) => s + (weights[f.key] || 0), 0);
-  const out = {};
-  if (total === 0) {
-    // All weights zeroed: fall back to equal weighting so scores stay meaningful.
-    FACTORS.forEach(f => out[f.key] = 1 / FACTORS.length);
-  } else {
-    FACTORS.forEach(f => out[f.key] = (weights[f.key] || 0) / total);
-  }
-  return out;
-}
-
-// returns {reasoning,...} all 0–100, including derived availability & context
+// Each factor's 0–100 score; null where the model has no published value.
 function factorValues(m) {
   return {
-    reasoning: m.reasoning,
-    coding: m.coding,
-    speed: m.speed,
-    cost: m.cost,
-    availability: availabilityScore(m),
-    context: contextScore(m.ctxTokens),
-    reliability: m.reliability,
+    reasoning: m.gpqa,                 // GPQA Diamond % (already 0–100)
+    coding: m.swe,                     // SWE-bench Verified % (already 0–100)
+    cost: costScore(m),                // derived from official price (null if unknown)
+    availability: availabilityScore(m),// always known
+    context: contextScore(m.ctxTokens),// derived from official context (null if unknown)
   };
 }
 
+// How many of the four official/factual data points a model actually has.
+function dataCompleteness(m) {
+  let n = 0;
+  if (m.gpqa != null) n++;
+  if (m.swe != null) n++;
+  if (blendedPrice(m) != null) n++;
+  if (m.ctxTokens != null) n++;
+  return n; // out of 4 (availability is always known)
+}
+
+// Weighted score over only the factors with data (weights renormalized).
 function finalScore(m) {
-  const nw = normalizedWeights();
   const fv = factorValues(m);
-  let s = 0;
-  FACTORS.forEach(f => s += fv[f.key] * nw[f.key]);
-  return Math.round(s * 10) / 10;
+  let sum = 0, wsum = 0, avail = [];
+  FACTORS.forEach(f => {
+    if (fv[f.key] == null) return;
+    avail.push(fv[f.key]);
+    sum += fv[f.key] * (weights[f.key] || 0);
+    wsum += (weights[f.key] || 0);
+  });
+  if (avail.length === 0) return 0;
+  // If all relevant weights are zero, fall back to a plain average.
+  const score = wsum === 0 ? avail.reduce((a, b) => a + b, 0) / avail.length : sum / wsum;
+  return Math.round(score * 10) / 10;
 }
 
 function tierFor(score) {
@@ -549,6 +562,26 @@ function tierFor(score) {
 function scoreColor(score) {
   const t = tierFor(score);
   return getComputedStyle(document.documentElement).getPropertyValue("--tier-" + t.toLowerCase()).trim();
+}
+
+// ---- Display formatting ----
+function fmtTokens(t) {
+  if (t == null) return "N/A";
+  return t >= 1000000 ? (t / 1000000) + "M" : Math.round(t / 1000) + "K";
+}
+// Human-readable real metric value behind each factor (or N/A).
+function metricText(m, key) {
+  switch (key) {
+    case "reasoning":    return m.gpqa == null ? "N/A" : m.gpqa + "%";
+    case "coding":       return m.swe == null ? "N/A" : m.swe + "%";
+    case "cost": {
+      const p = blendedPrice(m);
+      return p == null ? "N/A" : "$" + p.toFixed(2) + "/M";
+    }
+    case "availability": return availabilityScore(m) + "/100";
+    case "context":      return m.ctxTokens == null ? "N/A" : fmtTokens(m.ctxTokens);
+    default:             return "—";
+  }
 }
 
 // ---- Build ranked + filtered list ----
@@ -576,7 +609,9 @@ function visibleList(ranked) {
   if (sortBy === "name") {
     list.sort((a, b) => a.m.name.localeCompare(b.m.name));
   } else if (sortBy !== "score") {
-    list.sort((a, b) => b.fv[sortBy] - a.fv[sortBy]);
+    // Sort by the chosen factor; models with no value (N/A) sink to the bottom.
+    const val = x => (x.fv[sortBy] == null ? -Infinity : x.fv[sortBy]);
+    list.sort((a, b) => val(b) - val(a) || a.m.name.localeCompare(b.m.name));
   }
   // sortBy === "score" keeps the ranked order.
   return list;
@@ -622,15 +657,17 @@ function render(animate = true) {
     if (m.open) badges.push(`<span class="tag open">Open-source</span>`);
     if (m.paid) badges.push(`<span class="tag paid">Paid API</span>`);
 
-    const miniFactors = FACTORS.map(f => `
-      <div class="fm">${f.label}: <b>${Math.round(fv[f.key])}</b>
-        <div class="bar"><i style="width:${fv[f.key]}%"></i></div>
-      </div>`).join("");
+    const miniFactors = FACTORS.map(f => {
+      const v = fv[f.key];
+      const na = v == null;
+      return `<div class="fm">${f.short}: <b${na ? ' style="color:var(--muted)"' : ''}>${metricText(m, f.key)}</b>
+        <div class="bar"><i style="width:${na ? 0 : v}%"></i></div>
+      </div>`;
+    }).join("");
 
     const checked = compareSet.has(m.id) ? "checked" : "";
-    const ctxLabel = m.ctxTokens >= 1000000
-      ? (m.ctxTokens / 1000000) + "M tokens"
-      : Math.round(m.ctxTokens / 1000) + "K tokens";
+    const ctxLabel = m.ctxTokens == null ? "context N/A" : fmtTokens(m.ctxTokens) + " context";
+    const verified = dataCompleteness(m);
 
     card.innerHTML = `
       <div class="rank-col">
@@ -640,7 +677,7 @@ function render(animate = true) {
       </div>
       <div class="info-col">
         <div class="name">${escapeHtml(m.name)}</div>
-        <div class="vendor">${escapeHtml(m.vendor)} · ${ctxLabel} context</div>
+        <div class="vendor">${escapeHtml(m.vendor)} · ${ctxLabel} · ${verified}/4 official metrics</div>
         <div class="badges">${badges.join("")}</div>
         <div class="factor-mini">${miniFactors}</div>
       </div>
@@ -745,15 +782,19 @@ function openEdit(id) {
   editingId = id;
   const isNew = id === null;
   const m = isNew
-    ? { name: "", vendor: "", reasoning: 70, coding: 70, speed: 70, cost: 70, reliability: 70, ctxTokens: 128000, free: false, open: false, paid: true }
+    ? { name: "", vendor: "", gpqa: null, swe: null, priceIn: null, priceOut: null, ctxTokens: null, free: false, open: false, paid: true }
     : MODELS.find(x => x.id === id);
 
   document.getElementById("editTitle").textContent = isNew ? "Add new model" : "Edit: " + m.name;
   document.getElementById("deleteModel").style.display = isNew ? "none" : "inline-block";
 
-  const numericFactors = [
-    ["reasoning", "Reasoning"], ["coding", "Coding"], ["speed", "Speed"],
-    ["cost", "Cost efficiency"], ["reliability", "Reliability"],
+  const v = x => (x == null ? "" : x);
+  const numFields = [
+    ["f_gpqa",    "Reasoning — GPQA Diamond accuracy (%)", v(m.gpqa),    "e.g. 93.6 — blank = N/A"],
+    ["f_swe",     "Coding — SWE-bench Verified (%)",       v(m.swe),     "e.g. 88.6 — blank = N/A"],
+    ["f_priceIn", "Input price ($ per 1M tokens)",         v(m.priceIn), "e.g. 5.00 — blank = N/A"],
+    ["f_priceOut","Output price ($ per 1M tokens)",        v(m.priceOut),"e.g. 25.00 — blank = N/A"],
+    ["f_ctx",     "Max context window (tokens)",           v(m.ctxTokens),"e.g. 1000000 — blank = N/A"],
   ];
 
   const body = document.getElementById("editBody");
@@ -766,19 +807,16 @@ function openEdit(id) {
       <label>Vendor</label>
       <input type="text" id="f_vendor" value="${escapeHtml(m.vendor)}" placeholder="e.g. Acme AI"/>
     </div>
-    ${numericFactors.map(([k, lbl]) => `
+    <p style="font-size:12px;color:var(--muted);margin:2px 0 12px">Enter official published figures. Leave a field blank to mark it N/A (excluded from the score).</p>
+    ${numFields.map(([id, lbl, val, ph]) => `
       <div class="erow">
-        <label>${lbl} <b id="lbl_${k}">${m[k]}</b></label>
-        <input type="range" id="f_${k}" min="0" max="100" value="${m[k]}" oninput="document.getElementById('lbl_${k}').textContent=this.value"/>
+        <label>${lbl}</label>
+        <input type="text" id="${id}" inputmode="decimal" value="${val}" placeholder="${ph}"/>
       </div>`).join("")}
-    <div class="erow">
-      <label>Max context window (tokens) <b id="lbl_ctx">${m.ctxTokens.toLocaleString()}</b></label>
-      <input type="text" id="f_ctx" inputmode="numeric" value="${m.ctxTokens}" oninput="(function(v){var n=parseInt(v.replace(/[^0-9]/g,''))||0;document.getElementById('lbl_ctx').textContent=n.toLocaleString();})(this.value)"/>
-    </div>
     <div class="erow">
       <label style="justify-content:flex-start; gap:18px;">
         <span><input type="checkbox" id="f_free" ${m.free ? "checked" : ""}/> Free access</span>
-        <span><input type="checkbox" id="f_open" ${m.open ? "checked" : ""}/> Open-source</span>
+        <span><input type="checkbox" id="f_open" ${m.open ? "checked" : ""}/> Open-weight</span>
         <span><input type="checkbox" id="f_paid" ${m.paid ? "checked" : ""}/> Paid API</span>
       </label>
     </div>
@@ -801,16 +839,26 @@ function saveModel() {
     m.vendor.toLowerCase() === vendorVal.toLowerCase());
   if (dup) { toast("A model with that name and vendor already exists."); return; }
 
-  const num = id => clamp(Number(document.getElementById(id).value) || 0, 0, 100);
+  // Blank fields → null (N/A). Numbers parsed leniently.
+  const optNum = id => {
+    const raw = document.getElementById(id).value.trim();
+    if (raw === "") return null;
+    const n = Number(raw.replace(/[^0-9.]/g, ""));
+    return isNaN(n) ? null : n;
+  };
+  const optPct = id => { const n = optNum(id); return n == null ? null : clamp(n, 0, 100); };
+  const optInt = id => {
+    const raw = document.getElementById(id).value.replace(/[^0-9]/g, "");
+    return raw === "" ? null : (parseInt(raw) || null);
+  };
   const data = {
     name,
     vendor: vendorVal,
-    reasoning: num("f_reasoning"),
-    coding: num("f_coding"),
-    speed: num("f_speed"),
-    cost: num("f_cost"),
-    reliability: num("f_reliability"),
-    ctxTokens: parseInt(String(document.getElementById("f_ctx").value).replace(/[^0-9]/g, "")) || 0,
+    gpqa: optPct("f_gpqa"),
+    swe: optPct("f_swe"),
+    priceIn: optNum("f_priceIn"),
+    priceOut: optNum("f_priceOut"),
+    ctxTokens: optInt("f_ctx"),
     free: document.getElementById("f_free").checked,
     open: document.getElementById("f_open").checked,
     paid: document.getElementById("f_paid").checked,
@@ -873,36 +921,40 @@ function openCompare() {
   const chosen = [...compareSet].map(id => MODELS.find(x => x.id === id)).filter(Boolean);
   if (chosen.length < 2) { toast("Select at least 2 models to compare."); return; }
 
+  // Rows: score & tier, then each official factor (real value + best highlight), then access.
   const rows = [
-    { label: "Final score", get: m => finalScore(m), fmt: v => v.toFixed(1), hi: true },
-    { label: "Tier", get: m => finalScore(m), fmt: v => tierFor(v), hi: false, isTier: true },
+    { label: "Final score", score: m => finalScore(m), disp: m => finalScore(m).toFixed(1), hi: true },
+    { label: "Tier", isTier: true },
     ...FACTORS.map(f => ({
-      label: f.label,
-      get: m => factorValues(m)[f.key],
-      fmt: v => Math.round(v),
+      label: f.label + " (" + f.short + ")",
+      score: m => factorValues(m)[f.key],   // numeric for "best" (may be null)
+      disp: m => metricText(m, f.key),       // real published value or N/A
       hi: true,
     })),
-    { label: "Context window", get: m => m.ctxTokens, fmt: v => v.toLocaleString() + " tok", hi: true },
-    { label: "Access", get: m => m, fmt: m => [m.free && "Free", m.open && "Open", m.paid && "Paid"].filter(Boolean).join(", ") || "—", hi: false, raw: true },
+    { label: "Access", disp: m => [m.free && "Free", m.open && "Open", m.paid && "Paid"].filter(Boolean).join(", ") || "—" },
   ];
 
   let html = `<table class="cmp"><thead><tr><th>Metric</th>${chosen.map(m => `<th>${escapeHtml(m.name)}<div class="mini">${escapeHtml(m.vendor)}</div></th>`).join("")}</tr></thead><tbody>`;
   rows.forEach(r => {
-    let vals = chosen.map(m => r.raw ? r.get(m) : r.get(m));
-    let best = null;
-    if (r.hi && !r.raw) best = Math.max(...vals.map(v => Number(v)));
     html += `<tr><td class="metric">${r.label}</td>`;
-    chosen.forEach((m, i) => {
-      const raw = vals[i];
-      const display = r.raw ? r.fmt(raw) : r.fmt(Number(raw));
-      let cls = "";
-      if (r.isTier) {
-        const t = display;
+    if (r.isTier) {
+      chosen.forEach(m => {
+        const t = tierFor(finalScore(m));
         html += `<td><span class="tier-badge tier-${t}" style="width:26px;height:26px;font-size:13px;margin:0">${t}</span></td>`;
-        return;
-      }
-      if (best !== null && Number(raw) === best) cls = "best";
-      html += `<td class="${cls}">${display}</td>`;
+      });
+      html += `</tr>`;
+      return;
+    }
+    // Best value among models that actually have a numeric score for this row.
+    let best = null;
+    if (r.hi) {
+      const nums = chosen.map(r.score).filter(v => v != null && !isNaN(v));
+      if (nums.length) best = Math.max(...nums);
+    }
+    chosen.forEach(m => {
+      const sv = r.hi ? r.score(m) : null;
+      const cls = (best !== null && sv != null && Number(sv) === best) ? "best" : "";
+      html += `<td class="${cls}">${escapeHtml(r.disp(m))}</td>`;
     });
     html += `</tr>`;
   });
