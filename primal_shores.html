@@ -71,12 +71,22 @@
   #startBtn{background:#6ec24a;color:#08210a}.btn2{background:#39506a;color:#fff;margin-left:10px}
   #dead{background:#2a0808ee;display:none}#dead h1{color:#ff5a52;font-size:46px;margin:.1em}#respawn{background:#e8413c;color:#fff}
   #pauseHint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:15px;background:#000b;padding:10px 18px;border-radius:8px;display:none;pointer-events:auto;cursor:pointer}
+  #book{position:absolute;top:50px;left:12px;width:34px;height:34px;background:#0007;border:1px solid #fff3;border-radius:7px;pointer-events:auto;cursor:pointer;padding:6px}
+  #encyScreen{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#0009;pointer-events:auto}
+  #encyPanel{position:relative;background:#c6c6c6;border:4px solid #555;border-radius:6px;padding:16px;width:580px;max-width:92vw;max-height:90vh;overflow:auto}
+  #encyGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:10px}
+  .ecard{background:#8b8b8b;border:2px solid #373737;border-radius:6px;padding:8px;color:#1a1a1a}
+  .ecard .sw{width:100%;height:44px;border-radius:4px;margin-bottom:6px;border:1px solid #0005}
+  .ecard b{font-size:13px;color:#111}.ecard .st{color:#333;font-size:11px;line-height:1.45}
+  .ecard.unk{opacity:.7;text-align:center}.ecard.unk .sw{background:#444}
+  #encyClose{position:absolute;top:8px;right:12px;font-size:24px;cursor:pointer;color:#333}
 </style>
 </head>
 <body>
 <div id="whisperFx"></div><div id="hurt"></div><div id="water"></div>
 <div id="ui">
   <div id="gear"></div>
+  <div id="book"></div>
   <div id="bars">
     <div class="bar"><i id="bHealth" style="background:var(--red)"></i><span>Health</span></div>
     <div class="bar"><i id="bHunger" style="background:var(--orange)"></i><span>Hunger</span></div>
@@ -108,6 +118,7 @@
       <div style="color:#333;font-size:11px;margin-top:8px">Click=pick up/place. Hold a recipe to craft repeatedly.</div></div>
   </div>
 </div>
+<div id="encyScreen"><div id="encyClose">✕</div><div id="encyPanel"><h3 style="margin:0 0 10px;color:#222">CREATURE ENCYCLOPEDIA</h3><div id="encyGrid"></div></div></div>
 <canvas id="c"></canvas>
 <div id="start" class="overlay">
   <h1>PRIMAL SHORES</h1>
@@ -189,8 +200,11 @@ function fade(t){return t*t*t*(t*(t*6-15)+10);}function lerp(a,b,t){return a+(b-
 function vnoise(x,z){const i=Math.floor(x),j=Math.floor(z),fx=x-i,fz=z-j,u=fade(fx),v=fade(fz);return lerp(lerp(hash(i,j),hash(i+1,j),u),lerp(hash(i,j+1),hash(i+1,j+1),u),v);}
 function fbm(x,z){let f=0,a=1,fr=1,s=0;for(let o=0;o<5;o++){f+=a*vnoise(x*fr,z*fr);s+=a;a*=0.5;fr*=2;}return f/s;}
 const ISLAND=220,SEA=0;
-function terrainHeight(x,z){const b=fbm(x*0.014+50,z*0.014+50);let h=Math.pow(b,1.1)*120-16; // taller mountains
+function baseHeight(x,z){const b=fbm(x*0.014+50,z*0.014+50);let h=Math.pow(b,1.1)*120-16;
   const d=Math.hypot(x,z)/ISLAND,fall=Math.max(0,1-d*d);h=h*fall-(1-fall)*16;h+=fbm(x*0.05,z*0.05)*4.5+fbm(x*0.12,z*0.12)*1.5;return h;}
+const CAVES=[];(function(){let t=0,g=0;while(t<3&&g<3000){g++;const x=(Math.random()*2-1)*ISLAND*0.6,z=(Math.random()*2-1)*ISLAND*0.6;if(baseHeight(x,z)>8){CAVES.push({x,z,r:16,depth:21});t++;}}})();
+function caveCarve(x,z){let c=0;for(const cv of CAVES){const d=Math.hypot(x-cv.x,z-cv.z);if(d<cv.r){const fr=1-d/cv.r;c-=cv.depth*fr*fr;}}return c;}
+function terrainHeight(x,z){return baseHeight(x,z)+caveCarve(x,z);}
 function biomeAt(x,z){const h=terrainHeight(x,z);if(h<1.4)return'beach';if(h>16)return'mountain';return'plains';}
 const TSIZE=510,TSEG=260;
 const tgeo=new THREE.PlaneGeometry(TSIZE,TSIZE,TSEG,TSEG);tgeo.rotateX(-Math.PI/2);
@@ -211,7 +225,7 @@ function roar(p=1){blip(140*p,0.5,'sawtooth',0.25);setTimeout(()=>blip(90*p,0.4,
 // ===== ITEMS =====
 const ITEMS={
  wood:{nm:'Wood'},stone:{nm:'Stone'},flint:{nm:'Flint'},fiber:{nm:'Fiber'},berry:{nm:'Berries'},rawmeat:{nm:'Raw Meat'},cookedmeat:{nm:'Cooked Meat'},hide:{nm:'Hide'},
- coal:{nm:'Coal'},iron:{nm:'Iron Ore'},crystal:{nm:'Crystal'},bandage:{nm:'Bandage'},
+ coal:{nm:'Coal'},iron:{nm:'Iron Ore'},crystal:{nm:'Crystal'},bandage:{nm:'Bandage'},bait:{nm:'Soothing Bait',vm:'bait'},
  spear:{nm:'Stone Spear',dmg:5,vm:'spear',maxdur:40},club:{nm:'Bone Club',dmg:7,vm:'club',maxdur:55},
  pick:{nm:'Stone Pickaxe',tool:'rock',dmg:2,vm:'pick',maxdur:50},axe:{nm:'Stone Axe',tool:'tree',dmg:2,vm:'axe',maxdur:50},
  ironpick:{nm:'Iron Pickaxe',tool:'rock',dmg:3,ore:true,vm:'pick',maxdur:120},
@@ -280,7 +294,12 @@ function makeLoose(type){const s=spawnSpot(null,1.0);const c=type==='pebble'?0x8
  if(type==='stick')m.rotation.z=1.4;m.position.set(s.x,s.h+0.2,s.z);m.userData={type:type,hp:1};scene.add(m);harvestables.push({mesh:m,type:type});}
 for(let i=0;i<120;i++)makeTree();for(let i=0;i<70;i++)makeRock();for(let i=0;i<55;i++)makeBush();
 for(let i=0;i<55;i++)makeLoose('pebble');for(let i=0;i<55;i++)makeLoose('stick');for(let i=0;i<22;i++)makeLoose('flintnode');
-for(let i=0;i<16;i++)makeOre('coal');for(let i=0;i<12;i++)makeOre('iron');for(let i=0;i<6;i++)makeOre('crystal');
+function makeOreAt(kind,x,z){const colors={coal:0x2b2b2b,iron:0x9a7a5a,crystal:0x7fe0e8};const m=new THREE.Mesh(new THREE.DodecahedronGeometry(1.1),new THREE.MeshStandardMaterial({color:0x8a8a90,flatShading:true}));for(let k=0;k<4;k++){const v=new THREE.Mesh(new THREE.IcosahedronGeometry(0.3),new THREE.MeshStandardMaterial({color:colors[kind],emissive:kind==='crystal'?0x144:0x000,flatShading:true}));v.position.set(rnd(0.7),rnd(0.7),rnd(0.7));m.add(v);}m.position.set(x,terrainHeight(x,z)+0.6,z);m.castShadow=true;m.userData={type:'ore',ore:kind,hp:8};scene.add(m);harvestables.push({mesh:m,type:'ore'});}
+for(let i=0;i<14;i++)makeOre('coal');for(let i=0;i<10;i++)makeOre('iron');for(let i=0;i<4;i++)makeOre('crystal');
+for(const cv of CAVES){const surf=baseHeight(cv.x,cv.z);
+ const ceil=new THREE.Mesh(new THREE.CylinderGeometry(cv.r*0.72,cv.r*0.7,1.2,18),new THREE.MeshStandardMaterial({color:0x3a352f,roughness:1}));ceil.position.set(cv.x,surf+0.6,cv.z);ceil.castShadow=true;ceil.receiveShadow=true;scene.add(ceil);
+ const ring=new THREE.Mesh(new THREE.TorusGeometry(cv.r*0.86,0.4,8,30),new THREE.MeshStandardMaterial({color:0x6fe0c0,emissive:0x1a7a60}));ring.rotation.x=Math.PI/2;ring.position.set(cv.x,surf+0.25,cv.z);scene.add(ring);
+ for(let k=0;k<5;k++){const a=Math.random()*6.28,rr=Math.random()*cv.r*0.45;makeOreAt(Math.random()<0.5?'iron':'crystal',cv.x+Math.cos(a)*rr,cv.z+Math.sin(a)*rr);}makeOreAt('coal',cv.x+2,cv.z);}
 
 // ===== CREATURES (redesigned, connected, biome/time) =====
 const KINDS={
@@ -391,17 +410,17 @@ const recEl=document.getElementById('recipes');
 function nearFire(){return campfires.some(f=>f.mesh.position.distanceTo(player.pos)<6);}
 function canCraft(r){if(r.needsFire&&!nearFire())return false;return Object.entries(r.cost).every(([k,v])=>countItem(k)>=v);}
 function craft(r){if(!canCraft(r))return false;for(const[k,v]of Object.entries(r.cost))removeItem(k,v);addItem(r.out,r.n||1);blip(880,0.1,'triangle',0.18);return true;}
-let craftHold=null;
-function renderRecipes(){recEl.innerHTML='';let cat='';for(const r of RECIPES){if(r.cat!==cat){cat=r.cat;const h=document.createElement('div');h.className='cat';h.textContent=cat;recEl.appendChild(h);}
- const ok=canCraft(r);const d=document.createElement('div');d.className='recipe'+(ok?'':' no');
- const req=Object.entries(r.cost).map(([k,v])=>`${ITEMS[k].nm} ${countItem(k)}/${v}`).join(', ')+(r.needsFire?' (campfire)':'');
- d.innerHTML=`<div class="ic">${ICONS[r.out]||''}</div><div class="info"><b>${ITEMS[r.out].nm}${r.n?' x'+r.n:''}</b><div class="req">${req}</div></div>`;
- const start=ev=>{ev.preventDefault();if(!craft(r)){log(r.needsFire&&!nearFire()?'Stand near a campfire':'Not enough materials');return;}log('Crafted '+ITEMS[r.out].nm);renderRecipes();craftHold=setInterval(()=>{if(!craft(r)){clearInterval(craftHold);craftHold=null;}renderRecipes();},260);};
- const stop=()=>{if(craftHold){clearInterval(craftHold);craftHold=null;}};
- d.addEventListener('mousedown',start);d.addEventListener('mouseup',stop);d.addEventListener('mouseleave',stop);
- d.addEventListener('touchstart',start,{passive:false});d.addEventListener('touchend',stop);
- recEl.appendChild(d);}}
-function refreshAll(){refreshHotbar();if(invOpen){renderInv();renderRecipes();}}
+let craftHold=null,recipeNodes=[];
+function renderRecipes(){recEl.innerHTML='';recipeNodes=[];let cat='';for(const r of RECIPES){if(r.cat!==cat){cat=r.cat;const h=document.createElement('div');h.className='cat';h.textContent=cat;recEl.appendChild(h);}
+ const d=document.createElement('div');d.className='recipe';
+ d.innerHTML=`<div class="ic">${ICONS[r.out]||''}</div><div class="info"><b>${ITEMS[r.out].nm}${r.n?' x'+r.n:''}</b><div class="req"></div></div>`;
+ const start=ev=>{ev.preventDefault();ev.stopPropagation();stopCraft();if(!craft(r)){log(r.needsFire&&!nearFire()?'Stand near a campfire':'Not enough materials');return;}log('Crafted '+ITEMS[r.out].nm);updateRecipeStates();craftHold=setInterval(()=>{if(!craft(r)){stopCraft();return;}updateRecipeStates();},240);};
+ d.addEventListener('mousedown',start);d.addEventListener('touchstart',start,{passive:false});
+ recEl.appendChild(d);recipeNodes.push({r:r,node:d});}updateRecipeStates();}
+function updateRecipeStates(){for(const it of recipeNodes){const ok=canCraft(it.r);it.node.classList.toggle('no',!ok);it.node.querySelector('.req').textContent=Object.entries(it.r.cost).map(([k,v])=>`${ITEMS[k].nm} ${countItem(k)}/${v}`).join(', ')+(it.r.needsFire?' (campfire)':'');}}
+function stopCraft(){if(craftHold){clearInterval(craftHold);craftHold=null;}}
+addEventListener('mouseup',stopCraft);addEventListener('touchend',stopCraft);addEventListener('pointerup',stopCraft);addEventListener('blur',stopCraft);
+function refreshAll(){refreshHotbar();if(invOpen){renderInv();updateRecipeStates();}}
 
 // ===== INTERACTION =====
 const raycaster=new THREE.Raycaster();raycaster.far=5;
@@ -440,7 +459,7 @@ function makeCorpse(c){const m=c.mesh;m.rotation.z=Math.PI/2.2;m.traverse(o=>{if
 function harvestCorpse(cp){let any=false;for(const k in cp.drops){if(cp.drops[k]>0){addItem(k,1);cp.drops[k]--;any=true;log('+1 '+ITEMS[k].nm);break;}}
  burst(cp.mesh.position.clone().setY(cp.mesh.position.y+0.5),0xaa3333,5);blip(300,0.08,'sine',0.12);
  if(Object.values(cp.drops).every(v=>v<=0)){const i=corpses.indexOf(cp);if(i>=0)corpses.splice(i,1);scene.remove(cp.mesh);disposeMesh(cp.mesh);log('Carcass stripped');}}
-function killCreature(c,byPlayer){if(!c.tamed){log(c.k.nm+' killed');makeCorpse(c);if(!c.night)setTimeout(()=>{if(dayCreatures()<MAX_CREAT)spawnWaveDay();},30000);}else{log('Your '+c.k.nm+' died!');const i=creatures.indexOf(c);if(i>=0)creatures.splice(i,1);if(c.tbar){c.tbar.remove();c.tbar=null;}scene.remove(c.mesh);disposeMesh(c.mesh);updateCmdBar();}}
+function killCreature(c,byPlayer){seenKinds.add(c.kind);if(!c.tamed){log(c.k.nm+' killed');makeCorpse(c);if(!c.night)setTimeout(()=>{if(dayCreatures()<MAX_CREAT)spawnWaveDay();},30000);}else{log('Your '+c.k.nm+' died!');const i=creatures.indexOf(c);if(i>=0)creatures.splice(i,1);if(c.tbar){c.tbar.remove();c.tbar=null;}scene.remove(c.mesh);disposeMesh(c.mesh);updateCmdBar();}}
 function spawnWaveDay(){const r=Math.random();if(r<0.4)makeCreature('parasaur');else if(r<0.75)makeCreature('raptor');else if(r<0.9)makeCreature('compy');else makeCreature('bruiser');}
 function placeBuild(kind){const dir=new THREE.Vector3(-Math.sin(player.yaw),0,-Math.cos(player.yaw));const p=player.pos.clone().addScaledVector(dir,2.5);
  const gx=Math.round(p.x/2)*2,gz=Math.round(p.z/2)*2,gy=terrainHeight(gx,gz);
@@ -494,8 +513,11 @@ addEventListener('mousedown',e=>{if(e.button===0&&!isMobile&&running&&!invOpen&&
 
 // ===== LOOP =====
 const clock=new THREE.Clock();let dayT=6/24,dayNum=1,lastDay=6/24,stepT=0,bob=0,spawnTimer=0;
-function tick(){requestAnimationFrame(tick);const dt=Math.min(clock.getDelta(),0.1);if(running&&!invOpen&&(isMobile||document.pointerLockElement===renderer.domElement))update(dt);updateParticles(dt);renderer.render(scene,camera);}
+function tick(){requestAnimationFrame(tick);const dt=Math.min(clock.getDelta(),0.1);if(running&&!invOpen&&!encyOpen&&(isMobile||document.pointerLockElement===renderer.domElement))update(dt);updateParticles(dt);renderer.render(scene,camera);}
 function die(msg){if(!running)return;running=false;if(document.pointerLockElement)document.exitPointerLock();document.getElementById('deadMsg').textContent=msg;deadEl.style.display='flex';}
+function collide(){const pr=0.45;for(let pass=0;pass<2;pass++){
+ for(const h of harvestables){const t=h.type;let r=t==='tree'?0.55:t==='rock'?1.15:t==='ore'?1.05:0;if(!r)continue;let dx=player.pos.x-h.mesh.position.x,dz=player.pos.z-h.mesh.position.z,d=Math.hypot(dx,dz),md=r+pr;if(d<md){if(d<1e-3){dx=1;dz=0;d=1;}const p=(md-d)/d;player.pos.x+=dx*p;player.pos.z+=dz*p;}}
+ for(const c of creatures){const r=c.k.scale*0.85;let dx=player.pos.x-c.mesh.position.x,dz=player.pos.z-c.mesh.position.z,d=Math.hypot(dx,dz),md=r+pr;if(d<md){if(d<1e-3){dx=1;dz=0;d=1;}const p=(md-d)/d;player.pos.x+=dx*p;player.pos.z+=dz*p;}}}}
 function update(dt){
  actionCD=Math.max(0,actionCD-dt);
  camera.rotation.order='YXZ';camera.rotation.y=player.yaw;camera.rotation.x=player.pitch;
@@ -509,6 +531,7 @@ function update(dt){
  if(moving){move.normalize().multiplyScalar(speed*dt);player.pos.x+=move.x;player.pos.z+=move.z;}
  if(wantSprint)player.stamina=Math.max(0,player.stamina-20*dt);else if(player.swimming&&moving)player.stamina=Math.max(0,player.stamina-5*dt);else player.stamina=Math.min(100,player.stamina+9*dt);
  const dC=Math.hypot(player.pos.x,player.pos.z);if(dC>ISLAND-3){player.pos.x*=(ISLAND-3)/dC;player.pos.z*=(ISLAND-3)/dC;}
+ collide();
  // vertical
  if(player.swimming){if(keys['Space'])player.vy=3;else player.vy+=(-1.2-player.vy)*Math.min(1,dt*3);player.feetY+=player.vy*dt;const surf=SEA-0.9;if(player.feetY>surf){player.feetY+=(surf-player.feetY)*Math.min(1,dt*4);player.vy=0;}if(player.feetY<groundY)player.feetY=groundY;player.onGround=false;
   // oxygen: head underwater?
@@ -545,6 +568,7 @@ function update(dt){
  sun.position.set(player.pos.x+Math.cos(ang)*120,Math.sin(ang)*130+5,player.pos.z+Math.sin(ang)*70);sun.target.position.set(player.pos.x,player.feetY,player.pos.z);
  sun.intensity=dayv*1.5;hemi.intensity=0.06+dayv*0.74;
  const sky=new THREE.Color(0x05080f).lerp(new THREE.Color(0x9ec7e8),dayv);scene.background=sky;scene.fog.color=sky;scene.fog.density=0.004+(1-dayv)*0.006;
+ const cd=-caveCarve(player.pos.x,player.pos.z);if(cd>4){sun.intensity*=0.12;hemi.intensity=0.05;scene.background.setHex(0x05060a);scene.fog.color.setHex(0x05060a);scene.fog.density=0.03;}
  updateHUD(dayv);drawMinimap();
 }
 function face(c,dir){c.mesh.rotation.y=Math.atan2(dir.x,dir.z)-Math.PI/2;}
@@ -598,7 +622,16 @@ function drawMinimap(){mctx.clearRect(0,0,168,168);mctx.save();mctx.beginPath();
  mctx.fillStyle='#fff';mctx.font='10px sans-serif';mctx.fillText('N',MR-3,12);}
 function dot(p,c,r){const dx=(p.x-player.pos.x)*MSCALE,dz=(p.z-player.pos.z)*MSCALE;if(dx*dx+dz*dz>(MR-4)*(MR-4))return;mctx.fillStyle=c;mctx.fillRect(MR+dx-(r||1.5)/1,MR+dz-(r||1.5)/1,r||1.6,r||1.6);}
 
-addItem('berry',2);addItem('fiber',2);
+UI.book=S('<rect x="5" y="4" width="14" height="16" rx="1.5" fill="none" stroke="#fff" stroke-width="2"/><path d="M9 4 V20 M9 8 H16 M9 12 H15" stroke="#fff" stroke-width="1.6"/>');
+document.getElementById('book').innerHTML=UI.book;
+let encyOpen=false;
+function buildEncy(){const g=document.getElementById('encyGrid');g.innerHTML='';for(const id in KINDS){const k=KINDS[id];const seen=seenKinds.has(id);const d=document.createElement('div');d.className='ecard'+(seen?'':' unk');
+ if(seen)d.innerHTML='<div class="sw" style="background:#'+k.col.toString(16).padStart(6,'0')+'"></div><b>'+k.nm+'</b><div class="st">'+(k.desc||'')+'<br>HP '+k.hp+' · DMG '+(k.dmg||0)+'<br>Biome: '+(k.biome||'any')+(k.night?' · night':'')+'<br>'+(k.tameable?'Tameable':k.passive?'Passive':'Hostile')+'</div>';
+ else d.innerHTML='<div class="sw"></div><b>???</b><div class="st">Undiscovered.<br>Get near one to log it.</div>';
+ g.appendChild(d);}}
+function toggleEncy(){encyOpen=!encyOpen;document.getElementById('encyScreen').style.display=encyOpen?'flex':'none';if(encyOpen){if(document.pointerLockElement)document.exitPointerLock();buildEncy();}else lockMouse();}
+document.getElementById('book').onclick=toggleEncy;document.getElementById('encyClose').onclick=toggleEncy;
+addEventListener('keydown',e=>{if(e.code==='KeyP'&&running)toggleEncy();});
 applyMode();refreshAll();updateVM();tick();
 </script>
 </body>

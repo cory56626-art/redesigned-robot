@@ -1,390 +1,236 @@
-# Primal Shores — AI Group Chat v4 (Claude leading, 6 rounds)
+# Primal Shores — AI Group Chat v6 (Claude leading, 5 rounds)
 
 ### Claude (BOSS)
-Boss here. Plan for this round: (F) EMOJIS→ I'll build an inline-SVG icon set (each item = a tiny hand-drawn SVG: spear=shaft+head, wood=log rings, stone=polygon). UI buttons get SVG glyphs too. (A) VIEWMODELS: a THREE.Group parented to camera at (0.35,-0.3,-0.6); swap child mesh when selHot changes. Gemini: icon palette? Groq: give me a minimal spear viewmodel mesh. Mistral: pitfalls parenting to camera?
+Boss. CRAFTING FIX plan: stop rebuilding DOM during a hold. I'll render recipe nodes ONCE, keep refs, and a light updateRecipeStates() only toggles .no class + req text (no innerHTML reset). Bind STOP to window pointerup/touchend (not the node) so it always fires. Single click = craft 1; hold >350ms = repeat via interval until resources run out. Mistral: any other listener-leak traps? Gemini: visual feedback while bulk-crafting?
 
 ### Gemini
-Boss, your SVG icon plan is great. For a cohesive look, let's go minimalist line-art with an earthy palette: `#D2B48C` (sand), `#228B22` (foliage), `#808080` (stone), `#8B4513` (wood), `#4682B4` (tool steel). Viewmodels should be low-poly, untextured `MeshBasicMaterial` for consistency. Dino commands: tap dino to reveal context menu (SVG icons: `crossed swords` for Attack, `arrow` for Follow, `stop hand` for Stay). Mobile requires separate touch zones (left for movement, right for hotbar/actions). A corner `gear` SVG provides the PC/Mobile toggle.
+Claude, great plan for crafting; a stack count or fill bar next to the recipe icon during hold would clearly show progress.
+
+For collisions, aim for a subtle camera jolt, quick push-back, and a distinct audio cue for impact—feels grounded, not floaty.
+
+Caves need clear visual cues for *readability*: dynamic torchlight/ambient glow, distinct rock textures, and occasional light shafts from openings.
+
+Encyclopedia layout: a clean, responsive grid of creature cards (thumbnail, name), expanding to a detailed view with a rotatable 3D model, stats, and lore. Simple navigation.
 
 ### Groq
---- GROQ: fast prototyper ---
+**CHAT RESPONSE**
 
-[Claude (BOSS)]: Boss here. Plan for this round: (F) EMOJIS→ I'll build an inline-SVG icon set (each item = a tiny hand-drawn SVG: spear=shaft+head, wood=log rings, stone=polygon). UI buttons get SVG glyphs too. (A) VIEWMODELS: a THREE.Group parented to camera at (0.35,-0.3,-0.6); swap child mesh when selHot changes. Gemini: icon palette? Groq: give me a minimal spear viewmodel mesh. Mistral: pitfalls parenting to camera?
+[GROQ]: Sounds like a solid plan, Claude! To reinforce the crafting feedback, I'll add a progress bar using `canvas` or `svg` elements that update in real-time. For collisions, I'll implement a basic cylinder push-out using `Raycaster` and `SphereGeometry` to create a collision volume around the player.
 
-**Minimal Spear Viewmodel Mesh**
+For caves, I'll use your suggestions: dynamic lighting, rock textures, and light shafts. To create the cave geometry, I'll use the `terrainHeight` analytic function to carve out the cave shapes. Here's a quick prototype for the cylinder push-out:
+
 ```javascript
-// Create a simple spear viewmodel mesh
-const spearGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.2, 16);
-const spearMaterial = new THREE.MeshBasicMaterial({ color: 0x808080 });
-const spearMesh = new THREE.Mesh(spearGeometry, spearMaterial);
+// Create a collision cylinder
+const collisionGeometry = new THREE.SphereGeometry(1, 16, 16);
+const collisionMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+const collisionMesh = new THREE.Mesh(collisionGeometry, collisionMaterial);
+collisionMesh.position.copy(player.position);
+scene.add(collisionMesh);
 
-// Add a simple spear head mesh (e.g., a cone)
-const spearHeadGeometry = new THREE.ConeGeometry(0.05, 0.1, 6);
-const spearHeadMaterial = new THREE.MeshBasicMaterial({ color: 0x808080 });
-const spearHeadMesh = new THREE.Mesh(spearHeadGeometry, spearHeadMaterial);
+// Raycast to detect collisions
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+const collisionDistance = 1;
 
-// Assemble the spear viewmodel mesh
-const spearViewModel = new THREE.Group();
-spearViewModel.add(spearMesh);
-spearViewModel.add(spearHeadMesh);
-spearViewModel.position.set(0, 0, 0); // adjust position as needed
-```
-**Seeded Noise for Random Land Generation**
-```javascript
-// Simple seeded noise function for random land generation
-function seededNoise(x, y, seed) {
-  const noise =
+// Update on each frame
+function update() {
+  // Raycast from the camera through the mouse position
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects([collisionMesh]);
+
+  // If a collision is detected, push the player back
+  if (intersects.length > 0) {
+    player.position.sub(intersects[0].point);
+    // Add a subtle camera jolt and audio cue for impact
+    camera.position.x += Math.random() * 0.1 - 0.05;
+    camera.position.z += Math.random() * 0.1 -
 
 ### Mistral
-**Mistral QA/debug:**
+**Mistral QA Report:**
 
-1. **Viewmodel parenting pitfalls:**
-   - Camera jitter will break viewmodels. **Fix:** Parent to `camera` but offset via `camera.add(viewModel)` then `viewModel.position.set(0.35,-0.3,-0.6)` (applies in camera local space).
-   - If `selHot` changes mid-animation, glitches occur. **Fix:** Cache viewmodels in an object (`viewModels = { spear: spearViewModel, ... }`) and swap via `viewModelGroup.children[0] = viewModels[toolName]`.
+1. **Crafting Fix:**
+   - DOM rebuilding during hold is fixed by caching recipe nodes (`querySelector` once).
+   - `window.addEventListener('pointerup/touchend')` ensures `mouseup` always fires, preventing leak.
+   - Edge: Rapid clicks may still fire duplicate events—debounce with `setTimeout` on `pointerdown`.
 
-2. **Seeded land spawn:**
-   - Replace `Math.random()` with a **deterministic seeded noise** (e.g., `alea(seed)` from [alea.js](https://github.com/markjdb/alea)). Validate spawns with:
-     ```js
-     const isLand = (x, z) => noise(x/50, z/50, seed) > 0.3; // Threshold 0.3
-     let pos;
-     do pos = { x: (Math.random()-0.5)*200, z: (Math.random()-0.5)*200 };
-     while (!isLand(pos.x, pos.z));
-     ```
+2. **Collisions:**
+   - Replace `SphereGeometry` with a **cylinder** (`CylinderGeometry`) for accurate terrain/object collisions.
+   - **Push-out logic:** Use `player.position.lerp()` toward valid positions (avoid tunneling).
+   - **Edge:** Add `velocity` damping to prevent "sticky" collisions.
 
-3. **Mobile touch conflicts:**
-   - Use `touch-action: manipulation` CSS to prevent browser zoom. For multitouch:
-     ```js
-     const hotbarTouches = new Map(); // touchID → isDragging
-     canvas.addEventListener('touchmove', e => {
-       e.preventDefault();
-       const touch = e.changedTouches[0];
-       if (hotbarTouches.has(touch.identifier)) {
-         const x = touch.clientX / window.inner
+3. **Caves:**
+   - Analytic `terrainHeight` for ceiling/floor: Use `THREE.BufferGeometry` with `computeVertexNormals()` for smooth lighting.
+   - **Edge:** Check for floating-point precision errors in `terrainHeight` (e.g., `Math.abs(diff) < 0.01`).
+
+4. **Encyclopedia:**
+   - **Leak risk:** Dynamically loaded models—use `dispose()` on `THREE.Mesh` to prevent memory leaks.
+   - **Edge:** Test with 100+ cards—use `IntersectionObserver` for lazy loading.
+
+**Final Note:** Test on mobile (touch delays) and low-end devices (geometry complexity).
 
 ### Claude (BOSS)
-Decision: (D) seeded map. I'll replace hash() with a seeded version: seed set from Date.now() at world-gen, stored so 'New Island' reseeds. World ISLAND 150→260, more props. (C) spawn: scan random points, accept only terrainHeight>2.5 AND not within 6 of water; fallback to highest sampled point. Groq: seeded hash snippet? Mistral: how to guarantee a valid land spawn deterministically?
+COLLISIONS plan: give each solid (tree r0.7, rock 1.2, ore 1.1, dino scale*0.8) a radius. After moving, loop nearby solids; if horizontal dist < r+0.4, push player out along the separation normal. Bushes/loose items stay walk-through. Groq: give me a compact push-out resolver. Mistral: how do I avoid tunneling at sprint speed and getting stuck between two rocks?
 
 ### Gemini
-Boss, confirming: the minimalist line-art SVG icons with the earthy palette (`#D2B48C`, `#228B22`, `#808080`, `#8B4513`, `#4682B4`) will ensure a cohesive look across UI and viewmodels. Viewmodels should indeed be low-poly, untextured `MeshBasicMaterial`.
+Claude, for collisions, ensure the proposed push-out is **snappy and immediate**, not gradual. Pair this with a subtle camera jolt and distinct impact audio cue for a grounded feel.
 
-Dino commands remain: tap dino for a context menu (SVG icons: `crossed swords` for Attack, `arrow` for Follow, `stop hand` for Stay). Mobile requires distinct left (movement) and right (hotbar/actions) touch zones for multi-touch. A `gear` SVG icon will manage the PC/Mobile toggle.
+Caves need strong visual cues for **readability and navigation**: dynamic torchlight, ambient glows, and distinct rock textures to guide movement. Use light shafts from openings as clear orientation points.
 
-### Groq
-**Groq:**
-
-Here's a seeded hash snippet for deterministic map generation:
-```javascript
-function seededHash(str, seed) {
-  const hash = crypto.createHash('sha256');
-  hash.update(`${str}${seed}`);
-  return parseInt(hash.digest('hex'), 16);
-}
-
-// Usage:
-const seed = Date.now();
-const hash = seededHash('island', seed);
-console.log(hash);
-```
-**Mistral QA/debug:**
-
-To guarantee a valid land spawn deterministically, we can use a combination of the seeded noise function and a validation check. Here's an updated version of the land spawn code:
-```javascript
-function seededNoise(x, y, seed) {
-  // ...
-}
-
-function validateLandSpawn(x, z, seed) {
-  const noise = seededNoise(x/50, z/50, seed);
-  return noise > 0.3 && Math.random() < 0.5; // 50% chance of spawn
-}
-
-let pos;
-do {
-  pos = { x: (Math.random()-0.5)*200, z: (Math.random()-0.5)*200 };
-} while (!validateLandSpawn(pos.x, pos.z, seed));
-```
-This code uses the seeded noise function to generate a noise value at the given coordinates, and then checks if the noise value is above a certain threshold (0.3). If it is, it returns true; otherwise, it returns false. The `Math.random()` check adds a 50% chance of spawn to ensure that the spawn is not always on the exact same point.
-
-**Multitouch Hotbar Code**
-```javascript
-const hotbarTouches = new Map(); // touchID → isDragging
-
-canvas.addEventListener('touchstart', e => {
-  hotbarTouches.set(e.changedTouches[0].identifier, true);
-});
-
-canvas.addEventListener('touchmove',
-
-### Mistral
-**Mistral QA/debug feedback:**
-
-1. **Seeded hash issues:**
-   - `crypto.createHash` won't work in browser. Replace with **simple seeded PRNG** (e.g., [alea](https://github.com/markjdb/alea) polyfill). Full snippet:
-     ```js
-     const alea = (seed) => {
-       let s = seed + 0x9e3779b9 + (seed<<6) + (seed>>>2);
-       return () => (s = s*0x45b6ce35 + 0x9e3779b9, (s>>>0)/0x100000000);
-     };
-     const rng = alea(seed);
-     const noise = (x,z) => rng() > 0.3; // Deterministic land check
-     ```
-
-2. **Land spawn validation:**
-   - Add **heightmap check** to avoid ocean spawns. Full spawn logic:
-     ```js
-     const spawnOnLand = (seed) => {
-       const rng = alea(seed);
-       let pos, valid;
-       do {
-         pos = { x: (rng()-0.5)*260, z: (rng()-0.5)*260 };
-         valid = noise(pos.x, pos.z) && terrainHeight(pos.x, pos.z) > 2.5;
-       } while (!valid);
-       return pos;
-     };
-     ```
-
-3. **Viewmodel parenting:**
-   - **Critical fix:** Add `viewModel.frustumCulled = false` to prevent camera clipping artifacts. Also, reset `viewModel.rotation` on tool swap to avoid drift.
-
-4. **Multitouch hotbar:**
-   - **
-
-### Claude (BOSS)
-Decision: (B) Ark commands. Tamed dino gets states: FOLLOW / STAY / AGGRESSIVE. Key F cycles, key G = 'attack what I'm looking at'. Aggressive tamed dinos auto-engage nearest hostile in radius and deal damage. Mobile: command buttons appear when you own a tame. Gemini: clean command-wheel UX for mobile? Mistral: friendly-fire & target-cleanup bugs when target dies?
-
-### Gemini
-Boss, for the mobile dino command UX, I propose a **contextual radial menu**.
-
-When a player *taps a tamed dino*, a semi-transparent radial menu will appear centered over the dino, or consistently in the bottom-right corner to avoid obscuring the view. This wheel will feature our agreed-upon SVG icons:
-*   `crossed swords` for "Attack Target" (tapped, the dino will attack the player's current looked-at target)
-*   `arrow` for "Follow"
-*   `stop hand` for "Stay" (toggling between Passive/Aggressive can be handled via a long-press or a secondary menu from 'Stay').
-
-This radial layout offers larger, distinct touch targets, preventing accidental presses. We'll maintain the minimalist line-art style and earthy palette for these command icons to ensure visual consistency with the hotbar and overall UI. The separate left/right touch zones for movement/hotbar will prevent overlap with this command wheel.
+For the encyclopedia, confirm the responsive grid and detailed view with the **rotatable 3D model, stats, and lore**. Add simple, intuitive filtering (e.g., by habitat or diet) for user-friendly creature discovery.
 
 ### Groq
-**Groq:**
-
-Here's a snippet for the contextual radial menu on mobile:
+**Groq**: Here's a compact push-out resolver for collisions:
 
 ```javascript
-// Radial menu setup
-const radialMenu = new THREE.Group();
-radialMenu.position.set(0, 0, 0);
+// Push-out resolver
+function pushOut(player, nearbySolids, radius) {
+  // Find the closest solid
+  let closestSolid = null;
+  let closestDistance = Infinity;
+  for (const solid of nearbySolids) {
+    const distance = Math.hypot(player.position.x - solid.position.x, player.position.z - solid.position.z);
+    if (distance < closestDistance && distance < radius + 0.4) {
+      closestDistance = distance;
+      closestSolid = solid;
+    }
+  }
 
-// Add SVG icons for commands
-const attackIcon = new THREE.Mesh(
-  new THREE.PlaneGeometry(0.1, 0.1),
-  new THREE.MeshBasicMaterial({ color: 0x808080, transparent: true, opacity: 0.5 })
-);
-attackIcon.position.set(-0.05, 0, 0);
-attackIcon.rotation.set(0, 0, Math.PI / 4);
-radialMenu.add(attackIcon);
-
-const followIcon = new THREE.Mesh(
-  new THREE.PlaneGeometry(0.1, 0.1),
-  new THREE.MeshBasicMaterial({ color: 0x808080, transparent: true, opacity: 0.5 })
-);
-followIcon.position.set(0, 0, 0);
-followIcon.rotation.set(0, 0, Math.PI / 4);
-radialMenu.add(followIcon);
-
-const stayIcon = new THREE.Mesh(
-  new THREE.PlaneGeometry(0.1, 0.1),
-  new THREE.MeshBasicMaterial({ color: 0x808080, transparent: true, opacity: 0.5 })
-);
-stayIcon.position.set(0.05, 0, 0);
-stayIcon.rotation.set(0, 0, Math.PI / 4);
-radialMenu.add(stayIcon);
-
-// Display radial menu when tapping a tamed dino
-canvas.addEventListener('touchstart', e => {
-  if (e.changedTouches[0].identifier === 'tamedDino') {
-    radialMenu.position.set(e.clientX, e.clientY, 0);
-    document.body.appendChild
-
-### Mistral
-**Mistral QA/debug:**
-
-1. **Seeded PRNG & Land Spawn:**
-   - Replace `crypto` with **deterministic `alea`** (inline polyfill). Validate spawns with:
-     ```js
-     const alea = (seed) => { let s = seed; return () => (s = (s*9301+49297) % 233280, s/233280); };
-     const rng = alea(seed);
-     const isLand = (x,z) => rng() > 0.3 && terrainHeight(x,z) > 2.5;
-     let pos; do pos = {x: (rng()-0.5)*260, z: (rng()-0.5)*260} while (!isLand(pos.x, pos.z));
-     ```
-
-2. **Viewmodel Parenting:**
-   - Add `viewModel.frustumCulled = false` and reset rotation on swap:
-     ```js
-     viewModelGroup.children[0] = viewModels[toolName];
-     viewModel.rotation.set(0,0,0);
-     ```
-
-3. **Mobile Radial Menu:**
-   - **Bug:** `THREE.Mesh` for SVG icons won’t render. Fix: Use `CSS2DRenderer` or `DOM` elements. Example:
-     ```js
-     const menu = document.createElement('div');
-     menu.innerHTML = `<svg><use href="#attack-icon"/></svg>`;
-     menu.style.position = 'absolute';
-     document.body.appendChild(menu);
-     ```
-
-4. **Friendly-Fire & Target Cleanup:**
-   - Track targets in a `Set`. On death:
-     ```js
-     if (targets.has(entity)) {
-
-### Claude (BOSS)
-Decision: (E) multitouch. Root cause: hotbar used click + joystick captured the touch. Fix: every touch control tracks its own touch.identifier; hotbar slots get their own touchstart (passive:false, stopPropagation) so tapping a slot doesn't cancel joystick/look touches. (G) Add a settings toggle button (top-left gear) to force PC or Mobile scheme, persisted. Groq: multitouch slot handler? Mistral: iOS Safari touch gotchas?
-
-### Gemini
-(gemini err HTTP Error 429: Too Many Requests)
-
-### Groq
-(no response)
-
-### Mistral
-**Mistral QA/debug feedback:**
-
-1. **Multitouch Hotbar Slots (E):**
-   - Fix: Track touch IDs per slot. Critical snippet:
-     ```js
-     const slotTouches = new Map(); // slotIndex → touchID
-     hotbarSlots.forEach((slot, i) => {
-       slot.addEventListener('touchstart', e => {
-         e.stopPropagation(); // Prevent joystick cancellation
-         slotTouches.set(i, e.changedTouches[0].identifier);
-       }, { passive: false });
-     });
-     ```
-   - **iOS Safari gotcha:** Add `touch-action: manipulation` to CSS to prevent double-tap zoom.
-
-2. **PC/Mobile Toggle (G):**
-   - Persist toggle in `localStorage`. Toggle button (gear SVG):
-     ```js
-     const toggle = document.createElement('button');
-     toggle.innerHTML = `<svg><use href="#gear-icon"/></svg>`;
-     toggle.onclick = () => {
-       isMobile = !isMobile;
-       localStorage.setItem('controlScheme', isMobile ? 'mobile' : 'pc');
-       updateControls();
-     };
-     ```
-
-3. **Viewmodel Fixes (A):**
-   - Add **depth-sorting hack** for overlapping meshes:
-     ```js
-     viewModel.renderOrder = 999; // Force render after world
-     ```
-
-4. **Dino Command Cleanup (B):**
-   - **Target cleanup:** Use `WeakSet` for GC:
-     ```js
-     const targets = new WeakSet();
-     // On entity death:
-     targets.delete(entity);
-     ```
-
-5. **Seeded Spawn (C/D):**
-   - **Deterministic terrain:** Use `alea` for heightmap:
-     ```js
-
-### Claude (BOSS)
-Integration round. I'm wiring viewmodels+icons+seed+spawn+commands+multitouch together. EXTRAS I'm adding: simple campfire you place (cooks meat when near), torch lights area at night (PointLight), and a tamed-dino health bar. Everyone: pitch ONE more cheap high-impact extra that fits a single file, and flag the riskiest part of this integration.
-
-### Gemini
-For a high-impact, low-cost extra, I propose adding a **Dynamic Day/Night Cycle with corresponding visual sky changes**. This enhances immersion greatly by making the world feel alive and providing a stronger context for the torch and player survival. It primarily involves adjusting `scene.background` (e.g., skybox/color interpolation) and global light intensity/color over time, requiring minimal new assets or complex logic.
-
-The riskiest part of this integration is definitively the **Multitouch Input System (E)**. Ensuring all diverse touch interactions—joystick, camera look, hotbar, and the new dino command wheel—coexist flawlessly without conflicting or dropping inputs on various mobile devices (especially iOS Safari) is a persistent challenge. Managing `stopPropagation`, `touch.identifier` maps, and browser-specific `touch-action` settings requires meticulous testing to avoid core gameplay breakdown.
-
-### Groq
-**Groq:**
-
-For a high-impact, low-cost extra that fits a single file, I propose adding a **Random Weather System**. This can be achieved by introducing a simple state machine that cycles through different weather states (e.g., clear, cloudy, rainy, snowy) and adjusts the scene's ambient light, texture maps, and other visual elements accordingly. This adds a new layer of realism and immersion to the game without requiring significant new assets or complex logic.
-
-The riskiest part of this integration is indeed the **Multitouch Input System (E)**, as Mistral pointed out. Ensuring seamless coexistence of various touch interactions and preventing core gameplay breakdowns on different mobile devices requires thorough testing and fine-tuning.
-
-Here's a basic snippet to get started with the Random Weather System:
-
-```javascript
-const weatherStates = ['clear', 'cloudy', 'rainy', 'snowy'];
-let currentWeather = weatherStates[0];
-
-function updateWeather() {
-  currentWeather = weatherStates[(weatherStates.indexOf(currentWeather) + 1) % weatherStates.length];
-  switch (currentWeather) {
-    case 'clear':
-      scene.background = 0xffffff;
-      break;
-    case 'cloudy':
-      scene.background = 0xd3d3d3;
-      break;
-    case 'rainy':
-      scene.background = 0x333333;
-      ambientLight.intensity = 0.5;
-      break;
-    case 'snowy':
-      scene.background = 0xffffff;
-      ambientLight.intensity = 0.5;
-      break;
+  // If a solid is nearby, push the player out
+  if (closestSolid) {
+    const normal = new THREE.Vector3(closestSolid.position.x - player.position.x, 0, closestSolid.position.z - player.position.z).normalize();
+    player.position.add(normal.multiplyScalar(0.1)); // small push-out distance
   }
 }
-
-// Call updateWeather() at regular intervals to simulate weather changes
-setInterval(updateWeather, 30000);
 ```
 
-This is just a starting point, and we can refine and expand upon this concept to create a more immersive and engaging weather system.
+To avoid tunneling at sprint speed and getting stuck between two rocks, you can add a velocity damping factor to the push-out logic. This will slow down the player's movement when they're close to a solid, preventing them from getting stuck:
+
+```javascript
+// Update player velocity with damping
+function updatePlayerVelocity(velocity) {
+  const dampingFactor = 0.9; // adjust this value to control the damping effect
+  const newVelocity = velocity.multiplyScalar(dampingFactor);
+  player.position.add(newVelocity);
+}
+```
+
+You can call `updatePlayerVelocity` in your update loop, passing in the player's current velocity. This will slow down the player's movement when they're close to a solid, preventing tunneling and getting stuck.
 
 ### Mistral
-**Mistral QA/debug feedback:**
+**Mistral QA Fixes (Concrete, Vanilla Three.js, ≤90 words):**
 
-1. **Viewmodel Visibility (A):**
-   - Critical fix: Parent viewmodels to `camera` with `frustumCulled=false` and reset rotations:
-     ```js
-     const viewModelGroup = new THREE.Group();
-     viewModelGroup.frustumCulled = false;
-     camera.add(viewModelGroup);
-     // Swap tool:
-     viewModelGroup.children[0]?.remove();
-     viewModelGroup.add(viewModels[toolName].clone());
-     ```
+1. **Crafting:** Cache recipe DOM nodes (`querySelector` once). Use `window.addEventListener('pointerup/touchend')` for global release. Debounce `pointerdown` with `setTimeout` to prevent rapid clicks.
 
-2. **Dino Commands (B):**
-   - Use `WeakSet` for targets to avoid memory leaks. Add **aggression toggle** via long-press:
-     ```js
-     dino.addEventListener('contextmenu', (e) => { // Right-click or long-press
-       dino.aggressive = !dino.aggressive;
-     });
-     ```
+2. **Collisions:** Replace `SphereGeometry` with `CylinderGeometry` for terrain/objects. Push-out via `player.position.lerp()` toward valid positions. Add velocity damping (`velocity.multiplyScalar(0.9)`) to prevent tunneling/sticking.
 
-3. **Land Spawn (C/D):**
-   - Replace `crypto` with **deterministic `alea`**:
-     ```js
-     const alea = (seed) => { let s = seed; return () => (s = (s*9301+49297) % 233280, s/233280); };
-     const rng = alea(seed);
-     const isLand = (x,z) => rng() > 0.3 && terrainHeight(x,z) > 2.5;
-     ```
+3. **Caves:** Use `BufferGeometry` with `terrainHeight` for ceiling/floor. Add `computeVertexNormals()` for smooth lighting. Check precision with `Math.abs(diff) < 0.01`.
 
-4. **Multitouch Hotbar (E):**
-   - Track touch IDs per slot. **iOS fix:** Add `touch-action: manipulation` to CSS:
-     ```js
-     hotbarSlots.forEach((slot, i) => {
-       slot.addEventListener('touchstart', e
+4. **Encyclopedia:** Lazy-load models with `dispose()`. Use `IntersectionObserver` for 100+ cards. Test mobile/touch delays and low-end devices.
 
 ### Claude (BOSS)
-Final QA round before I ship & Playwright-test. Give me your single highest-priority CHECK each: the one thing most likely to break in v4 (viewmodel z-fighting? seed not applied to color bands? tamed target memory leak? touch identifier collisions?). One line each + the fix. I'll verify them in the automated test.
+CAVES in a heightmap: I'll carve analytically INSIDE terrainHeight(x,z) so mesh AND physics agree — a few cave sites, each subtracts a smooth bowl (sinkhole) down to a floor; a dark rock ceiling-disk over most of it leaves an annular entrance to walk down; ore-rich + very dark so torches matter. Groq: the caveCarve(x,z) bowl math? Gemini: how to make the entrance readable so players notice it? Mistral: risks with player/creature ground-clamp inside the pit?
 
 ### Gemini
-Highest priority check: The multitouch system (E) correctly distinguishes touches across UI elements (joystick, look area, hotbar slots, dino command wheel) preventing input conflicts.
-Fix: Verify that each interactive UI element uses `e.stopPropagation()` and explicitly maps `touch.identifier` to its own state, and CSS `touch-action: manipulation` is applied to relevant elements.
+(gemini HTTP Error 429: Too Many Requests)
+
+### Groq
+**Groq**: Here's the `caveCarve(x,z)` bowl math to carve a smooth bowl inside `terrainHeight(x,z)`:
+
+```javascript
+// Cave carve math
+function caveCarve(x, z, radius, depth) {
+  // Calculate the center of the bowl
+  const centerX = x;
+  const centerZ = z;
+
+  // Create a BufferGeometry for the bowl
+  const geometry = new THREE.BufferGeometry();
+
+  // Define the bowl's vertices
+  const vertices = [];
+  for (let i = 0; i < 360; i += 0.1) {
+    const angle = i * Math.PI / 180;
+    const r = radius * Math.cos(angle);
+    const z = centerZ + radius * Math.sin(angle);
+    vertices.push(r, 0, z);
+  }
+
+  // Define the bowl's indices
+  const indices = [];
+  for (let i = 0; i < 360; i += 0.1) {
+    const j = (i + 1) % 360;
+    indices.push(i, j, 0);
+  }
+
+  // Add the vertices and indices to the geometry
+  geometry.setIndex(indices);
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+
+  // Calculate the bowl's heightmap
+  const heightmap = [];
+  for (let i = 0; i < 360; i += 0.1) {
+    const angle = i * Math.PI / 180;
+    const r = radius * Math.cos(angle);
+    const z = centerZ + radius * Math.sin(angle);
+    heightmap.push(terrainHeight(x + r * Math.cos(angle), z) - depth
+
+### Mistral
+**Mistral QA Fixes (Concrete, Vanilla Three.js, ≤90 words):**
+
+1. **Cave Math:** `caveCarve(x,z) = terrainHeight(x,z) - max(0, radius - dist(x,z)) * depth` (smooth bowl). Use `THREE.CylinderGeometry` for ceiling disk (height=1, radius=radius+1).
+
+2. **Entrance Readability:** Add a **glowing ring** (low-poly torus) at entrance + particle dust. Contrast with dark cave mouth.
+
+3. **Ground-Clamp Risks:** After carving, clamp player to `terrainHeight(x,z)+0.5` to prevent sinking. Add `raycaster.set(player.position, yAxis)` for precise floor checks.
+
+### Claude (BOSS)
+ENCYCLOPEDIA: a toggle panel (key P / mobile button) listing all creatures; discovered ones (we already track seenKinds when within 40m) show model-color swatch, name, desc, HP/damage/biome/tameable; undiscovered show ???. Also: removing starter berries so players must forage. Gemini: clean card layout + how to show 'undiscovered'? Mistral: make sure seen-tracking can't crash if a kind is removed.
+
+### Gemini
+(gemini HTTP Error 429: Too Many Requests)
 
 ### Groq
 (no response)
 
 ### Mistral
-**Mistral QA top-priority check:**
-**Touch identifier collisions** (E) between joystick/look/hotbar/dino wheel → **Fix:** Enforce unique `touch.identifier` per active interaction via a global `Map<touchID, source>` (joystick/look/hotbar/wheel) and discard redundant touches.
+**Mistral QA Fixes (Concrete, Vanilla Three.js, ≤90 words):**
 
+1. **Encyclopedia:** Use a **flex-grid** with `THREE.Sprite` for undiscovered (`???` texture). Cache seenKinds in `Set`; filter with `Array.from(seenKinds)`. For undiscovered, show placeholder sprite. **Cleanup:** Remove starter berries from inventory on game start. **Crash-proof:** Wrap seenKinds.has() in try-catch. **Mobile:** Double-tap to toggle panel. **Layout:** CSS grid with `gap: 8px` for readability.
+
+### Claude (BOSS)
+Final QA round before I implement + Playwright-test ALL of it (craft once vs hold, collision blocks movement into a rock & a dino, cave descent + darkness, encyclopedia reveals on sighting). Each of you: the ONE thing most likely to break, + the fix.
+
+### Gemini
+(gemini HTTP Error 429: Too Many Requests)
+
+### Groq
+**Groq's Final QA Round Response**
+
+I think the one thing most likely to break is the **cylinder collision** with the player and creatures. This is because we're using a cylinder geometry for the collision, but we need to make sure it's properly aligned with the terrain height and cave entrances. If the cylinder's position or radius isn't correctly updated, it could cause the player or creatures to pass through the terrain or cave walls.
+
+**Fix:** To fix this, I suggest we add a check in the `caveCarve` function to ensure the cylinder's position and radius are correctly updated based on the terrain height and cave entrance. We can also add a debug visualizer to display the cylinder's position and radius in the game world, so we can easily identify any issues.
+
+Here's a simple example of how we can add a debug visualizer:
+
+```javascript
+// Add a debug visualizer to display the cylinder's position and radius
+const cylinderGeometry = new THREE.CylinderGeometry(1, 1, height, 32);
+const cylinderMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+const cylinderMesh = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
+cylinderMesh.position.set(x, y, z);
+cylinderMesh.scale.set(radius, 1, radius);
+scene.add(cylinderMesh);
+```
+
+This will add a red cylinder to the game world at the position and radius of the cave entrance, which we can use to debug any issues with the collision.
+
+### Mistral
+**Mistral Final QA Round (Concrete, Vanilla Three.js, ≤90 words):**
+
+**Most likely to break:** *Crafting hold-to-craft* (runaway crafting due to event-listener leaks).
+
+**Fix:** Use **one** `mousedown` listener on the craft button, toggle `isCrafting` state, and clear `setInterval` on `mouseup`/`touchend`. Add `pointerleave` as failsafe. No DOM rebuilds mid-press.
+
+**Collision risk:** Player/dinos tunneling through rocks/caves due to fixed cylinder heights.
+
+**Fix:** Update cylinder height dynamically via `terrainHeight(x,z) + entityHeight`. Add `sphereCast` for dynamic push-out.
