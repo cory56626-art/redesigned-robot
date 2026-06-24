@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Model Ranking Dashboard</title>
+<style>
+  :root {
+    --bg: #0b0f1a;
+    --bg-2: #121826;
+    --panel: #161d2e;
+    --panel-2: #1c2538;
+    --line: #2a3450;
+    --text: #e8edf7;
+    --muted: #93a0bd;
+    --accent: #5b8cff;
+    --accent-2: #7c5bff;
+
+    --tier-s: #ff4d6d;
+    --tier-a: #ff9f1c;
+    --tier-b: #ffd60a;
+    --tier-c: #5ad469;
+    --tier-d: #3db5e6;
+    --tier-f: #8a93a8;
+
+    --shadow: 0 10px 30px rgba(0,0,0,.35);
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(124,91,255,.18), transparent 60%),
+      radial-gradient(1000px 500px at -10% 10%, rgba(91,140,255,.16), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent); }
+
+  .wrap {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 28px 22px 80px;
+  }
+
+  header.app {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  header.app h1 {
+    font-size: 28px;
+    margin: 0 0 4px;
+    letter-spacing: .3px;
+    background: linear-gradient(90deg, #fff, #b9c6ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  header.app p.sub {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13.5px;
+  }
+  .stat-pills { display: flex; gap: 10px; flex-wrap: wrap; }
+  .pill {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .pill b { color: var(--text); }
+
+  .toolbar {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr auto;
+    gap: 12px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px;
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+  }
+  @media (max-width: 880px) { .toolbar { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .toolbar { grid-template-columns: 1fr; } }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+  input[type="text"], select {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  input[type="text"]:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(91,140,255,.18);
+  }
+
+  .btns { display: flex; align-items: flex-end; gap: 8px; }
+  button {
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13.5px;
+    transition: transform .08s, background .15s, border-color .15s;
+  }
+  button:hover { background: #233052; border-color: #36456b; }
+  button:active { transform: translateY(1px); }
+  button.primary { background: linear-gradient(90deg, var(--accent), var(--accent-2)); border: none; color: #fff; font-weight: 600; }
+  button.ghost { background: transparent; }
+  button.danger { border-color: #5a2630; color: #ff9aa9; }
+
+  /* Weights panel */
+  .weights {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 18px;
+    overflow: hidden;
+  }
+  .weights .head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; cursor: pointer; user-select: none;
+  }
+  .weights .head h2 { margin: 0; font-size: 15px; }
+  .weights .head .hint { font-size: 12px; color: var(--muted); }
+  .weights .body { padding: 4px 16px 16px; display: none; }
+  .weights.open .body { display: block; }
+  .weights .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 14px;
+  }
+  .wrow label { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+  .wrow label b { color: var(--text); }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .weights .foot { display:flex; align-items:center; justify-content: space-between; margin-top: 14px; gap: 12px; flex-wrap: wrap; }
+  .sum-ok { color: var(--tier-c); }
+  .sum-warn { color: var(--tier-a); }
+
+  /* Ranking list */
+  .ranking { position: relative; display: flex; flex-direction: column; gap: 12px; }
+
+  .card {
+    background: linear-gradient(180deg, var(--panel), var(--panel-2));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-columns: 64px 1fr 220px auto;
+    gap: 18px;
+    align-items: center;
+    transition: box-shadow .2s, border-color .2s, opacity .25s;
+    will-change: transform;
+  }
+  .card:hover { border-color: #3a496f; }
+  .card.dim { opacity: .35; }
+
+  @media (max-width: 820px) {
+    .card { grid-template-columns: 54px 1fr; }
+    .card .score-col, .card .actions { grid-column: 1 / -1; }
+    .card .actions { justify-content: flex-start; }
+  }
+
+  .rank-col { text-align: center; }
+  .rank-num { font-size: 26px; font-weight: 800; line-height: 1; }
+  .rank-col .delta { font-size: 11px; color: var(--muted); margin-top: 4px; height: 13px; }
+  .delta.up { color: var(--tier-c); }
+  .delta.down { color: var(--tier-s); }
+
+  .tier-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; border-radius: 11px;
+    font-weight: 800; font-size: 19px; color: #0b0f1a;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.15);
+    margin-top: 8px;
+  }
+  .tier-S { background: var(--tier-s); }
+  .tier-A { background: var(--tier-a); }
+  .tier-B { background: var(--tier-b); }
+  .tier-C { background: var(--tier-c); }
+  .tier-D { background: var(--tier-d); }
+  .tier-F { background: var(--tier-f); }
+
+  .info-col .name { font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .info-col .vendor { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .tag {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px;
+    padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted);
+  }
+  .tag.free { color: #8fe6a4; border-color: #2c5a3a; background: rgba(93,212,105,.08); }
+  .tag.open { color: #9fd0ff; border-color: #284a72; background: rgba(91,140,255,.08); }
+  .tag.paid { color: #ffd28a; border-color: #6a5326; background: rgba(255,159,28,.08); }
+
+  .factor-mini { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px 14px; margin-top: 12px; }
+  .fm { font-size: 11px; color: var(--muted); }
+  .fm .bar { height: 5px; background: var(--bg-2); border-radius: 4px; overflow: hidden; margin-top: 3px; }
+  .fm .bar > i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .6s cubic-bezier(.2,.8,.2,1); }
+
+  .score-col { text-align: right; }
+  .score-num { font-size: 30px; font-weight: 800; line-height: 1; }
+  .score-col .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+  .score-bar { height: 9px; background: var(--bg-2); border-radius: 6px; overflow: hidden; margin-top: 10px; }
+  .score-bar > i { display: block; height: 100%; border-radius: 6px; transition: width .7s cubic-bezier(.2,.8,.2,1), background .3s; }
+
+  .actions { display: flex; flex-direction: column; gap: 8px; }
+  .actions label.cmp { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; }
+  .actions input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
+
+  .empty { text-align: center; color: var(--muted); padding: 60px 20px; }
+
+  /* Modal */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(4,7,14,.6); backdrop-filter: blur(4px);
+    display: none; align-items: center; justify-content: center; padding: 20px; z-index: 50;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    width: min(720px, 100%); max-height: 88vh; overflow: auto; box-shadow: var(--shadow);
+  }
+  .modal .mhead { display:flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--line); position: sticky; top:0; background: var(--panel); }
+  .modal .mhead h3 { margin: 0; font-size: 17px; }
+  .modal .mbody { padding: 18px 20px; }
+  .modal .erow { margin-bottom: 14px; }
+  .modal .erow label { display:flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+  .modal .mfoot { display:flex; justify-content: flex-end; gap: 10px; padding: 16px 20px; border-top: 1px solid var(--line); position: sticky; bottom: 0; background: var(--panel); }
+
+  /* Compare table */
+  #compareBar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    background: rgba(18,24,38,.96); border-top: 1px solid var(--line);
+    padding: 12px 18px; display: none; align-items: center; justify-content: space-between; gap: 12px;
+    backdrop-filter: blur(8px);
+  }
+  #compareBar.show { display: flex; }
+  #compareBar .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  #compareBar .chip { background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; font-size: 12px; }
+
+  table.cmp { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  table.cmp th, table.cmp td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  table.cmp th { color: var(--muted); font-weight: 600; }
+  table.cmp td.metric { color: var(--muted); }
+  table.cmp .best { color: #8fe6a4; font-weight: 700; }
+  table.cmp .mini { font-size: 11px; color: var(--muted); }
+
+  .toast {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+    padding: 10px 16px; border-radius: 10px; font-size: 13px; box-shadow: var(--shadow);
+    opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 60;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .foot-note { text-align: center; color: var(--muted); font-size: 12px; margin-top: 30px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <div>
+      <h1>AI Model Ranking Dashboard</h1>
+      <p class="sub">Weighted, real-world scoring across reasoning, coding, speed, cost, availability, context &amp; reliability — fully offline.</p>
+    </div>
+    <div class="stat-pills">
+      <span class="pill"><b id="statCount">0</b> models</span>
+      <span class="pill">Top: <b id="statTop">—</b></span>
+      <span class="pill">Avg score: <b id="statAvg">—</b></span>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="field">
+      <label for="search">Search</label>
+      <input type="text" id="search" placeholder="Search by name or vendor…" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label for="sortBy">Sort by</label>
+      <select id="sortBy">
+        <option value="score">Final score</option>
+        <option value="reasoning">Reasoning</option>
+        <option value="coding">Coding</option>
+        <option value="speed">Speed</option>
+        <option value="cost">Cost efficiency</option>
+        <option value="availability">Availability</option>
+        <option value="context">Context length</option>
+        <option value="reliability">Reliability</option>
+        <option value="name">Name (A–Z)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="filterType">Access type</label>
+      <select id="filterType">
+        <option value="all">All models</option>
+        <option value="free">Has free access</option>
+        <option value="open">Open-source</option>
+        <option value="paid">Paid API</option>
+      </select>
+    </div>
+    <div class="btns">
+      <button id="toggleCompare" class="ghost">Compare mode</button>
+      <button id="addModel" class="primary">+ Add model</button>
+    </div>
+  </div>
+
+  <section class="weights" id="weightsPanel">
+    <div class="head" id="weightsHead">
+      <div>
+        <h2>⚖️ Scoring weights</h2>
+      </div>
+      <div class="hint">Click to adjust how each factor influences the final score ▾</div>
+    </div>
+    <div class="body">
+      <div class="grid" id="weightGrid"></div>
+      <div class="foot">
+        <div id="weightSum" class="sum-ok">Weights normalized automatically.</div>
+        <button id="resetWeights" class="ghost">Reset weights</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="ranking" id="ranking"></div>
+  <div class="empty" id="emptyState" style="display:none;">No models match your search / filter.</div>
+
+  <p class="foot-note">All data is stored locally in JavaScript. Edit any model's benchmarks to watch the rankings recalculate and reorder in real time. No external APIs · no network calls · single offline file.</p>
+</div>
+
+<!-- Compare bar -->
+<div id="compareBar">
+  <div class="chips" id="compareChips"></div>
+  <div style="display:flex; gap:8px;">
+    <button id="clearCompare" class="ghost">Clear</button>
+    <button id="openCompare" class="primary">Compare (<span id="cmpCount">0</span>)</button>
+  </div>
+</div>
+
+<!-- Edit / Add modal -->
+<div class="overlay" id="editOverlay">
+  <div class="modal">
+    <div class="mhead">
+      <h3 id="editTitle">Edit model</h3>
+      <button class="ghost" id="closeEdit">✕</button>
+    </div>
+    <div class="mbody" id="editBody"></div>
+    <div class="mfoot">
+      <button class="danger" id="deleteModel">Delete</button>
+      <button class="ghost" id="cancelEdit">Cancel</button>
+      <button class="primary" id="saveModel">Save &amp; recalc</button>
+    </div>
+  </div>
+</div>
+
+<!-- Compare modal -->
+<div class="overlay" id="compareOverlay">
+  <div class="modal">
+    <div class="mhead">
+      <h3>Side-by-side comparison</h3>
+      <button class="ghost" id="closeCompareModal">✕</button>
+    </div>
+    <div class="mbody" id="compareBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   AI Model Ranking Dashboard — pure offline single-file app.
+   Data lives in JS; rankings recompute dynamically on change.
+   ============================================================ */
+
+// ---- Scoring factor definitions ----
+const FACTORS = [
+  { key: "reasoning",    label: "Reasoning",     desc: "Logical, math & problem-solving ability" },
+  { key: "coding",       label: "Coding",        desc: "Code generation & debugging quality" },
+  { key: "speed",        label: "Speed",         desc: "Throughput / latency (higher = faster)" },
+  { key: "cost",         label: "Cost efficiency", desc: "Value per dollar (higher = cheaper for quality)" },
+  { key: "availability", label: "Availability",  desc: "Derived from free / open-source / paid access" },
+  { key: "context",      label: "Context length", desc: "Derived from max context window" },
+  { key: "reliability",  label: "Reliability",   desc: "Uptime, consistency & low hallucination" },
+];
+
+// ---- Default weights (will be normalized to sum to 1) ----
+const DEFAULT_WEIGHTS = {
+  reasoning: 25, coding: 20, speed: 10, cost: 12,
+  availability: 10, context: 8, reliability: 15,
+};
+let weights = { ...DEFAULT_WEIGHTS };
+
+// ---- Helpers ----
+const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
+
+// Map a context window (tokens) to a 0–100 score (log scale, 1k→0, 2M→100).
+function contextScore(tokens) {
+  if (!tokens || tokens <= 1000) return 0;
+  const s = (Math.log10(tokens) - 3) / (Math.log10(2000000) - 3) * 100;
+  return clamp(Math.round(s));
+}
+
+// Availability score derived from access flags.
+function availabilityScore(m) {
+  let s = 0;
+  if (m.free) s += 45;
+  if (m.open) s += 40;
+  if (m.paid) s += 25;
+  return clamp(s);
+}
+
+// ---- Model dataset (real-world models, locally stored) ----
+// Factor values are 0–100 estimates of relative real-world performance.
+let MODELS = [
+  { id: 1,  name: "Claude Opus 4.8",    vendor: "Anthropic",  reasoning: 97, coding: 96, speed: 70, cost: 58, reliability: 96, ctxTokens: 200000, free: false, open: false, paid: true },
+  { id: 2,  name: "Claude Sonnet 4.6",  vendor: "Anthropic",  reasoning: 92, coding: 93, speed: 85, cost: 78, reliability: 94, ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 3,  name: "Claude Haiku 4.5",   vendor: "Anthropic",  reasoning: 84, coding: 85, speed: 96, cost: 90, reliability: 91, ctxTokens: 200000, free: true,  open: false, paid: true },
+  { id: 4,  name: "GPT-5",              vendor: "OpenAI",     reasoning: 96, coding: 94, speed: 72, cost: 60, reliability: 93, ctxTokens: 400000, free: false, open: false, paid: true },
+  { id: 5,  name: "GPT-4.1",            vendor: "OpenAI",     reasoning: 90, coding: 90, speed: 80, cost: 70, reliability: 92, ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 6,  name: "Gemini 2.5 Pro",     vendor: "Google",     reasoning: 94, coding: 91, speed: 78, cost: 72, reliability: 90, ctxTokens: 2000000, free: true,  open: false, paid: true },
+  { id: 7,  name: "Gemini 2.0 Flash",   vendor: "Google",     reasoning: 83, coding: 82, speed: 95, cost: 92, reliability: 88, ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 8,  name: "DeepSeek R1",        vendor: "DeepSeek",   reasoning: 93, coding: 88, speed: 68, cost: 88, reliability: 84, ctxTokens: 128000, free: true,  open: true,  paid: true },
+  { id: 9,  name: "DeepSeek V3",        vendor: "DeepSeek",   reasoning: 87, coding: 89, speed: 82, cost: 90, reliability: 85, ctxTokens: 128000, free: true,  open: true,  paid: true },
+  { id: 10, name: "Llama 3.1 405B",     vendor: "Meta",       reasoning: 86, coding: 84, speed: 60, cost: 74, reliability: 86, ctxTokens: 128000, free: true,  open: true,  paid: true },
+  { id: 11, name: "Llama 3.3 70B",      vendor: "Meta",       reasoning: 82, coding: 80, speed: 86, cost: 89, reliability: 85, ctxTokens: 128000, free: true,  open: true,  paid: true },
+  { id: 12, name: "Mistral Large 2",    vendor: "Mistral AI", reasoning: 85, coding: 86, speed: 83, cost: 80, reliability: 87, ctxTokens: 128000, free: true,  open: true,  paid: true },
+  { id: 13, name: "Qwen2.5 72B",        vendor: "Alibaba",    reasoning: 84, coding: 85, speed: 80, cost: 87, reliability: 83, ctxTokens: 131072, free: true,  open: true,  paid: true },
+  { id: 14, name: "Grok 3",             vendor: "xAI",        reasoning: 89, coding: 85, speed: 76, cost: 64, reliability: 84, ctxTokens: 131072, free: false, open: false, paid: true },
+  { id: 15, name: "gpt-oss-120b",       vendor: "OpenAI (OSS)", reasoning: 88, coding: 86, speed: 79, cost: 91, reliability: 82, ctxTokens: 128000, free: true,  open: true,  paid: true },
+  { id: 16, name: "Command R+",         vendor: "Cohere",     reasoning: 80, coding: 78, speed: 84, cost: 82, reliability: 86, ctxTokens: 128000, free: true,  open: true,  paid: true },
+  { id: 17, name: "Phi-4",              vendor: "Microsoft",  reasoning: 79, coding: 80, speed: 93, cost: 95, reliability: 80, ctxTokens: 16000, free: true,  open: true,  paid: false },
+  { id: 18, name: "Gemma 2 27B",        vendor: "Google",     reasoning: 76, coding: 75, speed: 88, cost: 94, reliability: 81, ctxTokens: 8192, free: true,  open: true,  paid: false },
+];
+let nextId = 19;
+
+// ---- UI state ----
+let compareMode = false;
+const compareSet = new Set();
+let editingId = null;
+let prevOrder = []; // for rank-change deltas & FLIP animation
+
+// ---- Core scoring ----
+function normalizedWeights() {
+  const total = FACTORS.reduce((s, f) => s + (weights[f.key] || 0), 0) || 1;
+  const out = {};
+  FACTORS.forEach(f => out[f.key] = (weights[f.key] || 0) / total);
+  return out;
+}
+
+// returns {reasoning,...} all 0–100, including derived availability & context
+function factorValues(m) {
+  return {
+    reasoning: m.reasoning,
+    coding: m.coding,
+    speed: m.speed,
+    cost: m.cost,
+    availability: availabilityScore(m),
+    context: contextScore(m.ctxTokens),
+    reliability: m.reliability,
+  };
+}
+
+function finalScore(m) {
+  const nw = normalizedWeights();
+  const fv = factorValues(m);
+  let s = 0;
+  FACTORS.forEach(f => s += fv[f.key] * nw[f.key]);
+  return Math.round(s * 10) / 10;
+}
+
+function tierFor(score) {
+  if (score >= 90) return "S";
+  if (score >= 80) return "A";
+  if (score >= 70) return "B";
+  if (score >= 60) return "C";
+  if (score >= 50) return "D";
+  return "F";
+}
+
+function scoreColor(score) {
+  const t = tierFor(score);
+  return getComputedStyle(document.documentElement).getPropertyValue("--tier-" + t.toLowerCase()).trim();
+}
+
+// ---- Build ranked + filtered list ----
+function rankedModels() {
+  // Always rank by final score to assign canonical rank numbers.
+  return [...MODELS]
+    .map(m => ({ m, score: finalScore(m), fv: factorValues(m) }))
+    .sort((a, b) => b.score - a.score || a.m.name.localeCompare(b.m.name));
+}
+
+function visibleList(ranked) {
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const ftype = document.getElementById("filterType").value;
+  const sortBy = document.getElementById("sortBy").value;
+
+  let list = ranked.filter(({ m }) => {
+    const matchQ = !q || m.name.toLowerCase().includes(q) || m.vendor.toLowerCase().includes(q);
+    let matchT = true;
+    if (ftype === "free") matchT = m.free;
+    else if (ftype === "open") matchT = m.open;
+    else if (ftype === "paid") matchT = m.paid;
+    return matchQ && matchT;
+  });
+
+  if (sortBy === "name") {
+    list.sort((a, b) => a.m.name.localeCompare(b.m.name));
+  } else if (sortBy !== "score") {
+    list.sort((a, b) => b.fv[sortBy] - a.fv[sortBy]);
+  }
+  // sortBy === "score" keeps the ranked order.
+  return list;
+}
+
+// ---- Rendering ----
+const rankingEl = document.getElementById("ranking");
+
+function render(animate = true) {
+  const ranked = rankedModels();
+  const rankIndex = {};
+  ranked.forEach((r, i) => rankIndex[r.m.id] = i + 1);
+
+  const list = visibleList(ranked);
+
+  // FLIP: capture previous positions
+  const firstRects = {};
+  if (animate) {
+    [...rankingEl.children].forEach(node => {
+      firstRects[node.dataset.id] = node.getBoundingClientRect();
+    });
+  }
+
+  rankingEl.innerHTML = "";
+  document.getElementById("emptyState").style.display = list.length ? "none" : "block";
+
+  list.forEach(({ m, score, fv }) => {
+    const rank = rankIndex[m.id];
+    const tier = tierFor(score);
+    const prevRank = prevOrder.indexOf(m.id) + 1;
+    let deltaHtml = "&nbsp;";
+    if (prevRank > 0 && prevRank !== rank) {
+      const up = rank < prevRank;
+      deltaHtml = `<span class="delta ${up ? "up" : "down"}">${up ? "▲" : "▼"} ${Math.abs(prevRank - rank)}</span>`;
+    }
+
+    const card = document.createElement("div");
+    card.className = "card";
+    card.dataset.id = m.id;
+
+    const badges = [];
+    if (m.free) badges.push(`<span class="tag free">Free</span>`);
+    if (m.open) badges.push(`<span class="tag open">Open-source</span>`);
+    if (m.paid) badges.push(`<span class="tag paid">Paid API</span>`);
+
+    const miniFactors = FACTORS.map(f => `
+      <div class="fm">${f.label}: <b>${Math.round(fv[f.key])}</b>
+        <div class="bar"><i style="width:${fv[f.key]}%"></i></div>
+      </div>`).join("");
+
+    const checked = compareSet.has(m.id) ? "checked" : "";
+    const ctxLabel = m.ctxTokens >= 1000000
+      ? (m.ctxTokens / 1000000) + "M tokens"
+      : Math.round(m.ctxTokens / 1000) + "K tokens";
+
+    card.innerHTML = `
+      <div class="rank-col">
+        <div class="rank-num">${rank}</div>
+        <div class="delta">${deltaHtml}</div>
+        <div class="tier-badge tier-${tier}">${tier}</div>
+      </div>
+      <div class="info-col">
+        <div class="name">${escapeHtml(m.name)}</div>
+        <div class="vendor">${escapeHtml(m.vendor)} · ${ctxLabel} context</div>
+        <div class="badges">${badges.join("")}</div>
+        <div class="factor-mini">${miniFactors}</div>
+      </div>
+      <div class="score-col">
+        <div class="label">Final score</div>
+        <div class="score-num" style="color:${scoreColor(score)}">${score.toFixed(1)}</div>
+        <div class="score-bar"><i style="width:${score}%; background:${scoreColor(score)}"></i></div>
+      </div>
+      <div class="actions">
+        <button class="ghost edit-btn" data-id="${m.id}">Edit benchmarks</button>
+        <label class="cmp" style="${compareMode ? "" : "display:none"}">
+          <input type="checkbox" class="cmp-box" data-id="${m.id}" ${checked}/> Compare
+        </label>
+      </div>
+    `;
+    rankingEl.appendChild(card);
+  });
+
+  // FLIP: animate from old to new positions
+  if (animate) {
+    [...rankingEl.children].forEach(node => {
+      const first = firstRects[node.dataset.id];
+      if (!first) return;
+      const last = node.getBoundingClientRect();
+      const dy = first.top - last.top;
+      if (Math.abs(dy) < 1) return;
+      node.animate(
+        [{ transform: `translateY(${dy}px)` }, { transform: "translateY(0)" }],
+        { duration: 450, easing: "cubic-bezier(.2,.8,.2,1)" }
+      );
+    });
+  }
+
+  prevOrder = ranked.map(r => r.m.id);
+  updateStats(ranked);
+}
+
+function updateStats(ranked) {
+  document.getElementById("statCount").textContent = MODELS.length;
+  if (ranked.length) {
+    document.getElementById("statTop").textContent = ranked[0].m.name;
+    const avg = ranked.reduce((s, r) => s + r.score, 0) / ranked.length;
+    document.getElementById("statAvg").textContent = avg.toFixed(1);
+  } else {
+    document.getElementById("statTop").textContent = "—";
+    document.getElementById("statAvg").textContent = "—";
+  }
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+  ));
+}
+
+// ---- Weights panel ----
+function buildWeights() {
+  const grid = document.getElementById("weightGrid");
+  grid.innerHTML = "";
+  FACTORS.forEach(f => {
+    const row = document.createElement("div");
+    row.className = "wrow";
+    row.innerHTML = `
+      <label title="${f.desc}">${f.label} <b id="wv_${f.key}">${weights[f.key]}</b></label>
+      <input type="range" min="0" max="40" step="1" value="${weights[f.key]}" data-key="${f.key}" />
+    `;
+    grid.appendChild(row);
+  });
+  grid.querySelectorAll('input[type="range"]').forEach(sl => {
+    sl.addEventListener("input", e => {
+      const k = e.target.dataset.key;
+      weights[k] = Number(e.target.value);
+      document.getElementById("wv_" + k).textContent = weights[k];
+      updateWeightSum();
+      render(true);
+    });
+  });
+  updateWeightSum();
+}
+
+function updateWeightSum() {
+  const total = FACTORS.reduce((s, f) => s + (weights[f.key] || 0), 0);
+  const el = document.getElementById("weightSum");
+  if (total === 0) {
+    el.textContent = "⚠ All weights are zero — set at least one factor above 0.";
+    el.className = "sum-warn";
+  } else {
+    el.textContent = `Raw total: ${total} (auto-normalized to 100% for scoring).`;
+    el.className = "sum-ok";
+  }
+}
+
+// ---- Edit / Add modal ----
+function openEdit(id) {
+  editingId = id;
+  const isNew = id === null;
+  const m = isNew
+    ? { name: "", vendor: "", reasoning: 70, coding: 70, speed: 70, cost: 70, reliability: 70, ctxTokens: 128000, free: false, open: false, paid: true }
+    : MODELS.find(x => x.id === id);
+
+  document.getElementById("editTitle").textContent = isNew ? "Add new model" : "Edit: " + m.name;
+  document.getElementById("deleteModel").style.display = isNew ? "none" : "inline-block";
+
+  const numericFactors = [
+    ["reasoning", "Reasoning"], ["coding", "Coding"], ["speed", "Speed"],
+    ["cost", "Cost efficiency"], ["reliability", "Reliability"],
+  ];
+
+  const body = document.getElementById("editBody");
+  body.innerHTML = `
+    <div class="erow">
+      <label>Model name</label>
+      <input type="text" id="f_name" value="${escapeHtml(m.name)}" placeholder="e.g. My Model 1.0"/>
+    </div>
+    <div class="erow">
+      <label>Vendor</label>
+      <input type="text" id="f_vendor" value="${escapeHtml(m.vendor)}" placeholder="e.g. Acme AI"/>
+    </div>
+    ${numericFactors.map(([k, lbl]) => `
+      <div class="erow">
+        <label>${lbl} <b id="lbl_${k}">${m[k]}</b></label>
+        <input type="range" id="f_${k}" min="0" max="100" value="${m[k]}" oninput="document.getElementById('lbl_${k}').textContent=this.value"/>
+      </div>`).join("")}
+    <div class="erow">
+      <label>Max context window (tokens) <b id="lbl_ctx">${m.ctxTokens.toLocaleString()}</b></label>
+      <input type="text" id="f_ctx" value="${m.ctxTokens}" oninput="(function(v){var n=parseInt(v.replace(/[^0-9]/g,''))||0;document.getElementById('lbl_ctx').textContent=n.toLocaleString();})(this.value)"/>
+    </div>
+    <div class="erow">
+      <label style="justify-content:flex-start; gap:18px;">
+        <span><input type="checkbox" id="f_free" ${m.free ? "checked" : ""}/> Free access</span>
+        <span><input type="checkbox" id="f_open" ${m.open ? "checked" : ""}/> Open-source</span>
+        <span><input type="checkbox" id="f_paid" ${m.paid ? "checked" : ""}/> Paid API</span>
+      </label>
+    </div>
+  `;
+  document.getElementById("editOverlay").classList.add("show");
+}
+
+function closeEdit() {
+  document.getElementById("editOverlay").classList.remove("show");
+  editingId = null;
+}
+
+function saveModel() {
+  const name = document.getElementById("f_name").value.trim();
+  if (!name) { toast("Please enter a model name."); return; }
+  const data = {
+    name,
+    vendor: document.getElementById("f_vendor").value.trim() || "Unknown",
+    reasoning: Number(document.getElementById("f_reasoning").value),
+    coding: Number(document.getElementById("f_coding").value),
+    speed: Number(document.getElementById("f_speed").value),
+    cost: Number(document.getElementById("f_cost").value),
+    reliability: Number(document.getElementById("f_reliability").value),
+    ctxTokens: parseInt(String(document.getElementById("f_ctx").value).replace(/[^0-9]/g, "")) || 0,
+    free: document.getElementById("f_free").checked,
+    open: document.getElementById("f_open").checked,
+    paid: document.getElementById("f_paid").checked,
+  };
+
+  if (editingId === null) {
+    MODELS.push({ id: nextId++, ...data });
+    toast("Model added — rankings recalculated.");
+  } else {
+    const m = MODELS.find(x => x.id === editingId);
+    Object.assign(m, data);
+    toast("Benchmarks updated — rankings recalculated.");
+  }
+  closeEdit();
+  render(true);
+}
+
+function deleteModel() {
+  if (editingId === null) return;
+  MODELS = MODELS.filter(x => x.id !== editingId);
+  compareSet.delete(editingId);
+  closeEdit();
+  refreshCompareBar();
+  render(true);
+  toast("Model removed.");
+}
+
+// ---- Compare ----
+function toggleCompareMode() {
+  compareMode = !compareMode;
+  document.getElementById("toggleCompare").textContent = compareMode ? "Exit compare" : "Compare mode";
+  document.getElementById("toggleCompare").classList.toggle("primary", compareMode);
+  if (!compareMode) { compareSet.clear(); }
+  refreshCompareBar();
+  render(false);
+}
+
+function refreshCompareBar() {
+  const bar = document.getElementById("compareBar");
+  bar.classList.toggle("show", compareMode && compareSet.size > 0);
+  document.getElementById("cmpCount").textContent = compareSet.size;
+  const chips = document.getElementById("compareChips");
+  chips.innerHTML = [...compareSet].map(id => {
+    const m = MODELS.find(x => x.id === id);
+    return m ? `<span class="chip">${escapeHtml(m.name)}</span>` : "";
+  }).join("");
+}
+
+function openCompare() {
+  const chosen = [...compareSet].map(id => MODELS.find(x => x.id === id)).filter(Boolean);
+  if (chosen.length < 2) { toast("Select at least 2 models to compare."); return; }
+
+  const rows = [
+    { label: "Final score", get: m => finalScore(m), fmt: v => v.toFixed(1), hi: true },
+    { label: "Tier", get: m => finalScore(m), fmt: v => tierFor(v), hi: false, isTier: true },
+    ...FACTORS.map(f => ({
+      label: f.label,
+      get: m => factorValues(m)[f.key],
+      fmt: v => Math.round(v),
+      hi: true,
+    })),
+    { label: "Context window", get: m => m.ctxTokens, fmt: v => v.toLocaleString() + " tok", hi: true },
+    { label: "Access", get: m => m, fmt: m => [m.free && "Free", m.open && "Open", m.paid && "Paid"].filter(Boolean).join(", ") || "—", hi: false, raw: true },
+  ];
+
+  let html = `<table class="cmp"><thead><tr><th>Metric</th>${chosen.map(m => `<th>${escapeHtml(m.name)}<div class="mini">${escapeHtml(m.vendor)}</div></th>`).join("")}</tr></thead><tbody>`;
+  rows.forEach(r => {
+    let vals = chosen.map(m => r.raw ? r.get(m) : r.get(m));
+    let best = null;
+    if (r.hi && !r.raw) best = Math.max(...vals.map(v => Number(v)));
+    html += `<tr><td class="metric">${r.label}</td>`;
+    chosen.forEach((m, i) => {
+      const raw = vals[i];
+      const display = r.raw ? r.fmt(raw) : r.fmt(Number(raw));
+      let cls = "";
+      if (r.isTier) {
+        const t = display;
+        html += `<td><span class="tier-badge tier-${t}" style="width:26px;height:26px;font-size:13px;margin:0">${t}</span></td>`;
+        return;
+      }
+      if (best !== null && Number(raw) === best) cls = "best";
+      html += `<td class="${cls}">${display}</td>`;
+    });
+    html += `</tr>`;
+  });
+  html += `</tbody></table>`;
+  document.getElementById("compareBody").innerHTML = html;
+  document.getElementById("compareOverlay").classList.add("show");
+}
+
+// ---- Toast ----
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+// ---- Event wiring ----
+document.getElementById("search").addEventListener("input", () => render(true));
+document.getElementById("sortBy").addEventListener("change", () => render(true));
+document.getElementById("filterType").addEventListener("change", () => render(true));
+document.getElementById("addModel").addEventListener("click", () => openEdit(null));
+document.getElementById("toggleCompare").addEventListener("click", toggleCompareMode);
+document.getElementById("clearCompare").addEventListener("click", () => { compareSet.clear(); refreshCompareBar(); render(false); });
+document.getElementById("openCompare").addEventListener("click", openCompare);
+
+document.getElementById("closeEdit").addEventListener("click", closeEdit);
+document.getElementById("cancelEdit").addEventListener("click", closeEdit);
+document.getElementById("saveModel").addEventListener("click", saveModel);
+document.getElementById("deleteModel").addEventListener("click", deleteModel);
+document.getElementById("closeCompareModal").addEventListener("click", () => document.getElementById("compareOverlay").classList.remove("show"));
+document.getElementById("resetWeights").addEventListener("click", () => { weights = { ...DEFAULT_WEIGHTS }; buildWeights(); render(true); toast("Weights reset to defaults."); });
+
+document.getElementById("weightsHead").addEventListener("click", () => document.getElementById("weightsPanel").classList.toggle("open"));
+
+// Delegated clicks for edit + compare checkboxes
+rankingEl.addEventListener("click", e => {
+  const editBtn = e.target.closest(".edit-btn");
+  if (editBtn) openEdit(Number(editBtn.dataset.id));
+});
+rankingEl.addEventListener("change", e => {
+  const box = e.target.closest(".cmp-box");
+  if (box) {
+    const id = Number(box.dataset.id);
+    if (box.checked) compareSet.add(id); else compareSet.delete(id);
+    refreshCompareBar();
+  }
+});
+
+// Close overlays on backdrop click
+["editOverlay", "compareOverlay"].forEach(idsel => {
+  document.getElementById(idsel).addEventListener("click", e => {
+    if (e.target.id === idsel) e.target.classList.remove("show");
+  });
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") {
+    document.getElementById("editOverlay").classList.remove("show");
+    document.getElementById("compareOverlay").classList.remove("show");
+  }
+});
+
+// ---- Init ----
+buildWeights();
+render(false);
+</script>
+</body>
+</html>
