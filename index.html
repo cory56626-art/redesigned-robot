@@ -405,8 +405,8 @@ const FACTORS = [
 
 // ---- Default weights (will be normalized to sum to 1) ----
 const DEFAULT_WEIGHTS = {
-  reasoning: 25, coding: 20, speed: 10, cost: 12,
-  availability: 10, context: 8, reliability: 15,
+  reasoning: 26, coding: 22, speed: 9, cost: 9,
+  availability: 11, context: 7, reliability: 16,
 };
 let weights = { ...DEFAULT_WEIGHTS };
 
@@ -420,8 +420,9 @@ const TIERS = [
   { tier: "D", min: 50 },
   { tier: "F", min: 0 },
 ];
-// Points each access type contributes to the derived availability score.
-const ACCESS_POINTS = { free: 45, open: 40, paid: 25 };
+// Availability is "how reachable is this model". Any access channel earns a
+// base; each additional channel (free tier, open weights, paid API) adds more.
+const ACCESS_POINTS = { base: 50, free: 25, open: 20, paid: 15 };
 // Context-score scale (log10): tokens at MIN → 0, at MAX → 100.
 const CTX_MIN_TOKENS = 1000;
 const CTX_MAX_TOKENS = 2000000;
@@ -439,7 +440,8 @@ function contextScore(tokens) {
 
 // Availability score derived from access flags.
 function availabilityScore(m) {
-  let s = 0;
+  if (!m.free && !m.open && !m.paid) return 0; // genuinely inaccessible
+  let s = ACCESS_POINTS.base;
   if (m.free) s += ACCESS_POINTS.free;
   if (m.open) s += ACCESS_POINTS.open;
   if (m.paid) s += ACCESS_POINTS.paid;
@@ -448,27 +450,57 @@ function availabilityScore(m) {
 
 // ---- Model dataset (real-world models, locally stored) ----
 // Factor values are 0–100 estimates of relative real-world performance.
+// Current lineup as of early 2026. Factor values (0–100) are informed estimates
+// of relative real-world performance, not official benchmark numbers.
 let MODELS = [
-  { id: 1,  name: "Claude Opus 4.8",    vendor: "Anthropic",  reasoning: 97, coding: 96, speed: 70, cost: 58, reliability: 96, ctxTokens: 200000, free: false, open: false, paid: true },
-  { id: 2,  name: "Claude Sonnet 4.6",  vendor: "Anthropic",  reasoning: 92, coding: 93, speed: 85, cost: 78, reliability: 94, ctxTokens: 1000000, free: true,  open: false, paid: true },
-  { id: 3,  name: "Claude Haiku 4.5",   vendor: "Anthropic",  reasoning: 84, coding: 85, speed: 96, cost: 90, reliability: 91, ctxTokens: 200000, free: true,  open: false, paid: true },
-  { id: 4,  name: "GPT-5",              vendor: "OpenAI",     reasoning: 96, coding: 94, speed: 72, cost: 60, reliability: 93, ctxTokens: 400000, free: false, open: false, paid: true },
-  { id: 5,  name: "GPT-4.1",            vendor: "OpenAI",     reasoning: 90, coding: 90, speed: 80, cost: 70, reliability: 92, ctxTokens: 1000000, free: true,  open: false, paid: true },
-  { id: 6,  name: "Gemini 2.5 Pro",     vendor: "Google",     reasoning: 94, coding: 91, speed: 78, cost: 72, reliability: 90, ctxTokens: 2000000, free: true,  open: false, paid: true },
-  { id: 7,  name: "Gemini 2.0 Flash",   vendor: "Google",     reasoning: 83, coding: 82, speed: 95, cost: 92, reliability: 88, ctxTokens: 1000000, free: true,  open: false, paid: true },
-  { id: 8,  name: "DeepSeek R1",        vendor: "DeepSeek",   reasoning: 93, coding: 88, speed: 68, cost: 88, reliability: 84, ctxTokens: 128000, free: true,  open: true,  paid: true },
-  { id: 9,  name: "DeepSeek V3",        vendor: "DeepSeek",   reasoning: 87, coding: 89, speed: 82, cost: 90, reliability: 85, ctxTokens: 128000, free: true,  open: true,  paid: true },
-  { id: 10, name: "Llama 3.1 405B",     vendor: "Meta",       reasoning: 86, coding: 84, speed: 60, cost: 74, reliability: 86, ctxTokens: 128000, free: true,  open: true,  paid: true },
-  { id: 11, name: "Llama 3.3 70B",      vendor: "Meta",       reasoning: 82, coding: 80, speed: 86, cost: 89, reliability: 85, ctxTokens: 128000, free: true,  open: true,  paid: true },
-  { id: 12, name: "Mistral Large 2",    vendor: "Mistral AI", reasoning: 85, coding: 86, speed: 83, cost: 80, reliability: 87, ctxTokens: 128000, free: true,  open: true,  paid: true },
-  { id: 13, name: "Qwen2.5 72B",        vendor: "Alibaba",    reasoning: 84, coding: 85, speed: 80, cost: 87, reliability: 83, ctxTokens: 131072, free: true,  open: true,  paid: true },
-  { id: 14, name: "Grok 3",             vendor: "xAI",        reasoning: 89, coding: 85, speed: 76, cost: 64, reliability: 84, ctxTokens: 131072, free: false, open: false, paid: true },
-  { id: 15, name: "gpt-oss-120b",       vendor: "OpenAI (OSS)", reasoning: 88, coding: 86, speed: 79, cost: 91, reliability: 82, ctxTokens: 128000, free: true,  open: true,  paid: true },
-  { id: 16, name: "Command R+",         vendor: "Cohere",     reasoning: 80, coding: 78, speed: 84, cost: 82, reliability: 86, ctxTokens: 128000, free: true,  open: true,  paid: true },
-  { id: 17, name: "Phi-4",              vendor: "Microsoft",  reasoning: 79, coding: 80, speed: 93, cost: 95, reliability: 80, ctxTokens: 16000, free: true,  open: true,  paid: false },
-  { id: 18, name: "Gemma 2 27B",        vendor: "Google",     reasoning: 76, coding: 75, speed: 88, cost: 94, reliability: 81, ctxTokens: 8192, free: true,  open: true,  paid: false },
+  // Anthropic
+  { id: 1,  name: "Claude Opus 4.8",      vendor: "Anthropic",  reasoning: 98, coding: 97, speed: 70, cost: 56, reliability: 96, ctxTokens: 200000,   free: false, open: false, paid: true },
+  { id: 2,  name: "Claude Sonnet 4.6",    vendor: "Anthropic",  reasoning: 93, coding: 94, speed: 85, cost: 78, reliability: 94, ctxTokens: 1000000,  free: true,  open: false, paid: true },
+  { id: 3,  name: "Claude Haiku 4.5",     vendor: "Anthropic",  reasoning: 85, coding: 86, speed: 96, cost: 90, reliability: 91, ctxTokens: 200000,   free: true,  open: false, paid: true },
+  { id: 4,  name: "Claude Fable 5",       vendor: "Anthropic",  reasoning: 95, coding: 90, speed: 80, cost: 68, reliability: 94, ctxTokens: 200000,   free: true,  open: false, paid: true },
+  // OpenAI
+  { id: 5,  name: "GPT-5.1",              vendor: "OpenAI",     reasoning: 97, coding: 95, speed: 73, cost: 60, reliability: 93, ctxTokens: 400000,   free: true,  open: false, paid: true },
+  { id: 6,  name: "GPT-5",                vendor: "OpenAI",     reasoning: 96, coding: 94, speed: 72, cost: 60, reliability: 93, ctxTokens: 400000,   free: true,  open: false, paid: true },
+  { id: 7,  name: "GPT-5 mini",           vendor: "OpenAI",     reasoning: 86, coding: 85, speed: 93, cost: 90, reliability: 90, ctxTokens: 400000,   free: true,  open: false, paid: true },
+  { id: 8,  name: "o3",                   vendor: "OpenAI",     reasoning: 95, coding: 90, speed: 62, cost: 55, reliability: 90, ctxTokens: 200000,   free: false, open: false, paid: true },
+  { id: 9,  name: "o4-mini",              vendor: "OpenAI",     reasoning: 90, coding: 87, speed: 88, cost: 84, reliability: 89, ctxTokens: 200000,   free: true,  open: false, paid: true },
+  { id: 10, name: "gpt-oss-120b",         vendor: "OpenAI",     reasoning: 88, coding: 86, speed: 80, cost: 92, reliability: 84, ctxTokens: 131072,   free: true,  open: true,  paid: true },
+  { id: 11, name: "gpt-oss-20b",          vendor: "OpenAI",     reasoning: 80, coding: 78, speed: 90, cost: 95, reliability: 81, ctxTokens: 131072,   free: true,  open: true,  paid: true },
+  // Google
+  { id: 12, name: "Gemini 2.5 Pro",       vendor: "Google",     reasoning: 95, coding: 92, speed: 78, cost: 72, reliability: 91, ctxTokens: 1000000,  free: true,  open: false, paid: true },
+  { id: 13, name: "Gemini 2.5 Flash",     vendor: "Google",     reasoning: 87, coding: 85, speed: 94, cost: 90, reliability: 89, ctxTokens: 1000000,  free: true,  open: false, paid: true },
+  { id: 14, name: "Gemini 2.0 Flash",     vendor: "Google",     reasoning: 83, coding: 82, speed: 95, cost: 92, reliability: 88, ctxTokens: 1000000,  free: true,  open: false, paid: true },
+  { id: 15, name: "Gemma 3 27B",          vendor: "Google",     reasoning: 78, coding: 76, speed: 88, cost: 94, reliability: 82, ctxTokens: 128000,   free: true,  open: true,  paid: false },
+  // Meta
+  { id: 16, name: "Llama 4 Maverick",     vendor: "Meta",       reasoning: 89, coding: 87, speed: 82, cost: 86, reliability: 86, ctxTokens: 1000000,  free: true,  open: true,  paid: true },
+  { id: 17, name: "Llama 4 Scout",        vendor: "Meta",       reasoning: 84, coding: 82, speed: 88, cost: 90, reliability: 84, ctxTokens: 10000000, free: true,  open: true,  paid: true },
+  { id: 18, name: "Llama 3.3 70B",        vendor: "Meta",       reasoning: 82, coding: 80, speed: 86, cost: 89, reliability: 85, ctxTokens: 128000,   free: true,  open: true,  paid: true },
+  // DeepSeek
+  { id: 19, name: "DeepSeek R1",          vendor: "DeepSeek",   reasoning: 93, coding: 89, speed: 66, cost: 89, reliability: 84, ctxTokens: 128000,   free: true,  open: true,  paid: true },
+  { id: 20, name: "DeepSeek V3.2",        vendor: "DeepSeek",   reasoning: 89, coding: 90, speed: 84, cost: 92, reliability: 86, ctxTokens: 128000,   free: true,  open: true,  paid: true },
+  // xAI
+  { id: 21, name: "Grok 4",               vendor: "xAI",        reasoning: 95, coding: 92, speed: 74, cost: 62, reliability: 89, ctxTokens: 256000,   free: true,  open: false, paid: true },
+  { id: 22, name: "Grok 3",               vendor: "xAI",        reasoning: 89, coding: 85, speed: 76, cost: 66, reliability: 85, ctxTokens: 131072,   free: false, open: false, paid: true },
+  // Mistral
+  { id: 23, name: "Mistral Large 2",      vendor: "Mistral AI", reasoning: 86, coding: 86, speed: 83, cost: 80, reliability: 87, ctxTokens: 128000,   free: true,  open: true,  paid: true },
+  { id: 24, name: "Mistral Medium 3",     vendor: "Mistral AI", reasoning: 84, coding: 84, speed: 86, cost: 85, reliability: 86, ctxTokens: 128000,   free: true,  open: false, paid: true },
+  { id: 25, name: "Magistral Medium",     vendor: "Mistral AI", reasoning: 88, coding: 83, speed: 72, cost: 82, reliability: 83, ctxTokens: 128000,   free: true,  open: true,  paid: true },
+  { id: 26, name: "Codestral 25.01",      vendor: "Mistral AI", reasoning: 78, coding: 90, speed: 90, cost: 88, reliability: 85, ctxTokens: 256000,   free: true,  open: false, paid: true },
+  // Alibaba
+  { id: 27, name: "Qwen3 235B",           vendor: "Alibaba",    reasoning: 90, coding: 88, speed: 76, cost: 88, reliability: 85, ctxTokens: 128000,   free: true,  open: true,  paid: true },
+  { id: 28, name: "Qwen2.5 Coder 32B",    vendor: "Alibaba",    reasoning: 80, coding: 89, speed: 86, cost: 92, reliability: 83, ctxTokens: 131072,   free: true,  open: true,  paid: true },
+  // Cohere
+  { id: 29, name: "Command A",            vendor: "Cohere",     reasoning: 84, coding: 82, speed: 85, cost: 80, reliability: 87, ctxTokens: 256000,   free: true,  open: true,  paid: true },
+  // Microsoft
+  { id: 30, name: "Phi-4",                vendor: "Microsoft",  reasoning: 79, coding: 80, speed: 93, cost: 95, reliability: 80, ctxTokens: 16000,    free: true,  open: true,  paid: false },
+  // Moonshot AI
+  { id: 31, name: "Kimi K2",              vendor: "Moonshot AI",reasoning: 89, coding: 88, speed: 78, cost: 90, reliability: 84, ctxTokens: 256000,   free: true,  open: true,  paid: true },
+  // Zhipu AI
+  { id: 32, name: "GLM-4.6",              vendor: "Zhipu AI",   reasoning: 88, coding: 87, speed: 80, cost: 89, reliability: 84, ctxTokens: 200000,   free: true,  open: true,  paid: true },
+  // Amazon
+  { id: 33, name: "Amazon Nova Pro",      vendor: "Amazon",     reasoning: 82, coding: 80, speed: 88, cost: 84, reliability: 86, ctxTokens: 300000,   free: false, open: false, paid: true },
 ];
-let nextId = 19;
+let nextId = 34;
 
 // ---- UI state ----
 let compareMode = false;
