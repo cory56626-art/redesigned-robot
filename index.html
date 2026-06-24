@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixel Crawler — RPG Idle</title>
+<!--
+  PIXEL CRAWLER — a single-file pixel-art RPG idle game.
+  Built by a multi-model team, integrated & QA'd by Claude (boss):
+    • Groq    — core loop, manual skills, siege prototypes
+    • Mistral — clean refactors, BALANCE config, save/offline
+    • Gemini  — UI shell, palette & pixel sprites (hero / sword / slime)
+  See groupchat.md for the full 8-round build session.
+-->
+<style>
+  :root{
+    --bg-dark:#1a1a2e; --bg-mid:#2e3b55; --bg-light:#4a5d7c;
+    --text-light:#e0e0e0; --text-accent:#ffcc00; --border-dark:#0f121e;
+    --border-light:#6a7ba0; --button-bg:#3c4f6b; --button-hover:#5a7090;
+    --hp-bar:#e74c3c; --xp-bar:#2ecc71; --rage-bar:#e67e22; --gold:#ffcc00;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    font-family:'Courier New',monospace;
+    background:#0c0c16;
+    background-image:radial-gradient(circle at 50% 0%, #20203a 0%, #0c0c16 70%);
+    color:var(--text-light);
+    display:flex;flex-direction:column;align-items:center;
+    -webkit-font-smoothing:none;image-rendering:pixelated;user-select:none;
+    padding:8px;min-height:100%;
+  }
+  h1{
+    font-size:20px;letter-spacing:2px;margin:4px 0 2px;color:var(--text-accent);
+    text-shadow:2px 2px 0 #000,0 0 8px #ffcc0066;
+  }
+  .subtitle{font-size:10px;color:var(--border-light);margin-bottom:8px;}
+  #game-container{
+    width:100%;max-width:760px;border:3px solid var(--border-dark);
+    background:var(--bg-mid);box-shadow:0 0 0 2px var(--border-light),0 8px 30px #000a;
+  }
+  canvas#stage{
+    image-rendering:pixelated;display:block;width:100%;height:auto;
+    background:#10101e;border-bottom:3px solid var(--border-dark);cursor:crosshair;
+  }
+  .hud-panel{
+    display:flex;gap:6px;padding:6px;flex-wrap:wrap;
+    border-bottom:2px solid var(--border-dark);background:var(--bg-dark);
+  }
+  .hud-item{
+    flex:1 1 90px;padding:4px 6px;border:1px solid var(--border-light);
+    background:var(--bg-light);font-size:11px;text-align:center;min-width:80px;
+  }
+  .hud-item b{color:var(--text-accent);}
+  .bar-wrap{height:9px;background:#000;border:1px solid var(--border-light);margin-top:3px;overflow:hidden;}
+  .bar{height:100%;width:0%;transition:width .08s linear;}
+  .bar.hp{background:var(--hp-bar);} .bar.xp{background:var(--xp-bar);}
+  .bar.rage{background:var(--rage-bar);} .bar.gate{background:#c0392b;}
+  .main-controls{display:flex;flex-wrap:wrap;}
+  .panel{flex:1 1 200px;padding:8px;border-right:2px solid var(--border-dark);background:var(--bg-mid);}
+  .panel:last-child{border-right:none;}
+  .panel-title{
+    text-align:center;font-size:11px;color:var(--text-accent);font-weight:bold;
+    border-bottom:1px dashed var(--border-light);padding-bottom:4px;margin-bottom:6px;letter-spacing:1px;
+  }
+  .btns{display:flex;flex-direction:column;gap:5px;}
+  .ui-button{
+    padding:6px 8px;background:var(--button-bg);color:var(--text-light);
+    border:1px solid var(--border-light);cursor:pointer;font-family:inherit;font-size:11px;
+    text-align:left;display:flex;justify-content:space-between;gap:6px;transition:background .1s;
+  }
+  .ui-button:hover:not(.disabled){background:var(--button-hover);}
+  .ui-button:active:not(.disabled){border-color:var(--text-accent);transform:translateY(1px);}
+  .ui-button.disabled{opacity:.45;cursor:not-allowed;}
+  .ui-button .cost{color:var(--gold);white-space:nowrap;}
+  .ui-button.selected{outline:2px solid var(--text-accent);background:var(--button-hover);}
+  .skill-button{position:relative;overflow:hidden;}
+  .cooldown-fill{
+    position:absolute;left:0;bottom:0;width:100%;background:#000c;height:0%;
+    pointer-events:none;transition:height .05s linear;
+  }
+  .key{display:inline-block;background:#000;border:1px solid var(--border-light);padding:0 4px;margin-right:4px;color:var(--text-accent);}
+  #siege-panel{display:none;}
+  #siege-panel.active{display:block;}
+  #log{
+    height:70px;overflow-y:auto;font-size:10px;line-height:1.5;padding:6px;
+    background:var(--bg-dark);border-top:2px solid var(--border-dark);color:#9fb0c8;
+  }
+  #log .gold{color:var(--gold);} #log .good{color:var(--xp-bar);} #log .bad{color:var(--hp-bar);}
+  .footer-row{display:flex;gap:6px;padding:6px;background:var(--bg-dark);border-top:2px solid var(--border-dark);flex-wrap:wrap;}
+  .footer-row .ui-button{flex:1;justify-content:center;}
+  #ascend-btn{background:#5e3a8c;} #ascend-btn:hover:not(.disabled){background:#7d4fb8;}
+  #siege-now-btn{background:#7a3a2a;} #siege-now-btn:hover:not(.disabled){background:#a85138;}
+  .banner{
+    position:fixed;top:18px;left:50%;transform:translateX(-50%);
+    background:#000d;border:2px solid var(--text-accent);color:var(--text-accent);
+    padding:10px 18px;font-size:14px;z-index:50;pointer-events:none;opacity:0;
+    transition:opacity .3s;text-align:center;
+  }
+  .banner.show{opacity:1;}
+  @keyframes bob{0%{transform:translateY(0)}50%{transform:translateY(-3px)}100%{transform:translateY(0)}}
+  @keyframes hitflash{0%{filter:brightness(1)}50%{filter:brightness(2.5)}100%{filter:brightness(1)}}
+  @media(max-width:560px){ .panel{flex-basis:100%;border-right:none;border-bottom:2px solid var(--border-dark);} }
+</style>
+</head>
+<body>
+  <h1>⚔ PIXEL CRAWLER ⚔</h1>
+  <div class="subtitle">an idle RPG · auto-fights for you · but reward the hands-on hero</div>
+
+  <div id="game-container">
+    <canvas id="stage" width="320" height="180"></canvas>
+
+    <!-- top HUD -->
+    <div class="hud-panel">
+      <div class="hud-item">STAGE <b id="hud-stage">1</b><div style="font-size:9px" id="hud-kills">0/10</div></div>
+      <div class="hud-item">LV <b id="hud-level">1</b><div class="bar-wrap"><div class="bar xp" id="xp-bar"></div></div></div>
+      <div class="hud-item">HP<div class="bar-wrap"><div class="bar hp" id="hp-bar"></div></div><div style="font-size:9px" id="hp-text">100/100</div></div>
+      <div class="hud-item">RAGE<div class="bar-wrap"><div class="bar rage" id="rage-bar"></div></div><div style="font-size:9px" id="rage-text">idle</div></div>
+      <div class="hud-item">GOLD <b class="gold" id="hud-gold">0</b></div>
+      <div class="hud-item">SOULS <b style="color:#b07be0" id="hud-souls">0</b></div>
+    </div>
+
+    <!-- controls -->
+    <div class="main-controls">
+      <div class="panel">
+        <div class="panel-title">⛏ UPGRADES</div>
+        <div class="btns" id="shop-buttons"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">✦ SKILLS</div>
+        <div class="btns" id="skill-buttons"></div>
+        <div style="font-size:9px;color:var(--border-light);margin-top:8px;text-align:center">
+          Click the monster to FOCUS<br>(build Rage → guaranteed crits)
+        </div>
+      </div>
+
+      <div class="panel" id="siege-panel">
+        <div class="panel-title">🏰 SIEGE — DEFEND THE GATE</div>
+        <div class="btns" id="tower-buttons"></div>
+        <button class="ui-button" id="ultimate-btn" style="margin-top:6px;background:#8c5e2a">
+          <span><span class="key">U</span>HERO ULTIMATE</span><span class="cost" id="ult-cd">ready</span>
+        </button>
+        <div style="font-size:9px;color:var(--border-light);margin-top:6px;text-align:center" id="siege-info">
+          Pick a tower, then click a glowing slot to build.
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-row">
+      <button class="ui-button" id="siege-now-btn"><span>🏰 START SIEGE</span></button>
+      <button class="ui-button" id="ascend-btn"><span>✨ ASCEND</span><span class="cost" id="ascend-gain">+0</span></button>
+      <button class="ui-button" id="reset-btn" style="flex:0 0 auto"><span>⟲ wipe save</span></button>
+    </div>
+
+    <div id="log"></div>
+  </div>
+
+  <div class="banner" id="banner"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   PIXEL CRAWLER
+   Integration of the 8-round team build (see groupchat.md).
+   - Mistral's locked BALANCE constants & state shape
+   - Groq's core loop / skills / siege logic (timing bug fixed:
+     real per-entity timers instead of `dt % interval`)
+   - Gemini's palette, UI conventions & pixel sprites
+   ============================================================ */
+
+/* ---------- BALANCE (locked by Mistral, R8) ---------- */
+const BALANCE = {
+  TICK: 1/60,                 // fixed timestep seconds
+  STAGE_SCALE: 1.18,          // monster power growth per stage
+  MONSTERS_PER_STAGE: 10,     // 10th is a boss
+  BOSS_HP_MULT: 7, BOSS_DMG_MULT: 1.6, BOSS_GOLD_MULT: 12,
+  MONSTER_HP_BASE: 14, MONSTER_DMG_BASE: 2, MONSTER_ATK_INTERVAL: 1.8,
+  GOLD_PER_STAGE: 6, XP_PER_STAGE: 7,
+  XP_BASE: 60, XP_GROWTH: 1.25,
+  HERO_ATKSPD_BASE: 1.0,      // attacks per second
+  SKILL_CD:   { powerStrike:5, heal:9, fireball:14 },   // seconds
+  SKILL_MULT: { powerStrike:4, heal:0.30, fireball:8 },
+  RAGE: { gainPerClick:12, max:100, critWindow:5, clickDmgMult:0.5 },
+  CRIT_MULT: 2.2,
+  UPGRADE: {
+    dmg:   {base:10,  growth:1.16, add:3,    label:"DMG"},
+    hp:    {base:12,  growth:1.15, add:14,   label:"MAX HP"},
+    crit:  {base:40,  growth:1.30, add:0.02, label:"CRIT %", max:0.6},
+    speed: {base:60,  growth:1.33, add:0.10, label:"ATK SPD", max:4},
+  },
+  OFFLINE_CAP_H: 12,
+  SIEGE: {
+    everyStages:5, gateHp:100, waveBase:8, wavePerStage:1.3,
+    enemyHpBase:18, enemySpeedBase:14, spawnGap:1.1,
+    reward:140, rewardPerStage:30, ultCd:8, ultDmg:60,
+    towers:{
+      arrow: {cost:40,  range:60, dmg:6,  rate:0.55, color:"#7ec8e3", label:"Arrow"},
+      cannon:{cost:90,  range:48, dmg:22, rate:1.6,  splash:18, color:"#e08a3c", label:"Cannon"},
+      frost: {cost:70,  range:54, dmg:3,  rate:0.8,  slow:0.45, color:"#9ad6ff", label:"Frost"},
+    }
+  },
+  ASCEND_STAGE_REQ:10,
+};
+
+/* ---------- Gemini's pixel sprites (R6) ---------- */
+const PALETTES = {
+  HERO:["#000000","#4a2c2a","#8b5e4a","#b49a8e","#345e6d","#5c8a9e","#8cbcd0","#8d0000","#c80000","#ff3333","#6b4f2c","#a07e4d","#d4b27f"],
+  SWORD:["#000000","#4a4a4a","#808080","#b0b0b0","#6b4f2c","#a07e4d","#d4b27f","#4e3d29","#7a5e3e"],
+  SLIME:["#000000","#3c6d3c","#5cb85c","#90d490","#e0e0e0"],
+};
+const SPRITES = {
+  HERO:[
+    "....0000....","...022220...","..02322320..",".0233223320.",".0233223320.",
+    ".0111111110.","04455555440.","045566665540","056666666650","056666666650",
+    "056666666650","078888888870","789999999987","789999999987","078888888870",".0777777770."],
+  SWORD:[
+    "......0.....",".....020....","....02220...","...0222220..","..022222220.",
+    ".02222222220",".02222222220",".01222222210",".01111111110","..088888880.",
+    "...077770...","....0440....","....0440....","....0550....","...055550...","..06666660.."],
+  SLIME:[
+    "....0000....","..01222210..",".0123333210.",".0233443320.",".0233443320.",
+    "012333333210","012333333210","012233332210",".0122222210.","..01111110.."],
+};
+// biome recolors for the slime base/shadow/highlight (indices 1,2,3)
+const BIOMES = [
+  {name:"Greenwood", slime:["#3c6d3c","#5cb85c","#90d490"], bg:"#13241a"},
+  {name:"Frost Caves", slime:["#3a5a8c","#5c8ad0","#9ac4ff"], bg:"#14203a"},
+  {name:"Ashlands",   slime:["#8c3a2a","#d06a3c","#ffb070"], bg:"#2a1614"},
+  {name:"Voidreach",  slime:["#5e2a8c","#9a4fd0","#d0a0ff"], bg:"#1c1430"},
+];
+
+/* ---------- drawSprite (Gemini, R6) ---------- */
+const cv = document.getElementById('stage');
+const ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+function drawSprite(grid, palette, x, y, scale, flip){
+  for(let r=0;r<grid.length;r++){
+    const row=grid[r];
+    for(let c=0;c<row.length;c++){
+      const ch=row[c];
+      if(ch==='.') continue;
+      ctx.fillStyle = palette[parseInt(ch,36)] || "#f0f";
+      const cx = flip ? (row.length-1-c) : c;
+      ctx.fillRect(Math.floor(x+cx*scale), Math.floor(y+r*scale), scale, scale);
+    }
+  }
+}
+function tintSwordForTier(tier){
+  const p=[...PALETTES.SWORD];
+  if(tier>=2){p[1]="#3a4a60";p[2]="#60708a";p[3]="#90a0c0";}
+  if(tier>=4){p[1]="#7a5a20";p[2]="#caa23a";p[3]="#ffe680";}
+  if(tier>=6){p[1]="#7a2030";p[2]="#d03a5a";p[3]="#ff90b0";}
+  if(tier>=8){p[1]="#205a4a";p[2]="#36d0a0";p[3]="#a0ffe0";}
+  return p;
+}
+
+/* ---------- STATE (Mistral shape, extended) ---------- */
+const SAVE_KEY='pixelCrawlerSave_v1';
+let state, siege, fx, sel = {tower:null};
+
+function freshState(){
+  return {
+    stage:1, killsThisStage:0, level:1, xp:0, gold:0,
+    baseDmg:10, maxHp:100, hp:100, critChance:0.10, atkSpeed:BALANCE.HERO_ATKSPD_BASE,
+    up:{dmg:0,hp:0,crit:0,speed:0},
+    rage:0, rageActive:false, rageTimer:0,
+    cd:{powerStrike:0,heal:0,fireball:0},
+    monster:null, mode:'crawl',
+    souls:0, soulMult:1, ascends:0,
+    bossLoot:null, lastSave:Date.now(), totalKills:0,
+    flags:{},
+  };
+}
+function freshSiege(){
+  return {active:false, gateHp:BALANCE.SIEGE.gateHp, gateMax:BALANCE.SIEGE.gateHp,
+    enemies:[], towers:[], slots:[], toSpawn:0, spawnTimer:0, wave:1, ultCd:0,
+    beams:[], result:null};
+}
+
+/* ---------- derived stats ---------- */
+function heroDmg(){ return Math.round((state.baseDmg + state.up.dmg*BALANCE.UPGRADE.dmg.add) ); }
+function weaponTier(){ return Math.min(9, 1 + Math.floor(state.up.dmg/4)); }
+function xpForLevel(lv){ return Math.floor(BALANCE.XP_BASE * Math.pow(BALANCE.XP_GROWTH, lv-1)); }
+function biome(){ return BIOMES[(state.stage-1) % BIOMES.length]; }
+
+/* ---------- monsters ---------- */
+function monsterScale(){ return Math.pow(BALANCE.STAGE_SCALE, state.stage-1); }
+function spawnMonster(){
+  const isBoss = state.killsThisStage === BALANCE.MONSTERS_PER_STAGE-1;
+  let hp = BALANCE.MONSTER_HP_BASE * monsterScale() * (1 + state.stage*0.15);
+  let dmg = BALANCE.MONSTER_DMG_BASE * monsterScale();
+  if(isBoss){ hp*=BALANCE.BOSS_HP_MULT; dmg*=BALANCE.BOSS_DMG_MULT; }
+  hp=Math.ceil(hp); dmg=Math.max(1,Math.ceil(dmg));
+  state.monster={hp,maxHp:hp,dmg,isBoss,atkTimer:BALANCE.MONSTER_ATK_INTERVAL,flash:0,x:228,hurt:0};
+}
+
+/* ---------- combat ---------- */
+function dealToMonster(amount, kind){
+  const m=state.monster; if(!m) return;
+  const crit = (kind!=='skill') && (state.rageActive || Math.random()<state.critChance);
+  let dmg = Math.round(amount * (crit?BALANCE.CRIT_MULT:1));
+  m.hp -= dmg; m.flash=0.12; m.hurt=0.15;
+  spawnFloat(m.x+24, 70, (crit?"✦":"")+dmg, crit?"#ffcc00":"#ffffff", crit?13:10);
+  if(m.hp<=0) killMonster();
+}
+function killMonster(){
+  const m=state.monster; state.totalKills++;
+  let gold = (BALANCE.GOLD_PER_STAGE*state.stage) * (m.isBoss?BALANCE.BOSS_GOLD_MULT:1) * state.soulMult;
+  let xp   = (BALANCE.XP_PER_STAGE*state.stage)   * (m.isBoss?6:1);
+  gold=Math.ceil(gold); xp=Math.ceil(xp);
+  state.gold+=gold; state.xp+=xp;
+  spawnFloat(m.x+8,40,"+"+gold+"g","#ffcc00",10);
+  while(state.xp>=xpForLevel(state.level)){ state.xp-=xpForLevel(state.level); levelUp(); }
+  if(m.isBoss){
+    log(`<span class="good">Boss of Stage ${state.stage} felled!</span> +${gold}g`);
+    // boss loot click mini-game
+    state.bossLoot={x:120,y:54,timer:3.2,grabbed:false};
+    state.stage++; state.killsThisStage=0;
+    checkAchievements();
+    if((state.stage-1)%BALANCE.SIEGE.everyStages===0) startSiege();
+  } else {
+    state.killsThisStage++;
+  }
+  state.monster=null;
+}
+function levelUp(){
+  state.level++;
+  state.maxHp += 8; state.hp = state.maxHp; state.baseDmg += 2;
+  spawnFloat(54,60,"LEVEL UP!","#2ecc71",12);
+  log(`<span class="good">Level ${state.level}!</span> Hero grows stronger.`);
+}
+
+/* ---------- manual skills (Mistral R5, dt-based) ---------- */
+function useSkill(name){
+  if(state.mode!=='crawl') return;
+  if(state.cd[name]>0 || !state.monster) return;
+  const mult=BALANCE.SKILL_MULT[name];
+  if(name==='powerStrike'){ dealToMonster(heroDmg()*mult,'skill'); spawnFloat(180,50,"POWER STRIKE","#ffd54a",11); }
+  else if(name==='fireball'){ dealToMonster(heroDmg()*mult,'skill'); state.monster&&(state.monster.atkTimer+=1); spawnFloat(180,50,"FIREBALL","#ff7043",11); }
+  else if(name==='heal'){ const h=Math.round(state.maxHp*mult); state.hp=Math.min(state.maxHp,state.hp+h); spawnFloat(54,50,"+"+h+" HP","#2ecc71",11); }
+  state.cd[name]=BALANCE.SKILL_CD[name];
+}
+function focusClick(){
+  if(!state.monster) return;
+  const R=BALANCE.RAGE;
+  state.rage=Math.min(R.max, state.rage+R.gainPerClick);
+  if(state.rage>=R.max && !state.rageActive){ state.rageActive=true; state.rageTimer=R.critWindow; log('<span class="good">RAGE! Guaranteed crits!</span>'); }
+  dealToMonster(heroDmg()*R.clickDmgMult,'click');
+}
+
+/* ---------- upgrades ---------- */
+function upgradeCost(key){ const u=BALANCE.UPGRADE[key]; return Math.floor(u.base*Math.pow(u.growth, state.up[key])); }
+function canMaxed(key){ const u=BALANCE.UPGRADE[key]; if(key==='crit') return state.critChance>=u.max-1e-9; if(key==='speed') return state.atkSpeed>=u.max-1e-9; return false; }
+function buyUpgrade(key){
+  if(canMaxed(key)) return;
+  const cost=upgradeCost(key); if(state.gold<cost) return;
+  state.gold-=cost; state.up[key]++;
+  const u=BALANCE.UPGRADE[key];
+  if(key==='hp'){ state.maxHp+=u.add; state.hp+=u.add; }
+  else if(key==='crit'){ state.critChance=Math.min(u.max, state.critChance+u.add); }
+  else if(key==='speed'){ state.atkSpeed=Math.min(u.max, state.atkSpeed+u.add); }
+  // dmg handled via heroDmg()
+  buildShop();
+}
+
+/* ---------- prestige ---------- */
+function ascendGain(){ return Math.floor(Math.pow(Math.max(0,state.stage-BALANCE.ASCEND_STAGE_REQ),0.8)) + (state.stage>=BALANCE.ASCEND_STAGE_REQ?1:0); }
+function ascend(){
+  const g=ascendGain(); if(g<=0){ banner("Reach stage "+BALANCE.ASCEND_STAGE_REQ+" to Ascend"); return; }
+  const souls=state.souls+g, ascends=state.ascends+1;
+  state=freshState(); state.souls=souls; state.ascends=ascends;
+  state.soulMult=1+souls*0.25;
+  banner("✨ ASCENDED! +"+g+" souls (x"+state.soulMult.toFixed(2)+" gold)");
+  log('<span class="good">Ascended! Permanent gold x'+state.soulMult.toFixed(2)+'</span>');
+  buildShop(); buildSkills();
+}
+
+/* ---------- SIEGE (Groq R7, hardened) ---------- */
+function startSiege(){
+  if(state.mode==='siege') return;
+  state.mode='siege'; siege=freshSiege();
+  const count=Math.round(BALANCE.SIEGE.waveBase + state.stage*BALANCE.SIEGE.wavePerStage);
+  siege.toSpawn=count; siege.wave=Math.ceil(state.stage/BALANCE.SIEGE.everyStages);
+  // build tower slots along the lane
+  siege.slots=[];
+  const laneY=110;
+  for(let i=0;i<6;i++){
+    const x=40+i*44;
+    siege.slots.push({x, y:laneY-26, tower:null});
+    siege.slots.push({x, y:laneY+22, tower:null});
+  }
+  document.getElementById('siege-panel').classList.add('active');
+  banner("🏰 SIEGE! Wave "+siege.wave+" — defend the gate!");
+  log('<span class="bad">A horde approaches the gate!</span> Build towers!');
+  buildTowerButtons();
+}
+function endSiege(win){
+  if(win){
+    const rw=Math.round(BALANCE.SIEGE.reward + state.stage*BALANCE.SIEGE.rewardPerStage)*state.soulMult;
+    state.gold+=Math.round(rw);
+    banner("🏆 Siege held! +"+Math.round(rw)+"g");
+    log('<span class="good">Gate held! Reward +'+Math.round(rw)+'g</span>');
+  } else {
+    const pen=Math.floor(state.gold*0.15);
+    state.gold-=pen;
+    banner("💥 Gate breached! -"+pen+"g");
+    log('<span class="bad">The gate was breached! Lost '+pen+'g</span>');
+  }
+  state.mode='crawl';
+  document.getElementById('siege-panel').classList.remove('active');
+  sel.tower=null;
+}
+function placeTower(slot){
+  if(!sel.tower || !siege) return;
+  if(slot.tower) return;
+  const def=BALANCE.SIEGE.towers[sel.tower];
+  if(state.gold<def.cost){ banner("Not enough gold"); return; }
+  state.gold-=def.cost;
+  slot.tower={type:sel.tower, cd:0};
+  buildTowerButtons();
+}
+function heroUltimate(){
+  if(!siege||!siege.active===false){} if(state.mode!=='siege'||siege.ultCd>0) return;
+  siege.enemies.forEach(e=>{ e.hp-=BALANCE.SIEGE.ultDmg; });
+  siege.beams.push({ult:true,life:0.3});
+  siege.ultCd=BALANCE.SIEGE.ultCd;
+  spawnFloat(160,90,"ULTIMATE!","#ffd54a",13);
+}
+function siegeTick(dt){
+  const S=BALANCE.SIEGE;
+  // spawn
+  if(siege.toSpawn>0){
+    siege.spawnTimer-=dt;
+    if(siege.spawnTimer<=0){
+      siege.spawnTimer=S.spawnGap;
+      const hp=Math.ceil(S.enemyHpBase*Math.pow(BALANCE.STAGE_SCALE,state.stage-1)*0.5*(1+siege.wave*0.2));
+      siege.enemies.push({x:312,y:110+(Math.random()*8-4),hp,maxHp:hp,
+        speed:S.enemySpeedBase*(1+siege.wave*0.05),slow:0,hurt:0});
+      siege.toSpawn--;
+    }
+  }
+  // move enemies toward gate (x=18)
+  for(let i=siege.enemies.length-1;i>=0;i--){
+    const e=siege.enemies[i];
+    const sp=e.speed*(e.slow>0?(1-S.towers.frost.slow):1);
+    e.x-=sp*dt; e.slow=Math.max(0,e.slow-dt); e.hurt=Math.max(0,e.hurt-dt);
+    if(e.x<=20){ siege.gateHp-=Math.ceil(e.maxHp*0.25)+2; siege.enemies.splice(i,1); }
+  }
+  // towers fire
+  siege.beams=siege.beams.filter(b=>{b.life-=dt;return b.life>0;});
+  siege.slots.forEach(slot=>{
+    if(!slot.tower) return;
+    const def=S.towers[slot.tower.type];
+    slot.tower.cd-=dt;
+    if(slot.tower.cd>0) return;
+    // nearest enemy in range
+    let target=null,best=1e9;
+    for(const e of siege.enemies){
+      const d=Math.hypot(e.x-slot.x,e.y-slot.y);
+      if(d<=def.range && e.x<best){best=e.x;target=e;}
+    }
+    if(target){
+      slot.tower.cd=def.rate;
+      target.hp-=def.dmg; target.hurt=0.1;
+      if(def.slow) target.slow=0.6;
+      siege.beams.push({x1:slot.x,y1:slot.y,x2:target.x,y2:target.y,life:0.12,color:def.color});
+      if(def.splash){
+        for(const e of siege.enemies){ if(e!==target && Math.hypot(e.x-target.x,e.y-target.y)<def.splash){ e.hp-=def.dmg*0.5; e.hurt=0.1; } }
+      }
+    }
+  });
+  siege.enemies=siege.enemies.filter(e=>e.hp>0);
+  if(siege.ultCd>0) siege.ultCd=Math.max(0,siege.ultCd-dt);
+  // resolve
+  if(siege.gateHp<=0){ siege.gateHp=0; endSiege(false); return; }
+  if(siege.toSpawn<=0 && siege.enemies.length===0){ endSiege(true); }
+}
+
+/* ---------- floating text fx ---------- */
+function spawnFloat(x,y,text,color,size){ fx.push({x,y,text,color,size:size||10,life:0.9}); }
+
+/* ---------- main simulation tick (fixed dt) ---------- */
+function tick(dt){
+  // timers that always run
+  for(const k in state.cd) state.cd[k]=Math.max(0,state.cd[k]-dt);
+  if(state.rageActive){ state.rageTimer-=dt; if(state.rageTimer<=0){ state.rageActive=false; state.rage=0; } }
+  if(state.bossLoot){ state.bossLoot.timer-=dt; if(state.bossLoot.timer<=0) state.bossLoot=null; }
+
+  if(state.mode==='siege'){ siegeTick(dt); }
+  else {
+    if(!state.monster) spawnMonster();
+    const m=state.monster;
+    if(m){
+      if(m.flash>0)m.flash-=dt; if(m.hurt>0)m.hurt-=dt;
+      // hero auto-attack
+      state._atk=(state._atk||0)-dt;
+      if(state._atk<=0){ state._atk=1/state.atkSpeed; dealToMonster(heroDmg(),'auto'); }
+      // monster attack
+      if(state.monster){
+        m.atkTimer-=dt;
+        if(m.atkTimer<=0){ m.atkTimer=BALANCE.MONSTER_ATK_INTERVAL; state.hp-=m.dmg; spawnFloat(48,72,"-"+m.dmg,"#ff5252",10);
+          if(state.hp<=0){ state.hp=state.maxHp*0.5; state.gold=Math.floor(state.gold*0.9); spawnFloat(54,60,"DEFEATED","#ff5252",12); log('<span class="bad">Hero fell! Recovered, lost 10% gold.</span>'); }
+        }
+      }
+    }
+  }
+  // fx
+  for(let i=fx.length-1;i>=0;i--){ fx[i].life-=dt; fx[i].y-=dt*18; if(fx[i].life<=0) fx.splice(i,1); }
+}
+
+/* ---------- render ---------- */
+let T=0;
+function render(){
+  const b=biome();
+  ctx.fillStyle = state.mode==='siege' ? "#16121e" : (b.bg||"#13241a");
+  ctx.fillRect(0,0,320,180);
+  // ground
+  ctx.fillStyle="#0c0c16"; ctx.fillRect(0,150,320,30);
+  ctx.fillStyle="#ffffff10"; for(let i=0;i<40;i++){ ctx.fillRect((i*53+ (Math.floor(T*8)%53))%320, (i*37)%120+8, 1,1); }
+
+  if(state.mode==='siege'){ renderSiege(); }
+  else { renderCrawl(); }
+
+  // floating numbers
+  for(const f of fx){
+    ctx.globalAlpha=Math.max(0,Math.min(1,f.life)); ctx.fillStyle=f.color;
+    ctx.font="bold "+f.size+"px 'Courier New',monospace"; ctx.textAlign="center";
+    ctx.fillText(f.text, f.x, f.y);
+  }
+  ctx.globalAlpha=1;
+}
+function renderCrawl(){
+  // hero (idle bob + attack lunge)
+  const bob=Math.round(Math.sin(T*4)*2);
+  const lunge = state._atk!==undefined ? Math.max(0,(1/state.atkSpeed - state._atk)) : 0;
+  const heroX=40 + (lunge<0.08?8:0);
+  drawSprite(SPRITES.HERO, PALETTES.HERO, heroX, 96+bob, 3);
+  // equipped sword next to hero, tinted by tier
+  drawSprite(SPRITES.SWORD, tintSwordForTier(weaponTier()), heroX+36, 92+bob, 2);
+
+  // monster
+  const m=state.monster;
+  if(m){
+    const pal=[...PALETTES.SLIME]; const bs=biome().slime;
+    pal[1]=bs[0]; pal[2]=bs[1]; pal[3]=bs[2];
+    if(m.flash>0){ pal[1]="#fff";pal[2]="#fff";pal[3]="#fff"; }
+    const scale=m.isBoss?5:3;
+    const mb=Math.round(Math.sin(T*5)*2);
+    const mx=m.x - (m.hurt>0?Math.round((Math.random()*4-2)):0);
+    drawSprite(SPRITES.SLIME, pal, mx, (m.isBoss?78:104)+mb, scale);
+    // monster hp bar
+    const w=m.isBoss?80:50, hx=m.isBoss?200:228;
+    ctx.fillStyle="#000"; ctx.fillRect(hx,68,w,5);
+    ctx.fillStyle=m.isBoss?"#ff3b3b":"#ff7043"; ctx.fillRect(hx,68,w*Math.max(0,m.hp/m.maxHp),5);
+    ctx.fillStyle="#fff"; ctx.font="7px 'Courier New'"; ctx.textAlign="left";
+    ctx.fillText((m.isBoss?"BOSS ":"")+biome().name, hx, 64);
+  }
+  // boss loot prompt
+  if(state.bossLoot){
+    const L=state.bossLoot;
+    ctx.fillStyle="#ffcc00"; ctx.fillRect(L.x-1,L.y-1,12,12);
+    ctx.fillStyle="#000"; ctx.fillRect(L.x,L.y,10,10);
+    ctx.fillStyle="#ffcc00"; ctx.font="7px 'Courier New'"; ctx.textAlign="center";
+    ctx.fillText("CLICK LOOT! "+L.timer.toFixed(1), L.x+5, L.y-4);
+  }
+  // rage glow
+  if(state.rageActive){ ctx.strokeStyle="#e67e22"; ctx.lineWidth=2; ctx.strokeRect(2,2,316,176); }
+}
+function renderSiege(){
+  // lane
+  ctx.fillStyle="#241c14"; ctx.fillRect(0,100,320,22);
+  ctx.fillStyle="#1a140e"; for(let x=0;x<320;x+=16) ctx.fillRect(x,109,8,3);
+  // gate
+  ctx.fillStyle="#6a5030"; ctx.fillRect(6,80,16,62);
+  ctx.fillStyle="#3a2c1a"; ctx.fillRect(8,84,12,54);
+  ctx.fillStyle="#000"; ctx.fillRect(0,76,28,4);
+  // gate hp bar
+  ctx.fillStyle="#000"; ctx.fillRect(34,12,140,8);
+  ctx.fillStyle="#c0392b"; ctx.fillRect(34,12,140*Math.max(0,siege.gateHp/siege.gateMax),8);
+  ctx.fillStyle="#fff"; ctx.font="8px 'Courier New'"; ctx.textAlign="left";
+  ctx.fillText("GATE "+Math.max(0,Math.ceil(siege.gateHp))+"  WAVE "+siege.wave+"  LEFT "+(siege.enemies.length+siege.toSpawn), 34, 30);
+  // slots
+  siege.slots.forEach(s=>{
+    if(s.tower){
+      const def=BALANCE.SIEGE.towers[s.tower.type];
+      ctx.fillStyle=def.color; ctx.fillRect(s.x-5,s.y-5,10,10);
+      ctx.fillStyle="#000"; ctx.fillRect(s.x-2,s.y-2,4,4);
+    } else if(sel.tower){
+      ctx.strokeStyle="#ffcc0080"; ctx.setLineDash([2,2]); ctx.strokeRect(s.x-5,s.y-5,10,10); ctx.setLineDash([]);
+    } else {
+      ctx.fillStyle="#ffffff18"; ctx.fillRect(s.x-4,s.y-4,8,8);
+    }
+  });
+  // beams
+  siege.beams.forEach(bm=>{
+    if(bm.ult){ ctx.fillStyle="#ffd54a40"; ctx.fillRect(0,90,320,40); return; }
+    ctx.strokeStyle=bm.color; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(bm.x1,bm.y1); ctx.lineTo(bm.x2,bm.y2); ctx.stroke();
+  });
+  // enemies
+  const pal=[...PALETTES.SLIME]; pal[1]="#7a2a3a";pal[2]="#c0392b";pal[3]="#ff8a8a";
+  siege.enemies.forEach(e=>{
+    const p=e.hurt>0?["#000","#fff","#fff","#fff","#fff"]:pal;
+    drawSprite(SPRITES.SLIME, e.slow>0?["#000","#3a5a8c","#5c8ad0","#9ac4ff","#fff"]:p, e.x-12, e.y-6, 2);
+    ctx.fillStyle="#000"; ctx.fillRect(e.x-12,e.y-10,20,2);
+    ctx.fillStyle="#ff5252"; ctx.fillRect(e.x-12,e.y-10,20*Math.max(0,e.hp/e.maxHp),2);
+  });
+  // hero stands by the gate
+  drawSprite(SPRITES.HERO, PALETTES.HERO, 22, 96, 2);
+}
+
+/* ---------- HUD/DOM sync ---------- */
+const $=id=>document.getElementById(id);
+function pct(a,b){ return Math.max(0,Math.min(100,(a/b)*100))+'%'; }
+function syncHUD(){
+  $('hud-stage').textContent=state.stage;
+  $('hud-kills').textContent=state.killsThisStage+"/"+BALANCE.MONSTERS_PER_STAGE;
+  $('hud-level').textContent=state.level;
+  $('xp-bar').style.width=pct(state.xp,xpForLevel(state.level));
+  $('hp-bar').style.width=pct(state.hp,state.maxHp);
+  $('hp-text').textContent=Math.ceil(state.hp)+"/"+state.maxHp;
+  $('rage-bar').style.width=pct(state.rage,BALANCE.RAGE.max);
+  $('rage-text').textContent=state.rageActive?("CRIT "+state.rageTimer.toFixed(1)+"s"):(state.rage>=BALANCE.RAGE.max?"FULL":Math.round(state.rage)+"%");
+  $('hud-gold').textContent=Math.floor(state.gold);
+  $('hud-souls').textContent=state.souls;
+  $('ascend-gain').textContent="+"+ascendGain();
+  // skill cooldown overlays
+  for(const k in state.cd){
+    const el=$('cdfill-'+k); if(el){ const max=BALANCE.SKILL_CD[k]; el.style.height=(state.cd[k]/max*100)+'%'; }
+    const btn=$('skill-'+k); if(btn) btn.classList.toggle('disabled', state.cd[k]>0);
+  }
+  // shop affordability
+  for(const key in BALANCE.UPGRADE){
+    const btn=$('buy-'+key); if(!btn) continue;
+    const maxed=canMaxed(key);
+    btn.classList.toggle('disabled', maxed || state.gold<upgradeCost(key));
+  }
+  // siege ult
+  if(state.mode==='siege'){ $('ult-cd').textContent=siege.ultCd>0?siege.ultCd.toFixed(1)+"s":"ready";
+    $('ultimate-btn').classList.toggle('disabled',siege.ultCd>0);
+    for(const t in BALANCE.SIEGE.towers){ const tb=$('tower-'+t); if(tb) tb.classList.toggle('disabled',state.gold<BALANCE.SIEGE.towers[t].cost); }
+  }
+  $('siege-now-btn').classList.toggle('disabled', state.mode==='siege');
+  $('ascend-btn').classList.toggle('disabled', ascendGain()<=0);
+}
+
+/* ---------- build dynamic buttons ---------- */
+function buildShop(){
+  const wrap=$('shop-buttons'); wrap.innerHTML='';
+  for(const key in BALANCE.UPGRADE){
+    const u=BALANCE.UPGRADE[key];
+    const btn=document.createElement('button'); btn.className='ui-button'; btn.id='buy-'+key;
+    const lvl = key==='crit'?(Math.round(state.critChance*100)+'%') : key==='speed'?(state.atkSpeed.toFixed(2)) : (key==='dmg'?heroDmg():state.maxHp);
+    const right = canMaxed(key)?'<span class="cost">MAX</span>':'<span class="cost">'+upgradeCost(key)+'g</span>';
+    btn.innerHTML='<span>'+u.label+' ('+lvl+')</span>'+right;
+    btn.onclick=()=>buyUpgrade(key);
+    wrap.appendChild(btn);
+  }
+}
+function buildSkills(){
+  const wrap=$('skill-buttons'); wrap.innerHTML='';
+  const meta={powerStrike:{k:'1',n:'Power Strike'},heal:{k:'2',n:'Heal'},fireball:{k:'3',n:'Fireball'}};
+  for(const key in meta){
+    const btn=document.createElement('button'); btn.className='ui-button skill-button'; btn.id='skill-'+key;
+    btn.innerHTML='<span><span class="key">'+meta[key].k+'</span>'+meta[key].n+'</span><span class="cost">'+BALANCE.SKILL_CD[key]+'s</span><div class="cooldown-fill" id="cdfill-'+key+'"></div>';
+    btn.onclick=()=>useSkill(key);
+    wrap.appendChild(btn);
+  }
+}
+function buildTowerButtons(){
+  const wrap=$('tower-buttons'); wrap.innerHTML='';
+  for(const t in BALANCE.SIEGE.towers){
+    const def=BALANCE.SIEGE.towers[t];
+    const btn=document.createElement('button'); btn.className='ui-button'; btn.id='tower-'+t;
+    btn.innerHTML='<span>'+def.label+'</span><span class="cost">'+def.cost+'g</span>';
+    btn.onclick=()=>{ sel.tower=(sel.tower===t?null:t); document.querySelectorAll('#tower-buttons .ui-button').forEach(x=>x.classList.remove('selected')); if(sel.tower) btn.classList.add('selected'); };
+    wrap.appendChild(btn);
+  }
+}
+
+/* ---------- input ---------- */
+cv.addEventListener('click', ev=>{
+  const rect=cv.getBoundingClientRect();
+  const x=(ev.clientX-rect.left)/rect.width*320;
+  const y=(ev.clientY-rect.top)/rect.height*180;
+  if(state.mode==='siege'){
+    // place tower on nearest empty slot near click
+    let near=null,bd=18;
+    siege.slots.forEach(s=>{ const d=Math.hypot(s.x-x,s.y-y); if(d<bd){bd=d;near=s;} });
+    if(near) placeTower(near);
+    return;
+  }
+  // boss loot grab
+  if(state.bossLoot){ const L=state.bossLoot; if(x>=L.x-6&&x<=L.x+16&&y>=L.y-6&&y<=L.y+16){
+    const bonus=Math.ceil(BALANCE.GOLD_PER_STAGE*state.stage*8*state.soulMult); state.gold+=bonus;
+    spawnFloat(L.x,L.y,"+"+bonus+"g LOOT!","#ffd54a",12); state.bossLoot=null; log('<span class="gold">Grabbed boss loot! +'+bonus+'g</span>'); return; } }
+  // otherwise focus-attack the monster
+  focusClick();
+});
+window.addEventListener('keydown', e=>{
+  if(e.key==='1') useSkill('powerStrike');
+  else if(e.key==='2') useSkill('heal');
+  else if(e.key==='3') useSkill('fireball');
+  else if(e.key.toLowerCase()==='u' && state.mode==='siege') heroUltimate();
+});
+$('ultimate-btn').onclick=heroUltimate;
+$('siege-now-btn').onclick=()=>startSiege();
+$('ascend-btn').onclick=ascend;
+$('reset-btn').onclick=()=>{ if(confirm('Wipe save and restart?')){ localStorage.removeItem(SAVE_KEY); state=freshState(); siege=freshSiege(); fx=[]; buildShop(); buildSkills(); document.getElementById('siege-panel').classList.remove('active'); banner('Save wiped'); } };
+
+/* ---------- log + banner ---------- */
+function log(html){ const el=$('log'); const d=document.createElement('div'); d.innerHTML=html; el.appendChild(d); while(el.childNodes.length>40) el.removeChild(el.firstChild); el.scrollTop=el.scrollHeight; }
+let bannerTimer=null;
+function banner(text){ const el=$('banner'); el.textContent=text; el.classList.add('show'); clearTimeout(bannerTimer); bannerTimer=setTimeout(()=>el.classList.remove('show'),1800); }
+function checkAchievements(){
+  const f=state.flags;
+  if(state.stage>=5&&!f.s5){f.s5=1;banner("🏅 Reached Stage 5!");}
+  if(state.stage>=BALANCE.ASCEND_STAGE_REQ&&!f.s10){f.s10=1;banner("🏅 Ascension unlocked!");}
+}
+
+/* ---------- save / load / offline ---------- */
+function save(){ state.lastSave=Date.now(); try{ localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }catch(e){} }
+function load(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY); if(!raw) return false;
+    const p=JSON.parse(raw); const base=freshState();
+    state=Object.assign(base,p); state.cd=Object.assign({powerStrike:0,heal:0,fireball:0},p.cd||{});
+    state.up=Object.assign({dmg:0,hp:0,crit:0,speed:0},p.up||{});
+    state.mode='crawl'; state.monster=null; state.rageActive=false; state.rage=0;
+    state.soulMult=1+(state.souls||0)*0.25;
+    applyOffline(Date.now()-(p.lastSave||Date.now()));
+    return true;
+  }catch(e){ return false; }
+}
+function applyOffline(ms){
+  const secs=Math.min(ms/1000, BALANCE.OFFLINE_CAP_H*3600);
+  if(secs<30) return;
+  // fast approximation: estimate kills/sec from dps vs avg monster hp
+  const dps=heroDmg()*state.atkSpeed*(1+state.critChance*(BALANCE.CRIT_MULT-1));
+  const avgHp=BALANCE.MONSTER_HP_BASE*monsterScale()*(1+state.stage*0.15)*1.4;
+  const kps=Math.max(0.02, Math.min(3, dps/avgHp));
+  const kills=Math.floor(kps*secs);
+  const gold=Math.ceil(kills*BALANCE.GOLD_PER_STAGE*state.stage*state.soulMult);
+  state.gold+=gold; state.totalKills+=kills;
+  if(gold>0){ const mins=Math.floor(secs/60); banner("⏳ Welcome back! "+mins+"m idle → +"+gold+"g"); log('<span class="gold">Offline '+mins+'m: +'+gold+'g ('+kills+' kills)</span>'); }
+}
+
+/* ---------- boot ---------- */
+state=freshState(); siege=freshSiege(); fx=[];
+const loaded=load();
+buildShop(); buildSkills(); buildTowerButtons();
+log('<span class="good">Pixel Crawler ready.</span> The hero fights on its own — but click the monster, fire skills (1/2/3) and survive sieges to climb faster.');
+if(!loaded) banner("Welcome to Pixel Crawler!");
+
+// fixed-timestep loop with accumulator (fixes the prototype's dt%interval bug)
+let last=performance.now(), acc=0, saveAcc=0;
+function frame(now){
+  let dtMs=now-last; last=now; if(dtMs>250) dtMs=250; // clamp tab-hiccups
+  acc+=dtMs/1000; saveAcc+=dtMs/1000; T+=dtMs/1000;
+  let steps=0;
+  while(acc>=BALANCE.TICK && steps<8){ tick(BALANCE.TICK); acc-=BALANCE.TICK; steps++; }
+  if(acc>BALANCE.TICK*8) acc=0;
+  render(); syncHUD();
+  if(saveAcc>=5){ saveAcc=0; save(); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.addEventListener('beforeunload', save);
+
+/* expose for automated testing (Playwright) */
+window.PC={get state(){return state;},get siege(){return siege;},BALANCE,
+  useSkill,focusClick,buyUpgrade,startSiege,placeTower,heroUltimate,ascend,
+  upgradeCost,heroDmg,tick:(n)=>{for(let i=0;i<n;i++)tick(BALANCE.TICK);},
+  spawnMonster,killMonster, sel};
+</script>
+</body>
+</html>
