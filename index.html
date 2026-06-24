@@ -97,7 +97,7 @@
   @media (max-width: 560px) { .toolbar { grid-template-columns: 1fr; } }
 
   .field { display: flex; flex-direction: column; gap: 6px; }
-  .field label { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+  .field label { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: #aab6d4; }
   input[type="text"], select {
     background: var(--bg-2);
     border: 1px solid var(--line);
@@ -410,22 +410,39 @@ const DEFAULT_WEIGHTS = {
 };
 let weights = { ...DEFAULT_WEIGHTS };
 
+// ---- Tunable scoring config (kept as named constants, no magic numbers) ----
+// Tier cutoffs: a score >= cutoff earns that tier (checked high → low).
+const TIERS = [
+  { tier: "S", min: 90 },
+  { tier: "A", min: 80 },
+  { tier: "B", min: 70 },
+  { tier: "C", min: 60 },
+  { tier: "D", min: 50 },
+  { tier: "F", min: 0 },
+];
+// Points each access type contributes to the derived availability score.
+const ACCESS_POINTS = { free: 45, open: 40, paid: 25 };
+// Context-score scale (log10): tokens at MIN → 0, at MAX → 100.
+const CTX_MIN_TOKENS = 1000;
+const CTX_MAX_TOKENS = 2000000;
+
 // ---- Helpers ----
 const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
 
-// Map a context window (tokens) to a 0–100 score (log scale, 1k→0, 2M→100).
+// Map a context window (tokens) to a 0–100 score (log scale).
 function contextScore(tokens) {
-  if (!tokens || tokens <= 1000) return 0;
-  const s = (Math.log10(tokens) - 3) / (Math.log10(2000000) - 3) * 100;
+  if (!tokens || isNaN(tokens) || tokens <= CTX_MIN_TOKENS) return 0;
+  const s = (Math.log10(tokens) - Math.log10(CTX_MIN_TOKENS)) /
+            (Math.log10(CTX_MAX_TOKENS) - Math.log10(CTX_MIN_TOKENS)) * 100;
   return clamp(Math.round(s));
 }
 
 // Availability score derived from access flags.
 function availabilityScore(m) {
   let s = 0;
-  if (m.free) s += 45;
-  if (m.open) s += 40;
-  if (m.paid) s += 25;
+  if (m.free) s += ACCESS_POINTS.free;
+  if (m.open) s += ACCESS_POINTS.open;
+  if (m.paid) s += ACCESS_POINTS.paid;
   return clamp(s);
 }
 
@@ -461,9 +478,14 @@ let prevOrder = []; // for rank-change deltas & FLIP animation
 
 // ---- Core scoring ----
 function normalizedWeights() {
-  const total = FACTORS.reduce((s, f) => s + (weights[f.key] || 0), 0) || 1;
+  const total = FACTORS.reduce((s, f) => s + (weights[f.key] || 0), 0);
   const out = {};
-  FACTORS.forEach(f => out[f.key] = (weights[f.key] || 0) / total);
+  if (total === 0) {
+    // All weights zeroed: fall back to equal weighting so scores stay meaningful.
+    FACTORS.forEach(f => out[f.key] = 1 / FACTORS.length);
+  } else {
+    FACTORS.forEach(f => out[f.key] = (weights[f.key] || 0) / total);
+  }
   return out;
 }
 
@@ -489,12 +511,7 @@ function finalScore(m) {
 }
 
 function tierFor(score) {
-  if (score >= 90) return "S";
-  if (score >= 80) return "A";
-  if (score >= 70) return "B";
-  if (score >= 60) return "C";
-  if (score >= 50) return "D";
-  return "F";
+  return (TIERS.find(t => score >= t.min) || TIERS[TIERS.length - 1]).tier;
 }
 
 function scoreColor(score) {
@@ -642,7 +659,7 @@ function updateStats(ranked) {
 }
 
 function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, c => (
+  return String(str ?? "").replace(/[&<>"']/g, c => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
   ));
 }
@@ -655,7 +672,7 @@ function buildWeights() {
     const row = document.createElement("div");
     row.className = "wrow";
     row.innerHTML = `
-      <label title="${f.desc}">${f.label} <b id="wv_${f.key}">${weights[f.key]}</b></label>
+      <label title="${f.desc}">${f.label} <b id="wv_${f.key}">${weights[f.key]}</b> <span id="wp_${f.key}" style="color:var(--accent)"></span></label>
       <input type="range" min="0" max="40" step="1" value="${weights[f.key]}" data-key="${f.key}" />
     `;
     grid.appendChild(row);
@@ -675,11 +692,18 @@ function buildWeights() {
 function updateWeightSum() {
   const total = FACTORS.reduce((s, f) => s + (weights[f.key] || 0), 0);
   const el = document.getElementById("weightSum");
+  // Show each factor's effective (normalized) share so the math is transparent.
+  FACTORS.forEach(f => {
+    const span = document.getElementById("wp_" + f.key);
+    if (!span) return;
+    const pct = total === 0 ? (100 / FACTORS.length) : (weights[f.key] / total * 100);
+    span.textContent = "(" + pct.toFixed(0) + "%)";
+  });
   if (total === 0) {
-    el.textContent = "⚠ All weights are zero — set at least one factor above 0.";
+    el.textContent = "⚠ All weights are zero — using equal weighting until you raise a factor.";
     el.className = "sum-warn";
   } else {
-    el.textContent = `Raw total: ${total} (auto-normalized to 100% for scoring).`;
+    el.textContent = `Raw total: ${total} (each factor's effective share shown as % above; normalized to 100%).`;
     el.className = "sum-ok";
   }
 }
@@ -717,7 +741,7 @@ function openEdit(id) {
       </div>`).join("")}
     <div class="erow">
       <label>Max context window (tokens) <b id="lbl_ctx">${m.ctxTokens.toLocaleString()}</b></label>
-      <input type="text" id="f_ctx" value="${m.ctxTokens}" oninput="(function(v){var n=parseInt(v.replace(/[^0-9]/g,''))||0;document.getElementById('lbl_ctx').textContent=n.toLocaleString();})(this.value)"/>
+      <input type="text" id="f_ctx" inputmode="numeric" value="${m.ctxTokens}" oninput="(function(v){var n=parseInt(v.replace(/[^0-9]/g,''))||0;document.getElementById('lbl_ctx').textContent=n.toLocaleString();})(this.value)"/>
     </div>
     <div class="erow">
       <label style="justify-content:flex-start; gap:18px;">
@@ -738,14 +762,22 @@ function closeEdit() {
 function saveModel() {
   const name = document.getElementById("f_name").value.trim();
   if (!name) { toast("Please enter a model name."); return; }
+  // Reject duplicate name+vendor (unless it's the model currently being edited).
+  const vendorVal = document.getElementById("f_vendor").value.trim() || "Unknown";
+  const dup = MODELS.find(m => m.id !== editingId &&
+    m.name.toLowerCase() === name.toLowerCase() &&
+    m.vendor.toLowerCase() === vendorVal.toLowerCase());
+  if (dup) { toast("A model with that name and vendor already exists."); return; }
+
+  const num = id => clamp(Number(document.getElementById(id).value) || 0, 0, 100);
   const data = {
     name,
-    vendor: document.getElementById("f_vendor").value.trim() || "Unknown",
-    reasoning: Number(document.getElementById("f_reasoning").value),
-    coding: Number(document.getElementById("f_coding").value),
-    speed: Number(document.getElementById("f_speed").value),
-    cost: Number(document.getElementById("f_cost").value),
-    reliability: Number(document.getElementById("f_reliability").value),
+    vendor: vendorVal,
+    reasoning: num("f_reasoning"),
+    coding: num("f_coding"),
+    speed: num("f_speed"),
+    cost: num("f_cost"),
+    reliability: num("f_reliability"),
     ctxTokens: parseInt(String(document.getElementById("f_ctx").value).replace(/[^0-9]/g, "")) || 0,
     free: document.getElementById("f_free").checked,
     open: document.getElementById("f_open").checked,
@@ -754,6 +786,7 @@ function saveModel() {
 
   if (editingId === null) {
     MODELS.push({ id: nextId++, ...data });
+    prevOrder = []; // structural change: don't show spurious rank deltas
     toast("Model added — rankings recalculated.");
   } else {
     const m = MODELS.find(x => x.id === editingId);
@@ -762,12 +795,14 @@ function saveModel() {
   }
   closeEdit();
   render(true);
+  refreshCompareBar(); // keep compare chips in sync with edited name/vendor
 }
 
 function deleteModel() {
   if (editingId === null) return;
   MODELS = MODELS.filter(x => x.id !== editingId);
   compareSet.delete(editingId);
+  prevOrder = []; // structural change: don't show spurious rank deltas
   closeEdit();
   refreshCompareBar();
   render(true);
@@ -785,14 +820,21 @@ function toggleCompareMode() {
 }
 
 function refreshCompareBar() {
+  // Drop any ids whose models were deleted, so the bar never shows stale entries.
+  [...compareSet].forEach(id => { if (!MODELS.some(m => m.id === id)) compareSet.delete(id); });
   const bar = document.getElementById("compareBar");
-  bar.classList.toggle("show", compareMode && compareSet.size > 0);
+  // Keep the bar visible whenever compare mode is on, so its purpose is discoverable.
+  bar.classList.toggle("show", compareMode);
   document.getElementById("cmpCount").textContent = compareSet.size;
   const chips = document.getElementById("compareChips");
-  chips.innerHTML = [...compareSet].map(id => {
-    const m = MODELS.find(x => x.id === id);
-    return m ? `<span class="chip">${escapeHtml(m.name)}</span>` : "";
-  }).join("");
+  if (compareSet.size === 0) {
+    chips.innerHTML = `<span style="color:var(--muted);font-size:12.5px">Tick “Compare” on 2+ models to see them side by side.</span>`;
+  } else {
+    chips.innerHTML = [...compareSet].map(id => {
+      const m = MODELS.find(x => x.id === id);
+      return m ? `<span class="chip">${escapeHtml(m.name)}</span>` : "";
+    }).join("");
+  }
 }
 
 function openCompare() {
@@ -848,7 +890,11 @@ function toast(msg) {
 }
 
 // ---- Event wiring ----
-document.getElementById("search").addEventListener("input", () => render(true));
+function debounce(fn, ms) {
+  let t;
+  return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+}
+document.getElementById("search").addEventListener("input", debounce(() => render(true), 120));
 document.getElementById("sortBy").addEventListener("change", () => render(true));
 document.getElementById("filterType").addEventListener("change", () => render(true));
 document.getElementById("addModel").addEventListener("click", () => openEdit(null));
