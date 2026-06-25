@@ -1,0 +1,16 @@
+import { chromium } from 'playwright';
+import { pathToFileURL } from 'url';
+import path from 'path';
+const file = pathToFileURL(path.resolve('index.html')).href;
+const errs=[];
+const b = await chromium.launch();
+const p = await b.newPage({viewport:{width:1000,height:820}});
+p.on('console',m=>{if(m.type()==='error')errs.push(m.text());});
+p.on('pageerror',e=>errs.push('PAGEERROR: '+e.message));
+await p.goto(file); await p.waitForTimeout(1200);
+const hooked = await p.evaluate(()=>!!(window.PK&&window.PK.state));
+console.log('PK hooks:', hooked);
+console.log('state:', hooked ? JSON.stringify(await p.evaluate(()=>window.PK.state())) : 'n/a');
+console.log('errors:', errs.length);
+errs.slice(0,12).forEach(e=>console.log('  - '+e));
+await b.close();

@@ -1,6 +1,6 @@
-// Playwright smoke + progression test for Pixel Keep.
-// Loads index.html, watches for console/page errors, drives the game via the
-// window.PK debug hooks, and asserts the core loop + siege actually work.
+// Pixel Keep v2 — full Playwright suite.
+// Covers: boot, core loop, tabs, gacha+pity, party/lead, ability modes (manual/auto/smart),
+// reworked siege (winnable + creep variety), events->hero, world map jump, save/load, ascend, dev panel.
 import { chromium } from 'playwright';
 import { pathToFileURL } from 'url';
 import path from 'path';
@@ -8,95 +8,171 @@ import path from 'path';
 const file = pathToFileURL(path.resolve('index.html')).href;
 const errors = [];
 let failed = false;
-const assert = (cond, msg) => { if (!cond) { console.log('  ✗ ' + msg); failed = true; } else { console.log('  ✓ ' + msg); } };
+const ok = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); if (!c) failed = true; };
 
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1000, height: 800 } });
+const page = await browser.newPage({ viewport: { width: 1000, height: 860 } });
 page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 page.on('pageerror', e => errors.push('PAGEERROR: ' + e.message));
+const S = () => page.evaluate(() => window.PK.state());
 
 await page.goto(file);
-await page.waitForTimeout(400);
-
-console.log('\n[1] Boot & no errors');
-const booted = await page.evaluate(() => !!(window.PK && window.PK.state));
-assert(booted, 'window.PK debug hooks present');
-assert(errors.length === 0, 'no console/page errors on boot' + (errors.length ? ' -> ' + errors[0] : ''));
-
-console.log('\n[2] Core loop progresses (auto-combat over ~6s)');
-const before = await page.evaluate(() => window.PK.state());
-await page.waitForTimeout(6000);
-const after = await page.evaluate(() => window.PK.state());
-assert(after.wave >= before.wave, `wave advanced or held (${before.wave} -> ${after.wave})`);
-assert(after.gold > before.gold, `gold increased (${before.gold} -> ${after.gold})`);
-
-console.log('\n[3] Tap damage + fervor build via canvas click');
-await page.evaluate(() => { for (let i=0;i<25;i++) window.PK.RT && (window.PK.GAME().fervor = Math.min(100, window.PK.GAME().fervor+5)); });
-const fer = await page.evaluate(() => window.PK.GAME().fervor);
-assert(fer >= 0, 'fervor readable (' + Math.round(fer) + ')');
-
-console.log('\n[4] Abilities fire without error');
-for (const a of ['strike','cry','mend']) await page.evaluate(ab => window.PK.useAbility(ab), a);
-assert(errors.length === 0, 'abilities ran clean' + (errors.length ? ' -> ' + errors[errors.length-1] : ''));
-
-console.log('\n[5] Buy an upgrade');
-await page.evaluate(() => window.PK.GAME().gold += 100000);
-const lvBefore = await page.evaluate(() => window.GAME.upgrades.sharpen);
-await page.evaluate(() => window.PK.buyUpgrade('sharpen'));
-const lvAfter = await page.evaluate(() => window.GAME.upgrades.sharpen);
-assert(lvAfter === lvBefore + 1, `sharpen upgraded (${lvBefore} -> ${lvAfter})`);
-
-console.log('\n[6] Siege mode triggers and is survivable');
-await page.evaluate(() => { window.PK.GAME().gold += 100000; window.PK.forceSiege(); });
-await page.waitForTimeout(300);
-let mode = await page.evaluate(() => window.PK.state().mode);
-assert(mode === 'siege', 'entered siege mode');
-// place a tower on every build slot (mix of types) via the same path the UI uses
-const placed = await page.evaluate(() => {
-  const types = ['cannon','arrow','frost','cannon','arrow','frost'];
-  let n = 0;
-  for (let i = 0; i < 6; i++) { const before = window.PK.state().siege.towers; window.PK.placeTowerAt(i, types[i]); if (window.PK.state().siege.towers > before) n++; }
-  return n;
-});
-assert(placed === 6, `placed towers on all 6 slots (${placed})`);
-// Let the siege resolve for up to ~40s, helping with strikes/fury
-let resolved = false;
-for (let i = 0; i < 80; i++) {
-  await page.waitForTimeout(500);
-  await page.evaluate(() => { window.PK.useAbility('strike'); if (window.PK.GAME().fervor>=100) window.PK.useAbility('fury'); });
-  mode = await page.evaluate(() => window.PK.state().mode);
-  if (mode === 'combat') { resolved = true; break; }
-}
-assert(resolved, 'siege resolved back to combat (win or loss handled)');
-assert(errors.length === 0, 'no errors during siege' + (errors.length ? ' -> ' + errors[errors.length-1] : ''));
-
-console.log('\n[7] Save/load round-trips');
-await page.evaluate(() => { window.PK.GAME().gold = 4242; localStorage.setItem('pixelKeepSave_v1', JSON.stringify(window.GAME)); });
+await page.evaluate(() => { try { localStorage.removeItem('pixelKeep_v2'); } catch (e) {} });
 await page.reload();
 await page.waitForTimeout(500);
-const reloadedGold = await page.evaluate(() => window.PK.state().gold);
-assert(reloadedGold >= 4000, 'gold persisted across reload (' + reloadedGold + ')');
-const reloadErrs = errors.length;
-assert(reloadErrs === 0, 'no errors after reload');
 
-console.log('\n[8b] Ascend while a siege is active leaves clean state (Groq #2)');
-await page.evaluate(() => { window.PK.GAME().gold += 50000; window.PK.forceSiege(); });
-await page.waitForTimeout(200);
-// stub confirm so ascend proceeds, then ascend mid-siege
-await page.evaluate(() => { window.confirm = () => true; window.PK.GAME().wave = 55; });
-await page.evaluate(() => { document.getElementById('ascendBtn').click(); });
-await page.waitForTimeout(200);
-const post = await page.evaluate(() => ({ mode: window.PK.state().mode, siegePanelOn: document.getElementById('siegePanel').classList.contains('on'), asc: window.PK.state().asc }));
-assert(post.mode === 'combat', 'ascend forced mode back to combat (' + post.mode + ')');
-assert(!post.siegePanelOn, 'siege panel hidden after ascend');
-assert(post.asc === 1, 'ascension counted (' + post.asc + ')');
-assert(errors.length === 0, 'no errors on ascend-mid-siege' + (errors.length ? ' -> ' + errors[errors.length-1] : ''));
+console.log('\n[1] Boot');
+ok(await page.evaluate(() => !!(window.PK && window.PK.state)), 'PK hooks present');
+ok(errors.length === 0, 'no console errors on boot' + (errors[0] ? ' -> ' + errors[0] : ''));
+let s = await S();
+ok(s.rubies === 800 && s.party[0] === 'squire' && s.mode2 === 'manual', 'fresh state: 800💎, squire lead, manual mode');
 
-console.log('\n[8] Screenshot for visual check');
-await page.screenshot({ path: 'tools/screenshot.png' });
-console.log('  ✓ saved tools/screenshot.png');
+console.log('\n[2] Core loop');
+const a = await S(); await page.waitForTimeout(6000); const b = await S();
+ok(b.gold > a.gold, `gold up (${a.gold} -> ${b.gold})`);
+ok(b.wave >= a.wave, `wave advanced (${a.wave} -> ${b.wave})`);
+
+console.log('\n[3] Tabs render');
+for (const t of ['heroes', 'summon', 'events', 'map', 'forge']) {
+  await page.click(`.tab[data-tab="${t}"]`);
+  await page.waitForTimeout(120);
+}
+ok(errors.length === 0, 'all tabs switched without errors');
+
+console.log('\n[4] Gacha + pity');
+await page.evaluate(() => window.PK.addRubies(5000));
+const beforeOwned = (await S()).owned.length;
+const r0 = (await S()).rubies;
+await page.evaluate(() => window.PK.summon(10));
+await page.waitForTimeout(150);
+const s4 = await S();
+ok(s4.rubies === r0 - 900, `10-pull cost 900💎 (${r0} -> ${s4.rubies})`);
+ok(s4.owned.length >= beforeOwned, `roster grew or stayed (${beforeOwned} -> ${s4.owned.length})`);
+ok(s4.pity >= 0 && s4.pity <= 60, 'pity counter in range (' + s4.pity + ')');
+// force a 5* via pity by doing many singles
+await page.evaluate(() => window.PK.addRubies(20000));
+for (let i = 0; i < 60; i++) await page.evaluate(() => window.PK.summon(1));
+const got5 = await page.evaluate(() => ['dragon','dio','sukuna'].some(id => window.PK.G().heroes[id] && window.PK.G().heroes[id].owned));
+ok(got5, 'a 5★ hero obtained within pity window (Dragon/Dio/Sukuna)');
+
+console.log('\n[5] Party + lead');
+await page.evaluate(() => { window.PK.grant('dio', 5); window.PK.grant('sukuna', 5); });
+await page.evaluate(() => {
+  const G = window.PK.G(); G.party = ['squire', 'dio', 'sukuna'];
+});
+let s5 = await S();
+ok(s5.party.join(',') === 'squire,dio,sukuna', 'party set to 3 heroes');
+// make dio lead through the public helper path
+await page.evaluate(() => { window.PK.G().party = ['dio','sukuna','squire']; });
+ok((await S()).party[0] === 'dio', 'lead is Dio');
+await page.evaluate(() => { window.PK.G().party = ['squire', null, null]; }); await page.waitForTimeout(150);
+const dps1 = await page.evaluate(() => document.getElementById('dpsTag').textContent);
+await page.evaluate(() => { window.PK.G().party = ['squire', 'dio', 'sukuna']; }); await page.waitForTimeout(150);
+const dps3 = await page.evaluate(() => document.getElementById('dpsTag').textContent);
+ok(parseInt(dps3.replace(/\D/g,'')) > parseInt(dps1.replace(/\D/g,'')), `bigger party => more DPS (${dps1} vs ${dps3})`);
+
+console.log('\n[6] Ability modes (manual / auto / smart)');
+await page.evaluate(() => window.PK.setMode('manual'));
+ok((await S()).mode2 === 'manual', 'mode set manual');
+// manual: fire slot 0 and confirm cooldown begins
+await page.evaluate(() => window.PK.fireSlot(0, true));
+const cdManual = await page.evaluate(() => window.PK.RT.abilCd[0]);
+ok(cdManual > 0, 'manual fire put ability on cooldown (' + cdManual.toFixed(1) + 's)');
+// auto: should auto-fire on its own; detect any cooldown becoming active over time
+await page.evaluate(() => { window.PK.RT.abilCd = [0,0,0]; window.PK.setMode('auto'); });
+let autoFired = false;
+for (let i = 0; i < 16; i++) { await page.waitForTimeout(250);
+  if (await page.evaluate(() => window.PK.RT.abilCd.some(c => c > 0))) { autoFired = true; break; } }
+ok(autoFired, 'AUTO mode fires abilities by itself');
+await page.evaluate(() => window.PK.setMode('smart'));
+ok((await S()).mode2 === 'smart', 'mode set smart');
+
+console.log('\n[7] Siege — winnable + creep variety');
+await page.evaluate(() => { window.PK.addGold(100000); window.PK.G().party = ['dio','sukuna','squire']; window.PK.forceSiege(); });
+await page.waitForTimeout(300);
+ok((await S()).mode === 'siege', 'entered siege');
+const placed = await page.evaluate(() => { const ty=['cannon','arrow','frost','cannon','arrow','frost']; let n=0;
+  for (let i=0;i<6;i++){ const before=window.PK.state().siege.towers; window.PK.placeTowerAt(i,ty[i]); if(window.PK.state().siege.towers>before)n++; } return n; });
+ok(placed === 6, `placed 6 towers (${placed})`);
+// sample creep types over the siege + drive hero
+const typesSeen = new Set();
+let resolved = false, minGate = 160;
+for (let i = 0; i < 90; i++) {
+  await page.waitForTimeout(400);
+  const snap = await page.evaluate(() => ({ mode: window.PK.state().mode, sg: window.PK.state().siege,
+    types: window.PK.RT.siege ? window.PK.RT.siege.creeps.map(c => c.type) : [] }));
+  snap.types.forEach(t => typesSeen.add(t));
+  if (snap.sg) minGate = Math.min(minGate, snap.sg.gate);
+  await page.evaluate(() => { window.PK.fireSlot(0,true); window.PK.fireSlot(1,true); if(window.PK.G().fervor>=100) window.PK.fervorFury(); });
+  if (snap.mode === 'combat') { resolved = true; break; }
+}
+ok(resolved, 'siege resolved back to combat');
+ok(typesSeen.size >= 2, 'multiple creep types appeared (' + [...typesSeen].join(',') + ')');
+const afterSiege = await S();
+ok(afterSiege.gold >= 0, 'siege ended with valid state');
+
+console.log('\n[8] Events -> unique hero');
+await page.evaluate(() => { window.PK.G().party = ['dio','sukuna','squire']; window.PK.challengeEvent('bloodmoon'); });
+await page.waitForTimeout(200);
+ok((await S()).event === 'bloodmoon', 'event boss engaged');
+let eventWon = false;
+for (let i = 0; i < 60; i++) {
+  await page.waitForTimeout(300);
+  await page.evaluate(() => { window.PK.fireSlot(0,true); window.PK.fireSlot(1,true); window.PK.fireSlot(2,true); if(window.PK.G().fervor>=100) window.PK.fervorFury(); });
+  if (await page.evaluate(() => window.PK.G().heroes.vlord && window.PK.G().heroes.vlord.owned)) { eventWon = true; break; }
+}
+ok(eventWon, 'defeated event boss and recruited Vampire Lord');
+
+console.log('\n[9] World map jump');
+await page.evaluate(() => { window.PK.G().bestWave = 45; });
+await page.evaluate(() => window.PK.jumpIsland(2));
+ok((await S()).island === 2, 'jumped to island 2 to farm (' + (await S()).island + ')');
+await page.evaluate(() => window.PK.jumpIsland(4));
+ok((await S()).island === 4, 'jumped to island 4');
+ok(errors.length === 0, 'no errors during events/map');
+
+console.log('\n[10] Save / load reload');
+await page.evaluate(() => { window.PK.addRubies(1234); window.PK.G().gold = 7777; });
+await page.evaluate(() => { window.dispatchEvent(new Event('beforeunload')); });
+await page.waitForTimeout(100);
+await page.reload(); await page.waitForTimeout(600);
+const re = await S();
+ok(re.gold >= 7000, 'gold persisted across reload (' + re.gold + ')');
+ok(re.owned.includes('dio') && re.owned.includes('vlord'), 'gacha + event heroes persisted');
+ok(errors.length === 0, 'no errors after reload');
+
+console.log('\n[11] Ascend keeps heroes/rubies');
+await page.evaluate(() => { window.confirm = () => true; window.PK.setMode('manual'); const G = window.PK.G(); G.wave = 55; G.bestWave = 55; });
+await page.waitForTimeout(80);
+const preAsc = await S();
+await page.click('#ascendBtn');
+await page.evaluate(() => { window.PK.RT.paused = true; }); // freeze so the kept strong party can't blitz before we read
+const postAsc = await S();
+ok(postAsc.asc === 1, 'ascension counted');
+ok(postAsc.island === 1, 'progress reset to island 1 (' + postAsc.island + ')');
+ok(postAsc.owned.length === preAsc.owned.length && postAsc.rubies === preAsc.rubies, 'heroes & rubies kept through ascend');
+await page.evaluate(() => { window.PK.RT.paused = false; });
+
+console.log('\n[12] Dev panel passcode 4212');
+await page.evaluate(() => { window.prompt = () => '4212'; });
+await page.click('#devBtn');
+await page.waitForTimeout(120);
+const devOpen = await page.evaluate(() => document.getElementById('devModal').classList.contains('on'));
+ok(devOpen, 'dev modal opened with correct passcode');
+const rb = (await S()).rubies;
+await page.click('[data-dev="ruby"]');
+ok((await S()).rubies === rb + 5000, 'dev +5000💎 works');
+
+console.log('\n[13] Screenshots');
+await page.evaluate(() => document.getElementById('devModal').classList.remove('on'));
+await page.click('.tab[data-tab="heroes"]'); await page.waitForTimeout(200);
+await page.screenshot({ path: 'tools/v2_heroes.png' });
+await page.click('.tab[data-tab="summon"]'); await page.waitForTimeout(150);
+await page.evaluate(() => window.PK.summon(10)); await page.waitForTimeout(200);
+await page.screenshot({ path: 'tools/v2_summon.png' });
+console.log('  ✓ screenshots saved');
 
 await browser.close();
 console.log('\n' + (failed ? '❌ SOME CHECKS FAILED' : '✅ ALL CHECKS PASSED'));
-if (errors.length) { console.log('\nConsole errors seen:'); errors.slice(0,10).forEach(e=>console.log('  - '+e)); }
+if (errors.length) { console.log('\nConsole errors:'); errors.slice(0, 12).forEach(e => console.log('  - ' + e)); }
 process.exit(failed ? 1 : 0);

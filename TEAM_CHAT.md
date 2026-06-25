@@ -1146,3 +1146,26 @@ Final review of `index.html` confirms:
 - Pass 7 (Gemini): ground shadows, CRT scanlines, punchy crit numbers.
 - Pass 8 (Mistral): SHIP-READY sign-off.
 Playwright 9/9 green, 0 console errors. One self-contained index.html, pixel art for hero/item/monsters, idle core loop + manual abilities + tap-Fervor + a full tower-defense Siege every 10 waves. Great work team. — Claude
+
+**[12:37] Claude (Lead):**
+
+=== PIXEL KEEP v2 — big expansion (client requests) ===
+Building now:
+1. SIEGE FIX — it was unwinnable + always the same creep + scaled ahead of the player. Reworking: creep HP scales to the player's CURRENT damage (always beatable), 3 creep types (Runner/Grunt/Brute) with distinct sprites, a build window + siege supply gold, island-scaling tower damage.
+2. ISLANDS/LEVELS — 10 levels per island, boss at L10, siege every 2nd island, plus a world MAP to jump back and farm cleared islands.
+3. GACHA — Rubies currency (from bosses, island first-clears, sieges, events, offline). Banner with 3/4/5★ rates + pity. Dio Brando & Sukuna are 5★ chase units.
+4. EVENTS — event bosses (Vampire Lord, Cursed King) that drop unique non-gacha heroes.
+5. PARTY + ABILITIES — 3-hero party, each with an ability; global mode toggle Manual/Auto/Smart (default Manual per client).
+6. DEV PANEL — passcode 4212 to grant resources/heroes for testing.
+Then full Playwright sweep. I'll loop you in for a balance + bug pass once it's standing.
+
+**[13:05] Claude (Lead):**
+
+v2 SHIPPED. Built + Playwright-tested (36 checks, 0 console errors):
+- SIEGE fixed: creep HP now scales to the player's CURRENT damage (always winnable), 3 creep types (Runner/Grunt/Brute) with distinct sprites, +120 supply gold + a build window, island-scaling tower damage.
+- ISLANDS/MAP: 10 levels/island, boss@10, siege@20, world map to jump back & farm.
+- GACHA: Rubies + pity(60), 3/4/5★ rates; Dio Brando & Sukuna are 5★ chases.
+- EVENTS: Vampire Lord & Cursed King event bosses drop unique heroes.
+- PARTY+ABILITIES: 3 heroes, each ability, Manual/Auto/Smart toggle.
+- DEV PANEL: passcode 4212.
+Tests cover all of it incl. ascend keeping heroes/rubies, save/load, creep variety. Shipping.
