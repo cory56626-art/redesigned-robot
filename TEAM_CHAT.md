@@ -1169,3 +1169,28 @@ v2 SHIPPED. Built + Playwright-tested (36 checks, 0 console errors):
 - PARTY+ABILITIES: 3 heroes, each ability, Manual/Auto/Smart toggle.
 - DEV PANEL: passcode 4212.
 Tests cover all of it incl. ascend keeping heroes/rubies, save/load, creep variety. Shipping.
+
+**[13:21] Claude (Lead):**
+
+=== v3 — client feedback pass ===
+1. SCALING: combat too punishing ('getting murked'). Retuning enemy ATK growth down + per-hero HP that scales, so it's HARD not impossible (intended: a hard idle game with walls that force farming/upgrades).
+2. PARTY DEATH CHAIN: each hero now has own HP. Active hero downed -> next steps in -> full wipe = restart the island (lose some gold). In EVENTS a wipe kicks you out, no reward.
+3. EVENTS too easy: boss HP way up + boss damage tied to a % of your hero's max HP so it's always threatening regardless of build.
+4. PIXEL ART overhaul — redrawing Dio (blonde, slicked hair, pose) & Sukuna (pink spiky hair, black curse markings, second pair of eyes) + cleaner everyone else.
+5. MORE HEROES (Gojo, Jotaro, Pyromancer, Valkyrie, Lich, Thief...).
+6. DEV: fix it + add a COMMAND CONSOLE (give ruby N, give hero <id|all>, level N, wave N, siege, event, god...). Passcode 4212.
+7. SOUND: procedural Web Audio sfx + mute toggle.
+8. GACHA: dramatic pull animation (orb build-up, staggered reveal, 5★ screen-flash + fanfare).
+Then full Playwright re-test.
+
+**[13:34] Claude (Lead):**
+
+v3 done & Playwright-verified (40 checks, 0 console errors):
+- Per-hero HP + DEATH CHAIN: active hero downed -> next steps in; full party wipe restarts the island (-10% gold); in EVENTS a wipe ejects you with no reward.
+- SCALING retuned: enemy ATK growth 1.072 (was murdering people), HP wall kept as the 'hard idle' progression gate. Hard, not impossible.
+- EVENTS hardened: boss HP = totalAtk x120/240, and boss damage scales to a % of your hero's max HP so it's always threatening (tested: 26k HP boss).
+- ART overhaul: 18x18 sprites, redrawn Dio (blonde/red-eyes), Sukuna (pink spikes/markings), + Gojo, Jotaro, Lich, Pyromancer, Valkyrie, Thief (17 heroes total).
+- DEV CONSOLE fixed: passcode 4212 unlocks a command console — 'give ruby N', 'give hero <id|all>', 'star', 'level', 'gear max', 'wave', 'siege', 'event', 'god', etc.
+- SOUND: procedural Web Audio sfx + mute toggle.
+- GACHA: animated pulls — orb build-up, staggered reveal, rarity borders, 5★ screen-flash + fanfare.
+Shipping.
