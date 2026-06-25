@@ -1,0 +1,95 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "playerbot:bot",
+      "is_spawnable": true,
+      "is_summonable": true,
+      "is_experimental": false,
+      "animations": {
+        "idle_tick": "animation.playerbot.idle_tick",
+        "state": "controller.animation.playerbot.state"
+      },
+      "scripts": {
+        "animate": ["state"]
+      },
+      "properties": {
+        "playerbot:is_moving": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        },
+        "playerbot:is_mining": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        },
+        "playerbot:is_attacking": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        },
+        "playerbot:is_jumping": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        }
+      }
+    },
+    "components": {
+      "minecraft:type_family": {
+        "family": ["playerbot", "mob"]
+      },
+      "minecraft:collision_box": {
+        "width": 0.6,
+        "height": 1.8
+      },
+      "minecraft:health": {
+        "value": 20,
+        "max": 20
+      },
+      "minecraft:physics": {},
+      "minecraft:pushable": {
+        "is_pushable": true,
+        "is_pushable_by_piston": true
+      },
+      "minecraft:knockback_resistance": {
+        "value": 0.0
+      },
+      "minecraft:movement": {
+        "value": 0.25
+      },
+      "minecraft:navigation.walk": {
+        "can_path_over_water": true,
+        "avoid_water": false,
+        "can_pass_doors": true,
+        "can_open_doors": true
+      },
+      "minecraft:movement.basic": {},
+      "minecraft:jump.static": {},
+      "minecraft:can_climb": {},
+      "minecraft:nameable": {},
+      "minecraft:persistent": {},
+      "minecraft:conditional_bandwidth_optimization": {},
+      "minecraft:inventory": {
+        "container_type": "inventory",
+        "inventory_size": 36
+      },
+      "minecraft:behavior.float": {
+        "priority": 0
+      },
+      "minecraft:behavior.pickup_items": {
+        "priority": 2,
+        "max_dist": 4.0,
+        "goal_radius": 1.0,
+        "pickup_based_on_chance": false,
+        "can_pickup_to_hand_or_equipment": true
+      },
+      "minecraft:behavior.look_at_player": {
+        "priority": 9,
+        "look_distance": 8.0,
+        "probability": 0.02
+      }
+    }
+  }
+}

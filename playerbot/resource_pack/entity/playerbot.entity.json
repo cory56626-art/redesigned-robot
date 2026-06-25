@@ -1,0 +1,34 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "playerbot:bot",
+      "materials": {
+        "default": "entity_alphatest",
+        "cape": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/entity/playerbot/playerbot"
+      },
+      "geometry": {
+        "default": "geometry.playerbot"
+      },
+      "spawn_egg": {
+        "base_color": "#3b6ea5",
+        "overlay_color": "#d9a066"
+      },
+      "scripts": {
+        "animate": ["look", "jump", "state_controller"]
+      },
+      "animations": {
+        "state_controller": "controller.animation.playerbot.move",
+        "look": "animation.playerbot.look_at_target",
+        "idle": "animation.playerbot.idle",
+        "walk": "animation.playerbot.walk",
+        "swing": "animation.playerbot.swing",
+        "jump": "animation.playerbot.jump"
+      },
+      "render_controllers": ["controller.render.playerbot"]
+    }
+  }
+}

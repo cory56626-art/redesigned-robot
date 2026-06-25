@@ -1,0 +1,28 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.playerbot.state": {
+      "initial_state": "idle",
+      "states": {
+        "idle": {
+          "transitions": [
+            { "moving": "query.property('playerbot:is_moving')" },
+            { "working": "query.property('playerbot:is_mining') || query.property('playerbot:is_attacking')" }
+          ]
+        },
+        "moving": {
+          "transitions": [
+            { "working": "query.property('playerbot:is_mining') || query.property('playerbot:is_attacking')" },
+            { "idle": "!query.property('playerbot:is_moving')" }
+          ]
+        },
+        "working": {
+          "transitions": [
+            { "moving": "query.property('playerbot:is_moving') && !(query.property('playerbot:is_mining') || query.property('playerbot:is_attacking'))" },
+            { "idle": "!(query.property('playerbot:is_mining') || query.property('playerbot:is_attacking'))" }
+          ]
+        }
+      }
+    }
+  }
+}

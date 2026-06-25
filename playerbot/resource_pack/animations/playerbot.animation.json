@@ -1,0 +1,48 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.playerbot.look_at_target": {
+      "loop": true,
+      "bones": {
+        "head": {
+          "rotation": ["query.target_x_rotation", "query.target_y_rotation", 0.0]
+        }
+      }
+    },
+    "animation.playerbot.idle": {
+      "loop": true,
+      "bones": {
+        "rightArm": { "rotation": [0, 0, "math.cos(query.life_time * 80) * 1.5 + 1.5"] },
+        "leftArm": { "rotation": [0, 0, "-(math.cos(query.life_time * 80) * 1.5 + 1.5)"] }
+      }
+    },
+    "animation.playerbot.walk": {
+      "loop": true,
+      "bones": {
+        "rightArm": { "rotation": ["math.cos(query.life_time * 360 * 1.3) * 45", 0, 0] },
+        "leftArm": { "rotation": ["-math.cos(query.life_time * 360 * 1.3) * 45", 0, 0] },
+        "rightLeg": { "rotation": ["-math.cos(query.life_time * 360 * 1.3) * 45", 0, 0] },
+        "leftLeg": { "rotation": ["math.cos(query.life_time * 360 * 1.3) * 45", 0, 0] }
+      }
+    },
+    "animation.playerbot.swing": {
+      "loop": true,
+      "bones": {
+        "rightArm": {
+          "rotation": [
+            "-100 - math.sin(query.life_time * 360 * 3.0) * 35",
+            "math.sin(query.life_time * 360 * 3.0) * 15",
+            0
+          ]
+        }
+      }
+    },
+    "animation.playerbot.jump": {
+      "loop": true,
+      "bones": {
+        "rightLeg": { "rotation": ["query.property('playerbot:is_jumping') ? -35 : 0", 0, 0] },
+        "leftLeg": { "rotation": ["query.property('playerbot:is_jumping') ? 35 : 0", 0, 0] }
+      }
+    }
+  }
+}

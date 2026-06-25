@@ -1,0 +1,23 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "PlayerBot Resources",
+    "description": "Player-look model, textures and animations for the PlayerBot entity.",
+    "uuid": "1a53aaa2-b715-4f03-b472-cce65c39bc61",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 0]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "18586798-9f1c-46f7-9c53-d638cb90e588",
+      "version": [1, 0, 0]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "09d6246c-831a-4067-90e9-70d140f14c02",
+      "version": [1, 0, 0]
+    }
+  ]
+}
