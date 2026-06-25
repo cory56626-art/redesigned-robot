@@ -283,7 +283,7 @@
   <header class="app">
     <div>
       <h1>AI Model Ranking Dashboard</h1>
-      <p class="sub">Weighted ranking from <b>official benchmarks</b> — GPQA Diamond (reasoning), SWE-bench Verified (coding), official price &amp; context window. Fully offline.</p>
+      <p class="sub">Weighted ranking from <b>official benchmarks</b> — Artificial Analysis Intelligence Index (composite), SWE-bench Verified (coding), official price &amp; context window. Fully offline.</p>
     </div>
     <div class="stat-pills">
       <span class="pill"><b id="statCount">0</b> models</span>
@@ -301,7 +301,7 @@
       <label for="sortBy">Sort by</label>
       <select id="sortBy">
         <option value="score">Final score</option>
-        <option value="reasoning">Reasoning (GPQA-D)</option>
+        <option value="intelligence">Intelligence (AA Index)</option>
         <option value="coding">Coding (SWE-bench)</option>
         <option value="cost">Cost efficiency</option>
         <option value="availability">Availability</option>
@@ -344,8 +344,8 @@
   <div class="empty" id="emptyState" style="display:none;">No models match your search / filter.</div>
 
   <p class="foot-note">
-    <b>Data sources (June 2026):</b> Reasoning = GPQA Diamond and Coding = SWE-bench Verified leaderboards (BenchLM / Vals.ai); pricing &amp; context windows from vendor docs via LM Council and ofox leaderboards.
-    Reasoning/coding scores are the published benchmark percentages; cost &amp; context are normalized 0–100 from official figures; availability is factual. “N/A” means no official value was published — that factor is excluded from the model's weighted score (weights renormalize). Speed and a reliability benchmark are intentionally omitted (no authoritative official benchmark). Scores update live when you edit values. No external APIs · no network calls · single offline file.
+    <b>Data sources (June 2026):</b> Intelligence = Artificial Analysis Intelligence Index (official composite of 9 evals); Coding = SWE-bench Verified; GPQA Diamond shown for reference (Artificial Analysis / BenchLM / Vals.ai); pricing &amp; context windows from vendor docs via LM Council and ofox leaderboards.
+    The default ranking is intelligence-led, so it tracks the official Intelligence Index — Claude Opus 4.8 is currently #1 among generally-available models. Intelligence is normalized to 100 (AA Index ÷ 60); coding is the published %; cost &amp; context are normalized from official figures; availability is factual. “N/A” means no official value was published — that factor is excluded from the model's weighted score (weights renormalize). Adjust the weights above to re-rank. No external APIs · no network calls · single offline file.
   </p>
 </div>
 
@@ -395,16 +395,16 @@
 
 // ---- Scoring factor definitions (each backed by an official/factual metric) ----
 const FACTORS = [
-  { key: "reasoning",    label: "Reasoning",  short: "GPQA-D",    desc: "GPQA Diamond accuracy (official benchmark, %)" },
+  { key: "intelligence", label: "Intelligence", short: "AA Index",  desc: "Artificial Analysis Intelligence Index — official composite of 9 evals (GPQA, HLE, SciCode, Terminal-Bench, etc.), normalized to 100" },
   { key: "coding",       label: "Coding",     short: "SWE-bench", desc: "SWE-bench Verified resolved rate (official benchmark, %)" },
   { key: "cost",         label: "Cost",       short: "$/M tok",   desc: "Cost efficiency derived from official blended price per 1M tokens" },
   { key: "availability", label: "Availability", short: "access",  desc: "Derived from free / open-weight / paid-API access (factual)" },
   { key: "context",      label: "Context",    short: "window",    desc: "Derived from official max context window (factual)" },
 ];
 
-// ---- Default weights (normalized to sum to 1; capability-weighted) ----
+// ---- Default weights (normalized to sum to 1; intelligence-led) ----
 const DEFAULT_WEIGHTS = {
-  reasoning: 30, coding: 28, cost: 16, availability: 12, context: 14,
+  intelligence: 55, coding: 20, cost: 10, availability: 5, context: 10,
 };
 let weights = { ...DEFAULT_WEIGHTS };
 
@@ -425,6 +425,8 @@ const CTX_MAX_TOKENS = 2000000;
 // Cost-score scale (log10 of blended $/1M tokens): cheaper → higher score.
 const COST_REF = 0.3;   // reference price at the high end of the scale
 const COST_SLOPE = 30;  // points lost per 10x price increase
+// Artificial Analysis Intelligence Index reference: this AA value maps to 100.
+const AAII_REF = 60;
 
 // ---- Helpers ----
 const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
@@ -457,57 +459,63 @@ function availabilityScore(m) {
   if (m.paid) s += ACCESS_POINTS.paid;
   return clamp(s);
 }
+// Intelligence 0–100 from the AA Intelligence Index (null if unpublished).
+function intelligenceScore(m) {
+  return m.aaii == null ? null : clamp(Math.round(m.aaii / AAII_REF * 100));
+}
 
 // ---- Model dataset — OFFICIAL benchmark & factual data (June 2026) ----
+// aaii = Artificial Analysis Intelligence Index (official composite of 9 evals),
 // gpqa = GPQA Diamond %, swe = SWE-bench Verified %, priceIn/priceOut = official
 // USD per 1M tokens, ctxTokens = official max context. null = no published value
 // (rendered as N/A and excluded from that model's weighted score).
-// Sources: BenchLM GPQA-Diamond & SWE-bench Verified leaderboards; vendor pricing
+// Sources: Artificial Analysis Intelligence Index, GPQA-Diamond & SWE-bench
+// Verified leaderboards (Artificial Analysis / BenchLM / Vals.ai); vendor pricing
 // via LM Council / ofox June-2026 leaderboards (see "Data sources" note below).
 let MODELS = [
   // Anthropic
-  { id: 1,  name: "Claude Opus 4.8",     vendor: "Anthropic",   gpqa: 93.6, swe: 88.6, priceIn: 5.00, priceOut: 25.00, ctxTokens: 1000000, free: false, open: false, paid: true },
-  { id: 2,  name: "Claude Opus 4.7",     vendor: "Anthropic",   gpqa: 94.2, swe: 87.6, priceIn: 5.00, priceOut: 25.00, ctxTokens: 1000000, free: false, open: false, paid: true },
-  { id: 3,  name: "Claude Opus 4.6",     vendor: "Anthropic",   gpqa: 89.2, swe: 80.8, priceIn: 5.00, priceOut: 25.00, ctxTokens: 1000000, free: false, open: false, paid: true },
-  { id: 4,  name: "Claude Opus 4.5",     vendor: "Anthropic",   gpqa: null, swe: 80.9, priceIn: 5.00, priceOut: 25.00, ctxTokens: 200000,  free: false, open: false, paid: true },
-  { id: 5,  name: "Claude Sonnet 4.6",   vendor: "Anthropic",   gpqa: null, swe: 79.6, priceIn: 3.00, priceOut: 15.00, ctxTokens: 1000000, free: true,  open: false, paid: true },
-  { id: 6,  name: "Claude Haiku 4.5",    vendor: "Anthropic",   gpqa: null, swe: 73.3, priceIn: null, priceOut: null,  ctxTokens: 200000,  free: true,  open: false, paid: true },
-  { id: 7,  name: "Claude 3.5 Sonnet",   vendor: "Anthropic",   gpqa: null, swe: 49.0, priceIn: 3.00, priceOut: 15.00, ctxTokens: 200000,  free: true,  open: false, paid: true },
+  { id: 1,  name: "Claude Opus 4.8",     vendor: "Anthropic",   aaii: 55.7, gpqa: 93.6, swe: 88.6, priceIn: 5.00, priceOut: 25.00, ctxTokens: 1000000, free: false, open: false, paid: true },
+  { id: 2,  name: "Claude Opus 4.7",     vendor: "Anthropic",   aaii: 53.5, gpqa: 94.2, swe: 87.6, priceIn: 5.00, priceOut: 25.00, ctxTokens: 1000000, free: false, open: false, paid: true },
+  { id: 3,  name: "Claude Opus 4.6",     vendor: "Anthropic",   aaii: 43.7, gpqa: 89.2, swe: 80.8, priceIn: 5.00, priceOut: 25.00, ctxTokens: 1000000, free: false, open: false, paid: true },
+  { id: 4,  name: "Claude Opus 4.5",     vendor: "Anthropic",   aaii: null, gpqa: null, swe: 80.9, priceIn: 5.00, priceOut: 25.00, ctxTokens: 200000,  free: false, open: false, paid: true },
+  { id: 5,  name: "Claude Sonnet 4.6",   vendor: "Anthropic",   aaii: 35.9, gpqa: null, swe: 79.6, priceIn: 3.00, priceOut: 15.00, ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 6,  name: "Claude Haiku 4.5",    vendor: "Anthropic",   aaii: null, gpqa: null, swe: 73.3, priceIn: null, priceOut: null,  ctxTokens: 200000,  free: true,  open: false, paid: true },
+  { id: 7,  name: "Claude 3.5 Sonnet",   vendor: "Anthropic",   aaii: null, gpqa: null, swe: 49.0, priceIn: 3.00, priceOut: 15.00, ctxTokens: 200000,  free: true,  open: false, paid: true },
   // OpenAI
-  { id: 8,  name: "GPT-5.5",             vendor: "OpenAI",      gpqa: 93.6, swe: 80.6, priceIn: 4.25, priceOut: 25.50, ctxTokens: 1000000, free: true,  open: false, paid: true },
-  { id: 9,  name: "GPT-5.4",             vendor: "OpenAI",      gpqa: 92.8, swe: 76.9, priceIn: null, priceOut: null,  ctxTokens: 1000000, free: true,  open: false, paid: true },
-  { id: 10, name: "GPT-5.2",             vendor: "OpenAI",      gpqa: null, swe: 80.0, priceIn: null, priceOut: null,  ctxTokens: 1000000, free: true,  open: false, paid: true },
-  { id: 11, name: "GPT-4.1",            vendor: "OpenAI",      gpqa: null, swe: 54.6, priceIn: 2.00, priceOut: 8.00,  ctxTokens: 1000000, free: true,  open: false, paid: true },
-  { id: 12, name: "GPT-4.1 mini",       vendor: "OpenAI",      gpqa: null, swe: 23.6, priceIn: 0.40, priceOut: 1.60,  ctxTokens: 1000000, free: true,  open: false, paid: true },
-  { id: 13, name: "o3-mini",            vendor: "OpenAI",      gpqa: null, swe: 49.3, priceIn: 1.10, priceOut: 4.40,  ctxTokens: 200000,  free: false, open: false, paid: true },
+  { id: 8,  name: "GPT-5.5",             vendor: "OpenAI",      aaii: 54.8, gpqa: 93.6, swe: 80.6, priceIn: 4.25, priceOut: 25.50, ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 9,  name: "GPT-5.4",             vendor: "OpenAI",      aaii: 51.4, gpqa: 92.8, swe: 76.9, priceIn: null, priceOut: null,  ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 10, name: "GPT-5.2",             vendor: "OpenAI",      aaii: 42.2, gpqa: null, swe: 80.0, priceIn: null, priceOut: null,  ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 11, name: "GPT-4.1",            vendor: "OpenAI",      aaii: null, gpqa: null, swe: 54.6, priceIn: 2.00, priceOut: 8.00,  ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 12, name: "GPT-4.1 mini",       vendor: "OpenAI",      aaii: null, gpqa: null, swe: 23.6, priceIn: 0.40, priceOut: 1.60,  ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 13, name: "o3-mini",            vendor: "OpenAI",      aaii: null, gpqa: null, swe: 49.3, priceIn: 1.10, priceOut: 4.40,  ctxTokens: 200000,  free: false, open: false, paid: true },
   // Google
-  { id: 14, name: "Gemini 3.1 Pro",     vendor: "Google",      gpqa: 94.3, swe: null, priceIn: 2.00, priceOut: 12.00, ctxTokens: 1000000, free: true,  open: false, paid: true },
-  { id: 15, name: "Gemini 3.5 Flash",   vendor: "Google",      gpqa: 92.7, swe: 78.8, priceIn: 1.50, priceOut: 9.00,  ctxTokens: 1000000, free: true,  open: false, paid: true },
-  { id: 16, name: "Gemini 2.5 Pro",     vendor: "Google",      gpqa: null, swe: 63.8, priceIn: 1.25, priceOut: 10.00, ctxTokens: 1000000, free: true,  open: false, paid: true },
-  { id: 17, name: "Gemma 4 12B",        vendor: "Google",      gpqa: 78.8, swe: null, priceIn: null, priceOut: null,  ctxTokens: 128000,  free: true,  open: true,  paid: false },
+  { id: 14, name: "Gemini 3.1 Pro",     vendor: "Google",      aaii: 46.5, gpqa: 94.3, swe: null, priceIn: 2.00, priceOut: 12.00, ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 15, name: "Gemini 3.5 Flash",   vendor: "Google",      aaii: 50.2, gpqa: 92.7, swe: 78.8, priceIn: 1.50, priceOut: 9.00,  ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 16, name: "Gemini 2.5 Pro",     vendor: "Google",      aaii: 27.0, gpqa: null, swe: 63.8, priceIn: 1.25, priceOut: 10.00, ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 17, name: "Gemma 4 12B",        vendor: "Google",      aaii: null, gpqa: 78.8, swe: null, priceIn: null, priceOut: null,  ctxTokens: 128000,  free: true,  open: true,  paid: false },
   // DeepSeek
-  { id: 18, name: "DeepSeek V4 Pro",    vendor: "DeepSeek",    gpqa: 90.1, swe: 80.6, priceIn: 0.45, priceOut: 0.88,  ctxTokens: 1000000, free: true,  open: true,  paid: true },
-  { id: 19, name: "DeepSeek V4 Flash",  vendor: "DeepSeek",    gpqa: 71.2, swe: 73.7, priceIn: null, priceOut: null,  ctxTokens: 1000000, free: true,  open: true,  paid: true },
-  { id: 20, name: "DeepSeek V3",        vendor: "DeepSeek",    gpqa: null, swe: 42.0, priceIn: 0.27, priceOut: 1.10,  ctxTokens: 128000,  free: true,  open: true,  paid: true },
+  { id: 18, name: "DeepSeek V4 Pro",    vendor: "DeepSeek",    aaii: 44.3, gpqa: 90.1, swe: 80.6, priceIn: 0.45, priceOut: 0.88,  ctxTokens: 1000000, free: true,  open: true,  paid: true },
+  { id: 19, name: "DeepSeek V4 Flash",  vendor: "DeepSeek",    aaii: 40.3, gpqa: 71.2, swe: 73.7, priceIn: null, priceOut: null,  ctxTokens: 1000000, free: true,  open: true,  paid: true },
+  { id: 20, name: "DeepSeek V3",        vendor: "DeepSeek",    aaii: null, gpqa: null, swe: 42.0, priceIn: 0.27, priceOut: 1.10,  ctxTokens: 128000,  free: true,  open: true,  paid: true },
   // xAI
-  { id: 21, name: "Grok 4.20",          vendor: "xAI",         gpqa: 88.5, swe: 76.7, priceIn: 4.00, priceOut: 12.00, ctxTokens: 2000000, free: true,  open: false, paid: true },
-  { id: 22, name: "Grok Code Fast 1",   vendor: "xAI",         gpqa: null, swe: 70.8, priceIn: null, priceOut: null,  ctxTokens: 256000,  free: true,  open: false, paid: true },
+  { id: 21, name: "Grok 4.20",          vendor: "xAI",         aaii: null, gpqa: 88.5, swe: 76.7, priceIn: 4.00, priceOut: 12.00, ctxTokens: 2000000, free: true,  open: false, paid: true },
+  { id: 22, name: "Grok Code Fast 1",   vendor: "xAI",         aaii: null, gpqa: null, swe: 70.8, priceIn: null, priceOut: null,  ctxTokens: 256000,  free: true,  open: false, paid: true },
   // Alibaba
-  { id: 23, name: "Qwen3.7 Max",        vendor: "Alibaba",     gpqa: 92.4, swe: 80.4, priceIn: 2.50, priceOut: 7.50,  ctxTokens: 1000000, free: true,  open: false, paid: true },
-  { id: 24, name: "Qwen3.7 Plus",       vendor: "Alibaba",     gpqa: 90.3, swe: 77.7, priceIn: 0.40, priceOut: 1.60,  ctxTokens: 1000000, free: true,  open: true,  paid: true },
+  { id: 23, name: "Qwen3.7 Max",        vendor: "Alibaba",     aaii: 46.0, gpqa: 92.4, swe: 80.4, priceIn: 2.50, priceOut: 7.50,  ctxTokens: 1000000, free: true,  open: false, paid: true },
+  { id: 24, name: "Qwen3.7 Plus",       vendor: "Alibaba",     aaii: 39.0, gpqa: 90.3, swe: 77.7, priceIn: 0.40, priceOut: 1.60,  ctxTokens: 1000000, free: true,  open: true,  paid: true },
   // Moonshot AI
-  { id: 25, name: "Kimi K2.6",          vendor: "Moonshot AI", gpqa: 90.5, swe: 80.2, priceIn: 0.95, priceOut: 4.00,  ctxTokens: 262144,  free: true,  open: true,  paid: true },
+  { id: 25, name: "Kimi K2.6",          vendor: "Moonshot AI", aaii: 42.8, gpqa: 90.5, swe: 80.2, priceIn: 0.95, priceOut: 4.00,  ctxTokens: 262144,  free: true,  open: true,  paid: true },
   // Zhipu AI
-  { id: 26, name: "GLM-5.2",            vendor: "Zhipu AI",    gpqa: 91.2, swe: null, priceIn: null, priceOut: null,  ctxTokens: 200000,  free: true,  open: true,  paid: true },
-  { id: 27, name: "GLM-5.1",            vendor: "Zhipu AI",    gpqa: 86.2, swe: null, priceIn: 1.40, priceOut: 4.40,  ctxTokens: 200000,  free: true,  open: true,  paid: true },
-  { id: 28, name: "GLM-5",              vendor: "Zhipu AI",    gpqa: 86.0, swe: 77.8, priceIn: null, priceOut: null,  ctxTokens: 200000,  free: true,  open: true,  paid: true },
-  { id: 29, name: "GLM-4.7",            vendor: "Zhipu AI",    gpqa: null, swe: 73.8, priceIn: null, priceOut: null,  ctxTokens: 200000,  free: true,  open: true,  paid: true },
+  { id: 26, name: "GLM-5.2",            vendor: "Zhipu AI",    aaii: 51.1, gpqa: 91.2, swe: null, priceIn: null, priceOut: null,  ctxTokens: 200000,  free: true,  open: true,  paid: true },
+  { id: 27, name: "GLM-5.1",            vendor: "Zhipu AI",    aaii: 40.2, gpqa: 86.2, swe: null, priceIn: 1.40, priceOut: 4.40,  ctxTokens: 200000,  free: true,  open: true,  paid: true },
+  { id: 28, name: "GLM-5",              vendor: "Zhipu AI",    aaii: 39.5, gpqa: 86.0, swe: 77.8, priceIn: null, priceOut: null,  ctxTokens: 200000,  free: true,  open: true,  paid: true },
+  { id: 29, name: "GLM-4.7",            vendor: "Zhipu AI",    aaii: null, gpqa: null, swe: 73.8, priceIn: null, priceOut: null,  ctxTokens: 200000,  free: true,  open: true,  paid: true },
   // NVIDIA
-  { id: 30, name: "Nemotron 3 Ultra",   vendor: "NVIDIA",      gpqa: 87.0, swe: 71.9, priceIn: null, priceOut: null,  ctxTokens: null,    free: true,  open: true,  paid: true },
+  { id: 30, name: "Nemotron 3 Ultra",   vendor: "NVIDIA",      aaii: 37.8, gpqa: 87.0, swe: 71.9, priceIn: null, priceOut: null,  ctxTokens: null,    free: true,  open: true,  paid: true },
   // MiniMax
-  { id: 31, name: "MiniMax M3",         vendor: "MiniMax",     gpqa: null, swe: 80.5, priceIn: null, priceOut: null,  ctxTokens: null,    free: true,  open: true,  paid: true },
+  { id: 31, name: "MiniMax M3",         vendor: "MiniMax",     aaii: 44.4, gpqa: null, swe: 80.5, priceIn: null, priceOut: null,  ctxTokens: null,    free: true,  open: true,  paid: true },
   // Mistral
-  { id: 32, name: "Mistral Medium 3.5", vendor: "Mistral AI",  gpqa: null, swe: 77.6, priceIn: null, priceOut: null,  ctxTokens: 128000,  free: true,  open: false, paid: true },
+  { id: 32, name: "Mistral Medium 3.5", vendor: "Mistral AI",  aaii: 29.9, gpqa: null, swe: 77.6, priceIn: null, priceOut: null,  ctxTokens: 128000,  free: true,  open: false, paid: true },
 ];
 let nextId = 33;
 
@@ -521,7 +529,7 @@ let prevOrder = []; // for rank-change deltas & FLIP animation
 // Each factor's 0–100 score; null where the model has no published value.
 function factorValues(m) {
   return {
-    reasoning: m.gpqa,                 // GPQA Diamond % (already 0–100)
+    intelligence: intelligenceScore(m),// AA Intelligence Index, normalized (null if unknown)
     coding: m.swe,                     // SWE-bench Verified % (already 0–100)
     cost: costScore(m),                // derived from official price (null if unknown)
     availability: availabilityScore(m),// always known
@@ -532,7 +540,7 @@ function factorValues(m) {
 // How many of the four official/factual data points a model actually has.
 function dataCompleteness(m) {
   let n = 0;
-  if (m.gpqa != null) n++;
+  if (m.aaii != null) n++;
   if (m.swe != null) n++;
   if (blendedPrice(m) != null) n++;
   if (m.ctxTokens != null) n++;
@@ -572,7 +580,7 @@ function fmtTokens(t) {
 // Human-readable real metric value behind each factor (or N/A).
 function metricText(m, key) {
   switch (key) {
-    case "reasoning":    return m.gpqa == null ? "N/A" : m.gpqa + "%";
+    case "intelligence": return m.aaii == null ? "N/A" : m.aaii.toFixed(1);
     case "coding":       return m.swe == null ? "N/A" : m.swe + "%";
     case "cost": {
       const p = blendedPrice(m);
@@ -782,7 +790,7 @@ function openEdit(id) {
   editingId = id;
   const isNew = id === null;
   const m = isNew
-    ? { name: "", vendor: "", gpqa: null, swe: null, priceIn: null, priceOut: null, ctxTokens: null, free: false, open: false, paid: true }
+    ? { name: "", vendor: "", aaii: null, gpqa: null, swe: null, priceIn: null, priceOut: null, ctxTokens: null, free: false, open: false, paid: true }
     : MODELS.find(x => x.id === id);
 
   document.getElementById("editTitle").textContent = isNew ? "Add new model" : "Edit: " + m.name;
@@ -790,8 +798,9 @@ function openEdit(id) {
 
   const v = x => (x == null ? "" : x);
   const numFields = [
-    ["f_gpqa",    "Reasoning — GPQA Diamond accuracy (%)", v(m.gpqa),    "e.g. 93.6 — blank = N/A"],
+    ["f_aaii",    "Intelligence — Artificial Analysis Index", v(m.aaii), "e.g. 55.7 — blank = N/A"],
     ["f_swe",     "Coding — SWE-bench Verified (%)",       v(m.swe),     "e.g. 88.6 — blank = N/A"],
+    ["f_gpqa",    "GPQA Diamond accuracy (%) — info only", v(m.gpqa),    "e.g. 93.6 — blank = N/A"],
     ["f_priceIn", "Input price ($ per 1M tokens)",         v(m.priceIn), "e.g. 5.00 — blank = N/A"],
     ["f_priceOut","Output price ($ per 1M tokens)",        v(m.priceOut),"e.g. 25.00 — blank = N/A"],
     ["f_ctx",     "Max context window (tokens)",           v(m.ctxTokens),"e.g. 1000000 — blank = N/A"],
@@ -854,6 +863,7 @@ function saveModel() {
   const data = {
     name,
     vendor: vendorVal,
+    aaii: optNum("f_aaii"),
     gpqa: optPct("f_gpqa"),
     swe: optPct("f_swe"),
     priceIn: optNum("f_priceIn"),
@@ -931,6 +941,7 @@ function openCompare() {
       disp: m => metricText(m, f.key),       // real published value or N/A
       hi: true,
     })),
+    { label: "GPQA Diamond (info)", score: m => m.gpqa, disp: m => m.gpqa == null ? "N/A" : m.gpqa + "%", hi: true },
     { label: "Access", disp: m => [m.free && "Free", m.open && "Open", m.paid && "Paid"].filter(Boolean).join(", ") || "—" },
   ];
 
