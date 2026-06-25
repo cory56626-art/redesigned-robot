@@ -1,0 +1,10 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": { "identifier": "copper_crusader:helmet" },
+    "tags": ["crafting_table"],
+    "pattern": ["CCC", "C C", "   "],
+    "key": { "C": { "item": "minecraft:copper_ingot" } },
+    "result": { "item": "copper_crusader:helmet" }
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "format_version": "1.16.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.copper_relic_statue",
+        "texture_width": 64,
+        "texture_height": 64,
+        "visible_bounds_width": 3,
+        "visible_bounds_height": 4,
+        "visible_bounds_offset": [0, 1.5, 0]
+      },
+      "bones": [
+        {
+          "name": "root",
+          "pivot": [0, 0, 0],
+          "cubes": [
+            { "origin": [-5, 0, -5], "size": [10, 2, 10], "uv": [0, 0] },
+            { "origin": [-4, 2, -4], "size": [8, 1, 8], "uv": [0, 12] }
+          ]
+        },
+        {
+          "name": "body",
+          "parent": "root",
+          "pivot": [0, 3, 0],
+          "cubes": [
+            { "origin": [-3, 3, -2], "size": [6, 11, 4], "uv": [16, 16] },
+            { "origin": [-4, 14, -3], "size": [8, 10, 6], "uv": [16, 32] }
+          ]
+        },
+        {
+          "name": "head",
+          "parent": "body",
+          "pivot": [0, 24, 0],
+          "cubes": [
+            { "origin": [-4, 24, -4], "size": [8, 8, 8], "uv": [0, 0] }
+          ]
+        },
+        {
+          "name": "leftArm",
+          "parent": "body",
+          "pivot": [5, 23, 0],
+          "cubes": [
+            { "origin": [4, 13, -2], "size": [3, 11, 4], "uv": [40, 16] }
+          ]
+        },
+        {
+          "name": "rightArm",
+          "parent": "body",
+          "pivot": [-5, 23, 0],
+          "rotation": [-110, 0, 0],
+          "cubes": [
+            { "origin": [-7, 20, -2], "size": [3, 11, 4], "uv": [40, 32] },
+            { "origin": [-6.5, 30, -8], "size": [2, 2, 12], "uv": [0, 21] }
+          ]
+        }
+      ]
+    }
+  ]
+}

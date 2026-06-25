@@ -1,0 +1,23 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Copper Crusader [RP]",
+    "description": "Textures, models and effects for the Copper Crusader add-on.",
+    "uuid": "0d28f1c7-fc42-492f-bec0-0bec2c21d020",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 60]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "a69a914f-f9d8-4cc5-9d17-5751b59550ed",
+      "version": [1, 0, 0]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "7d1447b0-e5c5-424e-873e-8d1de5fd855c",
+      "version": [1, 0, 0]
+    }
+  ]
+}

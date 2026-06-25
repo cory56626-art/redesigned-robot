@@ -1,0 +1,24 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:item": {
+    "description": {
+      "identifier": "copper_crusader:helmet",
+      "menu_category": { "category": "equipment", "group": "itemGroup.name.helmet" }
+    },
+    "components": {
+      "minecraft:max_stack_size": 1,
+      "minecraft:icon": "copper_crusader_helmet",
+      "minecraft:display_name": { "value": "Copper Crusader Helmet" },
+      "minecraft:durability": { "max_durability": 363 },
+      "minecraft:max_damage": 363,
+      "minecraft:enchantable": { "value": 9, "slot": "armor_head" },
+      "minecraft:glint": true,
+      "minecraft:wearable": { "slot": "slot.armor.head", "protection": 3 },
+      "minecraft:armor": { "protection": 3 },
+      "minecraft:repairable": {
+        "repair_items": [ { "items": ["minecraft:copper_ingot"], "repair_amount": 50 } ]
+      },
+      "minecraft:tags": { "tags": ["copper_crusader:armor"] }
+    }
+  }
+}

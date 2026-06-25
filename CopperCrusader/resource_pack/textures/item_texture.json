@@ -1,0 +1,11 @@
+{
+  "resource_pack_name": "copper_crusader",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "copper_crusader_sword": { "textures": "textures/items/copper_crusader_sword" },
+    "copper_crusader_helmet": { "textures": "textures/items/copper_crusader_helmet" },
+    "copper_crusader_chestplate": { "textures": "textures/items/copper_crusader_chestplate" },
+    "copper_crusader_leggings": { "textures": "textures/items/copper_crusader_leggings" },
+    "copper_crusader_boots": { "textures": "textures/items/copper_crusader_boots" }
+  }
+}

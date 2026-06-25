@@ -1,0 +1,8 @@
+pack.name=Copper Crusader [BP]
+pack.description=Copper evolution weapon with fall-based power + oxidation combat.
+item.copper_crusader:sword=Copper Crusader
+item.copper_crusader:helmet=Copper Crusader Helmet
+item.copper_crusader:chestplate=Copper Crusader Chestplate
+item.copper_crusader:leggings=Copper Crusader Leggings
+item.copper_crusader:boots=Copper Crusader Boots
+entity.copper_crusader:relic_statue.name=Copper Relic

@@ -1,0 +1,13 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "copper_crusader:relic_statue",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/entity/relic_statue" },
+      "geometry": { "default": "geometry.copper_relic_statue" },
+      "render_controllers": ["controller.render.default"],
+      "spawn_egg": { "base_color": "#b87333", "overlay_color": "#5fd36b" }
+    }
+  }
+}

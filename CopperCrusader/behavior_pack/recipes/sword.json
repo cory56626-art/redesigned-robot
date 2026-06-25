@@ -1,0 +1,13 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": { "identifier": "copper_crusader:sword" },
+    "tags": ["crafting_table"],
+    "pattern": ["C", "C", "S"],
+    "key": {
+      "C": { "item": "minecraft:copper_block" },
+      "S": { "item": "minecraft:stick" }
+    },
+    "result": { "item": "copper_crusader:sword" }
+  }
+}

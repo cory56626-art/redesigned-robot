@@ -1,0 +1,36 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "copper_crusader:relic_statue",
+      "is_spawnable": false,
+      "is_summonable": true,
+      "is_experimental": false
+    },
+    "components": {
+      "minecraft:type_family": { "family": ["copper_relic", "inanimate"] },
+      "minecraft:health": { "value": 40, "max": 40 },
+      "minecraft:collision_box": { "width": 0.7, "height": 1.9 },
+      "minecraft:physics": { "has_gravity": true, "has_collision": true },
+      "minecraft:knockback_resistance": { "value": 1.0 },
+      "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": false },
+      "minecraft:damage_sensor": {
+        "triggers": [
+          { "cause": "fall", "deals_damage": false },
+          { "cause": "drowning", "deals_damage": false },
+          { "cause": "suffocation", "deals_damage": false }
+        ]
+      },
+      "minecraft:movement": { "value": 0.0 },
+      "minecraft:nameable": { "allow_name_tag_renaming": false },
+      "minecraft:hurt_on_condition": {
+        "damage_conditions": [
+          { "filters": { "test": "in_lava", "subject": "self" }, "cause": "lava", "damage_per_tick": 4 }
+        ]
+      },
+      "minecraft:persistent": {},
+      "minecraft:conditional_bandwidth_optimization": {}
+    },
+    "events": {}
+  }
+}
