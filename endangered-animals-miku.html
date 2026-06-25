@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Endangered Animals Tracker · with Miku ♪</title>
+  <meta name="description" content="Live-ish populations of endangered animals, with family trees, evolution trees, predator/prey history — and a draggable Hatsune Miku buddy." />
+  <style>
+:root {
+  --bg: #0a0e17;
+  --bg2: #111827;
+  --card: #16203a;
+  --card2: #1d2a4d;
+  --teal: #39c5bb;          /* Miku teal */
+  --teal-deep: #0f8a82;
+  --pink: #ff6fae;
+  --text: #e8eefc;
+  --muted: #93a4c8;
+  --good: #4ade80;
+  --bad: #f87171;
+  --warn: #fbbf24;
+  --line: #2b3a63;
+  --shadow: 0 10px 30px rgba(0,0,0,.45);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background:
+    radial-gradient(1200px 600px at 80% -10%, #163b4a 0%, transparent 60%),
+    radial-gradient(900px 500px at -10% 10%, #2a1740 0%, transparent 55%),
+    var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  min-height: 100vh;
+}
+
+header.site {
+  text-align: center;
+  padding: 36px 16px 10px;
+}
+header.site h1 {
+  margin: 0;
+  font-size: clamp(1.6rem, 4vw, 2.6rem);
+  letter-spacing: .5px;
+  background: linear-gradient(90deg, var(--teal), var(--pink));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+header.site p { color: var(--muted); margin: 8px auto 0; max-width: 720px; }
+
+.toolbar {
+  max-width: 1100px;
+  margin: 18px auto 0;
+  padding: 0 16px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+}
+.toolbar input, .toolbar select {
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: .95rem;
+  outline: none;
+}
+.toolbar input { min-width: 240px; }
+.toolbar input:focus, .toolbar select:focus { border-color: var(--teal); }
+.toolbar .count { color: var(--muted); font-size: .9rem; }
+
+main { max-width: 1100px; margin: 0 auto; padding: 22px 16px 120px; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.card {
+  background: linear-gradient(180deg, var(--card), var(--bg2));
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: var(--shadow);
+  transition: transform .15s ease, border-color .15s ease;
+}
+.card:hover { transform: translateY(-3px); border-color: var(--teal-deep); }
+
+.card .top { display: flex; align-items: center; gap: 12px; }
+.card .emoji { font-size: 2.2rem; line-height: 1; }
+.card h2 { margin: 0; font-size: 1.15rem; }
+.card .sci { color: var(--muted); font-style: italic; font-size: .82rem; }
+
+.badge {
+  display: inline-block;
+  font-size: .72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  margin-top: 8px;
+}
+.badge.cr { background: rgba(248,113,113,.15); color: var(--bad); border: 1px solid var(--bad); }
+.badge.en { background: rgba(251,191,36,.15); color: var(--warn); border: 1px solid var(--warn); }
+.badge.vu { background: rgba(74,222,128,.15); color: var(--good); border: 1px solid var(--good); }
+
+.popline { margin-top: 14px; display: flex; align-items: baseline; gap: 8px; }
+.popline .num { font-size: 1.9rem; font-weight: 800; color: var(--teal); }
+.popline .lbl { color: var(--muted); font-size: .8rem; }
+.trend { font-size: .8rem; font-weight: 700; }
+.trend.up { color: var(--good); }
+.trend.down { color: var(--bad); }
+.trend.stable { color: var(--warn); }
+
+.bar { height: 8px; background: #0b1326; border-radius: 999px; margin-top: 8px; overflow: hidden; border: 1px solid var(--line); }
+.bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--teal), var(--pink)); }
+
+.card p.blurb { color: var(--muted); font-size: .9rem; line-height: 1.45; margin: 12px 0 14px; }
+.card .meta { color: var(--muted); font-size: .8rem; margin-bottom: 12px; }
+
+.btn {
+  width: 100%;
+  cursor: pointer;
+  border: none;
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-weight: 700;
+  font-size: .92rem;
+  color: #06231f;
+  background: linear-gradient(90deg, var(--teal), #7ee9e1);
+  transition: filter .15s ease, transform .05s ease;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn:active { transform: scale(.99); }
+
+/* Modal */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(3,6,14,.72);
+  backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 20px;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: linear-gradient(180deg, var(--card), var(--bg2));
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  max-width: 820px;
+  width: 100%;
+  max-height: 88vh;
+  overflow: auto;
+  box-shadow: var(--shadow);
+  animation: pop .18s ease;
+}
+@keyframes pop { from { transform: scale(.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal .mhead {
+  position: sticky; top: 0;
+  background: linear-gradient(180deg, var(--card2), var(--card));
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 12px;
+}
+.modal .mhead h2 { margin: 0; font-size: 1.3rem; }
+.modal .mhead .sci { color: var(--muted); font-style: italic; font-size: .85rem; }
+.modal .close {
+  margin-left: auto; background: none; border: 1px solid var(--line);
+  color: var(--text); width: 34px; height: 34px; border-radius: 8px; cursor: pointer; font-size: 1.1rem;
+}
+.modal .close:hover { border-color: var(--bad); color: var(--bad); }
+.modal .mbody { padding: 18px 22px 26px; }
+
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+.tab {
+  background: var(--card); border: 1px solid var(--line); color: var(--muted);
+  padding: 8px 14px; border-radius: 999px; cursor: pointer; font-size: .85rem; font-weight: 600;
+}
+.tab.active { background: var(--teal); color: #06231f; border-color: var(--teal); }
+.panel { display: none; }
+.panel.active { display: block; animation: pop .15s ease; }
+
+/* Tree visual */
+.tree { list-style: none; margin: 0; padding: 0; }
+.tree li {
+  position: relative;
+  padding: 10px 14px 10px 38px;
+  margin: 0 0 8px 10px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--teal);
+  border-radius: 10px;
+}
+.tree li::before {
+  content: ""; position: absolute; left: 16px; top: 50%;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--teal); transform: translateY(-50%);
+  box-shadow: 0 0 0 4px rgba(57,197,187,.15);
+}
+.tree li .depth { color: var(--muted); font-size: .72rem; display: block; }
+.tree li.evo { border-left-color: var(--pink); }
+.tree li.evo::before { background: var(--pink); box-shadow: 0 0 0 4px rgba(255,111,174,.15); }
+
+/* Roles timeline */
+.roles { display: grid; gap: 12px; }
+.role {
+  display: grid; grid-template-columns: 150px 1fr; gap: 14px; align-items: start;
+  padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card);
+}
+.role .era { font-weight: 700; }
+.role .tag { display: inline-block; margin-top: 4px; font-size: .72rem; font-weight: 800; padding: 2px 8px; border-radius: 999px; }
+.role .tag.predator { background: rgba(248,113,113,.16); color: var(--bad); border: 1px solid var(--bad); }
+.role .tag.prey { background: rgba(96,165,250,.16); color: #93c5fd; border: 1px solid #60a5fa; }
+.role .note { color: var(--muted); font-size: .9rem; line-height: 1.45; }
+
+footer.site { text-align: center; color: var(--muted); font-size: .8rem; padding: 24px 16px 90px; }
+footer.site code { color: var(--teal); }
+
+/* ---------- Miku assistant ---------- */
+#miku {
+  position: fixed;
+  left: 24px; bottom: 24px;
+  width: 96px; height: 120px;
+  z-index: 100;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  filter: drop-shadow(0 8px 10px rgba(0,0,0,.5));
+  transition: transform .12s ease;
+}
+#miku.dragging { cursor: grabbing; transition: none; }
+#miku svg { width: 100%; height: 100%; image-rendering: pixelated; display: block; }
+#miku .floaty { animation: floaty 3.2s ease-in-out infinite; }
+@keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+#miku.spin svg { animation: spin .8s ease; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+#miku-bubble {
+  position: fixed;
+  z-index: 101;
+  max-width: 240px;
+  background: #fff;
+  color: #14213d;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: .86rem;
+  line-height: 1.4;
+  box-shadow: var(--shadow);
+  display: none;
+  border: 2px solid var(--teal);
+}
+#miku-bubble.show { display: block; animation: pop .15s ease; }
+#miku-bubble::after {
+  content: ""; position: absolute; bottom: -10px; left: 24px;
+  border: 10px solid transparent; border-top-color: var(--teal); border-bottom: 0;
+}
+#miku-bubble .mk-actions { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+#miku-bubble .mk-actions button {
+  font-size: .72rem; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--teal-deep);
+  background: var(--teal); color: #06231f; cursor: pointer; font-weight: 700;
+}
+#miku-bubble .mk-actions button:hover { filter: brightness(1.08); }
+#miku-bubble .mk-name { font-weight: 800; color: var(--teal-deep); font-size: .78rem; }
+
+@media (max-width: 560px) {
+  .role { grid-template-columns: 1fr; }
+  #miku { width: 76px; height: 96px; }
+}
+
+</style>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🐆</text></svg>" />
+</head>
+<body>
+  <header class="site">
+    <h1>🌍 Endangered Animals Tracker</h1>
+    <p>Current population estimates for some of the world's most threatened species. Hit <b>Explore</b> on any card to walk its family tree, evolutionary lineage, and the eras it was predator vs prey. Your guide <b>Miku</b> is draggable — grab her and move her anywhere. ♪</p>
+  </header>
+
+  <div class="toolbar">
+    <input id="search" type="search" placeholder="🔎 Search name, species or region…" aria-label="Search animals" />
+    <select id="sort" aria-label="Sort animals">
+      <option value="name">Sort: Name (A–Z)</option>
+      <option value="pop-asc">Sort: Population (low → high)</option>
+      <option value="pop-desc">Sort: Population (high → low)</option>
+    </select>
+    <span id="count" class="count"></span>
+  </div>
+
+  <main>
+    <section id="grid" class="grid" aria-live="polite"></section>
+  </main>
+
+  <footer class="site">
+    Population figures are published estimates with the year shown on each card; treat them as approximate.
+    Built as a static site — open <code>index.html</code> anywhere. 🐾
+  </footer>
+
+  <!-- Explore modal -->
+  <div id="modal-backdrop" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="mhead">
+        <span id="modal-emoji" class="emoji" aria-hidden="true">🐾</span>
+        <div>
+          <h2 id="modal-title">Animal</h2>
+          <div id="modal-sci" class="sci"></div>
+        </div>
+        <button class="close" aria-label="Close">✕</button>
+      </div>
+      <div id="modal-body" class="mbody"></div>
+    </div>
+  </div>
+
+  <script>
+/* data.js — endangered animal dataset
+ * Populations are best-available published estimates with an "asOf" year.
+ * Trees are simplified for readability, not exhaustive cladograms.
+ */
+window.ANIMALS = [
+  {
+    id: "amur-leopard",
+    name: "Amur Leopard",
+    sci: "Panthera pardus orientalis",
+    emoji: "🐆",
+    status: "Critically Endangered",
+    population: 130,
+    asOf: 2023,
+    trend: "up",
+    region: "Russian Far East & NE China",
+    blurb:
+      "The rarest big cat on Earth. Adapted to cold temperate forests, it can run up to 60 km/h and leap 3 m vertically.",
+    family: {
+      label: "Kingdom → Species (taxonomy)",
+      nodes: [
+        "Animalia (Kingdom)",
+        "Chordata (Phylum)",
+        "Mammalia (Class)",
+        "Carnivora (Order)",
+        "Felidae (Family)",
+        "Panthera (Genus)",
+        "P. pardus (Species)",
+        "P. p. orientalis (Subspecies)"
+      ]
+    },
+    evolution: {
+      label: "Evolutionary lineage",
+      nodes: [
+        "Miacids (~60 Mya)",
+        "Early Feliformia (~50 Mya)",
+        "Pseudaelurus (~20 Mya)",
+        "Panthera lineage (~11 Mya)",
+        "Leopard split (~3 Mya)",
+        "Amur subspecies (last Ice Age refugia)"
+      ]
+    },
+    roles: [
+      { era: "Pleistocene", role: "predator", note: "Apex ambush hunter of deer and boar; competed with cave lions and tigers." },
+      { era: "Holocene", role: "predator", note: "Top predator of roe/sika deer in temperate forest." },
+      { era: "Modern (industrial era)", role: "prey", note: "Hunted by humans for fur and from poaching; habitat collapse made it prey to human pressure." }
+    ]
+  },
+  {
+    id: "vaquita",
+    name: "Vaquita",
+    sci: "Phocoena sinus",
+    emoji: "🐬",
+    status: "Critically Endangered",
+    population: 10,
+    asOf: 2023,
+    trend: "down",
+    region: "Northern Gulf of California, Mexico",
+    blurb:
+      "The world's smallest and most endangered cetacean. Killed almost entirely as bycatch in illegal gillnets.",
+    family: {
+      label: "Kingdom → Species (taxonomy)",
+      nodes: [
+        "Animalia (Kingdom)",
+        "Chordata (Phylum)",
+        "Mammalia (Class)",
+        "Artiodactyla (Order)",
+        "Phocoenidae (Family)",
+        "Phocoena (Genus)",
+        "P. sinus (Species)"
+      ]
+    },
+    evolution: {
+      label: "Evolutionary lineage",
+      nodes: [
+        "Early artiodactyls (~55 Mya)",
+        "Pakicetus, land-to-sea (~50 Mya)",
+        "Basilosaurus (~38 Mya)",
+        "Odontoceti / toothed whales (~34 Mya)",
+        "Porpoises split (~15 Mya)",
+        "Vaquita (Gulf endemic)"
+      ]
+    },
+    roles: [
+      { era: "Miocene oceans", role: "predator", note: "Porpoise ancestors hunted small fish and squid." },
+      { era: "Holocene", role: "predator", note: "Feeds on fish, squid and crustaceans in shallow lagoons." },
+      { era: "Modern", role: "prey", note: "Not hunted directly, but caught and drowned as bycatch — effectively prey to fishing gear." }
+    ]
+  },
+  {
+    id: "javan-rhino",
+    name: "Javan Rhino",
+    sci: "Rhinoceros sondaicus",
+    emoji: "🦏",
+    status: "Critically Endangered",
+    population: 76,
+    asOf: 2023,
+    trend: "stable",
+    region: "Ujung Kulon National Park, Java",
+    blurb:
+      "Once the most widespread Asian rhino, now confined to a single park. Males have a small single horn; many females have none.",
+    family: {
+      label: "Kingdom → Species (taxonomy)",
+      nodes: [
+        "Animalia (Kingdom)",
+        "Chordata (Phylum)",
+        "Mammalia (Class)",
+        "Perissodactyla (Order)",
+        "Rhinocerotidae (Family)",
+        "Rhinoceros (Genus)",
+        "R. sondaicus (Species)"
+      ]
+    },
+    evolution: {
+      label: "Evolutionary lineage",
+      nodes: [
+        "Early perissodactyls (~55 Mya)",
+        "Hyracodontidae (~40 Mya)",
+        "Paraceratherium (~30 Mya)",
+        "True Rhinocerotidae (~25 Mya)",
+        "Rhinoceros genus (~10 Mya)",
+        "Javan rhino lineage"
+      ]
+    },
+    roles: [
+      { era: "Pleistocene", role: "prey", note: "Megaherbivore browsed by predation pressure from tigers and ancient humans." },
+      { era: "Holocene", role: "prey", note: "Large grazer/browser; adults nearly invulnerable except to tigers and people." },
+      { era: "Modern", role: "prey", note: "Devastated by horn poaching and habitat loss." }
+    ]
+  },
+  {
+    id: "mountain-gorilla",
+    name: "Mountain Gorilla",
+    sci: "Gorilla beringei beringei",
+    emoji: "🦍",
+    status: "Endangered",
+    population: 1063,
+    asOf: 2018,
+    trend: "up",
+    region: "Virunga Mountains & Bwindi (Central Africa)",
+    blurb:
+      "A conservation success story — numbers have climbed past 1,000 thanks to intensive protection and eco-tourism.",
+    family: {
+      label: "Kingdom → Species (taxonomy)",
+      nodes: [
+        "Animalia (Kingdom)",
+        "Chordata (Phylum)",
+        "Mammalia (Class)",
+        "Primates (Order)",
+        "Hominidae (Family)",
+        "Gorilla (Genus)",
+        "G. beringei (Species)",
+        "G. b. beringei (Subspecies)"
+      ]
+    },
+    evolution: {
+      label: "Evolutionary lineage",
+      nodes: [
+        "Early primates (~55 Mya)",
+        "Catarrhines (~30 Mya)",
+        "Great-ape ancestor (~20 Mya)",
+        "Gorilla/Human split (~9 Mya)",
+        "Gorilla genus (~2 Mya)",
+        "Mountain subspecies (~0.4 Mya)"
+      ]
+    },
+    roles: [
+      { era: "Miocene–Pliocene", role: "prey", note: "Large apes preyed on by big cats and crowned eagles (juveniles)." },
+      { era: "Holocene", role: "prey", note: "Mainly herbivorous; leopards are the only natural predator." },
+      { era: "Modern", role: "prey", note: "Threatened by poaching, snares, disease and habitat loss." }
+    ]
+  },
+  {
+    id: "sumatran-orangutan",
+    name: "Sumatran Orangutan",
+    sci: "Pongo abelii",
+    emoji: "🦧",
+    status: "Critically Endangered",
+    population: 13846,
+    asOf: 2016,
+    trend: "down",
+    region: "Northern Sumatra, Indonesia",
+    blurb:
+      "Highly intelligent, tool-using great ape. Almost entirely arboreal and devastated by palm-oil deforestation.",
+    family: {
+      label: "Kingdom → Species (taxonomy)",
+      nodes: [
+        "Animalia (Kingdom)",
+        "Chordata (Phylum)",
+        "Mammalia (Class)",
+        "Primates (Order)",
+        "Hominidae (Family)",
+        "Pongo (Genus)",
+        "P. abelii (Species)"
+      ]
+    },
+    evolution: {
+      label: "Evolutionary lineage",
+      nodes: [
+        "Early primates (~55 Mya)",
+        "Catarrhines (~30 Mya)",
+        "Great-ape ancestor (~20 Mya)",
+        "Pongo lineage split (~14 Mya)",
+        "Sivapithecus relatives (~12 Mya)",
+        "Sumatran species (~0.7 Mya)"
+      ]
+    },
+    roles: [
+      { era: "Pleistocene", role: "prey", note: "Hunted by tigers and clouded leopards; Sumatran tigers still take some." },
+      { era: "Holocene", role: "prey", note: "Frugivorous; vulnerable when descending to the ground." },
+      { era: "Modern", role: "prey", note: "Killed in conflict and orphaned by logging and fires." }
+    ]
+  },
+  {
+    id: "hawksbill-turtle",
+    name: "Hawksbill Sea Turtle",
+    sci: "Eretmochelys imbricata",
+    emoji: "🐢",
+    status: "Critically Endangered",
+    population: 23000,
+    asOf: 2022,
+    trend: "down",
+    region: "Tropical reefs worldwide",
+    blurb:
+      "Named for its narrow, pointed beak. Vital to reef health by eating sponges; hunted for its 'tortoiseshell'.",
+    family: {
+      label: "Kingdom → Species (taxonomy)",
+      nodes: [
+        "Animalia (Kingdom)",
+        "Chordata (Phylum)",
+        "Reptilia (Class)",
+        "Testudines (Order)",
+        "Cheloniidae (Family)",
+        "Eretmochelys (Genus)",
+        "E. imbricata (Species)"
+      ]
+    },
+    evolution: {
+      label: "Evolutionary lineage",
+      nodes: [
+        "Early reptiles (~315 Mya)",
+        "Stem turtles, Odontochelys (~220 Mya)",
+        "Marine turtles appear (~150 Mya)",
+        "Cheloniidae (~60 Mya)",
+        "Eretmochelys lineage",
+        "Hawksbill (modern)"
+      ]
+    },
+    roles: [
+      { era: "Mesozoic", role: "predator", note: "Sea-turtle ancestors swam with marine reptiles, eating soft-bodied prey." },
+      { era: "Holocene", role: "predator", note: "Specialist sponge-eater shaping reef communities." },
+      { era: "Modern", role: "prey", note: "Eggs and adults taken by humans; shell trade nearly wiped them out." }
+    ]
+  },
+  {
+    id: "saola",
+    name: "Saola",
+    sci: "Pseudoryx nghetinhensis",
+    emoji: "🦌",
+    status: "Critically Endangered",
+    population: 100,
+    asOf: 2023,
+    trend: "down",
+    region: "Annamite Mountains, Vietnam & Laos",
+    blurb:
+      "The 'Asian unicorn' — so rare it was only discovered by science in 1992 and has never been kept alive in captivity.",
+    family: {
+      label: "Kingdom → Species (taxonomy)",
+      nodes: [
+        "Animalia (Kingdom)",
+        "Chordata (Phylum)",
+        "Mammalia (Class)",
+        "Artiodactyla (Order)",
+        "Bovidae (Family)",
+        "Pseudoryx (Genus)",
+        "P. nghetinhensis (Species)"
+      ]
+    },
+    evolution: {
+      label: "Evolutionary lineage",
+      nodes: [
+        "Early artiodactyls (~55 Mya)",
+        "Ruminant ancestors (~45 Mya)",
+        "Bovidae appear (~20 Mya)",
+        "Bovid radiation (~15 Mya)",
+        "Pseudoryx lineage (relict)",
+        "Saola (modern relict)"
+      ]
+    },
+    roles: [
+      { era: "Pleistocene", role: "prey", note: "Forest bovid browsed by big cats and dholes." },
+      { era: "Holocene", role: "prey", note: "Shy browser; natural predators are tigers and dholes." },
+      { era: "Modern", role: "prey", note: "Almost entirely doomed by snares set for other animals." }
+    ]
+  },
+  {
+    id: "giant-panda",
+    name: "Giant Panda",
+    sci: "Ailuropoda melanoleuca",
+    emoji: "🐼",
+    status: "Vulnerable",
+    population: 1864,
+    asOf: 2014,
+    trend: "up",
+    region: "Mountain forests of central China",
+    blurb:
+      "Downlisted from Endangered to Vulnerable in 2016 — a flagship recovery driven by bamboo-forest protection.",
+    family: {
+      label: "Kingdom → Species (taxonomy)",
+      nodes: [
+        "Animalia (Kingdom)",
+        "Chordata (Phylum)",
+        "Mammalia (Class)",
+        "Carnivora (Order)",
+        "Ursidae (Family)",
+        "Ailuropoda (Genus)",
+        "A. melanoleuca (Species)"
+      ]
+    },
+    evolution: {
+      label: "Evolutionary lineage",
+      nodes: [
+        "Miacids (~60 Mya)",
+        "Caniformia (~45 Mya)",
+        "Early bears (~30 Mya)",
+        "Ailuropoda split (~19 Mya)",
+        "Ailurarctos (~8 Mya)",
+        "Giant panda (modern)"
+      ]
+    },
+    roles: [
+      { era: "Pliocene", role: "predator", note: "Bear ancestors were true carnivores before switching to bamboo." },
+      { era: "Holocene", role: "predator", note: "Technically a carnivore but ~99% bamboo diet; rarely eats meat." },
+      { era: "Modern", role: "prey", note: "Cubs vulnerable to leopards and dholes; adults threatened by habitat loss." }
+    ]
+  }
+];
+
+</script>
+  <script>
+/* app.js — renders cards + the explore modal (family / evolution / roles) */
+(function () {
+  "use strict";
+
+  var grid = document.getElementById("grid");
+  var search = document.getElementById("search");
+  var sortSel = document.getElementById("sort");
+  var countEl = document.getElementById("count");
+
+  var backdrop = document.getElementById("modal-backdrop");
+  var modalBody = document.getElementById("modal-body");
+  var modalTitle = document.getElementById("modal-title");
+  var modalSci = document.getElementById("modal-sci");
+  var modalEmoji = document.getElementById("modal-emoji");
+
+  var data = (window.ANIMALS || []).slice();
+  // largest population across set, for relative bars
+  var maxPop = data.reduce(function (m, a) { return Math.max(m, a.population); }, 1);
+  var lastFocused = null; // element to restore focus to when modal closes
+
+  function badgeClass(status) {
+    if (/critically/i.test(status)) return "cr";
+    if (/^endangered/i.test(status)) return "en";
+    return "vu";
+  }
+  function fmt(n) { return n.toLocaleString("en-US"); }
+  function trendSymbol(t) {
+    return t === "up" ? "▲ increasing" : t === "down" ? "▼ decreasing" : "● stable";
+  }
+
+  function cardHTML(a) {
+    var pct = Math.max(3, Math.round((a.population / maxPop) * 100));
+    return (
+      '<article class="card" data-id="' + a.id + '">' +
+        '<div class="top">' +
+          '<div class="emoji" aria-hidden="true">' + a.emoji + "</div>" +
+          "<div>" +
+            "<h2>" + a.name + "</h2>" +
+            '<div class="sci">' + a.sci + "</div>" +
+            '<span class="badge ' + badgeClass(a.status) + '">' + a.status + "</span>" +
+          "</div>" +
+        "</div>" +
+        '<div class="popline">' +
+          '<span class="num">' + fmt(a.population) + "</span>" +
+          '<span class="lbl">individuals (as of ' + a.asOf + ")</span>" +
+        "</div>" +
+        '<div class="trend ' + a.trend + '">' + trendSymbol(a.trend) + "</div>" +
+        '<div class="bar"><span style="width:' + pct + '%"></span></div>' +
+        '<p class="blurb">' + a.blurb + "</p>" +
+        '<div class="meta">📍 ' + a.region + "</div>" +
+        '<button class="btn" data-explore="' + a.id + '">🔍 Explore trees &amp; history</button>' +
+      "</article>"
+    );
+  }
+
+  function render() {
+    var q = (search.value || "").trim().toLowerCase();
+    var list = data.filter(function (a) {
+      return !q ||
+        a.name.toLowerCase().indexOf(q) > -1 ||
+        a.sci.toLowerCase().indexOf(q) > -1 ||
+        a.region.toLowerCase().indexOf(q) > -1;
+    });
+
+    var sort = sortSel.value;
+    list.sort(function (a, b) {
+      if (sort === "pop-asc") return a.population - b.population;
+      if (sort === "pop-desc") return b.population - a.population;
+      return a.name.localeCompare(b.name);
+    });
+
+    if (!data.length) {
+      grid.innerHTML = '<p style="color:var(--bad)">⚠️ Animal data failed to load. ' +
+        'Make sure <code>data.js</code> is present next to <code>index.html</code>.</p>';
+      countEl.textContent = "";
+      return;
+    }
+    grid.innerHTML = list.map(cardHTML).join("") ||
+      '<p style="color:var(--muted)">No animals match your search.</p>';
+    countEl.textContent = list.length + " of " + data.length + " species";
+  }
+
+  // ---- Modal -------------------------------------------------------------
+  function treeHTML(tree, evo) {
+    var items = tree.nodes.map(function (n, i) {
+      return '<li class="' + (evo ? "evo" : "") + '">' +
+        '<span class="depth">level ' + (i + 1) + "</span>" + n + "</li>";
+    }).join("");
+    return "<p style='color:var(--muted);margin:0 0 12px'>" + tree.label + "</p>" +
+      '<ul class="tree">' + items + "</ul>";
+  }
+
+  function rolesHTML(roles) {
+    var rows = roles.map(function (rr) {
+      return '<div class="role">' +
+        '<div><div class="era">' + rr.era + "</div>" +
+        '<span class="tag ' + rr.role + '">' + rr.role.toUpperCase() + "</span></div>" +
+        '<div class="note">' + rr.note + "</div>" +
+      "</div>";
+    }).join("");
+    return '<div class="roles">' + rows + "</div>";
+  }
+
+  function openAnimal(id) {
+    var a = data.find(function (x) { return x.id === id; });
+    if (!a) return;
+    lastFocused = document.activeElement; // remember trigger for focus return
+    modalTitle.textContent = a.name;
+    modalSci.textContent = a.sci;
+    modalEmoji.textContent = a.emoji;
+
+    modalBody.innerHTML =
+      '<div class="tabs" role="tablist">' +
+        '<button class="tab active" data-tab="family">🌳 Family tree</button>' +
+        '<button class="tab" data-tab="evo">🧬 Evolution tree</button>' +
+        '<button class="tab" data-tab="roles">⚔️ Predator vs Prey</button>' +
+      "</div>" +
+      '<div class="panel active" data-panel="family">' + treeHTML(a.family, false) + "</div>" +
+      '<div class="panel" data-panel="evo">' + treeHTML(a.evolution, true) + "</div>" +
+      '<div class="panel" data-panel="roles">' + rolesHTML(a.roles) + "</div>";
+
+    // tab switching
+    modalBody.querySelectorAll(".tab").forEach(function (t) {
+      t.addEventListener("click", function () {
+        modalBody.querySelectorAll(".tab").forEach(function (x) { x.classList.remove("active"); });
+        modalBody.querySelectorAll(".panel").forEach(function (x) { x.classList.remove("active"); });
+        t.classList.add("active");
+        var p = modalBody.querySelector('.panel[data-panel="' + t.getAttribute("data-tab") + '"]');
+        if (p) p.classList.add("active");
+      });
+    });
+
+    backdrop.classList.add("open");
+    backdrop.setAttribute("aria-hidden", "false");
+    document.querySelector(".modal .close").focus();
+  }
+  window.openAnimal = openAnimal; // let Miku open animals too
+
+  function closeModal() {
+    backdrop.classList.remove("open");
+    backdrop.setAttribute("aria-hidden", "true");
+    if (lastFocused && typeof lastFocused.focus === "function") {
+      lastFocused.focus();
+      lastFocused = null;
+    }
+  }
+
+  // ---- Events ------------------------------------------------------------
+  grid.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-explore]");
+    if (btn) openAnimal(btn.getAttribute("data-explore"));
+  });
+  search.addEventListener("input", render);
+  sortSel.addEventListener("change", render);
+
+  backdrop.addEventListener("click", function (e) {
+    if (e.target === backdrop) closeModal();
+  });
+  document.querySelector(".modal .close").addEventListener("click", closeModal);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && backdrop.classList.contains("open")) closeModal();
+  });
+
+  render();
+})();
+
+</script>
+  <script>
+/* miku.js — draggable Hatsune Miku pixel-art desktop buddy (Clippy-style) */
+(function () {
+  "use strict";
+
+  // ---- Pixel sprite (16 x 20 grid of crisp rects) -------------------------
+  // Colors
+  var C = {
+    teal: "#39c5bb",
+    tealD: "#1f8e87",
+    skin: "#ffe0c2",
+    eye: "#178f86",
+    pink: "#ff6fae",
+    white: "#f4f8ff",
+    grey: "#3a4666",
+    boot: "#26304d"
+  };
+  // helper to make a rect
+  function r(x, y, w, h, fill) {
+    return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="' + fill + '"/>';
+  }
+  function buildSprite() {
+    var p = "";
+    // twin tails (teal) down the sides
+    p += r(0, 3, 2, 11, C.teal) + r(14, 3, 2, 11, C.teal);
+    p += r(0, 5, 2, 1, C.tealD) + r(14, 5, 2, 1, C.tealD);   // tie bands
+    p += r(0, 9, 2, 1, C.tealD) + r(14, 9, 2, 1, C.tealD);
+    p += r(0, 13, 2, 2, C.tealD) + r(14, 13, 2, 2, C.tealD); // tips
+    // hair top
+    p += r(4, 0, 8, 1, C.teal) + r(3, 1, 10, 1, C.teal);
+    p += r(2, 2, 12, 1, C.teal) + r(2, 3, 12, 1, C.teal);
+    // face
+    p += r(4, 4, 8, 5, C.skin);
+    // side hair framing the face
+    p += r(3, 4, 1, 4, C.teal) + r(12, 4, 1, 4, C.teal);
+    // fringe
+    p += r(4, 4, 8, 1, C.teal);
+    // eyes
+    p += r(5, 6, 2, 2, C.eye) + r(9, 6, 2, 2, C.eye);
+    p += r(6, 6, 1, 1, C.white) + r(10, 6, 1, 1, C.white); // sparkle
+    // blush
+    p += r(4, 7, 1, 1, C.pink) + r(11, 7, 1, 1, C.pink);
+    // mouth
+    p += r(7, 8, 2, 1, C.pink);
+    // neck
+    p += r(6, 9, 4, 1, C.skin);
+    // top / collar
+    p += r(4, 10, 8, 2, C.white);
+    p += r(3, 10, 1, 3, C.white) + r(12, 10, 1, 3, C.white); // sleeves
+    // teal tie
+    p += r(7, 10, 2, 3, C.teal);
+    // skirt
+    p += r(4, 12, 8, 2, C.grey) + r(3, 14, 10, 1, C.grey);
+    // legs
+    p += r(5, 15, 2, 2, C.skin) + r(9, 15, 2, 2, C.skin);
+    // boots
+    p += r(5, 17, 2, 3, C.boot) + r(9, 17, 2, 3, C.boot);
+    return '<svg viewBox="0 0 16 20" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true" focusable="false">' +
+      '<g class="floaty">' + p + "</g></svg>";
+  }
+
+  // ---- DOM ---------------------------------------------------------------
+  var miku = document.createElement("div");
+  miku.id = "miku";
+  miku.setAttribute("role", "button");
+  miku.setAttribute("tabindex", "0");
+  miku.setAttribute("aria-label", "Miku assistant — drag me, or click for tips");
+  miku.innerHTML = buildSprite();
+
+  var bubble = document.createElement("div");
+  bubble.id = "miku-bubble";
+
+  document.body.appendChild(miku);
+  document.body.appendChild(bubble);
+
+  // ---- Dialog content ----------------------------------------------------
+  var TIPS = [
+    "Tap any animal's <b>Explore</b> button to see its family tree, evolution, and predator/prey history!",
+    "The <b>Vaquita</b> is down to about 10 individuals. Gillnets are the main threat.",
+    "Did you know? The <b>Giant Panda</b> was moved from Endangered to Vulnerable in 2016 — recovery is possible! 🐼",
+    "Use the search box up top to filter animals by name or region.",
+    "Red badge = Critically Endangered. Yellow = Endangered. Green = Vulnerable.",
+    "An <b>apex predator</b> in one era can become <b>prey</b> in another — usually to us.",
+    "The <b>Saola</b> was only discovered by science in 1992. Most die in snares meant for other animals."
+  ];
+  var FACTS = [
+    "🐆 Amur Leopards can leap nearly 3 metres straight up.",
+    "🐢 Hawksbill turtles keep coral reefs healthy by eating sponges.",
+    "🦏 Many female Javan rhinos have no horn at all.",
+    "🦧 Orangutans share about 97% of their DNA with humans.",
+    "🐬 The vaquita was only described by science in 1958.",
+    "🦍 Mountain gorillas have passed 1,000 individuals — a real win."
+  ];
+
+  function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  function say(html, actions) {
+    var btns = "";
+    (actions || []).forEach(function (a, i) {
+      btns += '<button data-mk="' + i + '">' + a.label + "</button>";
+    });
+    bubble.innerHTML =
+      '<div class="mk-name">Miku ♪</div>' + html +
+      (btns ? '<div class="mk-actions">' + btns + "</div>" : "");
+    bubble.classList.add("show");
+    positionBubble();
+    // wire action buttons
+    bubble.querySelectorAll("[data-mk]").forEach(function (b) {
+      b.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var idx = +b.getAttribute("data-mk");
+        if (actions[idx] && actions[idx].onClick) actions[idx].onClick();
+      });
+    });
+    clearTimeout(say._t);
+    if (!actions || !actions.length) {
+      say._t = setTimeout(hide, 7000);
+    }
+  }
+  function hide() { bubble.classList.remove("show"); }
+
+  function defaultMenu() {
+    say("Hi, I'm Miku! Need a hand exploring endangered animals? ♪", [
+      { label: "💡 Tip", onClick: function () { say(rand(TIPS), backBtn()); } },
+      { label: "✨ Fun fact", onClick: function () { say(rand(FACTS), backBtn()); } },
+      { label: "🎲 Surprise me", onClick: surpriseAnimal },
+      { label: "💃 Dance", onClick: dance },
+      { label: "✕ Bye", onClick: hide }
+    ]);
+  }
+  function backBtn() {
+    return [{ label: "↩ Menu", onClick: defaultMenu }, { label: "✕", onClick: hide }];
+  }
+
+  function surpriseAnimal() {
+    if (!window.ANIMALS || !window.ANIMALS.length) { say("No animals loaded!", backBtn()); return; }
+    var a = rand(window.ANIMALS);
+    say("Let's look at the <b>" + a.name + "</b>! 🐾", [
+      { label: "Open " + a.emoji, onClick: function () {
+          hide();
+          if (window.openAnimal) window.openAnimal(a.id);
+        } },
+      { label: "↩ Menu", onClick: defaultMenu }
+    ]);
+  }
+
+  function dance() {
+    miku.classList.remove("spin");
+    void miku.offsetWidth; // restart animation
+    miku.classList.add("spin");
+    say("♪~ ＼(^o^)／ ~♪", backBtn());
+    setTimeout(function () { miku.classList.remove("spin"); }, 900);
+  }
+  // expose a couple hooks
+  window.mikuSay = say;
+  window.mikuDance = dance;
+
+  // ---- Bubble positioning ------------------------------------------------
+  function positionBubble() {
+    var rct = miku.getBoundingClientRect();
+    bubble.style.visibility = "hidden";
+    bubble.style.display = "block";
+    var bw = bubble.offsetWidth, bh = bubble.offsetHeight;
+    bubble.style.display = "";
+    bubble.style.visibility = "";
+    var left = rct.left;
+    var top = rct.top - bh - 14;
+    if (top < 8) top = rct.bottom + 14;                  // flip below if no room above
+    if (left + bw > window.innerWidth - 8) left = window.innerWidth - bw - 8;
+    if (left < 8) left = 8;
+    bubble.style.left = left + "px";
+    bubble.style.top = top + "px";
+  }
+
+  // ---- Dragging ----------------------------------------------------------
+  var dragging = false, moved = false, offX = 0, offY = 0;
+
+  function onDown(e) {
+    dragging = true; moved = false;
+    miku.classList.add("dragging");
+    var pt = point(e);
+    var rct = miku.getBoundingClientRect();
+    offX = pt.x - rct.left;
+    offY = pt.y - rct.top;
+    // switch to top/left positioning
+    miku.style.left = rct.left + "px";
+    miku.style.top = rct.top + "px";
+    miku.style.right = "auto";
+    miku.style.bottom = "auto";
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    e.preventDefault();
+  }
+  function onMove(e) {
+    if (!dragging) return;
+    var pt = point(e);
+    moved = true;
+    var x = pt.x - offX, y = pt.y - offY;
+    var maxX = window.innerWidth - miku.offsetWidth;
+    var maxY = window.innerHeight - miku.offsetHeight;
+    x = Math.max(0, Math.min(maxX, x));
+    y = Math.max(0, Math.min(maxY, y));
+    miku.style.left = x + "px";
+    miku.style.top = y + "px";
+    if (bubble.classList.contains("show")) positionBubble();
+  }
+  function onUp() {
+    dragging = false;
+    miku.classList.remove("dragging");
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+  }
+  function point(e) {
+    if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    return { x: e.clientX, y: e.clientY };
+  }
+
+  miku.addEventListener("pointerdown", onDown);
+  miku.addEventListener("click", function () {
+    if (moved) { moved = false; return; }            // ignore click that ended a drag
+    if (bubble.classList.contains("show")) hide(); else defaultMenu();
+  });
+  miku.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); defaultMenu(); }
+  });
+
+  window.addEventListener("resize", function () {
+    if (bubble.classList.contains("show")) positionBubble();
+    // keep Miku on-screen
+    var rct = miku.getBoundingClientRect();
+    if (rct.left > window.innerWidth - 20 || rct.top > window.innerHeight - 20) {
+      miku.style.left = ""; miku.style.top = "";
+      miku.style.right = "24px"; miku.style.bottom = "24px";
+    }
+  });
+
+  // greet shortly after load
+  setTimeout(function () {
+    say("Hi! I'm Miku ♪ Drag me anywhere, or click me for tips!", [
+      { label: "Show me around", onClick: defaultMenu },
+      { label: "✕", onClick: hide }
+    ]);
+  }, 1200);
+})();
+
+</script>
+</body>
+</html>
