@@ -87,6 +87,15 @@ Schemas: [Vibrant Visuals docs](https://learn.microsoft.com/en-us/minecraft/crea
 
 ## Changelog
 
+### 1.3.0 — Detailed textures (anti-"playdoh") + molten lava
+- Rebuilt the generator with **multi-scale detail** (macro Voronoi + mid fbm + sharp
+  micro-grit + ridged cracks) baked into both color and a **high-contrast heightmap**, plus
+  per-pixel roughness variation — surfaces now catch light with real micro-relief instead of
+  reading as smooth clay.
+- **Realistic molten lava**: animated `lava_still` + `lava_flow` with dark basalt crust, a
+  glowing orange→white-hot crack network, **strong emissive** (bloom) and a warm cast light.
+- Sand regrained (no more stripes); ores get sparkle flecks; bark/plank grain sharpened.
+
 ### 1.2.0 — Custom HD textures & waving foliage
 - **Custom 256× realistic textures** for terrain, wood (oak/birch/spruce) and 8 ores, each with a
   full PBR texture set (color + heightmap + MER) for real depth and reflectivity.

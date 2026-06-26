@@ -1,5 +1,17 @@
 [
   {
+    "flipbook_texture": "textures/blocks/lava_still",
+    "atlas_tile": "lava_still",
+    "ticks_per_frame": 3,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/lava_flow",
+    "atlas_tile": "lava_flow",
+    "ticks_per_frame": 2,
+    "blend_frames": true
+  },
+  {
     "flipbook_texture": "textures/blocks/tallgrass",
     "atlas_tile": "tallgrass",
     "ticks_per_frame": 4,
