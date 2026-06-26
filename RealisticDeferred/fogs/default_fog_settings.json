@@ -1,0 +1,31 @@
+{
+  "format_version": "1.16.100",
+  "minecraft:fog_settings": {
+    "description": {
+      "identifier": "realistic_deferred:fog_default"
+    },
+    "volumetric": {
+      "density": {
+        "air": {
+          "max_density": 0.012,
+          "zero_density_height": 160.0,
+          "max_density_height": 45.0
+        },
+        "water": {
+          "max_density": 0.28,
+          "uniform": true
+        }
+      },
+      "media_coefficients": {
+        "air": {
+          "scattering": [0.022, 0.024, 0.028],
+          "absorption": [0.0, 0.0, 0.0]
+        },
+        "water": {
+          "scattering": [0.018, 0.045, 0.066],
+          "absorption": [0.32, 0.105, 0.05]
+        }
+      }
+    }
+  }
+}
