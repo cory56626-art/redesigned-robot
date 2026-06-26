@@ -4,7 +4,7 @@
     "name": "§bRealistic Deferred§r — Vibrant Visuals",
     "description": "Realistic shader for Bedrock Vibrant Visuals (deferred rendering).\nSoft directional shadows, atmospheric sky, reflective/refractive water with caustics,\nvolumetric fog & god rays, ACES filmic tone mapping + bloom.\n§7Windows 10/11 · High-end PC · v26.21 (engine 1.21.120+)§r",
     "uuid": "2f67f62b-cce3-4abc-a440-8a5983e479c0",
-    "version": [1, 2, 0],
+    "version": [1, 2, 1],
     "min_engine_version": [1, 21, 120]
   },
   "modules": [
@@ -12,7 +12,7 @@
       "type": "resources",
       "description": "Vibrant Visuals deferred-rendering configuration.",
       "uuid": "4f5afe00-7b97-411a-8715-149edcf1f4fa",
-      "version": [1, 2, 0]
+      "version": [1, 2, 1]
     }
   ],
   "metadata": {
