@@ -11,17 +11,17 @@
     },
     "waves": {
       "enabled": true,
-      "depth": 1.15,
-      "direction_increment": 82.0,
-      "frequency": 1.0,
-      "frequency_scaling": 1.22,
-      "mix": 0.22,
-      "octaves": 28,
-      "pull": 0.4,
+      "depth": 1.3,
+      "direction_increment": 84.0,
+      "frequency": 1.05,
+      "frequency_scaling": 1.24,
+      "mix": 0.24,
+      "octaves": 30,
+      "pull": 0.42,
       "sampleWidth": 0.01,
-      "shape": 1.6,
-      "speed": 1.8,
-      "speed_scaling": 1.03
+      "shape": 1.7,
+      "speed": 2.1,
+      "speed_scaling": 1.04
     },
     "caustics": {
       "enabled": true,

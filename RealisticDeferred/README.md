@@ -19,6 +19,20 @@ A **realistic** shader pack for **Minecraft: Bedrock Edition** built on the offi
 | **Colored point lights w/ dynamic shadows** | `local_lighting/local_lighting.json` — torches, lanterns, end rods, lava, glowstone, sea lanterns. |
 | **PBR fallbacks** | `pbr/global.json` — sensible metalness/roughness defaults so vanilla blocks/mobs look right without per-texture authoring. |
 
+### A note on water reactivity
+Bedrock's Vibrant Visuals water is a **flat, image-based animated surface** — the docs state
+explicitly that waves *don't move the surface geometry and don't react to entities*. So true
+physics-style ripples when a player jumps in (Blender/sim-app behavior) are **not possible** through
+a resource pack; that needs an engine-level feature Bedrock doesn't expose. This pack instead uses
+livelier wave motion (30 octaves, higher depth/speed) so the surface feels alive, and vanilla splash
+particles still fire on entry.
+
+### A note on shadow edges
+Deep, grounded shadows are tuned here via low sky/ambient fill and shadow-range color grading.
+However the **hard pixel/blocky edge** of shadows is the engine's shadow-map resolution, set by the
+in-game **Settings → Video → Shadow Quality** slider — raise it to High for the softest edges. A
+resource pack cannot override that resolution.
+
 ### A note on waving plants
 Waving foliage in Bedrock is handled by the engine's built-in vertex animation; there is no
 Vibrant Visuals JSON to toggle it independently, so it's not a separate config here. It's active
@@ -55,3 +69,15 @@ day; `0.0`/`1.0` = noon, `0.5` = midnight). Lower `color_grading` contrast/satur
 look, or swap the tone-mapping `operator` to `hable`/`generic` for a different filmic curve.
 
 Schemas: [Vibrant Visuals docs](https://learn.microsoft.com/en-us/minecraft/creator/documents/vibrantvisuals/vvresourcepacks).
+
+## Changelog
+
+### 1.1.0 — Realistic shadow & lighting pass
+- **Deeper, contrastier shadows:** sky indirect intensity `1.0 → 0.38`, ambient `0.018 → 0.007`
+  (cooler), plus dedicated shadow-range color grading (darkened + slightly desaturated darks).
+- **Slightly dimmer / less washed:** midtone gain `1.0 → 0.96`, contrast `1.12 → 1.22`, highlights
+  tamed so midday isn't blown out.
+- **Longer raking shadows:** sun orbital offset `25° → 55°` so shadows stretch across the ground.
+- **Neutral real-life daylight:** near-white noon sun, 6500K white balance (warm only at dawn/dusk).
+- **Livelier water:** 30 octaves, higher wave depth/speed. (Surface is still non-reactive — engine
+  limitation; see notes above.)
