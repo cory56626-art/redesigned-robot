@@ -87,6 +87,16 @@ Schemas: [Vibrant Visuals docs](https://learn.microsoft.com/en-us/minecraft/crea
 
 ## Changelog
 
+### 1.5.0 — Real emissive lava + waving foliage back
+- **Real molten lava**: animated `lava_still`/`lava_flow` built from the CC0 AmbientCG **Lava001**
+  material — dark basalt crust with glowing orange veins, a real **emission map** driving strong
+  bloom, low roughness on the hot areas, and a downward scroll so it flows. Plus the lava/magma/fire
+  point lights for cast glow.
+- **Waving foliage is back** — using recognizable **vanilla** plant art (from Mojang's open
+  bedrock-samples) baked into a gentle shear-sway, not the old procedural blades. Covers tall grass,
+  all flowers, saplings, and every wheat stage.
+- Texture credit: AmbientCG (CC0); foliage animation derived from Mojang vanilla art.
+
 ### 1.4.0 — Real CC0 photo-PBR textures
 - **Replaced all procedurally-generated block art with real photographic PBR textures** sourced
   from [AmbientCG](https://ambientcg.com) (CC0 / public domain — legal to bundle). Each block ships

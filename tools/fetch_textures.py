@@ -7,7 +7,7 @@ heightmap + MER), composites ores onto the real rock, and builds a grass side.
 CC0 = legal to redistribute inside the pack. Run: python3 tools/fetch_textures.py
 """
 import os, io, json, zipfile, math, random, subprocess
-from PIL import Image, ImageEnhance
+from PIL import Image, ImageEnhance, ImageChops
 
 HERE=os.path.dirname(__file__)
 OUT=os.path.join(HERE,"..","RealisticDeferred","textures","blocks")
@@ -16,7 +16,7 @@ CACHE=os.path.join(HERE,"..","..","scratchpad_cache")  # may not exist; fallback
 CACHE=os.environ.get("ACG_CACHE", "/tmp/claude-0/-home-user-redesigned-robot/23c9e1e2-6dd9-510e-a53f-861852d3ba0e/scratchpad/acg")
 os.makedirs(OUT,exist_ok=True); os.makedirs(CACHE,exist_ok=True)
 RES=256
-ALL=set()
+ALL=set(); FLIP=[]
 
 def _valid(z):
     if not os.path.exists(z) or os.path.getsize(z)<50000: return False
@@ -156,7 +156,89 @@ ore("emerald_ore",(74,204,114),45, rough_min=52, sparkle=True)
 ore("lapis_ore",(46,88,184),46, rough_min=68, sparkle=True)
 ore("redstone_ore",(204,44,34),47, rough_min=86, emis=150)
 
+# ---------- animated emissive LAVA (real CC0 Lava material) ----------
+def lava_maps(asset):
+    z=download(asset); names=z.namelist()
+    def f(suf):
+        for n in names:
+            if n.endswith(suf): return n
+    def L(n,mode): return Image.open(io.BytesIO(z.read(n))).convert(mode).resize((RES,RES),Image.LANCZOS)
+    return {"color":L(f("_Color.jpg"),"RGB"),"disp":L(f("_Displacement.jpg"),"L"),
+            "rough":L(f("_Roughness.jpg"),"L"),"emis":L(f("_Emission.jpg"),"L")}
+
+def build_lava(name, asset, frames, scroll_tiles, tpf, emis_boost=1.6):
+    m=lava_maps(asset)
+    col=m["color"]; disp=m["disp"]; rough=m["rough"]
+    emis=ImageEnhance.Brightness(m["emis"]).enhance(emis_boost)
+    # hot (emissive) areas should be shinier -> lower roughness there
+    rough=ImageChops.subtract(rough, emis.point(lambda v:int(v*0.6)))
+    cf=[]; hf=[]; mf=[]
+    for i in range(frames):
+        dy=int((i/frames)*RES*scroll_tiles)
+        c=ImageChops.offset(col,0,dy); d=ImageChops.offset(disp,0,dy)
+        r=ImageChops.offset(rough,0,dy); e=ImageChops.offset(emis,0,dy)
+        cf.append(c.convert("RGBA")); hf.append(Image.merge("RGB",(d,d,d)))
+        z0=Image.new("L",(RES,RES),0); mf.append(Image.merge("RGB",(z0,e,r)))
+    def strip(suffix,imgs,mode):
+        st=Image.new(mode,(RES,RES*frames))
+        for i,im in enumerate(imgs): st.paste(im,(0,i*RES))
+        st.save(os.path.join(OUT,name+suffix+".png"))
+    strip("",cf,"RGBA"); strip("_height",hf,"RGB"); strip("_mer",mf,"RGB")
+    json.dump({"format_version":"1.16.100","minecraft:texture_set":{
+        "color":name,"metalness_emissive_roughness":name+"_mer","heightmap":name+"_height"}},
+        open(os.path.join(OUT,name+".texture_set.json"),"w"),indent=2)
+    FLIP.append({"flipbook_texture":"textures/blocks/"+name,"atlas_tile":name,
+                 "ticks_per_frame":tpf,"blend_frames":True})
+    for s in (name,name+"_mer",name+"_height"): ALL.add("textures/blocks/"+s)
+    print("  ->",name,"(animated emissive, from",asset+")")
+
+print("lava (real emissive, animated)...")
+build_lava("lava_still","Lava001",frames=32,scroll_tiles=1.0,tpf=3)
+build_lava("lava_flow","Lava001", frames=24,scroll_tiles=1.0,tpf=1)
+
+# ---------- waving foliage (recognizable vanilla art -> gentle sway) ----------
+VANILLA="https://raw.githubusercontent.com/Mojang/bedrock-samples/main/resource_pack/textures/blocks/"
+def get_vanilla(fn):
+    p=os.path.join(CACHE,"vanilla_"+fn)
+    if not os.path.exists(p) or os.path.getsize(p)<60:
+        subprocess.run(["curl","-sL","-m","40","-A","Mozilla/5.0",VANILLA+fn,"-o",p],check=False)
+    try:
+        im=Image.open(p); im.load(); return im.convert("RGBA")
+    except Exception: return None
+
+def wave_flip(block_fn, frames=16, tpf=4, amp_px=2.4, anchored=True, up=128):
+    im=get_vanilla(block_fn+".png")
+    if im is None: print("   skip (missing)",block_fn); return
+    src=im.resize((up,up),Image.NEAREST)
+    for f in range(frames):
+        ph=math.sin(2*math.pi*f/frames); sh=amp_px*ph
+        if anchored:   # shear: bottom fixed, top sways
+            frame=src.transform((up,up),Image.AFFINE,(1,sh/up,-sh,0,1,0),resample=Image.NEAREST)
+        else:          # leaves: whole-tile horizontal wrap
+            frame=ImageChops.offset(src,int(round(sh)),0)
+        path=os.path.join(OUT,block_fn+".png")
+        if f==0:
+            strip=Image.new("RGBA",(up,up*frames))
+        strip.paste(frame,(0,f*up))
+    strip.save(path)
+    FLIP.append({"flipbook_texture":"textures/blocks/"+block_fn,"atlas_tile":block_fn,
+                 "ticks_per_frame":tpf,"blend_frames":True})
+    ALL.add("textures/blocks/"+block_fn)
+    print("   waving:",block_fn)
+
+print("waving foliage (vanilla-derived, gentle)...")
+# grasses, flowers, saplings, mushrooms — rooted, top sways. Missing names skip cleanly.
+plants=["tallgrass",
+        "flower_dandelion","flower_rose","flower_oxeye_daisy","flower_allium","flower_blue_orchid",
+        "flower_tulip_red","flower_tulip_orange","flower_tulip_white","flower_tulip_pink",
+        "flower_houstonia","flower_cornflower","flower_lily_of_the_valley",
+        "sapling_oak","sapling_birch","sapling_spruce","sapling_jungle","sapling_acacia","sapling_roofed_oak",
+        "red_mushroom","brown_mushroom"]
+for fn in plants:
+    wave_flip(fn, amp_px=2.4, anchored=True)
+for fn in ["wheat_stage_%d"%s for s in range(8)]:
+    wave_flip(fn, amp_px=2.0, anchored=True)
+
 json.dump(sorted(ALL),open(os.path.join(TEXROOT,"textures_list.json"),"w"),indent=2)
-# no flipbook waving in this pass
-json.dump([],open(os.path.join(TEXROOT,"flipbook_textures.json"),"w"),indent=2)
-print("DONE:",len(ALL),"textures listed")
+json.dump(FLIP,open(os.path.join(TEXROOT,"flipbook_textures.json"),"w"),indent=2)
+print("DONE:",len(ALL),"textures,",len(FLIP),"animated")

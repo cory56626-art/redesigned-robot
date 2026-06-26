@@ -1,1 +1,176 @@
-[]
+[
+  {
+    "flipbook_texture": "textures/blocks/lava_still",
+    "atlas_tile": "lava_still",
+    "ticks_per_frame": 3,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/lava_flow",
+    "atlas_tile": "lava_flow",
+    "ticks_per_frame": 1,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/tallgrass",
+    "atlas_tile": "tallgrass",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/flower_dandelion",
+    "atlas_tile": "flower_dandelion",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/flower_rose",
+    "atlas_tile": "flower_rose",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/flower_oxeye_daisy",
+    "atlas_tile": "flower_oxeye_daisy",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/flower_allium",
+    "atlas_tile": "flower_allium",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/flower_blue_orchid",
+    "atlas_tile": "flower_blue_orchid",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/flower_tulip_red",
+    "atlas_tile": "flower_tulip_red",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/flower_tulip_orange",
+    "atlas_tile": "flower_tulip_orange",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/flower_tulip_white",
+    "atlas_tile": "flower_tulip_white",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/flower_tulip_pink",
+    "atlas_tile": "flower_tulip_pink",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/flower_houstonia",
+    "atlas_tile": "flower_houstonia",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/flower_cornflower",
+    "atlas_tile": "flower_cornflower",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/flower_lily_of_the_valley",
+    "atlas_tile": "flower_lily_of_the_valley",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/sapling_oak",
+    "atlas_tile": "sapling_oak",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/sapling_birch",
+    "atlas_tile": "sapling_birch",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/sapling_spruce",
+    "atlas_tile": "sapling_spruce",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/sapling_jungle",
+    "atlas_tile": "sapling_jungle",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/sapling_acacia",
+    "atlas_tile": "sapling_acacia",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/sapling_roofed_oak",
+    "atlas_tile": "sapling_roofed_oak",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/wheat_stage_0",
+    "atlas_tile": "wheat_stage_0",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/wheat_stage_1",
+    "atlas_tile": "wheat_stage_1",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/wheat_stage_2",
+    "atlas_tile": "wheat_stage_2",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/wheat_stage_3",
+    "atlas_tile": "wheat_stage_3",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/wheat_stage_4",
+    "atlas_tile": "wheat_stage_4",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/wheat_stage_5",
+    "atlas_tile": "wheat_stage_5",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/wheat_stage_6",
+    "atlas_tile": "wheat_stage_6",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  },
+  {
+    "flipbook_texture": "textures/blocks/wheat_stage_7",
+    "atlas_tile": "wheat_stage_7",
+    "ticks_per_frame": 4,
+    "blend_frames": true
+  }
+]
