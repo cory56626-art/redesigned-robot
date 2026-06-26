@@ -1,0 +1,14 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": { "identifier": "copper_crusader:spear" },
+    "tags": ["crafting_table"],
+    "pattern": ["C", "I", "S"],
+    "key": {
+      "C": { "item": "minecraft:copper_block" },
+      "I": { "item": "minecraft:copper_ingot" },
+      "S": { "item": "minecraft:stick" }
+    },
+    "result": { "item": "copper_crusader:spear" }
+  }
+}

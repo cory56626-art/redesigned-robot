@@ -10,10 +10,18 @@ const SHARD_ID = "copper_crusader:copper_shard";
 
 const MAX_FALL_POWER = 60;
 
+const SPEAR_ID = "copper_crusader:spear";
+
 const ABILITY_NAMES = {
   1: "§6Skybreak Ascension",
   2: "§cCopper Corruption Rush",
   3: "§eCopper Relic Summon",
+};
+
+const SPEAR_ABILITY_NAMES = {
+  1: "§bCopper Slipstream",
+  2: "§bSkewer Lunge",
+  3: "§bCopper Thunderlance",
 };
 
 // World-level key for the oxidation pause window (counter mechanic).
@@ -48,14 +56,15 @@ function safeSound(dim, id, loc, opts) {
   }
 }
 
-function holdingSword(player) {
+// Returns "sword" | "spear" | null based on the main-hand item.
+function holdingWeapon(player) {
   try {
     const eq = player.getComponent("minecraft:equippable");
     const item = eq?.getEquipment(EquipmentSlot.Mainhand);
-    return item?.typeId === SWORD_ID;
-  } catch (e) {
-    return false;
-  }
+    if (item?.typeId === SWORD_ID) return "sword";
+    if (item?.typeId === SPEAR_ID) return "spear";
+  } catch (e) {}
+  return null;
 }
 
 // Count equipped Copper Crusader armor pieces (0..4).
@@ -472,6 +481,188 @@ function shardTick() {
 }
 
 /* ============================================================
+ * SPEAR ABILITY 1 - COPPER SLIPSTREAM (directional flight)
+ * ============================================================ */
+
+function spearSlipstream(player) {
+  player.setDynamicProperty("cc:flightUntil", system.currentTick + 100); // ~5s
+  setNum(player, "cc:fallPower", 0); // meter resets on use
+  safeSound(player.dimension, "item.trident.riptide_3", player.location, { pitch: 1.0 });
+  safeSound(player.dimension, "block.copper.place", player.location, { pitch: 1.4 });
+  // initial burst in look direction
+  const v = viewVector(player);
+  const h = Math.hypot(v.x, v.z) || 0.001;
+  try {
+    player.applyKnockback(v.x / h, v.z / h, 2.2 * h, v.y * 1.6 + 0.4);
+  } catch (e) {
+    try {
+      player.applyImpulse({ x: v.x * 1.2, y: v.y * 1.0 + 0.3, z: v.z * 1.2 });
+    } catch (err) {}
+  }
+  player.onScreenDisplay.setActionBar("§b✈ Copper Slipstream! §7Fly where you look.");
+}
+
+// Sustains high-speed directional flight while the window is active.
+function spearFlightTick(player) {
+  const until = getNum(player, "cc:flightUntil", 0);
+  if (system.currentTick >= until) return;
+
+  const v = viewVector(player);
+  const h = Math.hypot(v.x, v.z) || 0.001;
+  const hPower = 1.7;
+  const vPower = 1.45;
+  try {
+    // Re-applied every tick -> sustained elytra-like glide in the look vector.
+    player.applyKnockback(v.x / h, v.z / h, hPower * h, v.y * vPower);
+  } catch (e) {
+    try {
+      player.applyImpulse({ x: v.x * hPower * 0.6, y: v.y * vPower * 0.6, z: v.z * hPower * 0.6 });
+    } catch (err) {}
+  }
+  try {
+    player.addEffect("speed", 20, { amplifier: 3, showParticles: false });
+    player.addEffect("slow_falling", 40, { amplifier: 0, showParticles: false });
+  } catch (e) {}
+  safeParticle(player.dimension, "minecraft:electric_spark_particle", player.location);
+
+  if (until - system.currentTick <= 1) {
+    // Cushion the landing so flight never ends in fall damage.
+    try {
+      player.addEffect("slow_falling", 80, { amplifier: 0, showParticles: true });
+    } catch (e) {}
+    player.onScreenDisplay.setActionBar("§7Slipstream fading...");
+  }
+}
+
+/* ============================================================
+ * SPEAR ABILITY 2 - SKEWER LUNGE (piercing thrust)
+ * ============================================================ */
+
+function spearLunge(player) {
+  const v = viewVector(player);
+  const h = Math.hypot(v.x, v.z) || 0.001;
+  try {
+    player.applyKnockback(v.x / h, v.z / h, 3.2, 0.35);
+  } catch (e) {
+    try {
+      player.applyImpulse({ x: (v.x / h) * 1.8, y: 0.3, z: (v.z / h) * 1.8 });
+    } catch (err) {}
+  }
+  setNum(player, "cc:lungeFp", getNum(player, "cc:fallPower", 0));
+  player.setDynamicProperty("cc:lungeTicks", 10);
+  setNum(player, "cc:fallPower", 0);
+  safeSound(player.dimension, "block.copper.place", player.location, { pitch: 0.7 });
+  player.onScreenDisplay.setActionBar("§b➤ Skewer Lunge!");
+}
+
+function spearLungeTick(player) {
+  const rem = getNum(player, "cc:lungeTicks", 0);
+  if (rem <= 0) return;
+  player.setDynamicProperty("cc:lungeTicks", rem - 1);
+
+  const fp = getNum(player, "cc:lungeFp", 0);
+  const dmg = 6 + fp * 0.4;
+  let near;
+  try {
+    near = player.dimension.getEntities({
+      location: player.location,
+      maxDistance: 3.5,
+      families: ["mob"],
+      excludeTypes: [SHARD_ID, STATUE_ID],
+    });
+  } catch (e) {
+    return;
+  }
+  for (const t of near) {
+    if (t.id === player.id) continue;
+    // Vanilla hurt-cooldown naturally limits this to ~one hit per target per lunge.
+    try {
+      t.applyDamage(dmg, { cause: "entityAttack", damagingEntity: player });
+    } catch (e) {}
+    applyCopperEffect(t, 0.8);
+    const dx = t.location.x - player.location.x;
+    const dz = t.location.z - player.location.z;
+    const len = Math.hypot(dx, dz) || 1;
+    try {
+      t.applyKnockback(dx / len, dz / len, 0.8, 0.3);
+    } catch (e) {}
+    safeParticle(t.dimension, "minecraft:electric_spark_particle", t.location);
+  }
+}
+
+/* ============================================================
+ * SPEAR ABILITY 3 - COPPER THUNDERLANCE (targeted strike)
+ * ============================================================ */
+
+function spearThunderlance(player) {
+  const fp = getNum(player, "cc:fallPower", 0);
+  setNum(player, "cc:fallPower", 0);
+
+  const v = viewVector(player);
+  let base;
+  try {
+    base = player.getHeadLocation();
+  } catch (e) {
+    base = player.location;
+  }
+  let loc = { x: base.x + v.x * 12, y: base.y + v.y * 12, z: base.z + v.z * 12 };
+  try {
+    const ray = player.getBlockFromViewDirection({ maxDistance: 24 });
+    if (ray && ray.block) {
+      loc = {
+        x: ray.block.location.x + 0.5,
+        y: ray.block.location.y + 1,
+        z: ray.block.location.z + 0.5,
+      };
+    }
+  } catch (e) {}
+
+  const radius = 4 + fp * 0.1;
+  const dmg = 8 + fp * 0.5;
+
+  safeParticle(player.dimension, "minecraft:huge_explosion_emitter", loc);
+  for (let i = 0; i < 16; i++) {
+    const a = (Math.PI * 2 * i) / 16;
+    safeParticle(player.dimension, "minecraft:electric_spark_particle", {
+      x: loc.x + Math.cos(a) * radius * 0.6,
+      y: loc.y + 0.2,
+      z: loc.z + Math.sin(a) * radius * 0.6,
+    });
+  }
+  safeSound(player.dimension, "ambient.weather.thunder", loc, { pitch: 1.2 });
+  safeSound(player.dimension, "random.explode", loc, { pitch: 1.0 });
+
+  let targets;
+  try {
+    targets = player.dimension.getEntities({
+      location: loc,
+      maxDistance: radius,
+      families: ["mob"],
+      excludeTypes: [SHARD_ID],
+    });
+  } catch (e) {
+    targets = [];
+  }
+  for (const t of targets) {
+    if (t.id === player.id) continue;
+    try {
+      t.applyDamage(dmg, { cause: "lightning", damagingEntity: player });
+    } catch (e) {}
+    applyCopperEffect(t, 1.0); // heavy oxidation
+    const dx = t.location.x - loc.x;
+    const dz = t.location.z - loc.z;
+    const len = Math.hypot(dx, dz) || 1;
+    try {
+      t.applyKnockback(dx / len, dz / len, 1.2, 0.6);
+    } catch (e) {}
+  }
+
+  // Copper shard scatter (reuses the relic shard system) - tight & strong.
+  shardBurst(player.dimension, loc, fp, true, player.id);
+  player.onScreenDisplay.setActionBar(`§b⚡ Copper Thunderlance! §7(${dmg.toFixed(1)} dmg)`);
+}
+
+/* ============================================================
  * ABILITY SWITCHING + DISPATCH
  * ============================================================ */
 
@@ -499,25 +690,31 @@ function activateAbility(player) {
   }
 }
 
+function cycleSpearAbility(player) {
+  let a = getNum(player, "cc:spAbility", 1);
+  a = a >= 3 ? 1 : a + 1;
+  setNum(player, "cc:spAbility", a);
+  safeSound(player.dimension, "random.orb", player.location, { pitch: 1.4 });
+  player.onScreenDisplay.setActionBar(`§7Spear: ${SPEAR_ABILITY_NAMES[a]}`);
+}
+
+function activateSpearAbility(player) {
+  const a = getNum(player, "cc:spAbility", 1);
+  if (a === 1) {
+    spearSlipstream(player);
+  } else if (a === 2) {
+    spearLunge(player);
+  } else if (a === 3) {
+    spearThunderlance(player);
+  }
+}
+
 /* ============================================================
  * PER-PLAYER TICK (fall power, slam detection, passives, HUD)
  * ============================================================ */
 
 function playerTick(player) {
-  if (!holdingSword(player)) {
-    // Clear transient state when the sword is put away.
-    player.setDynamicProperty("cc:skyArmed", false);
-    return;
-  }
-
-  // ---- Fall power meter ----
-  const y = player.location.y;
-  const lastY = getNum(player, "cc:lastY", y);
-  if (!player.isOnGround && y < lastY) {
-    const fp = Math.min(MAX_FALL_POWER, getNum(player, "cc:fallPower", 0) + (lastY - y));
-    setNum(player, "cc:fallPower", fp);
-  }
-  setNum(player, "cc:lastY", y);
+  // ---- Always-on combat state (runs regardless of held item) ----
 
   // ---- Skybreak slam landing detection ----
   if (getBool(player, "cc:slamPending", false)) {
@@ -530,10 +727,11 @@ function playerTick(player) {
     player.setDynamicProperty("cc:skyArmed", false);
   }
 
-  // ---- Corruption rush path damage ----
-  corruptionRushTick(player);
+  corruptionRushTick(player); // sword dash path damage
+  spearFlightTick(player);    // spear directional flight
+  spearLungeTick(player);     // spear pierce
 
-  // ---- Armor set bonus ----
+  // ---- Armor set bonus (independent of held item) ----
   const pieces = copperArmorCount(player);
   if (pieces > 0) {
     try {
@@ -542,14 +740,27 @@ function playerTick(player) {
     } catch (e) {}
   }
 
-  // ---- HUD: ability + fall power meter ----
-  const a = getNum(player, "cc:ability", 1);
+  // ---- Weapon-only: fall power meter + HUD ----
+  const weapon = holdingWeapon(player);
+  if (!weapon) return;
+
+  const y = player.location.y;
+  const lastY = getNum(player, "cc:lastY", y);
+  if (!player.isOnGround && y < lastY) {
+    const fp = Math.min(MAX_FALL_POWER, getNum(player, "cc:fallPower", 0) + (lastY - y));
+    setNum(player, "cc:fallPower", fp);
+  }
+  setNum(player, "cc:lastY", y);
+
+  const isSpear = weapon === "spear";
+  const a = getNum(player, isSpear ? "cc:spAbility" : "cc:ability", 1);
+  const names = isSpear ? SPEAR_ABILITY_NAMES : ABILITY_NAMES;
   const fp = getNum(player, "cc:fallPower", 0);
   const filled = Math.round((fp / MAX_FALL_POWER) * 10);
   let meter = "";
   for (let i = 0; i < 10; i++) meter += i < filled ? "§6▰" : "§8▰";
   player.onScreenDisplay.setActionBar(
-    `${ABILITY_NAMES[a]} §r §7[crouch+use to switch]\n§eFall Power ${meter} §7${Math.round(fp)}`
+    `${names[a]} §r §7[crouch+use to switch]\n§eFall Power ${meter} §7${Math.round(fp)}`
   );
 }
 
@@ -589,11 +800,13 @@ function copperRegenTick(player) {
 world.afterEvents.itemUse.subscribe((ev) => {
   const player = ev.source;
   const item = ev.itemStack;
-  if (!item || item.typeId !== SWORD_ID) return;
-  if (player.isSneaking) {
-    cycleAbility(player);
-  } else {
-    activateAbility(player);
+  if (!item) return;
+  if (item.typeId === SWORD_ID) {
+    if (player.isSneaking) cycleAbility(player);
+    else activateAbility(player);
+  } else if (item.typeId === SPEAR_ID) {
+    if (player.isSneaking) cycleSpearAbility(player);
+    else activateSpearAbility(player);
   }
 });
 
@@ -601,7 +814,7 @@ world.afterEvents.itemUse.subscribe((ev) => {
 world.afterEvents.entityHurt.subscribe((ev) => {
   const e = ev.hurtEntity;
   if (!e || e.typeId !== "minecraft:player") return;
-  if (holdingSword(e)) {
+  if (holdingWeapon(e)) {
     setNum(world, OX_PAUSE_KEY, system.currentTick + 100);
   }
 });

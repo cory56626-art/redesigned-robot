@@ -1,6 +1,7 @@
 pack.name=Copper Crusader [RP]
 pack.description=Textures, models and effects for the Copper Crusader add-on.
 item.copper_crusader:sword=Copper Crusader
+item.copper_crusader:spear=Copper Crusader Spear
 item.copper_crusader:helmet=Copper Crusader Helmet
 item.copper_crusader:chestplate=Copper Crusader Chestplate
 item.copper_crusader:leggings=Copper Crusader Leggings

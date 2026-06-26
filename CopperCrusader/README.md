@@ -40,6 +40,25 @@ each time an ability fires** — higher falls = stronger abilities.
    **natural expiry = wider, weaker burst**. Count/speed/damage scale with the
    Fall Power stored when it was summoned.
 
+## Copper Crusader Spear
+
+A faster, harder-thrusting companion weapon (`copper_crusader:spear`, 6 base
+damage). Same control scheme: *Use* activates, *Sneak + Use* cycles its three
+abilities. It shares the Fall Power meter (abilities scale with it and reset it).
+
+Craft: Copper Block over Copper Ingot over Stick.
+
+1. **Copper Slipstream** — Activate to launch into elytra-style directional
+   flight: you fly wherever you look at high speed with Speed III, for ~5 s, and
+   land safely (no fall damage). Reactivate to refresh.
+2. **Skewer Lunge** — A fast forward lance thrust that pierces and damages
+   everything in its path (`6 + fallPower×0.4`), knocks them back, and applies
+   the Copper Effect.
+3. **Copper Thunderlance** — Strikes the block you're aiming at (up to 24 m)
+   with a copper lightning blast: AoE damage (`8 + fallPower×0.5`), knockback,
+   heavy Copper Effect, plus a homing copper-shard scatter. Everything scales
+   with stored Fall Power.
+
 ## Copper Effect (oxidation)
 
 Stages **Normal → Exposed → Weathered → Fully Oxidized** progress over time and

@@ -83,6 +83,25 @@ def sword():
     return im
 
 
+def spear():
+    im = Img(16, 16)
+    # long shaft along the anti-diagonal
+    for i in range(13):
+        x, y = 2 + i, 13 - i
+        im.set(x, y, DARK)
+        im.set(x + 1, y, DARKER)
+    # copper spearhead (leaf-shaped tip) at top-right
+    im.set(13, 2, LIGHT); im.set(14, 1, LIGHT); im.set(15, 0, LIGHT)
+    im.set(12, 3, BASE);  im.set(13, 1, BASE);  im.set(14, 2, BASE)
+    im.set(11, 3, BASE);  im.set(12, 2, BASE)
+    im.set(11, 2, OXID);  im.set(13, 3, OXID2)
+    # binding near the head
+    im.set(10, 4, BASE); im.set(11, 5, BASE)
+    # butt-cap
+    im.set(2, 13, BASE); im.set(1, 14, DARKER)
+    return im
+
+
 def helmet():
     im = Img(16, 16)
     im.rect(3, 3, 12, 9, BASE)
@@ -186,6 +205,7 @@ def pack_icon():
 
 def main():
     sh = sword();      shade(sh);  sh.save(os.path.join(RP, "textures/items/copper_crusader_sword.png"))
+    sp = spear();      shade(sp);  sp.save(os.path.join(RP, "textures/items/copper_crusader_spear.png"))
     for name, fn in [("helmet", helmet), ("chestplate", chestplate),
                      ("leggings", leggings), ("boots", boots)]:
         im = fn(); shade(im)
