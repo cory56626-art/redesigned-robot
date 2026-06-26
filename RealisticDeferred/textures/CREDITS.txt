@@ -1,0 +1,10 @@
+Block textures in textures/blocks are derived from CC0 (public-domain) PBR
+materials from AmbientCG (https://ambientcg.com). CC0 permits use and
+redistribution without restriction. No attribution is legally required;
+credit is given here as a courtesy.
+
+Materials used: Rock030, PavingStones128, Ground037, Ground080, Gravel022,
+WoodFloor043, Bark012, Grass005.
+
+The Vibrant Visuals shader configuration (lighting, atmospherics, water, fog,
+color grading, local lighting) is original to this pack.

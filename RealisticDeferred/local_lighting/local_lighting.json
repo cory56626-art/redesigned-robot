@@ -26,8 +26,16 @@
       "light_type": "point_light"
     },
     "minecraft:lava": {
-      "light_color": "#FF7A1E",
-      "light_type": "static_light"
+      "light_color": "#FF6400",
+      "light_type": "point_light"
+    },
+    "minecraft:magma": {
+      "light_color": "#FF5A12",
+      "light_type": "point_light"
+    },
+    "minecraft:fire": {
+      "light_color": "#FF8A2A",
+      "light_type": "point_light"
     },
     "minecraft:glowstone": {
       "light_color": "#FFE8A8",

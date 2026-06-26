@@ -87,6 +87,18 @@ Schemas: [Vibrant Visuals docs](https://learn.microsoft.com/en-us/minecraft/crea
 
 ## Changelog
 
+### 1.4.0 — Real CC0 photo-PBR textures
+- **Replaced all procedurally-generated block art with real photographic PBR textures** sourced
+  from [AmbientCG](https://ambientcg.com) (CC0 / public domain — legal to bundle). Each block ships
+  color + heightmap (from displacement) + MER (roughness) so it lights realistically under Vibrant
+  Visuals: stone, cobblestone, dirt, sand, gravel, grass (top + composited side), oak planks/log,
+  and all 8 ores (real rock with mineral pockets).
+- **Lava glow boost**: lava/magma/fire are now dynamic **point lights** with intense warm color for a
+  much stronger cast glow (vanilla lava art retained).
+- Removed the procedural textures and the flipbook waving (the generated foliage looked artificial);
+  non-photographed blocks fall back to clean vanilla art. `tools/fetch_textures.py` builds the set.
+- Texture credit: AmbientCG (CC0). The shader/config work is original.
+
 ### 1.3.0 — Detailed textures (anti-"playdoh") + molten lava
 - Rebuilt the generator with **multi-scale detail** (macro Voronoi + mid fbm + sharp
   micro-grit + ridged cracks) baked into both color and a **high-contrast heightmap**, plus
