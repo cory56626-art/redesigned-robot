@@ -35,11 +35,11 @@ px=blank(W,H)
 SKIN=(226,221,213)
 # regions (bounding boxes of each cube's box-uv footprint)
 fill(px,W,0,0,32,16,SKIN)        # head
-fill(px,W,0,20,24,40,(214,209,201))  # body slightly darker
-fill(px,W,40,0,52,21,SKIN,4)     # right arm
-fill(px,W,56,0,68,21,SKIN,4)     # left arm
-fill(px,W,72,0,84,21,(210,205,198),6) # right leg
-fill(px,W,88,0,100,21,(210,205,198),6) # left leg
+fill(px,W,0,20,24,44,(214,209,201))  # body (taller)
+fill(px,W,40,0,52,27,SKIN,4)     # right arm (longer)
+fill(px,W,56,0,68,27,SKIN,4)     # left arm
+fill(px,W,72,0,84,27,(210,205,198),6) # right leg
+fill(px,W,88,0,100,27,(210,205,198),6) # left leg
 
 # head front face region: x8..16, y8..16
 # dark hollow eyes

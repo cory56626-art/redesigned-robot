@@ -1,0 +1,4 @@
+Here's a list of concrete bugs found in the provided server script:
+
+1.  **`isNight` function** - **API misuse** - `world.getTimeOfDay()` is a method, not a property.
+    *   **Fix**: Change `const t = world

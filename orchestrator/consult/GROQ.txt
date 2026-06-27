@@ -1,0 +1,104 @@
+### (a) Per-Entity Animation Switching
+
+To drive a per-entity animation from script, you can use the `AnimationController` component and the `playAnimation` method. Here's an example:
+```javascript
+// Get the entity's animation controller
+const animationController = entity.getComponent('minecraft:animation_controller');
+
+// Play the banging animation
+animationController.playAnimation('banging');
+```
+You'll need to define the `banging` animation in your entity's animation controller.
+
+### (b) Line-of-Sight/Raycast Check
+
+To perform a reliable line-of-sight check from entity to player, you can use the `getBlockFromRay` method. Here's an example:
+```javascript
+// Get the entity's position and the player's position
+const entityPos = entity.location;
+const playerPos = player.location;
+
+// Create a raycast from the entity to the player
+const raycast = {
+  origin: entityPos,
+  direction: playerPos.subtract(entityPos).normalize(),
+  maxDistance: 10 // adjust this value to your liking
+};
+
+// Get the block in the way (if any)
+const block = getBlockFromRay(raycast);
+
+// Check if the block is not air and is not the player's block
+if (block && block.type !== 'air' && block.location !== playerPos) {
+  // There's a block in the way, break it and peek through the hole
+  block.destroy();
+  // ...
+} else {
+  // There's no block in the way, check if the entity has line of sight to the player
+  const hasLos = !isPlayerBehindWall(player, entity);
+  if (hasLos) {
+    // The entity has line of sight to the player, attack!
+    // ...
+  }
+}
+
+// Helper function to check if the player is behind a wall
+function isPlayerBehindWall(player, entity) {
+  const playerPos = player.location;
+  const entityPos = entity.location;
+  const raycast = {
+    origin: entityPos,
+    direction: playerPos.subtract(entityPos).normalize(),
+    maxDistance: 10 // adjust this value to your liking
+  };
+  const block = getBlockFromRay(raycast);
+  return block && block.type !== 'air' && block.location !== playerPos;
+}
+```
+### (c) Head Look-Down Pose
+
+To make the entity's head look down, you can use the `rotation` property of the entity's `head` component. Here's an example:
+```javascript
+// Get the entity's head component
+const head = entity.getComponent('minecraft:head');
+
+// Set the head's rotation to look down
+head.rotation = {
+  x: 45, // adjust this value to your liking
+  y: 0,
+  z: 0
+};
+```
+### (d) Timing/Feel Tips
+
+To maximize dread, consider the following timing and feel tips:
+
+* Use a slow and deliberate animation for the banging, accelerating over time to build tension.
+* Use a loud and jarring sound effect for the glass shattering, followed by a strong darkness/blindness effect to disorient the player.
+* Use a brief moment of silence after the scream, followed by the entity's approach, to create a sense of anticipation and fear.
+* Use a loud and startling sound effect for the entity's sprinting away, accompanied by the smashing of blocks, to create a sense of chaos and panic.
+* Consider using a brief "stare" animation before the entity kills the player, to create a sense of menace and foreboding.
+
+Example of how to implement the BACKSPAWN-LOOKDOWN set-piece:
+```javascript
+// Spawn the entity behind and above the player
+const entity = spawnEntity('the_smiling_man', player.location.add(0, 3.6, -2));
+
+// Set the entity's head to look down
+const head = entity.getComponent('minecraft:head');
+head.rotation = {
+  x: 45,
+  y: 0,
+  z: 0
+};
+
+// Play a loud sound effect when the player turns to look at the entity
+entity.listen('player_look', (event) => {
+  if (event.player === player) {
+    const sound = new Sound('loud_scream');
+    sound.play();
+    entity.getComponent('minecraft:animation_controller').playAnimation('sprint');
+    // ...
+  }
+});
+```

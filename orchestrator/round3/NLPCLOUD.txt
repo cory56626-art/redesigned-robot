@@ -1,0 +1,14 @@
+1. Main.js:24 - 'world' is not a recognized global object; use '@minecraft/world' instead.
+Fix: Replace 'world' with '@minecraft/world'.
+
+2. Main.js:31 - 'system' is not a recognized global object; use '@minecraft/system' instead.
+Fix: Replace 'system' with '@minecraft/system'.
+
+3. Main.js:36 - 'isAir' and 'isSolid' properties are not accessed correctly for blocks.
+Fix: Replace 'boolFlag(b, "isAir")' and 'boolFlag(b, "isSolid")' with 'b.isAir' and 'b.isSolid'.
+
+4. Main.js:40 - 'add' and 'sub' functions can be replaced with vector addition and subtraction methods.
+Fix: Replace 'sub(a, b)' with 'a.subtract(b)' and 'add(a, b)' with 'a.add(b)'.
+
+5. Main.js:43 - 'scale' function can be replaced with a scalar multiplication method.
+Fix: Replace 'scale(a, s)' with 'a.multiplyScalar(s)'.

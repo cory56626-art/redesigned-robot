@@ -1,0 +1,19 @@
+1. **function alive** - **problem**: The check for `e.isValid` assumes it's a function, but it's a property in newer versions. - **fix**: Change the check to `return e && e.isValid;`.
+
+2. **function blockIsAir** - **problem**: The `boolFlag` function is used to check for block properties, but it assumes `isAir` is a method. - **fix**: Change `boolFlag(b, "isAir")` to `b.isAir`.
+
+3. **function blockIsSolid** - **problem**: Similar to `blockIsAir`, it incorrectly assumes `isSolid` is a method. - **fix**: Change `boolFlag(b, "isSolid")` to `b.isSolid`.
+
+4. **function breakBlockAt** - **problem**: The command string for `setblock` is missing a closing parenthesis. - **fix**: Change `dim.runCommand(`setblock ${Math.floor(loc.x)} ${Math.floor(loc.y)} ${Math.floor(loc.z)} air destroy`);` to `dim.runCommand(`setblock ${Math.floor(loc.x)} ${Math.floor(loc.y)} ${Math.floor(loc.z)} air destroy`);`.
+
+5. **function openDoorNear** - **problem**: The `withState` method may not be available for all door types; it should be handled more robustly. - **fix**: Add a check to ensure the door supports the state change before calling `withState`.
+
+6. **function eventWindowMurder** - **problem**: The `strongDarkness` function applies effects without checking if the player is alive, which could lead to errors. - **fix**: Add a check to ensure `alive(player)` before applying effects.
+
+7. **function losToPlayer** - **problem**: The `getBlockFromRay` method may not exist in the specified API version. - **fix**: Replace this logic with an alternative method to determine line-of-sight.
+
+8. **function spawnSmilingMan** - **problem**: The `teleport` method may not accept `facingLocation` in the specified API version. - **fix**: Remove the `facingLocation` parameter from the `teleport` call.
+
+9. **function autoAdvancePhase** - **problem**: The logic for advancing phases may not correctly account for the maximum phase limit. - **fix**: Ensure that `target` does not exceed the maximum phase defined in the system.
+
+10. **function safeDespawn** - **problem**: The particle command is missing a closing parenthesis. - **fix**: Change `dim.runCommand(`particle minecraft:large_smoke_particle ${p.x.toFixed(2)} ${(p.y + 1).toFixed(2)} ${p.z.toFixed(2)}`);` to `dim.runCommand(`particle minecraft:large_smoke_particle ${p.x.toFixed(2)} ${(p.y + 1).toFixed(2)} ${p.z.toFixed(2)}`);`.

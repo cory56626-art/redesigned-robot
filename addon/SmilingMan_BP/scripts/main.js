@@ -190,6 +190,58 @@ function breakInFront(ent) {
     }
   } catch { /* ignore */ }
 }
+// Break ANY block (used when the Smiling Man forces a peek-hole to its victim).
+function forceBreakAt(dim, loc) {
+  try {
+    const b = dim.getBlock(loc);
+    if (!b || blockIsAir(b)) return false;
+    const id = b.typeId.replace("minecraft:", "");
+    if (id.includes("bedrock") || id.includes("barrier")) return false;
+    dim.runCommand(`setblock ${Math.floor(loc.x)} ${Math.floor(loc.y)} ${Math.floor(loc.z)} air destroy`);
+    return true;
+  } catch { return false; }
+}
+
+// ---- Script-driven animation poses via synced entity properties ----
+function setBang(ent, on) { try { ent.setProperty("sm:banging", !!on); } catch { /* ignore */ } }
+function setLookDown(ent, on) { try { ent.setProperty("sm:looking_down", !!on); } catch { /* ignore */ } }
+
+function eyeOf(thing) {
+  try { if (typeof thing.getHeadLocation === "function") return thing.getHeadLocation(); } catch { /* ignore */ }
+  const l = thing.location; return { x: l.x, y: l.y + 1.6, z: l.z };
+}
+
+// Raycast line-of-sight from the entity's eyes to the player's eyes.
+// Returns { clear:true } or { clear:false, block:{x,y,z} } for the first obstruction.
+function losToPlayer(ent, player) {
+  try {
+    const from = { x: ent.location.x, y: ent.location.y + 3.0, z: ent.location.z };
+    const to = eyeOf(player);
+    const d = sub(to, from);
+    const distance = len(d);
+    const dir = norm(d);
+    const hit = ent.dimension.getBlockFromRay(from, dir, {
+      maxDistance: Math.min(distance, 24),
+      includeLiquidBlocks: false,
+      includePassableBlocks: false,
+    });
+    if (hit && hit.block) {
+      // an obstruction before reaching the player
+      return { clear: false, block: { x: hit.block.x, y: hit.block.y, z: hit.block.z } };
+    }
+    return { clear: true };
+  } catch {
+    return { clear: true };
+  }
+}
+
+// A genuinely loud, stacked sound sting for jump-scares.
+function loudScare(player) {
+  playFor(player, SND.scream, { volume: 1, pitch: 0.5 });
+  playFor(player, "mob.warden.roar", { volume: 1, pitch: 0.7 });
+  playFor(player, SND.bang, { volume: 1, pitch: 0.6 });
+  system.runTimeout(() => playFor(player, "ambient.weather.thunder", { volume: 1, pitch: 0.8 }), 2);
+}
 
 function openDoorNear(dim, loc, radius = 6) {
   for (let dx = -radius; dx <= radius; dx++) {
@@ -381,7 +433,12 @@ system.runInterval(() => {
 function safeDespawn(ent) {
   try {
     const p = ent.location;
-    try { ent.dimension.spawnParticle?.("minecraft:large_smoke_particle", p); } catch { /* ignore */ }
+    // vanilla particles must go through the /particle command, not script spawnParticle
+    try {
+      ent.dimension.runCommand(
+        `particle minecraft:large_smoke_particle ${p.x.toFixed(2)} ${(p.y + 1).toFixed(2)} ${p.z.toFixed(2)}`
+      );
+    } catch { /* ignore */ }
     ent.remove();
   } catch { /* ignore */ }
 }
@@ -502,92 +559,177 @@ function eventWindowWatch(player) {
   try { ent.teleport(at, { facingLocation: { x: player.location.x, y: player.location.y + 1, z: player.location.z } }); } catch { /* ignore */ }
   trigger(ent, "sm:freeze");
   playFor(player, SND.whisper, { volume: 0.7 });
-  system.runTimeout(() => { ent.removeTag("sm.scripted"); }, 200);
+  // After the stare: if the player looked at it, it vanishes; otherwise hand
+  // control back to the main AI (never leave it stuck/frozen forever).
+  system.runTimeout(() => {
+    if (!alive(ent)) return;
+    if (isObserved(player, ent)) { safeDespawn(ent); return; }
+    ent.removeTag("sm.scripted");
+    trigger(ent, "sm:unfreeze");
+  }, 200);
 }
 
-function eventBackSpawn(player, lookDown = false) {
+// Spawn the tall entity behind & above the player so it looms and looks DOWN at
+// them. When the player turns and sees it: very loud sting, then it sprints away
+// smashing anything in its path.
+function eventBackSpawnLookDown(player) {
   const dim = player.dimension;
   const view = player.getViewDirection();
-  const behind = add(player.location, scale({ x: -view.x, y: 0, z: -view.z }, 2.2));
-  const ent = (() => { try { return dim.spawnEntity(ENTITY_ID, behind); } catch { return undefined; } })();
+  const back = { x: -view.x, y: 0, z: -view.z };
+  const baseBehind = add(player.location, scale(back, 2.4));
+
+  // try to perch it 1-2 blocks higher so it towers over the player
+  let standAt = { x: baseBehind.x, y: player.location.y, z: baseBehind.z };
+  for (const up of [2, 1, 0]) {
+    const probe = { x: Math.floor(baseBehind.x), y: Math.floor(player.location.y) + up, z: Math.floor(baseBehind.z) };
+    const floor = dim.getBlock({ x: probe.x, y: probe.y - 1, z: probe.z });
+    const feet = dim.getBlock(probe);
+    if (blockIsSolid(floor) && blockIsAir(feet)) { standAt = { x: baseBehind.x, y: probe.y, z: baseBehind.z }; break; }
+  }
+
+  const ent = (() => { try { return dim.spawnEntity(ENTITY_ID, standAt); } catch { return undefined; } })();
   if (!ent) return;
   ent.addTag("sm.scripted");
-  const face = lookDown
-    ? { x: player.location.x, y: player.location.y - 1.5, z: player.location.z }
-    : { x: player.location.x, y: player.location.y + 1, z: player.location.z };
-  try { ent.teleport(behind, { facingLocation: face }); } catch { /* ignore */ }
+  // face the player, head tilted down at them
+  try { ent.teleport(standAt, { facingLocation: { x: player.location.x, y: player.location.y, z: player.location.z } }); } catch { /* ignore */ }
   trigger(ent, "sm:freeze");
-  playFor(player, SND.breath, { volume: 1 });
+  setLookDown(ent, true);
+  playFor(player, SND.breath, { volume: 0.8, pitch: 0.6 });
 
-  if (lookDown) {
-    // wait until the player turns and looks at it, then flee fast breaking blocks
-    let ticks = 0;
-    const watch = system.runInterval(() => {
-      ticks += 4;
-      if (!alive(ent)) { system.clearRun(watch); return; }
-      if (isObserved(player, ent) || ticks > 200) {
-        system.clearRun(watch);
-        fleeAndDespawn(ent, player, true);
-      }
-    }, 4);
-  } else {
-    system.runTimeout(() => { if (alive(ent)) ent.removeTag("sm.scripted"); }, 100);
-  }
+  let ticks = 0;
+  const watch = system.runInterval(() => {
+    ticks += 4;
+    if (!alive(ent)) { system.clearRun(watch); return; }
+    // keep looming over the player while they haven't noticed
+    try { ent.teleport(ent.location, { facingLocation: { x: player.location.x, y: player.location.y, z: player.location.z } }); } catch { /* ignore */ }
+    if (isObserved(player, ent)) {
+      system.clearRun(watch);
+      loudScare(player);                 // the moment you see it
+      setLookDown(ent, false);
+      system.runTimeout(() => fleeAndDespawn(ent, player, true), 6);
+    } else if (ticks > 240) {            // gave up waiting -> just vanish
+      system.clearRun(watch);
+      safeDespawn(ent);
+    }
+  }, 4);
+}
+
+function strongDarkness(player) {
+  // Hard cut to black, then lingering darkness. Re-applied so it really bites.
+  try { player.addEffect("blindness", 60, { amplifier: 0, showParticles: false }); } catch { /* ignore */ }
+  try { player.addEffect("darkness", 18 * 20, { amplifier: 1, showParticles: false }); } catch { /* ignore */ }
+  try { player.addEffect("nausea", 8 * 20, { amplifier: 0, showParticles: false }); } catch { /* ignore */ }
 }
 
 function eventWindowMurder(player) {
   const dim = player.dimension;
-  const glassPos = findBlockType(dim, player.location, (id) => id.includes("glass"), 12);
+  const glassPos = findBlockType(dim, player.location, (id) => id.includes("glass"), 14);
   const standAt = glassPos
-    ? { x: glassPos.x + 0.5, y: glassPos.y, z: glassPos.z + 0.5 }
+    ? { x: glassPos.x + 0.5, y: glassPos.y - 1, z: glassPos.z + 0.5 } // feet a block below the pane so the tall body fills it
     : add(player.location, { x: 3, y: 0, z: 0 });
   const ent = (() => { try { return dim.spawnEntity(ENTITY_ID, standAt); } catch { return undefined; } })();
   if (!ent) return;
   ent.addTag("sm.scripted");
-  try { ent.teleport(standAt, { facingLocation: { x: player.location.x, y: player.location.y + 1, z: player.location.z } }); } catch { /* ignore */ }
+  const faceP = () => ({ x: player.location.x, y: player.location.y + 1, z: player.location.z });
+  try { ent.teleport(standAt, { facingLocation: faceP() }); } catch { /* ignore */ }
   trigger(ent, "sm:freeze");
 
-  // Escalating banging: slow -> fast.
-  const bangTimes = [0, 14, 26, 36, 44, 50, 55, 59, 62, 64, 66, 68];
+  // VISIBLE banging: drive the arm-swing animation via a synced entity property,
+  // escalating from slow to frantic, each swing paired with a thud.
+  setBang(ent, true);
+  const bangTimes = [0, 18, 34, 48, 60, 70, 78, 84, 89, 93, 96, 99, 101, 103];
   for (const t of bangTimes) {
-    system.runTimeout(() => { if (alive(ent)) playFor(player, SND.bang, { volume: 1, pitch: 0.8 }); }, t);
+    system.runTimeout(() => {
+      if (!alive(ent)) return;
+      try { ent.teleport(ent.location, { facingLocation: faceP() }); } catch { /* ignore */ }
+      const speedup = Math.min(1.3, 0.7 + t / 120);
+      playFor(player, SND.bang, { volume: 1, pitch: speedup });
+    }, t);
   }
-  // Break the glass, darkness + HIDE + scream.
-  system.runTimeout(() => {
-    if (glassPos) breakBlockAt(dim, glassPos);
-    try { player.addEffect("darkness", 14 * 20, { amplifier: 0, showParticles: false }); } catch { /* ignore */ }
-    try { player.onScreenDisplay.setTitle("§4HIDE", { fadeInDuration: 0, stayDuration: 50, fadeOutDuration: 10 }); } catch { /* ignore */ }
-    try { player.onScreenDisplay.setActionBar("§cHIDE"); } catch { /* ignore */ }
-    playFor(player, SND.scream, { volume: 1, pitch: 0.8 });
-  }, 72);
 
-  // After 8-12s, roll the 50/50.
+  // Shatter the glass, kill the lights, HIDE, scream.
+  system.runTimeout(() => {
+    if (!alive(ent)) return;
+    setBang(ent, false);
+    if (glassPos) { breakBlockAt(dim, glassPos); breakBlockAt(dim, { x: glassPos.x, y: glassPos.y + 1, z: glassPos.z }); }
+    strongDarkness(player);
+    try { player.onScreenDisplay.setTitle("§4HIDE", { fadeInDuration: 0, stayDuration: 40, fadeOutDuration: 10 }); } catch { /* ignore */ }
+    loudScare(player);
+  }, 108);
+
+  // After 8-12s of dread, roll the 50/50.
   const delay = randInt(8 * 20, 12 * 20);
   system.runTimeout(() => {
     if (!alive(ent)) return;
     const found = Math.random() < 0.5;
-    if (found) {
-      // approach, break a block / open door, stare, then kill
-      const dir = norm(sub(ent.location, player.location));
-      const near = add(player.location, scale(dir, 2));
-      try { ent.teleport(near, { facingLocation: { x: player.location.x, y: player.location.y + 1, z: player.location.z } }); } catch { /* ignore */ }
-      const door = openDoorNear(dim, player.location, 3);
-      if (!door) breakInFront(ent);
-      playFor(player, SND.breath, { volume: 1 });
-      system.runTimeout(() => {
-        if (!alive(ent)) return;
-        try {
-          player.applyDamage(1000, { cause: "entityAttack", damagingEntity: ent });
-        } catch {
-          try { player.kill(); } catch { /* ignore */ }
-        }
-        safeDespawn(ent);
-      }, randInt(20, 40));
-    } else {
-      try { player.onScreenDisplay.setActionBar("§7it ran away"); } catch { /* ignore */ }
+    if (found) huntDownAndKill(ent, player);
+    else {
+      try { player.onScreenDisplay.setActionBar("§7it ran away..."); } catch { /* ignore */ }
       fleeAndDespawn(ent, player, true);
     }
-  }, 72 + delay);
+  }, 108 + delay);
+}
+
+// FOUND branch: approach, then ONLY kill once it can actually see the player.
+// If walled in, it breaks one block, peeks through the hole, stares, then kills.
+function huntDownAndKill(ent, player) {
+  if (!alive(ent)) return;
+  ent.addTag("sm.scripted");
+  trigger(ent, "sm:unfreeze");
+  const dim = ent.dimension;
+  const faceP = () => ({ x: player.location.x, y: player.location.y + 1, z: player.location.z });
+
+  // step to just outside the player's hiding spot
+  const dir = norm(sub(ent.location, player.location));
+  const approach = add(player.location, scale(dir, 2.5));
+  try { ent.teleport(approach, { facingLocation: faceP() }); } catch { /* ignore */ }
+  playFor(player, SND.breath, { volume: 1 });
+
+  let tries = 0;
+  const MAX = 8;
+  const peek = system.runInterval(() => {
+    if (!alive(ent) || !alive(player)) { system.clearRun(peek); if (alive(ent)) safeDespawn(ent); return; }
+    try { ent.teleport(ent.location, { facingLocation: faceP() }); } catch { /* ignore */ }
+
+    const los = losToPlayer(ent, player);
+    if (los.clear) {
+      // It can see you. Stop, stare, THEN kill.
+      system.clearRun(peek);
+      trigger(ent, "sm:freeze");
+      playFor(player, SND.breath, { volume: 1, pitch: 0.7 });
+      try { player.onScreenDisplay.setTitle("§c:)", { fadeInDuration: 0, stayDuration: 50, fadeOutDuration: 10 }); } catch { /* ignore */ }
+      system.runTimeout(() => {
+        if (!alive(ent) || !alive(player)) { if (alive(ent)) safeDespawn(ent); return; }
+        loudScare(player);
+        try { player.applyDamage(1000, { cause: "entityAttack", damagingEntity: ent }); }
+        catch { try { player.kill(); } catch { /* ignore */ } }
+        system.runTimeout(() => safeDespawn(ent), 20);
+      }, randInt(45, 70)); // stare 2.25-3.5s
+      return;
+    }
+
+    // Blocked: break the obstruction to make a peek-hole, then edge closer.
+    if (los.block) {
+      forceBreakAt(dim, los.block);
+      forceBreakAt(dim, { x: los.block.x, y: los.block.y + 1, z: los.block.z });
+      playFor(player, SND.bang, { volume: 1, pitch: 0.6 });
+    }
+    openDoorNear(dim, player.location, 3); // also peeks through doors
+    const d2 = norm(sub(player.location, ent.location));
+    try { ent.teleport(add(ent.location, scale(d2, 0.6)), { facingLocation: faceP() }); } catch { /* ignore */ }
+
+    if (++tries >= MAX) {
+      // Fallback safety: we've torn through everything in the way; finish it.
+      system.clearRun(peek);
+      system.runTimeout(() => {
+        if (!alive(ent) || !alive(player)) { if (alive(ent)) safeDespawn(ent); return; }
+        loudScare(player);
+        try { player.applyDamage(1000, { cause: "entityAttack", damagingEntity: ent }); }
+        catch { try { player.kill(); } catch { /* ignore */ } }
+        system.runTimeout(() => safeDespawn(ent), 20);
+      }, 20);
+    }
+  }, 14);
 }
 
 // ---------------------------------------------------------------------------
@@ -624,8 +766,7 @@ system.afterEvents.scriptEventReceive.subscribe((ev) => {
       // scare events
       case "sm:event_doorburst": if (player) eventDoorburst(player); break;
       case "sm:event_windowwatch": if (player) eventWindowWatch(player); break;
-      case "sm:event_backspawn": if (player) eventBackSpawn(player, false); break;
-      case "sm:event_backspawnlookdown": if (player) eventBackSpawn(player, true); break;
+      case "sm:event_backspawnlookdown": if (player) eventBackSpawnLookDown(player); break;
       case "sm:event_windowmurder": if (player) eventWindowMurder(player); break;
 
       // movement speeds

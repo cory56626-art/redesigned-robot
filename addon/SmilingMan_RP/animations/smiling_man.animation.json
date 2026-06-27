@@ -33,6 +33,29 @@
         "leftArm": { "rotation": { "0.0": [-2, 0, -2], "4.0": [2, 0, -2], "8.0": [-2, 0, -2] } }
       }
     },
+    "animation.smiling_man.bang": {
+      "loop": true,
+      "animation_length": 0.4,
+      "bones": {
+        "rightArm": {
+          "rotation": {
+            "0.0": [0, 0, 2],
+            "0.12": [-120, -8, 2],
+            "0.2": [10, 0, 2],
+            "0.4": [0, 0, 2]
+          }
+        },
+        "body": { "rotation": { "0.0": [6, 0, 0], "0.2": [12, 0, 0], "0.4": [6, 0, 0] } },
+        "head": { "rotation": { "0.0": [8, 0, 0], "0.2": [14, 0, 0], "0.4": [8, 0, 0] } }
+      }
+    },
+    "animation.smiling_man.lookdown": {
+      "loop": true,
+      "bones": {
+        "head": { "rotation": { "0.0": [42, 0, 0], "2.0": [46, -4, 0], "4.0": [42, 0, 0] } },
+        "body": { "rotation": [14, 0, 0] }
+      }
+    },
     "animation.smiling_man.walk": {
       "loop": true,
       "anim_time_update": "query.modified_distance_moved",

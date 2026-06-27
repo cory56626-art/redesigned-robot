@@ -1,0 +1,148 @@
+To create the horror entity "The Smiling Man" in your Minecraft Bedrock add-on, you can use the following pseudocode and API approaches to implement the mechanics you've described. 
+
+### 1. WINDOW MURDER
+
+#### (a) Per-Entity Animation Switching
+For the visible banging animation, you can use the `AnimationController` component in the entity's JSON definition. You can trigger this animation from the script using the `playAnimation` method.
+
+**Entity JSON Example:**
+```json
+{
+  "format_version": "1.21",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "your_namespace:smiling_man",
+      "is_summonable": true,
+      "animations": {
+        "bang_window": {
+          "loop": true,
+          "animation_length": 1.0,
+          "animation": {
+            "type": "animation",
+            "duration": 1.0,
+            "keyframes": [
+              {"time": 0, "transform": {"position": {"y": 0}}},
+              {"time": 0.5, "transform": {"position": {"y": 0.5}}},
+              {"time": 1.0, "transform": {"position": {"y": 0}}}
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**Script Example:**
+```javascript
+function bangWindow(entity) {
+    entity.playAnimation("bang_window");
+    let bangSpeed = 1; // Start slow
+
+    let interval = setInterval(() => {
+        if (bangSpeed < 5) {
+            bangSpeed += 0.1; // Accelerate
+            entity.setAnimationSpeed("bang_window", bangSpeed);
+        } else {
+            clearInterval(interval);
+            // Trigger glass shatter and effects
+            shatterGlass(entity);
+        }
+    }, 100);
+}
+
+function shatterGlass(entity) {
+    // Apply blindness and darkness effect
+    entity.getWorld().setTime(0); // Set to night or dark
+    entity.sendMessage("HIDE", {title: true});
+    entity.playSound("scream_sound"); // Play loud scream
+    // Start the found or ran away logic
+    checkPlayerVisibility(entity);
+}
+```
+
+#### (b) Line-of-Sight/Raycast Snippet
+You can use a raycast to check if the entity has line-of-sight to the player.
+
+```javascript
+function checkPlayerVisibility(entity) {
+    const player = getClosestPlayer(entity);
+    const raycastResult = entity.raycast(player.position);
+
+    if (raycastResult.hit) {
+        // Line of sight found
+        approachPlayer(entity);
+    } else {
+        // Flee logic
+        flee(entity);
+    }
+}
+```
+
+#### (c) Head Look-Down Pose
+To make the entity look down, you can adjust the head rotation in the animation controller.
+
+**Animation Controller Example:**
+```json
+{
+  "animations": {
+    "look_down": {
+      "loop": false,
+      "animation_length": 1.0,
+      "keyframes": [
+        {"time": 0, "transform": {"rotation": {"x": -30, "y": 0, "z": 0}}}
+      ]
+    }
+  }
+}
+```
+
+**Script Example:**
+```javascript
+function lookDown(entity) {
+    entity.playAnimation("look_down");
+}
+```
+
+### 2. BACKSPAWN-LOOKDOWN
+
+#### Spawn Logic
+When you spawn the entity, set its position behind and above the player.
+
+```javascript
+function spawnEntityBehindPlayer(player) {
+    const position = player.position;
+    const spawnPosition = { x: position.x, y: position.y + 2.5, z: position.z - 3 }; // Adjust as needed
+    const entity = spawnEntity("your_namespace:smiling_man", spawnPosition);
+    lookDown(entity);
+}
+```
+
+#### Player Detection and Sound Trigger
+Detect when the player looks at the entity.
+
+```javascript
+function monitorPlayerLook(entity, player) {
+    const lookDirection = player.getLookDirection();
+    const entityPosition = entity.position;
+
+    if (isLookingAt(entityPosition, player.position, lookDirection)) {
+        playLoudSound(entity);
+        flee(entity);
+    }
+}
+
+function isLookingAt(entityPosition, playerPosition, lookDirection) {
+    // Check if the player's look direction intersects with the entity
+    // Use a simple vector math or raycast logic
+    return true; // Replace with actual check
+}
+```
+
+### Timing/Feel Tips
+1. **Banging Timing**: Start the banging slow (1 second), then accelerate over 2 seconds, leading to a shatter effect.
+2. **Darkness Effect**: Apply the darkness effect immediately after the glass shatters for instant dread.
+3. **Sound Design**: Use a high-pitched scream that cuts off abruptly to enhance the shock.
+4. **Fleeing Animation**: Make the fleeing entity break blocks in its path with a loud sound to emphasize its presence.
+
+By implementing these components, you'll create a chilling experience for players encountering "The Smiling Man."

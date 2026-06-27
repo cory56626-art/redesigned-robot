@@ -1,0 +1,19 @@
+Here's the concrete bug list:
+
+1. **`alive()` function** - `e.isValid` may not exist as a property in 1.13.0 - use `e.isValid()` method instead - change `const v = e.isValid;` to `const v = e.isValid();`
+
+2. **`losToPlayer()` function** - `getBlockFromRay()` maxDistance parameter expects integer, but receives float - cast to integer - change to `maxDistance: Math.min(Math.floor(distance), 24)`
+
+3. **`breakBlockAt()` function** - `dim.runCommand()` coordinates need integer values, but receive floats - floor coordinates - change to `Math.floor(loc.x)` etc. (already correct in code, but worth noting as potential issue if changed)
+
+4. **`eventWindowMurder()` function** - `player.onScreenDisplay.setTitle()` uses fade durations in ticks, but documentation suggests milliseconds - verify units or use 0 for instant - change durations to 0 if instant effect is desired
+
+5. **`huntDownAndKill()` function** - `player.applyDamage()` with amount 1000 may not kill player with high armor/protection - use `player.kill()` directly as fallback - already handled, but consider removing redundant damage application
+
+6. **`system.runInterval()` in main loop** - Interval of 4 ticks may cause performance issues with many entities - consider increasing to 8-12 ticks for production - change interval to 8 or higher
+
+7. **`allSmiling()` function** - Catches all dimensions but doesn't verify dimension existence properly - add null check for dimension - change to `const dim = world.getDimension(d); if (!dim) continue;`
+
+8. **`isObserved()` function** - Uses hardcoded head height (1.6) that may not match all players - use `player.getHeadLocation()` consistently - already handled, but verify in all cases
+
+The code is generally well-written and handles most edge cases, but these specific API usage issues could cause problems in 1.13.0.

@@ -5,7 +5,11 @@
       "identifier": "sm:smiling_man",
       "is_spawnable": true,
       "is_summonable": true,
-      "is_experimental": false
+      "is_experimental": false,
+      "properties": {
+        "sm:banging": { "type": "bool", "default": false, "client_sync": true },
+        "sm:looking_down": { "type": "bool", "default": false, "client_sync": true }
+      }
     },
     "component_groups": {
       "sm:hunting": {
@@ -38,7 +42,8 @@
     },
     "components": {
       "minecraft:type_family": { "family": ["smiling_man", "monster", "mob"] },
-      "minecraft:collision_box": { "width": 0.9, "height": 3.2 },
+      "minecraft:scale": { "value": 1.15 },
+      "minecraft:collision_box": { "width": 0.8, "height": 3.6 },
       "minecraft:health": { "value": 250, "max": 250 },
       "minecraft:movement": { "value": 0.25 },
       "minecraft:movement.basic": {},

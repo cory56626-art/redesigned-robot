@@ -30,7 +30,7 @@ Run with `/function <name>` (cheats on). They dispatch to the script via
 
 **Control:** `sm_spawn`, `sm_despawn`, `sm_reset`
 **Phase:** `sm_phase_1` … `sm_phase_4`, `sm_phase_final`
-**Scares:** `sm_event_doorburst`, `sm_event_windowwatch`, `sm_event_backspawn`,
+**Scares:** `sm_event_doorburst`, `sm_event_windowwatch`,
 `sm_event_backspawnlookdown`, `sm_event_windowmurder`
 **Speed:** `sm_speed_slow`, `sm_speed_normal`, `sm_speed_fast`, `sm_speed_scare`
 **Blocks:** `sm_break_test`, `sm_no_break`, `sm_allow_break`, `sm_open_door_test`

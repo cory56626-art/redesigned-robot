@@ -6,11 +6,35 @@
       "states": {
         "idle": {
           "animations": ["idle"],
-          "transitions": [{ "walk": "query.modified_move_speed > 0.05" }]
+          "transitions": [
+            { "bang": "q.property('sm:banging')" },
+            { "lookdown": "q.property('sm:looking_down')" },
+            { "walk": "q.modified_move_speed > 0.05" }
+          ]
         },
         "walk": {
           "animations": ["walk"],
-          "transitions": [{ "idle": "query.modified_move_speed <= 0.05" }]
+          "transitions": [
+            { "bang": "q.property('sm:banging')" },
+            { "lookdown": "q.property('sm:looking_down')" },
+            { "idle": "q.modified_move_speed <= 0.05" }
+          ]
+        },
+        "bang": {
+          "animations": ["bang"],
+          "blend_transition": 0.1,
+          "transitions": [
+            { "lookdown": "q.property('sm:looking_down')" },
+            { "idle": "!q.property('sm:banging')" }
+          ]
+        },
+        "lookdown": {
+          "animations": ["lookdown"],
+          "blend_transition": 0.2,
+          "transitions": [
+            { "bang": "q.property('sm:banging')" },
+            { "idle": "!q.property('sm:looking_down')" }
+          ]
         }
       }
     }

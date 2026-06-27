@@ -1,0 +1,131 @@
+Here's the **implementable** breakdown for both set-pieces using `@minecraft/server` (1.21):
+
+---
+
+### **1. WINDOW MURDER**
+#### **(a) Per-Entity Animation Control**
+Use **`Entity.applyImpulse()`** for hand-banging physics + **`Entity.playAnimation()`** for visible motion.
+**Animation Controller Setup** (JSON):
+```json
+// animations/smiling_man.animation.json
+{
+  "format_version": "1.10.0",
+  "animations": {
+    "animation.smiling_man.bang": {
+      "loop": false,
+      "animation_length": 0.5,
+      "bones": {
+        "right_arm": { "rotation": [0, 0, -45], "lerp_mode": "linear" }
+      }
+    },
+    "animation.smiling_man.stare": {
+      "loop": true,
+      "animation_length": 1.0,
+      "bones": { "head": { "rotation": [30, 0, 0] } } // Look down slightly
+    }
+  }
+}
+```
+**Script Logic**:
+```javascript
+// Pseudocode for banging sequence
+const entity = ...; // Your entity
+const player = ...; // Target player
+const windowBlock = ...; // The window block (glass_pane)
+
+// Banging sequence
+let bangCount = 0;
+const bangInterval = system.runInterval(() => {
+  if (bangCount >= 8) {
+    system.clearRun(bangInterval);
+    shatterGlass();
+    triggerScream();
+    decideFate();
+    return;
+  }
+  // Play animation + impulse for "bang" effect
+  entity.playAnimation("animation.smiling_man.bang", { blendOutTime: 0.1 });
+  entity.applyImpulse({ x: 0, y: 0, z: -0.2 }); // Knockback for visual feedback
+  bangCount++;
+}, 20 - bangCount * 2); // Accelerates (20t -> 4t)
+
+function shatterGlass() {
+  windowBlock.setType("minecraft:air");
+  player.addEffect("darkness", 200, 2); // 10s darkness
+  player.onScreenDisplay.setTitle("§cHIDE", { fadeIn: 0, stay: 40, fadeOut: 10 });
+}
+
+function triggerScream() {
+  player.playSound("mob.warden.sonic_boom", { volume: 1.0, pitch: 0.5 });
+}
+
+function decideFate() {
+  system.runTimeout(() => {
+    if (Math.random() < 0.5) {
+      foundPlayer();
+    } else {
+      ranAway();
+    }
+  }, 200); // 10s delay
+}
+```
+
+#### **(b) Robust Line-of-Sight Check**
+Use **`world.getBlockFromRay()`** for raycasting:
+```javascript
+function hasLineOfSight(entity, player) {
+  const start = entity.location;
+  const end = player.location;
+  const direction = {
+    x: end.x - start.x,
+    y: end.y - start.y + 1.6, // Eye level offset
+    z: end.z - start.z
+  };
+  const ray = world.getBlockFromRay(start, direction, {
+    maxDistance: 16,
+    includeLiquid: false,
+    includePassableBlocks: false
+  });
+  return !ray; // If ray hits nothing, LOS exists
+}
+```
+
+#### **(c) Found Player Logic**
+```javascript
+async function foundPlayer() {
+  const entity = ...;
+  const player = ...;
+
+  // Approach player
+  entity.triggerEvent("minecraft:become_angry");
+  entity.navigateTo(player.location, 0.8);
+
+  // Check LOS every 10 ticks
+  const checkInterval = system.runInterval(() => {
+    if (hasLineOfSight(entity, player)) {
+      system.clearRun(checkInterval);
+      stareAndKill();
+    } else if (entity.distanceTo(player) < 2) {
+      // Break one block if too close but no LOS
+      const block = player.dimension.getBlock(player.location);
+      if (block.isSolid) {
+        block.setType("minecraft:air");
+        system.runTimeout(() => stareAndKill(), 40); // 2s stare
+      }
+    }
+  }, 10);
+}
+
+function stareAndKill() {
+  const entity = ...;
+  entity.playAnimation("animation.smiling_man.stare");
+  system.runTimeout(() => {
+    player.kill();
+  }, 60); // 3s stare before kill
+}
+```
+
+#### **(d) Timing Tips**
+- **Banging acceleration**: Start at 20t (1s) intervals, decrease by 2t per bang.
+- **Glass shatter**: Use `break_particles` event + `playSound("random.glass")`.
+- **Darkness effect**: Layer with `blindness` (level 1) for extra disorientation

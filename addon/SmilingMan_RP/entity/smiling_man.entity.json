@@ -16,6 +16,8 @@
         "head_tilt": "animation.smiling_man.head_tilt",
         "walk": "animation.smiling_man.walk",
         "idle": "animation.smiling_man.idle",
+        "bang": "animation.smiling_man.bang",
+        "lookdown": "animation.smiling_man.lookdown",
         "move": "controller.animation.smiling_man.move"
       }
     }

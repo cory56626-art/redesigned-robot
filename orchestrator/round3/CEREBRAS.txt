@@ -1,0 +1,227 @@
+We need to find concrete bugs: API misuse, wrong signatures, runtime crashes, logic errors, things that won't work. Need short numbered list.
+
+Let's scan code for issues.
+
+1. entity.isValid: In 1.13, entity.isValid is a property, not a function. The alive(e) function checks if e.isValid is function then call, else !!v. That's okay.
+
+2. boolFlag: similar.
+
+3. block.isAir, block.isSolid: In 1.13, block.isAir is a property? I think block.isAir is a property, not a function. boolFlag handles both.
+
+4. world.getDimension(d): In 1.13, world.getDimension returns dimension object; dimension.id is like "overworld". The code uses world.getDimension(d) where d is string. That's correct.
+
+5. dim.runCommand: In 1.13, dimension.runCommand exists and returns command result. Good.
+
+6. ent.triggerEvent(ev): correct.
+
+7. ent.hasTag, addTag, removeTag: correct.
+
+8. ent.setProperty: In 1.13, entity.setProperty is used for entity properties? Actually setProperty is for entity component property? I think it's entity.setProperty(propertyName, value). Should be correct.
+
+9. ent.getViewDirection(): In 1.13, entity.getViewDirection exists for players? For entities maybe not. For players, getViewDirection works. For entity, they use ent.getViewDirection() in breakInFront, driveStalker, etc. Does Entity have getViewDirection? I think only Player has getViewDirection. In Bedrock, Entity has getViewDirection? Not sure. Might be missing. However they use ent.getViewDirection for non-player entity; could be okay as they are using entity's rotation. Might be present.
+
+10. ent.dimension.getBlockFromRay: In 1.13, dimension.getBlockFromRay exists? I think it's dimension.getBlockFromRay(start, direction, options). Might be correct.
+
+11. player.playSound signature: player.playSound(soundId, options) where options include location, volume, pitch. They pass location: player.location. That's okay.
+
+12. player.addEffect: In 1.13, player.addEffect(effectId, duration, options). Should be correct.
+
+13. player.onScreenDisplay.setTitle: signature is setTitle(text, options). They pass object with fadeInDuration etc. That's correct.
+
+14. system.runInterval returns a handle; they later clearRun with system.clearRun(watch). That's correct.
+
+15. In safeDespawn, they call ent.dimension.runCommand(`particle minecraft:large_smoke_particle ...`). The particle command syntax: /particle <name> <x> <y> <z> ... The code uses backticks and includes spaces. Might be okay.
+
+16. In breakBlockAt, they call dim.runCommand(`setblock ${Math.floor(loc.x)} ${Math.floor(loc.y)} ${Math.floor(loc.z)} air destroy`); In 1.13, setblock command syntax: setblock <x> <y> <z> <block> [destroy|keep|replace]. That's okay.
+
+17. In openDoorNear, they use b.permutation.withState("open_bit", true); then b.setPermutation(perm). In 1.13, block.permutation is a BlockPermutation object; withState takes state name and value. That's okay.
+
+18. In driveStalker, they call ent.teleport(eloc, { facingLocation: { x: ploc.x, y: ploc.y + 1.0, z: ploc.z } }); Teleport signature: entity.teleport(location, options). Options may include facingLocation. That's okay.
+
+19. In moveStep, they call ent.teleport(target, { keepVelocity: false }); keepVelocity is an option? Teleport options include keepVelocity? I think there is an option "keepVelocity" boolean. Might be correct.
+
+20. In eventDoorburst: they compute dir = norm(sub(ent.location, player.location)); then stop = add(player.location, scale(dir, 5)); They teleport ent to stop. Fine.
+
+21. In eventBackSpawnLookDown: they compute view = player.getViewDirection(); back = {x:-view.x,...}. Good.
+
+22. In eventBackSpawnLookDown, they call system.runInterval(() => { ... }, 4); but they never clear it on entity removal? They clear when !alive(ent). Good.
+
+23. In eventWindowMurder: they schedule many timeouts. They use system.runTimeout(() => {...}, t); where t is integer ticks? runTimeout expects ticks? In 1.13, runTimeout(callback, ticks) where ticks is number of ticks. That's okay.
+
+24. In eventWindowMurder, they schedule many timeouts with t values like 0,18,... up to 103. That's okay.
+
+25. In eventWindowMurder, they call setBang(ent, true) before schedule; later setBang(ent,false). That's fine.
+
+26. In huntDownAndKill, they call player.applyDamage(1000, { cause: "entityAttack", damagingEntity: ent }); In 1.13, applyDamage signature: entity.applyDamage(amount, options). Options may include cause, damagingEntity. That's okay.
+
+27. In resolvePlayer, they check ev.sourceEntity.typeId === "minecraft:player". In script events, sourceEntity may be undefined. That's okay.
+
+28. In scriptEventReceive, they use ev.id.startsWith("sm:") but ev.id is a string. Good.
+
+Potential bugs:
+
+- In isNight(dim) they ignore dim param, they call world.getTimeOfDay(). That's okay.
+
+- In getP(key) they use world.getDynamicProperty(key) which returns undefined if not set. Good.
+
+- In setP they call world.setDynamicProperty(key, val). Good.
+
+- In autoAdvancePhase, they call setPhase(target). setPhase triggers events for all entities. Good.
+
+- In setPhase, they call trigger(e, "sm:enable_hunting") if n>=5 else "sm:disable_hunting". But the entity component groups for hunting are defined. That's okay.
+
+- In breakInFront, they use ent.getViewDirection() which may not exist for non-player entity. Might cause error. If error, catch will swallow, but breakInFront called only when phase>=5 (hunting). In hunting, entity is a mob, but getViewDirection may be undefined leading to catch and no block breaking. Not fatal.
+
+- In driveStalker, they call ent.teleport(eloc, { facingLocation: { x: ploc.x, y: ploc.y + 1.0, z: ploc.z } }); but eloc is current location; teleport to same location may be okay.
+
+- In moveStep, they check blockIsSolid(below) || phase() >=5. If phase>=5 they teleport regardless of solid. That's okay.
+
+- In breakBlockAt, they use isWeakBlock(b.typeId) but b.typeId includes namespace. Good.
+
+- In isWeakBlock, they check id.includes("_wood") which may match many blocks, okay.
+
+- In openDoorNear, they use b.typeId.includes("door") && !b.typeId.includes("trapdoor") - fine.
+
+- In openDoorNear, they attempt b.permutation.withState("open_bit", true). Some doors use "open_bit" state, but some use "open". Might fail but caught.
+
+- In findBlockType, they call predicate(b.typeId) but they pass typeId string; fine.
+
+- In loudScare, they reference SND.scream etc. SND defined later; fine.
+
+- In loudScare, they call system.runTimeout(() => playFor(player, "ambient.weather.thunder", ...), 2); That's okay.
+
+- In eventDoorburst, they compute dir = norm(sub(ent.location, player.location)); but they want direction from player to entity? Might be reversed but not bug.
+
+- In eventDoorburst, they call ent.teleport(stop, { facingLocation: { x: player.location.x, y: player.location.y + 1, z: player.location.z } }); That's fine.
+
+- In eventDoorburst, they call trigger(ent, "sm:freeze"); but freeze event removes component groups etc. Might freeze entity while they want freeze? okay.
+
+- In eventDoorburst, they later call fleeAndDespawn after stare timeout. In fleeAndDespawn they call trigger(ent, "sm:unfreeze") which will remove freeze tag and add mobile component group. Good.
+
+- In eventWindowWatch, after 200 ticks they remove tag "sm.scripted". They don't unfreeze; but freeze event may still be active? They didn't call trigger unfreeze. Might leave entity frozen. But they set tag only, not freeze? Actually they called trigger(ent, "sm:freeze") earlier, which adds component groups freeze. They later only remove script tag, not unfreeze. So entity stays frozen. That could be bug.
+
+- In eventWindowMurder, they schedule many timeouts; after final they may kill entity via safeDespawn. Might be fine.
+
+- In huntDownAndKill, they call trigger(ent, "sm:unfreeze") at start, good.
+
+- In huntDownAndKill, they use losToPlayer which returns block coordinates; they then forceBreakAt(dim, los.block); but forceBreakAt expects loc object with x,y,z. They pass los.block which is {x,y,z}. Good.
+
+- In huntDownAndKill, they call openDoorNear(dim, player.location, 3); fine.
+
+- In huntDownAndKill, they compute d2 = norm(sub(player.location, ent.location)); then teleport ent by scale(d2,0.6). Good.
+
+- In scriptEventReceive, they use ev.id.startsWith; but ev.id may be undefined? script event always has id. fine.
+
+- In scriptEventReceive, they call case "sm:debug_off": setP("sm:debug", false); then clear action bars for all players. Good.
+
+- In scriptEventReceive, they call case "sm:lock_ai": setP("sm:ai_locked", true); for each e trigger(e,"sm:freeze"); Good.
+
+- In scriptEventReceive, they call case "sm:unlock_ai": setP("sm:ai_locked", false); for each e trigger(e, phase() >=5 ? "sm:enable_hunting" : "sm:unfreeze"); Good.
+
+Potential runtime errors:
+
+- In isObserved, they call player.getHeadLocation() which exists for player. Good.
+
+- In isObserved, they compute view = player.getViewDirection(); Good.
+
+- In isObserved, they compute el = ent.location; then targets with y offsets. Good.
+
+- In isObserved, they compute dot(view, norm(to)) > threshold. If view is zero vector? Not.
+
+- In isObserved, they use d > 90 continue; threshold based on distance; fine.
+
+- In breakBlockAt, they use dim.runCommand with coordinates floor values; but setblock command expects integer coordinates, okay.
+
+- In breakInFront, they compute dir = ent.getViewDirection(); If ent is not a player, may be undefined leading to error; but they catch and swallow, so no crash.
+
+- In driveStalker, they call ent.teleport(eloc, ...) which may be redundant but okay.
+
+- In moveStep, they call ent.teleport(target, { keepVelocity: false }); keepVelocity option may not be supported; but I think it's valid.
+
+- In safeDespawn, they call ent.dimension.runCommand(`particle minecraft:large_smoke_particle ${p.x.toFixed(2)} ${(p.y + 1).toFixed(2)} ${p.z.toFixed(2)}`); The particle command requires more parameters like count, delta, speed. Might still work with defaults? Might error. But not critical.
+
+- In eventBackSpawnLookDown, they compute view = player.getViewDirection(); then back = {x:-view.x,...}. If view is zero vector (player looking straight up?), back will be zero leading to same location; but not bug.
+
+- In eventBackSpawnLookDown, they compute standAt by checking floor and feet blocks; they use blockIsSolid and blockIsAir. Good.
+
+- In eventBackSpawnLookDown, they call ent.teleport(standAt, { facingLocation: ... }); fine.
+
+- In eventBackSpawnLookDown, they setLookDown(ent,true). That uses ent.setProperty which may need correct component property name "sm:looking_down". That's correct.
+
+- In eventBackSpawnLookDown, they schedule watch interval; they clear when !alive(ent). Good.
+
+- In eventBackSpawnLookDown, they call loudScare(player) then setLookDown(ent,false) then fleeAndDespawn. Good.
+
+- In eventWindowMurder, they schedule many timeouts; they use system.runTimeout(() => {...}, t); t is ticks. Good.
+
+- In eventWindowMurder, they call breakBlockAt(dim, glassPos); but glassPos is object with x,y,z. breakBlockAt expects loc with x,y,z. Good.
+
+- In eventWindowMurder, they call breakBlockAt(dim, { x: glassPos.x, y: glassPos.y + 1, z: glassPos.z }); Good.
+
+- In eventWindowMurder, they call strongDarkness(player) which adds effects.
+
+- In eventWindowMurder, they call player.onScreenDisplay.setTitle with fade durations; correct.
+
+- In eventWindowMurder, after delay they call huntDownAndKill or fleeAndDespawn. Good.
+
+- In huntDownAndKill, they call trigger(ent, "sm:unfreeze") at start, good.
+
+- In huntDownAndKill, they call losToPlayer(ent, player). In losToPlayer they use ent.dimension.getBlockFromRay(...). The options include includePassableBlocks: false. In 1.13, getBlockFromRay returns a BlockRayCastHit? Might be correct.
+
+- In huntDownAndKill, they call forceBreakAt(dim, los.block); but forceBreakAt expects loc object; fine.
+
+- In huntDownAndKill, they call openDoorNear(dim, player.location, 3); fine.
+
+- In huntDownAndKill, they compute d2 = norm(sub(player.location, ent.location)); then teleport ent by scale(d2,0.6). Good.
+
+- In huntDownAndKill, they have MAX=8, interval 14 ticks. Good.
+
+- In huntDownAndKill, they clear run and safeDespawn after kill.
+
+Potential bug: In eventWindowWatch, after freeze they never unfreeze, leaving entity frozen permanently. Should trigger unfreeze after timeout.
+
+Potential bug: In eventDoorburst, they add tag "sm.scripted" but never remove it, causing later loops to skip entity (since main loop skips if ent.hasTag("sm.scripted")). Might cause entity to persist after set-piece. They may want to remove tag after despawn. But they call safeDespawn later, which removes entity, but if entity despawns earlier? In eventDoorburst, they call fleeAndDespawn after stare timeout; fleeAndDespawn eventually safeDespawn. So tag removal not needed.
+
+But eventWindowWatch: they remove tag after 200 ticks but never unfreeze; they also never despawn. So entity remains frozen but still in world; main loop will skip it due to tag, so no further behavior. Might be intended as set-piece but maybe bug.
+
+Another bug: In isNight they ignore dim param; but they call isNight() without argument; fine.
+
+Potential bug: In preferredDistance, they return arrays; later they destructure [minD, maxD] = preferredDistance(); fine.
+
+Potential bug: In spawnSmilingMan, they call ent.teleport(loc, { facingLocation: player.location }); but they already spawned at loc; teleport may be unnecessary but okay.
+
+Potential bug: In driveStalker, they compute step = stepFor(getP("sm:speed_mode")); step may be small like 0.10. Then they move by scale(toward, step) which is less than 1 block per tick; but teleport expects location coordinates; fine.
+
+Potential bug: In moveStep, they check blockIsSolid(below) || phase() >=5. If phase>=5, they teleport even if below not solid (maybe mid-air). Could cause entity to fall? Not major.
+
+Potential bug: In safeDespawn, they call ent.remove(); In 1.13, entity.remove() exists. Good.
+
+Potential bug: In system.runInterval(() => {...}, 4); The interval runs every 4 ticks. Good.
+
+Potential bug: In system.runInterval(() => {...}, 100); That's 100 ticks (5 seconds). Good.
+
+Potential bug: In resolvePlayer, they return players[0] even if none; but earlier they check if (player) before using. Good.
+
+Potential bug: In scriptEventReceive, they use ev.id.startsWith but ev.id may be null? Not.
+
+Potential bug: In breakBlockAt, they use isWeakBlock(b.typeId) but b.typeId includes namespace; they strip later. Good.
+
+Potential bug: In openDoorNear, they use b.permutation.withState("open_bit", true); but for wooden doors the state is "open_bit". For iron doors also "open_bit". Should be fine.
+
+Potential bug: In breakInFront, they loop for h of [0.5,1.5,2.5] and target = base + dir*1.0, y+ h. They break block at each. Might break air? fine.
+
+Potential bug: In isObserved, they use threshold 0.985 for far distances; dot(view, norm(to)) > threshold; if view is normalized, dot near 1. Might be okay.
+
+Potential bug: In eventWindowMurder, they schedule many timeouts but they don't store handles; if server reload, they may persist but not bug.
+
+Potential bug: In eventWindowMurder, they call setBang(ent,true) before schedule; but they never setBang false if entity despawns early; minor.
+
+Potential bug: In autoAdvancePhase, they compute target based on day count; but they never reset day count after phase change; fine.
+
+Potential bug: In setObservedState, they trigger "sm:enable_hunting" when unfreeze and phase>=5. But they also trigger "sm:unfreeze" for other phases. However "sm:enable_hunting" event adds component group sm:hunting which includes attack behavior etc. Good.
+
+Potential bug: In setObservedState, they add tag "sm.frozen". They later check ent.hasTag("sm.frozen") to debounce. Good.
+
+Potential bug: In eventWindowWatch, they call trigger(ent, "sm:freeze") which adds component groups sm:frozen. But later they never remove that component group, so entity stays frozen. Might be intended but likely bug.
+
+Potential bug: In eventWindowMurder, they call setBang(ent,true) and later
