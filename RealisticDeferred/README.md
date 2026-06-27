@@ -87,6 +87,14 @@ Schemas: [Vibrant Visuals docs](https://learn.microsoft.com/en-us/minecraft/crea
 
 ## Changelog
 
+### 1.6.1 — Reflective surfaces
+- **Added world reflections** by lowering the default block roughness in `pbr/global.json`
+  (235 → 132). In Vibrant Visuals, lower roughness = smoother = the surface reflects the sky and
+  nearby blocks via the engine's SSR + image-based lighting. Actors/items glossy too; particles
+  stay matte. Water remains the most reflective. (Roughness is the only reflection lever a resource
+  pack exposes — there is no direct "reflections" setting; engine shader mods via BetterRenderDragon
+  are a separate, non-resource-pack approach.)
+
 ### 1.6.0 — Shader-only: water, grading & AO pass
 - **Removed all custom block/lava textures** — this is now a pure shader (lighting, water,
   atmosphere, fog, color grading, local lights). Blocks use vanilla art.
