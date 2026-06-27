@@ -295,8 +295,9 @@ const SND = {
   whisper: "sm.breath",
   knock: "sm.bang",          // custom organic thud
   creak: "open.iron_door",   // door opening (contextual)
-  scream: "sm.scream",       // custom demonic scream
+  scream: "sm.scream",       // custom demonic scream (CC0 source, processed)
   bang: "sm.bang",           // custom window-banging thud
+  glass: "sm.glass",         // custom glass shatter
 };
 
 // ---------------------------------------------------------------------------
@@ -685,6 +686,7 @@ function eventWindowMurder(player) {
     if (!alive(ent)) return;
     setBang(ent, false);
     if (glassPos) { breakBlockAt(dim, glassPos); breakBlockAt(dim, { x: glassPos.x, y: glassPos.y + 1, z: glassPos.z }); }
+    playFor(player, SND.glass, { volume: 1 });
     strongDarkness(player);
     try { player.onScreenDisplay.setTitle("§4HIDE", { fadeInDuration: 0, stayDuration: 40, fadeOutDuration: 10 }); } catch { /* ignore */ }
     loudScare(player);

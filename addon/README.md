@@ -44,10 +44,9 @@ Scares use **custom audio**, not Minecraft sounds, in
 - `sm_lookdown.ogg` — back-spawn jump sting
 - `sm_breath.ogg` — low breathing
 
-These shipped files are **synthesized placeholders**. To use a real human-scream
-recording, just overwrite `sm_scream.ogg` with your own `.ogg` (same filename) —
-no other change needed. (A licensed human-voice recording can't be bundled here,
-so the swap is left to you.)
+These are **real CC0 (public-domain) recordings** from OpenGameArt, pitch-shifted
+and distorted into demonic versions — free to use, no attribution required (see
+`CREDITS.md`). To use different audio, just overwrite any `.ogg` (same filename).
 
 ## Notes / limitations
 - Targets **Bedrock 1.21** / `@minecraft/server` 1.13. If your version differs,
