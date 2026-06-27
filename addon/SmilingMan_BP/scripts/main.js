@@ -236,11 +236,12 @@ function losToPlayer(ent, player) {
 }
 
 // A genuinely loud, stacked sound sting for jump-scares.
+// The signature scare: the custom demonic scream, stacked at several pitches so
+// it hits LOUD and thick. No vanilla Minecraft sounds.
 function loudScare(player) {
-  playFor(player, SND.scream, { volume: 1, pitch: 0.5 });
-  playFor(player, "mob.warden.roar", { volume: 1, pitch: 0.7 });
-  playFor(player, SND.bang, { volume: 1, pitch: 0.6 });
-  system.runTimeout(() => playFor(player, "ambient.weather.thunder", { volume: 1, pitch: 0.8 }), 2);
+  playFor(player, SND.scream, { volume: 1, pitch: 0.95 });
+  playFor(player, SND.scream, { volume: 1, pitch: 0.55 }); // demonic sub-octave layer
+  playFor(player, SND.scream, { volume: 1, pitch: 1.0 });
 }
 
 function openDoorNear(dim, loc, radius = 6) {
@@ -289,13 +290,13 @@ function playFor(player, soundId, opts = {}) {
   catch { /* ignore */ }
 }
 const SND = {
-  footstep: "step.gravel",
-  breath: "mob.warden.heartbeat",
-  whisper: "mob.phantom.ambient",
-  knock: "random.click",
-  creak: "open.iron_door",
-  scream: "mob.warden.nearby_closest",
-  bang: "random.anvil_land",
+  footstep: "step.gravel",   // subtle ambient step kept vanilla
+  breath: "sm.breath",       // custom low demonic breath
+  whisper: "sm.breath",
+  knock: "sm.bang",          // custom organic thud
+  creak: "open.iron_door",   // door opening (contextual)
+  scream: "sm.scream",       // custom demonic scream
+  bang: "sm.bang",           // custom window-banging thud
 };
 
 // ---------------------------------------------------------------------------
@@ -514,24 +515,48 @@ function getTargetEntityFor(player) {
 }
 
 function eventDoorburst(player) {
-  const ent = getTargetEntityFor(player);
+  const dim = player.dimension;
+  const faceP = () => ({ x: player.location.x, y: player.location.y + 1, z: player.location.z });
+
+  // Open the nearest door and spawn just OUTSIDE it (away from the player). If
+  // there's no door, burst in from behind the player instead.
+  const doorPos = openDoorNear(dim, player.location, 10);
+  let spawnPos;
+  if (doorPos) {
+    const away = norm(sub({ x: doorPos.x + 0.5, y: player.location.y, z: doorPos.z + 0.5 }, player.location));
+    spawnPos = { x: doorPos.x + 0.5 + away.x * 1.5, y: doorPos.y, z: doorPos.z + 0.5 + away.z * 1.5 };
+  } else {
+    const view = player.getViewDirection();
+    spawnPos = add(player.location, scale({ x: -view.x, y: 0, z: -view.z }, 6));
+  }
+
+  const ent = (() => { try { return dim.spawnEntity(ENTITY_ID, spawnPos); } catch { return undefined; } })();
   if (!ent) return;
   ent.addTag("sm.scripted");
-  const dim = player.dimension;
-  const doorPos = openDoorNear(dim, player.location, 8) ?? player.location;
+  trigger(ent, "sm:freeze");
   playFor(player, SND.creak, { volume: 1 });
-  // rush to 5 blocks from player
-  system.runTimeout(() => {
-    if (!alive(ent)) return;
-    const dir = norm(sub(ent.location, player.location));
-    const stop = add(player.location, scale(dir, 5));
-    try { ent.teleport(stop, { facingLocation: { x: player.location.x, y: player.location.y + 1, z: player.location.z } }); } catch { /* ignore */ }
-    trigger(ent, "sm:freeze");
-    playFor(player, SND.breath, { volume: 1 });
-    // stare 3-5s then flee fast
-    const stare = randInt(60, 100);
-    system.runTimeout(() => fleeAndDespawn(ent, player), stare);
-  }, 10);
+  playFor(player, SND.bang, { volume: 1, pitch: 0.7 });
+
+  // RUSH IN: fast multi-step teleport at the player, smashing weak blocks, then
+  // stop exactly ~5 blocks away, stare 3-5s, and bolt.
+  let steps = 30;
+  const rush = system.runInterval(() => {
+    if (!alive(ent) || !alive(player)) { system.clearRun(rush); if (alive(ent)) safeDespawn(ent); return; }
+    const d = dist(ent.location, player.location);
+    if (d <= 5 || steps-- <= 0) {
+      system.clearRun(rush);
+      const dir = norm(sub(ent.location, player.location));
+      const stop = add(player.location, scale(dir, 5));
+      try { ent.teleport(stop, { facingLocation: faceP() }); } catch { /* ignore */ }
+      trigger(ent, "sm:freeze");
+      playFor(player, SND.breath, { volume: 1 });
+      system.runTimeout(() => fleeAndDespawn(ent, player, true), randInt(60, 100));
+      return;
+    }
+    breakInFront(ent);
+    const toward = norm(sub(player.location, ent.location));
+    try { ent.teleport(add(ent.location, scale(toward, 1.2)), { facingLocation: faceP() }); } catch { /* ignore */ }
+  }, 2);
 }
 
 function fleeAndDespawn(ent, player, breakStuff = false) {
@@ -576,7 +601,7 @@ function eventBackSpawnLookDown(player) {
   const dim = player.dimension;
   const view = player.getViewDirection();
   const back = { x: -view.x, y: 0, z: -view.z };
-  const baseBehind = add(player.location, scale(back, 2.4));
+  const baseBehind = add(player.location, scale(back, 1.5));
 
   // try to perch it 1-2 blocks higher so it towers over the player
   let standAt = { x: baseBehind.x, y: player.location.y, z: baseBehind.z };
@@ -624,9 +649,16 @@ function strongDarkness(player) {
 function eventWindowMurder(player) {
   const dim = player.dimension;
   const glassPos = findBlockType(dim, player.location, (id) => id.includes("glass"), 14);
-  const standAt = glassPos
-    ? { x: glassPos.x + 0.5, y: glassPos.y - 1, z: glassPos.z + 0.5 } // feet a block below the pane so the tall body fills it
-    : add(player.location, { x: 3, y: 0, z: 0 });
+  // Stand on the FAR side of the glass from the player (i.e. OUTSIDE), facing in,
+  // so it bangs ON the window instead of teleporting inside the house.
+  let standAt;
+  if (glassPos) {
+    const gc = { x: glassPos.x + 0.5, y: player.location.y, z: glassPos.z + 0.5 };
+    const outward = norm(sub(gc, player.location)); // player -> glass -> beyond = outside
+    standAt = { x: glassPos.x + 0.5 + outward.x * 1.0, y: glassPos.y - 1, z: glassPos.z + 0.5 + outward.z * 1.0 };
+  } else {
+    standAt = add(player.location, { x: 3, y: 0, z: 0 });
+  }
   const ent = (() => { try { return dim.spawnEntity(ENTITY_ID, standAt); } catch { return undefined; } })();
   if (!ent) return;
   ent.addTag("sm.scripted");
@@ -635,13 +667,14 @@ function eventWindowMurder(player) {
   trigger(ent, "sm:freeze");
 
   // VISIBLE banging: drive the arm-swing animation via a synced entity property,
-  // escalating from slow to frantic, each swing paired with a thud.
+  // escalating from slow to frantic, each swing paired with the custom thud.
+  // Re-anchor to standAt every swing so it never drifts off the window.
   setBang(ent, true);
   const bangTimes = [0, 18, 34, 48, 60, 70, 78, 84, 89, 93, 96, 99, 101, 103];
   for (const t of bangTimes) {
     system.runTimeout(() => {
       if (!alive(ent)) return;
-      try { ent.teleport(ent.location, { facingLocation: faceP() }); } catch { /* ignore */ }
+      try { ent.teleport(standAt, { facingLocation: faceP() }); } catch { /* ignore */ }
       const speedup = Math.min(1.3, 0.7 + t / 120);
       playFor(player, SND.bang, { volume: 1, pitch: speedup });
     }, t);
@@ -668,6 +701,19 @@ function eventWindowMurder(player) {
       fleeAndDespawn(ent, player, true);
     }
   }, 108 + delay);
+}
+
+// The kill: loud demonic scream FIRST, then death a beat later (never a silent
+// instant kill). Same scream used after the window banging.
+function screamKill(ent, player) {
+  if (!alive(player)) { if (alive(ent)) safeDespawn(ent); return; }
+  loudScare(player);
+  system.runTimeout(() => {
+    if (!alive(player)) { if (alive(ent)) safeDespawn(ent); return; }
+    try { player.applyDamage(1000, { cause: "entityAttack", damagingEntity: ent }); }
+    catch { try { player.kill(); } catch { /* ignore */ } }
+    if (alive(ent)) system.runTimeout(() => safeDespawn(ent), 20);
+  }, 16);
 }
 
 // FOUND branch: approach, then ONLY kill once it can actually see the player.
@@ -697,14 +743,7 @@ function huntDownAndKill(ent, player) {
       system.clearRun(peek);
       trigger(ent, "sm:freeze");
       playFor(player, SND.breath, { volume: 1, pitch: 0.7 });
-      try { player.onScreenDisplay.setTitle("§c:)", { fadeInDuration: 0, stayDuration: 50, fadeOutDuration: 10 }); } catch { /* ignore */ }
-      system.runTimeout(() => {
-        if (!alive(ent) || !alive(player)) { if (alive(ent)) safeDespawn(ent); return; }
-        loudScare(player);
-        try { player.applyDamage(1000, { cause: "entityAttack", damagingEntity: ent }); }
-        catch { try { player.kill(); } catch { /* ignore */ } }
-        system.runTimeout(() => safeDespawn(ent), 20);
-      }, randInt(45, 70)); // stare 2.25-3.5s
+      system.runTimeout(() => screamKill(ent, player), randInt(45, 70)); // stare 2.25-3.5s, then scream-kill
       return;
     }
 
@@ -721,13 +760,7 @@ function huntDownAndKill(ent, player) {
     if (++tries >= MAX) {
       // Fallback safety: we've torn through everything in the way; finish it.
       system.clearRun(peek);
-      system.runTimeout(() => {
-        if (!alive(ent) || !alive(player)) { if (alive(ent)) safeDespawn(ent); return; }
-        loudScare(player);
-        try { player.applyDamage(1000, { cause: "entityAttack", damagingEntity: ent }); }
-        catch { try { player.kill(); } catch { /* ignore */ } }
-        system.runTimeout(() => safeDespawn(ent), 20);
-      }, 20);
+      system.runTimeout(() => screamKill(ent, player), 20);
     }
   }, 14);
 }

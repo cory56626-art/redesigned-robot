@@ -36,6 +36,19 @@ Run with `/function <name>` (cheats on). They dispatch to the script via
 **Blocks:** `sm_break_test`, `sm_no_break`, `sm_allow_break`, `sm_open_door_test`
 **Debug:** `sm_debug_on`, `sm_debug_off`, `sm_lock_ai`, `sm_unlock_ai`
 
+## Custom sounds (swappable)
+Scares use **custom audio**, not Minecraft sounds, in
+`SmilingMan_RP/sounds/smiling_man/`:
+- `sm_scream.ogg` — the demonic scream (after window-banging, and on the kill)
+- `sm_bang.ogg` — window banging thud
+- `sm_lookdown.ogg` — back-spawn jump sting
+- `sm_breath.ogg` — low breathing
+
+These shipped files are **synthesized placeholders**. To use a real human-scream
+recording, just overwrite `sm_scream.ogg` with your own `.ogg` (same filename) —
+no other change needed. (A licensed human-voice recording can't be bundled here,
+so the swap is left to you.)
+
 ## Notes / limitations
 - Targets **Bedrock 1.21** / `@minecraft/server` 1.13. If your version differs,
   bump the module version in `SmilingMan_BP/manifest.json`.

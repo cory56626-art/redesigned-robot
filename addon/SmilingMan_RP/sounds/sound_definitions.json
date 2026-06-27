@@ -1,0 +1,26 @@
+{
+  "format_version": "1.14.0",
+  "sound_definitions": {
+    "sm.scream": {
+      "category": "hostile",
+      "min_distance": 4.0,
+      "max_distance": 80.0,
+      "sounds": [{ "name": "sounds/smiling_man/sm_scream", "stream": true, "volume": 1.0 }]
+    },
+    "sm.bang": {
+      "category": "hostile",
+      "max_distance": 48.0,
+      "sounds": [{ "name": "sounds/smiling_man/sm_bang", "volume": 1.0 }]
+    },
+    "sm.lookdown": {
+      "category": "hostile",
+      "max_distance": 64.0,
+      "sounds": [{ "name": "sounds/smiling_man/sm_lookdown", "stream": true, "volume": 1.0 }]
+    },
+    "sm.breath": {
+      "category": "hostile",
+      "max_distance": 24.0,
+      "sounds": [{ "name": "sounds/smiling_man/sm_breath", "volume": 1.0 }]
+    }
+  }
+}
