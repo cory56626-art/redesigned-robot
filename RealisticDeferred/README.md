@@ -87,6 +87,14 @@ Schemas: [Vibrant Visuals docs](https://learn.microsoft.com/en-us/minecraft/crea
 
 ## Changelog
 
+### 1.6.5 — Restore waving foliage
+- **Brought back the waving plants** that were wrongly removed in 1.6.0 (they live in the same
+  textures folder as block textures but plants are not blocks). Gentle vanilla-derived sway on
+  tall grass, all flowers (poppy, dandelion, tulips, orchid, allium, cornflower, etc.), tall
+  grass/fern, all saplings, and every wheat stage — merged alongside the lava, all real blocks
+  stay vanilla. (Short fern can't wave: Bedrock's sample assets have no `fern.png`; the tall fern
+  does.)
+
 ### 1.6.4 — Softer, warmer, cooler-shade tuning
 - **Softer shadows**: more sky fill (intensity 0.37 → 0.43) + higher ambient floor and a gentler,
   less-crushed shadow grade — shadow edges ease off instead of going harsh/black.
