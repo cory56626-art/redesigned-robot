@@ -1,0 +1,11 @@
+Here's the concise bug list:
+
+1. **`moveStep` function** - `below.isSolid` check fails - `isSolid` is not a property in 1.13.0 - Use `below.typeId` and check against solid block list or `below.isAir` inversion.
+
+2. **`breakBlockAt` function** - `dim.runCommand` coordinates not floored - `Math.floor` missing on `loc.y`/`loc.z` - Add flooring to all three coordinates.
+
+3. **`eventWindowMurder`** - `player.addEffect` duration in seconds - Duration should be in ticks (20 per second) - Multiply seconds by 20.
+
+4. **`eventWindowMurder`** - `player.kill()` fallback - `kill()` doesn't exist in 1.13.0 - Use `player.applyDamage(1000, { cause: 'suicide' })` instead.
+
+5. **`isObserved` function** - `player.getHeadLocation()` may throw - No try-catch around head location - Wrap in try-catch like other player calls.

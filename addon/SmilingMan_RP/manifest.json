@@ -1,0 +1,23 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "The Smiling Man — Resources",
+    "description": "A slow-burn stalking horror entity. Resource pack.",
+    "uuid": "27a58615-b591-4eb5-95a4-d008ef5270f5",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 0]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "502c5944-f334-4ac8-b3f2-405974d6a32c",
+      "version": [1, 0, 0]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "ebbcd61c-2141-4596-ba23-561e82122813",
+      "version": [1, 0, 0]
+    }
+  ]
+}

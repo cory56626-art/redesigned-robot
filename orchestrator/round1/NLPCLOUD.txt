@@ -1,0 +1,10 @@
+1. Entity Definition - 'sm:smiling_man' is missing a 'minecraft:dimension' component, which is required for runtime entity creation. Fix it by adding 'minecraft:dimension' with a 'value' of 'overworld' to the entity definition.
+2. AI Freeze Logic - The 'freeze' variable is not declared. Declare it as a boolean initialized to false.
+3. AI Freeze State - The 'freeze' state is not set correctly. Set it to true when an observer is detected and false otherwise.
+4. AI Observer Detection - The 'observe' variable is not declared. Declare it as a boolean initialized to false.
+5. AI Entity Detection - The 'entity' variable is not declared. Declare it as an entity using 'world.spawnEntity' in the 'onInitialize' event.
+6. AI Move Logic - The 'move' variable is not declared. Declare it as a vector.
+7. AI Movement Speed - The 'moveSpeed' variable is not declared. Declare it as a number. Set it to 0.25 in this case.
+8. AI Phase 5 - The 'hunting' phase is not handled correctly. Implement the 'sm:hunting' behavior during phase 5.
+9. AI Phase 5 - The 'hunting' phase is not triggered. Add a timer to trigger the 'sm:hunting' behavior after a specific duration.
+10. AI Weak Block Breaking - The weak block breaking behavior is not implemented. Implement it using the 'entityBreakBlock' event.

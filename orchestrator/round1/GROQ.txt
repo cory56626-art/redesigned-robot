@@ -1,0 +1,8 @@
+1. `world.getDynamicProperty` - May throw an error if property does not exist, consider using `world.getDynamicProperty(key) ?? DEFAULTS[key]` to provide a default value.
+2. `ent.triggerEvent` - May throw an error if event does not exist, consider using a try-catch block to handle this.
+3. `system.runInterval` and `system.runTimeout` - May cause memory leaks if not properly cleared, consider using `system.clearRun` and `system.clearTimeout` to clear the intervals and timeouts when they are no longer needed.
+4. `player.applyDamage` - May throw an error if the player is not valid, consider using a try-catch block to handle this.
+5. `ent.teleport` - May throw an error if the entity is not valid, consider using a try-catch block to handle this.
+6. `dim.getBlock` - May return null if the block does not exist, consider using a null check to handle this.
+7. `ent.getViewDirection` - May throw an error if the entity does not have a view direction, consider using a try-catch block to handle this.
+8. `player.onScreenDisplay.setTitle` and `player.onScreenDisplay.setActionBar` - May throw an error if the player does not have an on-screen display, consider using a try-catch block to handle this.

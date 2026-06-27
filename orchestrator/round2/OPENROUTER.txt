@@ -1,0 +1,43 @@
+1. **function alive(e)** - **problem**: `e.isValid` is treated as a function, but it is a property in this version. **fix**: Change `const v = e.isValid; return typeof v === "function" ? v.call(e) : !!v;` to `return e.isValid;`.
+
+2. **function breakBlockAt(dim, loc)** - **problem**: `dim.runCommand` is called with a string command, but it should be using the correct method for block manipulation. **fix**: Replace `dim.runCommand(...)` with `dim.getBlock(loc).setPermutation(...);` to properly set the block to air.
+
+3. **function openDoorNear(dim, loc, radius = 6)** - **problem**: The method `b.permutation.withState` may not exist in this version. **fix**: Use `b.setPermutation({...})` directly with the appropriate state for the door instead of using `withState`.
+
+4. **function spawnSmilingMan(player, forceClose = false)** - **problem**: `dim.spawnEntity` may not return an entity if the spawn fails, leading to potential null dereference. **fix**: Add a check after `const ent = dim.spawnEntity(ENTITY_ID, loc);` to ensure `ent` is valid before proceeding.
+
+5. **function eventWindowMurder(player)** - **problem**: `player.addEffect("darkness", 14 * 20, ...)` may not work as intended if the effect ID is incorrect or unavailable. **fix**: Verify that "darkness" is a valid effect ID in this version, or replace it with a valid effect ID.
+
+6. **function eventBackSpawn(player, lookDown = false)** - **problem**: The teleportation logic may fail if `ent` is not alive or valid after spawning. **fix**: Check if `ent` is valid before attempting to teleport it.
+
+7. **function autoAdvancePhase()** - **problem**: The phase advancement logic may not properly handle edge cases where the day count is exactly on thresholds. **fix**: Ensure that the conditions for advancing phases are inclusive or adjust the logic to prevent skipping phases.
+
+8. **function setObservedState(ent, frozen)** - **problem**: The tag "sm.frozen" is used without checking if it exists, which could lead to errors. **fix**: Use `ent.hasTag("sm.frozen")` to check if the tag exists before trying to add or remove it.
+
+9. **function driveStalker(ent, player)** - **problem**: The teleportation logic does not check if the entity is alive before attempting to teleport. **fix**: Add a check for `alive(ent)` before calling `ent.teleport(...)`.
+
+10. **function breakInFront(ent)** - **problem**: The method `ent.getViewDirection()` may not exist or work as intended. **fix**: Ensure that `getViewDirection()` is valid for the entity type or replace it with an alternative method to get the direction the entity is facing.
+
+11. **function findBlockType(dim, loc, predicate, radius = 8)** - **problem**: The logic for finding blocks may not account for all block types correctly. **fix**: Ensure the predicate function correctly identifies the desired block types and adjust the search logic accordingly.
+
+12. **function safeDespawn(ent)** - **problem**: The optional chaining on `spawnParticle` may not be supported in this version. **fix**: Replace `ent.dimension.spawnParticle?.(...)` with a direct check to ensure `spawnParticle` exists before calling it.
+
+13. **function trigger(ent, ev)** - **problem**: The `triggerEvent` method may not exist for the entity type in this version. **fix**: Verify that `triggerEvent` is valid for the entity and adjust the logic accordingly.
+
+14. **function eventWindowWatch(player)** - **problem**: The teleportation logic does not check if `ent` is alive after spawning. **fix**: Add a check for `alive(ent)` before attempting to teleport.
+
+15. **function eventDoorburst(player)** - **problem**: The logic for determining the door position may not handle all cases correctly. **fix**: Ensure that the door opening logic is robust against various door types and states.
+
+16. **function playFor(player, soundId, opts = {})** - **problem**: The sound ID may not be valid or may not play as intended. **fix**: Confirm that the sound IDs used are valid in this version and adjust them if necessary.
+
+17. **function nearestPlayer(loc, dim)** - **problem**: The function does not handle cases where no players are found correctly. **fix**: Ensure that the function returns a valid player or a default value when no players are found.
+
+18. **function isNight(dim)** - **problem**: The function may not correctly handle the time of day check. **fix**: Ensure that the time range is accurate and adjust if necessary.
+
+19. **function groundSpawn(dim, around, minD, maxD)** - **problem**: The logic for checking solid blocks may not account for all block types. **fix**: Ensure that the block checking logic is comprehensive and accounts for all necessary conditions.
+
+20. **function allSmiling()** - **problem**: The function does not handle exceptions properly when accessing dimensions. **fix**: Ensure that dimension access is wrapped in try-catch blocks to prevent crashes.
+
+21. **function setPhase(n)** - **problem**: The function does not handle invalid phase numbers correctly. **fix**: Add validation to ensure `n` is within the expected range before setting the phase.
+
+22. **function getP(key

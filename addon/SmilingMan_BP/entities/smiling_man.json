@@ -1,0 +1,95 @@
+{
+  "format_version": "1.20.60",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "sm:smiling_man",
+      "is_spawnable": true,
+      "is_summonable": true,
+      "is_experimental": false
+    },
+    "component_groups": {
+      "sm:hunting": {
+        "minecraft:movement": { "value": 0.32 },
+        "minecraft:behavior.nearest_attackable_target": {
+          "priority": 2,
+          "must_see": false,
+          "reselect_targets": true,
+          "entity_types": [
+            {
+              "filters": { "test": "is_family", "subject": "other", "value": "player" },
+              "max_dist": 64
+            }
+          ]
+        },
+        "minecraft:behavior.melee_attack": {
+          "priority": 3,
+          "speed_multiplier": 1.4,
+          "track_target": true,
+          "reach_multiplier": 1.5
+        },
+        "minecraft:attack": { "damage": 12 }
+      },
+      "sm:frozen": {
+        "minecraft:movement": { "value": 0.0 }
+      },
+      "sm:mobile": {
+        "minecraft:movement": { "value": 0.25 }
+      }
+    },
+    "components": {
+      "minecraft:type_family": { "family": ["smiling_man", "monster", "mob"] },
+      "minecraft:collision_box": { "width": 0.9, "height": 3.2 },
+      "minecraft:health": { "value": 250, "max": 250 },
+      "minecraft:movement": { "value": 0.25 },
+      "minecraft:movement.basic": {},
+      "minecraft:navigation.walk": {
+        "avoid_water": true,
+        "can_open_doors": true,
+        "can_break_doors": false,
+        "can_pass_doors": true
+      },
+      "minecraft:jump.static": {},
+      "minecraft:can_climb": {},
+      "minecraft:physics": {},
+      "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": false },
+      "minecraft:knockback_resistance": { "value": 1.0 },
+      "minecraft:fire_immune": {},
+      "minecraft:breathable": { "total_supply": 15, "suffocate_time": -1 },
+      "minecraft:persistent": {},
+      "minecraft:nameable": { "allow_name_tag_renaming": false },
+      "minecraft:damage_sensor": {
+        "triggers": [
+          { "cause": "drowning", "deals_damage": false },
+          { "cause": "suffocation", "deals_damage": false },
+          { "cause": "fall", "deals_damage": false },
+          { "cause": "fire", "deals_damage": false },
+          { "cause": "fire_tick", "deals_damage": false },
+          { "cause": "lava", "deals_damage": false }
+        ]
+      },
+      "minecraft:behavior.float": { "priority": 0 },
+      "minecraft:conditional_bandwidth_optimization": {}
+    },
+    "events": {
+      "minecraft:entity_spawned": {
+        "add": { "component_groups": ["sm:mobile"] }
+      },
+      "sm:enable_hunting": {
+        "remove": { "component_groups": ["sm:frozen", "sm:mobile"] },
+        "add": { "component_groups": ["sm:hunting"] }
+      },
+      "sm:disable_hunting": {
+        "remove": { "component_groups": ["sm:hunting", "sm:frozen"] },
+        "add": { "component_groups": ["sm:mobile"] }
+      },
+      "sm:freeze": {
+        "remove": { "component_groups": ["sm:mobile", "sm:hunting"] },
+        "add": { "component_groups": ["sm:frozen"] }
+      },
+      "sm:unfreeze": {
+        "remove": { "component_groups": ["sm:frozen"] },
+        "add": { "component_groups": ["sm:mobile"] }
+      }
+    }
+  }
+}

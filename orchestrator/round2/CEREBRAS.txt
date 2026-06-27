@@ -1,0 +1,197 @@
+We need to find concrete bugs: API misuse, wrong signatures, runtime crashes, logic errors, things that won't work in-game. Provide short numbered list.
+
+We must examine code for known API facts: system.runInterval/runTimeout/clearRun exist; entity.isValid may be a property in newer versions; dimension.runCommand is sync and exists; block.setPermutation/withState exist; player.onScreenDisplay.setTitle/setActionBar exist; player.applyDamage(amount, options) exists; world.getTimeOfDay() exists.
+
+Check for misuse:
+
+- In alive(e): they check e.isValid; but in 1.13, entity.isValid is a property, not a function. They treat as function if typeof v === "function". Actually e.isValid is boolean property, not function. So alive(e) returns e.isValid (boolean) but they call v.call(e) if function. That's okay but they also treat property as function maybe not needed. Not a bug.
+
+- In isObserved: they use player.getHeadLocation() and player.getViewDirection(). In Bedrock API, player.getHeadLocation() exists? I think there is player.getHeadLocation() method. Yes.
+
+- In isObserved they use ent.location; but entity.location is a property, not method. That's fine.
+
+- In breakBlockAt: they use dim.runCommand(`setblock ${Math.floor(loc.x)} ${Math.floor(loc.y)} ${Math.floor(loc.z)} air destroy`); In Bedrock, command is "setblock x y z air replace" maybe "replace"? Actually "setblock x y z air destroy" is valid? In Java edition, "setblock x y z air destroy" works. In Bedrock, I think "setblock x y z air replace" is used; "destroy" may be accepted? Not sure. Might be okay.
+
+- In breakBlockAt they call dim.getBlock(loc); but getBlock expects a BlockLocation object with integer coordinates? It can accept floating? Usually getBlock expects a BlockLocation with integer coordinates; passing floating may still work (it floors). Might be okay.
+
+- In openDoorNear: they use b.permutation.withState("open_bit", true); In Bedrock, block permutation state for doors is "open_bit". That's correct. However they then call b.setPermutation(perm); That's correct.
+
+- In openDoorNear they return p (position) but they didn't return the block object; fine.
+
+- In findBlockType they pass predicate(b.typeId) but they call predicate(b.typeId) but they defined predicate expecting id string; okay.
+
+- In driveStalker: they call moveStep(ent, add(eloc, scale(away, step * 1.5))); moveStep uses phase() global; fine.
+
+- In moveStep: they check below.isSolid or phase() >=5. Below.isSolid property exists? In Bedrock, block.isSolid is a property. Good.
+
+- In moveStep they call ent.teleport(target, { keepVelocity: false }); Teleport options: In Bedrock, teleport signature is entity.teleport(location, options?) I think teleport takes location and optional teleportOptions with facingLocation etc. keepVelocity is not a known option; there is "keepVelocity" maybe not. Actually in Bedrock, teleport options include "facingLocation" and "facingEntity". Not keepVelocity. So this may be invalid option causing error. Might be ignored? Might cause runtime error. So bug.
+
+- In safeDespawn: they call ent.dimension.spawnParticle?.("minecraft:large_smoke_particle", p); spawnParticle method? In Bedrock, dimension.spawnParticle is a function, not property. Should be dim.spawnParticle("minecraft:large_smoke_particle", p); The optional chaining ?. is okay but they call as a function. However they used ?. after spawnParticle, which is okay if function exists. But spawnParticle signature: (particleId, location, options?) maybe requires extra args. Might be okay.
+
+- In spawnSmilingMan: they call dim.spawnEntity(ENTITY_ID, loc); That's correct. Then they call ent.teleport(loc, { facingLocation: player.location }); That's okay.
+
+- In eventDoorburst: they compute dir = norm(sub(ent.location, player.location)); That's direction from player to entity? They then compute stop = add(player.location, scale(dir, 5)); That moves 5 blocks away from player in direction of entity? Might be fine.
+
+- In eventDoorburst they call trigger(ent, "sm:freeze"); but freeze event defined in entity events? In BP, there is "sm:freeze" event defined. That's fine.
+
+- In eventDoorburst they schedule fleeAndDespawn after "stare" ticks: system.runTimeout(() => fleeAndDespawn(ent, player), stare); However fleeAndDespawn signature is (ent, player, breakStuff = false). They pass only two args, fine.
+
+- In fleeAndDespawn: they call system.runTimeout(run, 2); but they defined run inside function; they use system.runTimeout which expects callback and ticks. That's okay.
+
+- In eventBackSpawn: they compute behind = add(player.location, scale({ x: -view.x, y: 0, z: -view.z }, 2.2)); That's okay.
+
+- In eventBackSpawn they call ent.teleport(behind, { facingLocation: face }); fine.
+
+- In eventBackSpawn they call trigger(ent, "sm:freeze"); fine.
+
+- In eventBackSpawn watch interval: they use system.runInterval(() => { ... }, 4); they store watch id; later they call system.clearRun(watch); That's correct.
+
+- In eventWindowMurder: they call player.addEffect("darkness", 14 * 20, { amplifier: 0, showParticles: false }); In Bedrock, player.addEffect takes effectId, durationTicks, options. That's correct.
+
+- They call player.onScreenDisplay.setTitle("§4HIDE", { fadeInDuration: 0, stayDuration: 50, fadeOutDuration: 10 }); That's correct.
+
+- In eventWindowMurder they call player.applyDamage(1000, { cause: "entityAttack", damagingEntity: ent }); In Bedrock, applyDamage signature: entity.applyDamage(amount, options?) where options includes cause, damagingEntity. That's okay.
+
+- In resolvePlayer: they check ev.sourceEntity.typeId === "minecraft:player". In Bedrock, player entity typeId is "minecraft:player". Good.
+
+- In scriptEventReceive subscription: they use ev.id.startsWith("sm:") but ev.id property? In scriptEventReceive event, the property is "id" (string). That's fine.
+
+- In system.runInterval(() => {...}, 4); The interval callback runs every 4 ticks. That's okay.
+
+Potential bugs:
+
+1. In isNight(dim) they ignore dim param; they call world.getTimeOfDay() which returns time for overworld only? In Bedrock, time is per dimension. But they ignore dim; not a bug.
+
+2. In breakBlockAt they use dim.runCommand which is sync; but they use setblock with "destroy". Might be okay.
+
+3. In openDoorNear they use b.permutation.withState("open_bit", true); Not all doors have "open_bit" maybe "open_bit" is correct for wooden doors. For iron doors they excluded earlier. Might be okay.
+
+4. In driveStalker they compute step = stepFor(getP("sm:speed_mode")); stepFor returns values like 0.10 etc. Then they multiply by step * 1.5 etc. moveStep expects target location; but step is small (0.1). Teleporting by 0.1 blocks may be okay but may cause jitter.
+
+5. In safeDespawn they call ent.dimension.spawnParticle?.("minecraft:large_smoke_particle", p); spawnParticle method signature: spawnParticle(particleId, location, options?). They omitted options; okay.
+
+6. In system.runInterval for AI loop they have if (ent.hasTag("sm.scripted")) continue; but they later add tag "sm.scripted" to set-piece entities; fine.
+
+7. In setObservedState they call trigger(ent, phase() >= 5 ? "sm:enable_hunting" : "sm:unfreeze"); However when frozen they want to freeze, not unfreeze. Actually they call trigger when unfreeze (player not looking). That's fine.
+
+8. In setObservedState they add tag "sm.frozen". But they never remove tag when unfreeze? They do removeTag. Good.
+
+9. In eventDoorburst they call trigger(ent, "sm:freeze"); but freeze event defined in BP? Yes "sm:freeze". Good.
+
+10. In eventWindowMurder they schedule breakBlockAt after 72 ticks; but they also schedule later actions after 72+delay; fine.
+
+Potential API misuse:
+
+- player.playSound signature: player.playSound(soundId, options) where options include volume, pitch, location? In Bedrock, playSound takes soundId, location, volume, pitch? Actually there is player.playSound(soundId, { location, volume, pitch }). That's correct.
+
+- world.getAllPlayers returns array of Player objects; fine.
+
+- system.runTimeout expects callback and ticks; they pass integer ticks; fine.
+
+- In resolvePlayer they return players[0] if none; but if no players, may be undefined; later they use player variable; but script events may be called with no players; could cause errors. But not a concrete bug maybe.
+
+- In eventWindowMurder they call breakBlockAt(dim, glassPos); but glassPos is a BlockLocation object, not a vector; breakBlockAt expects loc with x,y,z; fine.
+
+- In breakBlockAt they call dim.runCommand(`setblock ${Math.floor(loc.x)} ${Math.floor(loc.y)} ${Math.floor(loc.z)} air destroy`); In Bedrock, command "setblock" may need "replace" not "destroy". Might cause error.
+
+- In openDoorNear they return p (position) but later they ignore; fine.
+
+- In eventBackSpawn they compute behind using view vector; but they ignore y component; fine.
+
+- In eventBackSpawn they call system.runTimeout(() => { if (alive(ent)) ent.removeTag("sm.scripted"); }, 100); but they didn't unfreeze; maybe fine.
+
+- In autoAdvancePhase they call setPhase(target); setPhase triggers events on all entities; but they also set dynamic property "sm:aggression". fine.
+
+- In setPhase they call trigger(e, "sm:enable_hunting") or "sm:disable_hunting". Those events exist in BP. Good.
+
+- In isObserved they compute dot(view, norm(to)) > threshold; but view is unit vector? getViewDirection returns normalized direction. So fine.
+
+- In breakInFront they compute target positions with y offsets 0.5,1.5,2.5; they call breakBlockAt(ent.dimension, target); breakBlockAt expects integer coordinates; fine.
+
+- In driveStalker they call ent.teleport(eloc, { facingLocation: { x: ploc.x, y: ploc.y + 1.0, z: ploc.z } }); This teleports to same location but with facing; okay.
+
+- In moveStep they check below.isSolid || phase() >=5; but they also need to check if below is not null; they do if (below && (below.isSolid || phase() >=5)). That's fine.
+
+Potential runtime crash: In safeDespawn they call ent.dimension.spawnParticle?.("minecraft:large_smoke_particle", p); The optional chaining ?. after spawnParticle returns function if exists else undefined; then they call it as function. If spawnParticle is undefined, then ?. will stop and not call; but they used ?. after spawnParticle, not after function call. Actually syntax: ent.dimension.spawnParticle?.("minecraft:large_smoke_particle", p); This means if spawnParticle is defined, call it; else returns undefined. That's fine.
+
+But spawnParticle expects third argument options; not required.
+
+Potential bug: In system.runInterval(() => {...}, 4); they use system.runInterval but later they call system.clearRun(watch); correct method is system.clearRun, but clearRun expects a runId returned by runInterval or runTimeout. They stored watch = system.runInterval(...). That's fine.
+
+But earlier they used system.runTimeout(() => { ... }, 10); That's fine.
+
+Potential bug: In eventDoorburst they compute dir = norm(sub(ent.location, player.location)); but they want direction from player to entity? Might be reversed but not crash.
+
+Potential bug: In eventWindowMurder they call player.applyDamage(1000, { cause: "entityAttack", damagingEntity: ent }); In Bedrock, applyDamage cause "entityAttack" may be valid; but the damage amount may exceed max health causing kill; fine.
+
+Potential bug: In isNight they ignore dim param; but they call isNight() without argument; fine.
+
+Potential bug: In isObserved they use player.getHeadLocation(); In Bedrock, method is player.getHeadLocation()? I think there is player.getHeadLocation() returning Vector3. Yes.
+
+Potential bug: In isObserved they compute threshold based on distance; they use 0.985 for far; fine.
+
+Potential bug: In breakBlockAt they use isWeakBlock(b.typeId) but b.typeId includes namespace; they strip earlier; fine.
+
+Potential bug: In openDoorNear they use b.typeId.includes("door") but for wooden doors typeId is "minecraft:oak_door". includes "door" works.
+
+Potential bug: In eventWindowMurder they call player.onScreenDisplay.setTitle with fadeInDuration etc; In Bedrock, setTitle signature is setTitle(text, options?) where options include fadeInDuration, stayDuration, fadeOutDuration. That's correct.
+
+Potential bug: In eventWindowMurder they call player.onScreenDisplay.setActionBar after setTitle; fine.
+
+Potential bug: In eventWindowMurder they schedule breakBlockAt after 72 ticks; but they also schedule other actions at 72+delay; fine.
+
+Potential bug: In system.runInterval for spawn cadence they compute maxAllowed = phase() >=5 ? 1 : 1; both same; maybe intended different but not bug.
+
+Potential bug: In system.runInterval for spawn cadence they compute chance = [0,0.06,...][phase()] ?? 0.1; For phase 0 (not used) returns 0; fine.
+
+Potential bug: In getTargetEntityFor they compare e.dimension.id !== player.dimension.id; dimension.id property exists? In Bedrock, dimension.id returns string like "overworld". That's fine.
+
+Potential bug: In getTargetEntityFor they call dist(e.location, player.location); dist expects vectors; fine.
+
+Potential bug: In eventBackSpawn they compute behind = add(player.location, scale({x:-view.x, y:0, z:-view.z}, 2.2)); but they ignore view.y; fine.
+
+Potential bug: In eventBackSpawn they call ent.teleport(behind, { facingLocation: face }); fine.
+
+Potential bug: In eventBackSpawn they call trigger(ent, "sm:freeze"); fine.
+
+Potential bug: In eventBackSpawn's watch interval they call system.clearRun(watch); correct.
+
+Potential bug: In eventWindowMurder they schedule breakBlockAt(dim, glassPos); but glassPos may be undefined; they check if (glassPos) before; fine.
+
+Potential bug: In autoAdvancePhase they compute day = Number(getP("sm:day")); fine.
+
+Potential bug: In setObservedState they call trigger(ent, phase() >=5 ? "sm:enable_hunting" : "sm:unfreeze"); When unfreeze, they want to enable hunting maybe not; but fine.
+
+Potential bug: In isObserved they compute view = player.getViewDirection(); In Bedrock, method is player.getViewDirection() returns Vector3. Good.
+
+Potential bug: In isObserved they compute to = sub(t, head); then d = len(to); if (d > 90) continue; 90 blocks? That's huge but okay.
+
+Potential bug: In breakInFront they call ent.getViewDirection(); but entity has getViewDirection? For mobs, maybe not; but they use ent.getViewDirection() to get direction entity is facing. In Bedrock, entity.getViewDirection() exists for players but not for mobs? I think all entities have getViewDirection (returns direction they are looking). Might be okay.
+
+Potential bug: In breakInFront they compute base = ent.location; then for each h they compute target = {x: base.x + dir.x * 1.0, y: base.y + h, z: base.z + dir.z * 1.0}; That's fine.
+
+Potential bug: In driveStalker they call moveStep(ent, add(eloc, scale(away, step * 1.5))) but moveStep uses phase() global; fine.
+
+Potential bug: In moveStep they check below.isSolid || phase() >=5; but they also need to check that target.y is not below ground; fine.
+
+Potential bug: In spawnSmilingMan they call ent.teleport(loc, { facingLocation: player.location }); but they already spawned at loc; teleport may be unnecessary but okay.
+
+Potential bug: In eventDoorburst they compute dir = norm(sub(ent.location, player.location)); then stop = add(player.location, scale(dir, 5)); This moves 5 blocks from player towards entity direction; maybe they want opposite direction; but not crash.
+
+Potential bug: In eventDoorburst they call trigger(ent, "sm:freeze"); freeze event will set component groups to frozen; but they later call fleeAndDespawn after "stare" period; but freeze may prevent movement? freeze component group may set movement to 0; but they later call fleeAndDespawn which teleports; maybe okay.
+
+Potential bug: In eventWindowMurder they call player.addEffect("darkness", 14 * 20, ...) but darkness effect may not exist? It does exist.
+
+Potential bug: In scriptEventReceive they use ev.id.startsWith; but ev.id may be undefined? Not.
+
+Potential bug: In system.run(() => { for (const k of Object.keys(DEFAULTS)) { if (world.getDynamicProperty(k) === undefined) setP(k, DEFAULTS[k]); } }) This runs once at load; fine.
+
+Potential bug: In isNight they compute t = world.getTimeOfDay(); but world.getTimeOfDay returns ticks from 0-23999; they compare >=13000 && <=23000; correct.
+
+Potential bug: In breakBlockAt they use dim.runCommand which may require command prefix "execute". But setblock works.
+
+Potential bug: In openDoorNear they use b.permutation.withState("open_bit", true); but block.permutation may be read-only? Actually block.permutation returns a BlockPermutation object; withState returns new permutation; then setPermutation sets it. That's correct.
+
+Potential bug: In breakBlockAt they use Math.floor on coordinates; but block positions may be negative; floor works.
+
+Potential bug: In is

@@ -1,0 +1,3 @@
+Here's a list of concrete bugs found in the provided server script and BP entity JSON:
+
+1.  `BP ENTITY JSON - minecraft:navigation.walk` - Contradictory navigation settings. `can_path_over_water: true` and `avoid_water:

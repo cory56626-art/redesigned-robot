@@ -1,0 +1,13 @@
+Here's the concrete bug list:
+
+1. **`alive()` function** - `e.isValid` is a property (boolean) in 1.13.0, not a method - `typeof v === "function"` check will always fail - Remove the function check and just return `!!v`.
+
+2. **`moveStep()` function** - `phase()` call outside try-catch can throw if dynamic property is corrupted - Wrap `phase()` call in try-catch or move inside existing try block.
+
+3. **`breakBlockAt()` function** - `dim.runCommand()` uses unescaped coordinates - Floor coordinates may cause block misplacement - Use `Math.floor()` on all coordinates in command string.
+
+4. **`eventWindowMurder()` function** - `player.addEffect()` duration is in seconds but script uses ticks (14*20) - Either use 14 or convert to seconds (0.7).
+
+5. **`eventWindowMurder()` function** - `player.kill()` fallback after `applyDamage()` may throw if player is already dead - Remove `kill()` fallback or wrap in separate try-catch.
+
+6. **`setObservedState()` function** - Phase check `phase() >= 5` may throw if dynamic property is corrupted - Wrap in try-catch or use safe default.

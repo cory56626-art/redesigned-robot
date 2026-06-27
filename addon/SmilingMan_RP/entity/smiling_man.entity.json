@@ -1,0 +1,23 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "sm:smiling_man",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/entity/smiling_man" },
+      "geometry": { "default": "geometry.smiling_man" },
+      "render_controllers": ["controller.render.smiling_man"],
+      "spawn_egg": { "base_color": "#d8d3cb", "overlay_color": "#3a0e0e" },
+      "scripts": {
+        "animate": ["breathe", "head_tilt", "move"]
+      },
+      "animations": {
+        "breathe": "animation.smiling_man.breathe",
+        "head_tilt": "animation.smiling_man.head_tilt",
+        "walk": "animation.smiling_man.walk",
+        "idle": "animation.smiling_man.idle",
+        "move": "controller.animation.smiling_man.move"
+      }
+    }
+  }
+}

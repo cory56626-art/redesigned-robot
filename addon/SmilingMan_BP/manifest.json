@@ -1,0 +1,34 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "The Smiling Man — Behavior",
+    "description": "A slow-burn stalking horror entity. Behavior pack.",
+    "uuid": "ebbcd61c-2141-4596-ba23-561e82122813",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 0]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "8da5f564-1327-4d81-ab39-33cc21142e40",
+      "version": [1, 0, 0]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "97fe0499-be2b-4740-bfa4-661864885dd2",
+      "version": [1, 0, 0],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "1.13.0"
+    },
+    {
+      "uuid": "27a58615-b591-4eb5-95a4-d008ef5270f5",
+      "version": [1, 0, 0]
+    }
+  ]
+}

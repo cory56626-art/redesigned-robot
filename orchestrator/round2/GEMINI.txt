@@ -1,0 +1,3 @@
+Here's a list of concrete bugs and issues found in the provided server script:
+
+1.  **`alive` function - API Misuse** - `entity.isValid` is a method in API 1.13.0, not a property. The current code handles both
