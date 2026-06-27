@@ -87,6 +87,16 @@ Schemas: [Vibrant Visuals docs](https://learn.microsoft.com/en-us/minecraft/crea
 
 ## Changelog
 
+### 1.6.4 — Softer, warmer, cooler-shade tuning
+- **Softer shadows**: more sky fill (intensity 0.37 → 0.43) + higher ambient floor and a gentler,
+  less-crushed shadow grade — shadow edges ease off instead of going harsh/black.
+- **Warmer sunlight**: small warmth boost to the sun color and highlight grade.
+- **Cooler ambient shade**: bluer ambient light + cooler shadow tint, so shadows take on a subtle
+  cool tone (the realistic warm-light/cool-shadow split).
+- **More underwater haze**: stronger volumetric water fog (0.36 → 0.47) for deeper, hazier water.
+- **Gentle fog tint**: a touch more atmospheric air haze with a soft cool-blue tint to blend
+  distance together.
+
 ### 1.6.3 — Restore realistic lava
 - **Brought back the realistic emissive lava** (CC0 AmbientCG Lava001): animated dark basalt crust
   with glowing molten veins, strong emission for bloom, flowing scroll. It had been removed in 1.6.0

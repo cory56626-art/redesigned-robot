@@ -15,17 +15,17 @@
       "shadows": {
         "enabled": true,
         "shadowsMax": 0.5,
-        "contrast": [1.12, 1.12, 1.15],
-        "gain": [0.85, 0.90, 1.0],
+        "contrast": [1.05, 1.05, 1.08],
+        "gain": [0.91, 0.95, 1.05],
         "gamma": [2.2, 2.2, 2.2],
-        "offset": [-0.014, -0.006, 0.008],
-        "saturation": [0.98, 1.0, 1.08]
+        "offset": [-0.008, -0.001, 0.013],
+        "saturation": [0.98, 1.0, 1.1]
       },
       "highlights": {
         "enabled": true,
         "highlightsMin": 1.22,
         "contrast": [1.0, 1.0, 1.0],
-        "gain": [1.05, 1.0, 0.93],
+        "gain": [1.06, 1.0, 0.91],
         "saturation": [1.06, 1.04, 1.0]
       },
       "temperature": {

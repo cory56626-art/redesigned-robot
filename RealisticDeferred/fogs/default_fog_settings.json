@@ -7,23 +7,23 @@
     "volumetric": {
       "density": {
         "air": {
-          "max_density": 0.012,
-          "zero_density_height": 160.0,
+          "max_density": 0.017,
+          "zero_density_height": 165.0,
           "max_density_height": 45.0
         },
         "water": {
-          "max_density": 0.36,
+          "max_density": 0.47,
           "uniform": true
         }
       },
       "media_coefficients": {
         "air": {
-          "scattering": [0.022, 0.024, 0.028],
-          "absorption": [0.0, 0.0, 0.0]
+          "scattering": [0.020, 0.025, 0.034],
+          "absorption": [0.004, 0.003, 0.0]
         },
         "water": {
-          "scattering": [0.016, 0.05, 0.078],
-          "absorption": [0.42, 0.12, 0.045]
+          "scattering": [0.018, 0.055, 0.086],
+          "absorption": [0.46, 0.13, 0.045]
         }
       }
     }
