@@ -67,6 +67,24 @@
   #deadscreen h1{color:var(--danger);}
   .flick{animation:flick 4s infinite;}
   @keyframes flick{0%,97%,100%{opacity:1}98%{opacity:.4}99%{opacity:.85}}
+  /* ---- mobile touch controls ---- */
+  #mobilectl{position:absolute;inset:0;z-index:6;display:none;touch-action:none;}
+  #mobilectl.show{display:block;}
+  #lookzone{position:absolute;inset:0;}
+  #joybase{position:absolute;left:24px;bottom:30px;width:130px;height:130px;border-radius:50%;
+    background:rgba(0,0,0,.35);border:2px solid rgba(247,233,138,.4);touch-action:none;}
+  #joyknob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px;border-radius:50%;
+    background:rgba(247,233,138,.45);border:2px solid #c9b458;transition:transform .04s;}
+  #mAtk{position:absolute;right:18px;bottom:26px;width:92px;height:92px;border-radius:50%;
+    background:rgba(180,40,40,.42);border:2px solid #ff6b6b;color:#ffd9d9;}
+  #mskills{position:absolute;right:18px;bottom:130px;display:flex;flex-direction:column-reverse;gap:10px;}
+  .mbtn{width:58px;height:58px;border-radius:50%;background:rgba(0,0,0,.48);border:2px solid rgba(247,233,138,.5);
+    color:#f7e98a;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font:bold 15px monospace;touch-action:none;}
+  .mbtn .sm{font-size:8px;color:#9a925f;letter-spacing:.5px;}
+  .mbtn.on{border-color:var(--accent);box-shadow:0 0 10px var(--accent);}
+  .mbtn:active,#mAtk:active{filter:brightness(1.5);}
+  body.touch #hint{display:none;} /* desktop key hint is irrelevant on touch */
 </style>
 </head>
 <body>
@@ -147,6 +165,20 @@
   <div id="lockhint" class="hidden">CLICK TO LOOK AROUND</div>
   <div id="toast"></div>
   <div id="abilities"></div>
+</div>
+
+<div id="mobilectl">
+  <div id="lookzone"></div>
+  <div id="joybase"><div id="joyknob"></div></div>
+  <div id="mAtk" class="mbtn" style="font-size:13px">M1<div class="sm">ATTACK</div></div>
+  <div id="mskills">
+    <div class="mbtn" id="mB">B<div class="sm">SHOP</div></div>
+    <div class="mbtn" id="mH">H<div class="sm">MEDKIT</div></div>
+    <div class="mbtn" id="mL">L<div class="sm">LIGHT</div></div>
+    <div class="mbtn" id="mSpr">⇧<div class="sm">SPRINT</div></div>
+    <div class="mbtn" id="mT">T<div class="sm">MORPH</div></div>
+    <div class="mbtn" id="mF">F<div class="sm">SENSE</div></div>
+  </div>
 </div>
 
 <script>
@@ -309,6 +341,7 @@ function show(id){
   ["menu","createScreen","joinScreen","lobbyScreen","shop","deadscreen"].forEach(s=>
     document.getElementById(s).classList.toggle("hidden",s!==id));
   document.getElementById("hud").classList.toggle("hidden",!(id==="HUD"||id==="shop"));
+  document.getElementById("mobilectl").classList.toggle("show",Game.touch&&id==="HUD");
 }
 function randCode(){return Math.random().toString(36).slice(2,6).toUpperCase();}
 function newPlayer(){return {x:0,y:0,ang:Math.PI/4,hp:MAX_HP,owned:new Set(),transformed:false,dead:false,dmgCD:0,cash:0};}
@@ -413,9 +446,10 @@ function update(dt){
   if(Game.keys["KeyS"]||Game.keys["ArrowDown"])fwd-=1;
   if(Game.keys["KeyD"])strafe+=1;
   if(Game.keys["KeyA"])strafe-=1;
-  if(fwd||strafe){
+  fwd+=Game.touchMove.fwd; strafe+=Game.touchMove.strafe;   // virtual joystick
+  if(Math.abs(fwd)>0.001||Math.abs(strafe)>0.001){
     let sp=PLAYER_SPEED; if(me.transformed)sp*=1.35;
-    if(me.owned.has("sprint")&&(Game.keys["ShiftLeft"]||Game.keys["ShiftRight"]))sp*=SPRINT_MULT;
+    if(me.owned.has("sprint")&&(Game.keys["ShiftLeft"]||Game.keys["ShiftRight"]||Game.touchSprint))sp*=SPRINT_MULT;
     let dx=Math.cos(me.ang)*fwd+Math.cos(me.ang+Math.PI/2)*strafe;
     let dy=Math.sin(me.ang)*fwd+Math.sin(me.ang+Math.PI/2)*strafe;
     const len=Math.hypot(dx,dy); if(len>0){dx/=len;dy/=len;}
@@ -751,7 +785,7 @@ function init(){
   });
   document.addEventListener("mousemove",e=>{if(Game.locked&&Game.me)Game.me.ang+=e.movementX*MOUSE_SENS;});
   Game.canvas.addEventListener("mousedown",e=>{if(e.button===0&&Game.state==="PLAYING"&&Game.locked)doMelee();});
-  Game.canvas.addEventListener("touchstart",()=>{if(Game.state==="PLAYING")doMelee();},{passive:true});
+  setupMobile();
 
   const $=id=>document.getElementById(id);
   $("nameInput").value="P"+Game.uid.slice(0,3).toUpperCase();
@@ -776,6 +810,54 @@ function init(){
   },1500);
 
   requestAnimationFrame(loop);
+}
+/* ---------- mobile touch controls (joystick + look-drag + buttons) ---------- */
+function setupMobile(){
+  Game.touch=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+  Game.touchMove={fwd:0,strafe:0}; Game.touchSprint=false;
+  Game.joyId=null; Game.lookId=null; Game.joyCx=0; Game.joyCy=0; Game.lookLastX=0;
+  if(!Game.touch)return;
+  document.body.classList.add("touch");
+  const base=document.getElementById("joybase"), knob=document.getElementById("joyknob");
+  const R=52;
+  function moveKnob(cx,cy){
+    let dx=cx-Game.joyCx, dy=cy-Game.joyCy; const m=Math.hypot(dx,dy);
+    if(m>R){dx=dx/m*R;dy=dy/m*R;}
+    knob.style.transform=`translate(${dx}px,${dy}px)`;
+    Game.touchMove.strafe=dx/R; Game.touchMove.fwd=-dy/R;
+  }
+  base.addEventListener("touchstart",e=>{
+    if(Game.joyId!==null)return; const t=e.changedTouches[0]; Game.joyId=t.identifier;
+    const r=base.getBoundingClientRect(); Game.joyCx=r.left+r.width/2; Game.joyCy=r.top+r.height/2;
+    moveKnob(t.clientX,t.clientY); e.preventDefault();
+  },{passive:false});
+  document.getElementById("lookzone").addEventListener("touchstart",e=>{
+    if(Game.lookId===null){const t=e.changedTouches[0];Game.lookId=t.identifier;Game.lookLastX=t.clientX;}
+    e.preventDefault();
+  },{passive:false});
+  document.addEventListener("touchmove",e=>{
+    let used=false;
+    for(const t of e.changedTouches){
+      if(t.identifier===Game.joyId){moveKnob(t.clientX,t.clientY);used=true;}
+      else if(t.identifier===Game.lookId){if(Game.me)Game.me.ang+=(t.clientX-Game.lookLastX)*0.005;Game.lookLastX=t.clientX;used=true;}
+    }
+    if(used)e.preventDefault();
+  },{passive:false});
+  function endTouch(e){
+    for(const t of e.changedTouches){
+      if(t.identifier===Game.joyId){Game.joyId=null;Game.touchMove.fwd=0;Game.touchMove.strafe=0;knob.style.transform="translate(0,0)";}
+      if(t.identifier===Game.lookId)Game.lookId=null;
+    }
+  }
+  document.addEventListener("touchend",endTouch); document.addEventListener("touchcancel",endTouch);
+  const btn=(id,fn)=>{const el=document.getElementById(id);if(el)el.addEventListener("touchstart",e=>{e.preventDefault();e.stopPropagation();fn(el);},{passive:false});};
+  btn("mAtk",()=>doMelee());
+  btn("mF",()=>useAbility("sense"));
+  btn("mT",()=>useAbility("transform"));
+  btn("mL",()=>useAbility("flashlight"));
+  btn("mH",()=>useAbility("medkit"));
+  btn("mB",()=>openShop());
+  btn("mSpr",el=>{Game.touchSprint=!Game.touchSprint;el.classList.toggle("on",Game.touchSprint);});
 }
 function toMenu(){if(Game.net)send("BYE",{});closeChannel();Game.state="MENU";Game.players={};
   if(document.pointerLockElement)document.exitPointerLock();
