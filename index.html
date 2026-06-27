@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>THE BACKROOMS — 3D Co-op</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23c9b458'/><circle cx='8' cy='8' r='3' fill='%23000'/></svg>">
+<meta name="theme-color" content="#0c0c08">
+<meta name="description" content="A first-person co-op Backrooms survival game: 3D raycaster, entities, levels, a shop, and monster abilities.">
+<style>
+  :root{--wall:#c9b458;--carpet:#2f2f2f;--fluoro:#f7e98a;--rust:#663300;
+    --ink:#0c0c08;--text:#e8e2c4;--accent:#33ccff;--danger:#ff4d4d;--gold:#ffd24d;}
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:var(--ink);color:var(--text);
+    font-family:"Courier New",monospace;overflow:hidden;user-select:none;-webkit-user-select:none;}
+  #game{display:block;position:absolute;inset:0;background:#000;cursor:crosshair;}
+  .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;background:radial-gradient(circle at 50% 40%,#1a1808 0%,#000 80%);z-index:10;}
+  .hidden{display:none!important;}
+  .panel{background:rgba(20,18,6,.92);border:2px solid var(--wall);border-radius:10px;
+    padding:26px 34px;min-width:340px;max-width:90vw;box-shadow:0 0 40px rgba(247,233,138,.15);}
+  h1{font-size:46px;letter-spacing:6px;margin:0 0 4px;color:var(--fluoro);
+    text-shadow:0 0 18px rgba(247,233,138,.5),0 0 2px #000;}
+  .sub{color:#9a925f;letter-spacing:3px;margin-bottom:22px;font-size:13px;text-align:center;}
+  button{font-family:inherit;font-size:16px;background:var(--wall);color:#1a1604;border:none;
+    border-bottom:3px solid var(--rust);border-radius:6px;padding:12px 18px;margin:6px 0;cursor:pointer;
+    width:100%;letter-spacing:2px;transition:.12s;}
+  button:hover{background:var(--fluoro);transform:translateY(-1px);}
+  button:active{transform:translateY(1px);border-bottom-width:1px;}
+  button.ghost{background:transparent;color:var(--text);border:1px solid #5a5430;border-bottom:1px solid #5a5430;}
+  button.ghost:hover{background:rgba(247,233,138,.1);color:var(--fluoro);}
+  button:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+  label{display:block;font-size:13px;color:#b3aa72;margin:14px 0 4px;letter-spacing:1px;}
+  input[type=text]{width:100%;padding:10px;background:#000;border:1px solid var(--wall);color:var(--fluoro);
+    font-family:inherit;font-size:18px;letter-spacing:3px;text-align:center;border-radius:6px;text-transform:uppercase;}
+  input[type=range]{width:100%;accent-color:var(--wall);}
+  .small{font-size:12px;color:#8a8350;line-height:1.5;}
+  #roster{list-style:none;padding:0;margin:10px 0;max-height:200px;overflow:auto;}
+  #roster li{padding:8px 12px;background:rgba(247,233,138,.08);border-left:3px solid var(--wall);
+    margin:5px 0;border-radius:4px;display:flex;justify-content:space-between;}
+  .tag{color:var(--accent);font-size:11px;}
+  .code{color:var(--gold);font-size:30px;letter-spacing:8px;text-align:center;margin:6px 0 0;}
+  #hud{position:absolute;inset:0;pointer-events:none;z-index:5;font-size:13px;}
+  #topbar{position:absolute;top:10px;left:12px;text-shadow:0 0 4px #000;}
+  #topbar .lvl{font-size:18px;color:var(--fluoro);letter-spacing:2px;}
+  #hpwrap{width:200px;height:16px;background:#000;border:1px solid #444;border-radius:8px;margin-top:6px;overflow:hidden;}
+  #hp{height:100%;width:100%;background:linear-gradient(90deg,#ff4d4d,#ffd24d);transition:width .15s;}
+  #cash{color:var(--gold);font-size:18px;margin-top:6px;}
+  #abilities{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:8px;}
+  .ab{width:54px;height:54px;background:rgba(0,0,0,.6);border:2px solid #4a4528;border-radius:8px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+  .ab.on{border-color:var(--accent);box-shadow:0 0 12px var(--accent);}
+  .ab .k{font-size:11px;color:var(--fluoro);} .ab .n{font-size:8px;color:#9a925f;letter-spacing:.5px;}
+  .ab .cd{position:absolute;inset:0;background:rgba(0,0,0,.7);transform-origin:bottom;}
+  #toast{position:absolute;top:70px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.8);
+    border:1px solid var(--wall);padding:8px 16px;border-radius:6px;color:var(--fluoro);opacity:0;transition:opacity .3s;}
+  #minimap{position:absolute;top:10px;right:10px;border:2px solid #4a4528;background:rgba(0,0,0,.6);border-radius:4px;}
+  #hint{position:absolute;bottom:78px;left:50%;transform:translateX(-50%);color:#8a8350;font-size:12px;text-align:center;}
+  #lockhint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#f7e98a;
+    font-size:16px;letter-spacing:2px;background:rgba(0,0,0,.55);padding:10px 18px;border-radius:6px;}
+  #shop .item{display:flex;justify-content:space-between;align-items:center;gap:14px;
+    padding:10px 12px;border:1px solid #4a4528;border-radius:6px;margin:6px 0;background:rgba(247,233,138,.05);}
+  #shop .item .info{text-align:left;}
+  #shop .item .info b{color:var(--fluoro);letter-spacing:1px;}
+  #shop .item .info span{display:block;font-size:11px;color:#9a925f;margin-top:2px;}
+  #shop .item button{width:auto;margin:0;padding:8px 14px;font-size:13px;white-space:nowrap;}
+  #deadscreen h1{color:var(--danger);}
+  .flick{animation:flick 4s infinite;}
+  @keyframes flick{0%,97%,100%{opacity:1}98%{opacity:.4}99%{opacity:.85}}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="menu" class="overlay">
+  <div class="panel" style="text-align:center">
+    <h1 class="flick">BACKROOMS</h1>
+    <div class="sub">FIRST-PERSON · YOU NOCLIPPED OUT OF REALITY</div>
+    <input type="text" id="nameInput" maxlength="10" placeholder="NAME" value="">
+    <button id="btnSolo">▶ PLAY SOLO</button>
+    <button id="btnCreate">＋ CREATE LOBBY</button>
+    <button id="btnJoin">⇲ JOIN MULTIPLAYER</button>
+    <div class="small" style="margin-top:14px">Mouse to look · WASD to move.<br>Multiplayer links browser tabs/windows on this device — open this page in another tab and join the code.</div>
+  </div>
+</div>
+
+<div id="createScreen" class="overlay hidden">
+  <div class="panel">
+    <h1 style="font-size:26px">CREATE LOBBY</h1>
+    <div class="sub">SET YOUR PARAMETERS</div>
+    <label>MAX PLAYERS: <span id="maxVal">4</span></label>
+    <input type="range" id="maxPlayers" min="1" max="8" value="4">
+    <label>LOBBY CODE</label>
+    <div class="code" id="newCode">----</div>
+    <button id="btnHostStart" style="margin-top:18px">CREATE & ENTER</button>
+    <button id="btnCreateBack" class="ghost">‹ BACK</button>
+  </div>
+</div>
+
+<div id="joinScreen" class="overlay hidden">
+  <div class="panel">
+    <h1 style="font-size:26px">JOIN LOBBY</h1>
+    <div class="sub">ENTER THE CODE</div>
+    <label>LOBBY CODE</label>
+    <input type="text" id="joinCode" maxlength="4" placeholder="CODE">
+    <button id="btnJoinGo" style="margin-top:18px">JOIN</button>
+    <button id="btnJoinBack" class="ghost">‹ BACK</button>
+  </div>
+</div>
+
+<div id="lobbyScreen" class="overlay hidden">
+  <div class="panel">
+    <h1 style="font-size:24px">LOBBY <span id="lobbyCode" style="color:var(--gold)"></span></h1>
+    <div class="sub" id="lobbyStatus">WAITING FOR PLAYERS…</div>
+    <ul id="roster"></ul>
+    <button id="btnStart" disabled>START EXPEDITION</button>
+    <button id="btnLeave" class="ghost">‹ LEAVE</button>
+  </div>
+</div>
+
+<div id="shop" class="overlay hidden">
+  <div class="panel">
+    <h1 style="font-size:24px">⌁ THE SHOP</h1>
+    <div class="sub">ALMOND-WATER CREDITS: <span id="shopCash" style="color:var(--gold)">0</span></div>
+    <div id="shopItems"></div>
+    <button id="btnCloseShop" class="ghost" style="margin-top:10px">CLOSE [B]</button>
+  </div>
+</div>
+
+<div id="deadscreen" class="overlay hidden">
+  <div class="panel" style="text-align:center">
+    <h1>YOU DIED</h1>
+    <div class="sub" id="deadMsg">THE ENTITIES CLAIMED YOU</div>
+    <button id="btnRespawn">RESPAWN</button>
+    <button id="btnQuit" class="ghost">QUIT TO MENU</button>
+  </div>
+</div>
+
+<div id="hud" class="hidden">
+  <div id="topbar">
+    <div class="lvl" id="hudLevel">LEVEL 0</div>
+    <div id="hpwrap"><div id="hp"></div></div>
+    <div id="cash">⛁ 0</div>
+  </div>
+  <canvas id="minimap" width="150" height="120"></canvas>
+  <div id="hint">WASD move · MOUSE look · CLICK/SPACE attack · B shop</div>
+  <div id="lockhint" class="hidden">CLICK TO LOOK AROUND</div>
+  <div id="toast"></div>
+  <div id="abilities"></div>
+</div>
+
+<script>
+"use strict";
+/* =========================================================================
+   THE BACKROOMS — single-file FIRST-PERSON (raycaster) co-op game
+   Boss-built (Claude) integrating the live team's design rounds:
+     CEREBRAS  -> DDA raycaster math, z-buffer, fog  (3D core)
+     OPENROUTER-> billboard sprite projection + cone melee
+     MISTRAL   -> pointer-lock + relative WASD movement + arrow fallback
+     COHERE    -> HUD/crosshair/radar + shop & ability schema
+     GROQ      -> backrooms palette + cheap wall-texture tricks
+     NLPCLOUD  -> level / monster / ambiance flavor
+   ========================================================================= */
+
+function hashStr(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+const TILE=64, WALL=0, FLOOR=1, EXIT=2, SHOP=3;
+const FOV=Math.PI/3, HALF_FOV=FOV/2;
+const MELEE_RANGE=110, MELEE_ARC=Math.PI*0.55, MELEE_CD=600;
+const PLAYER_SPEED=210, SPRINT_MULT=1.7, PLAYER_R=14, MAX_HP=100;
+const MOUSE_SENS=0.0024, TURN_SPEED=2.4;
+
+const LEVELS=[
+  {name:"LEVEL 0 — THE LOBBY", wall:"#c9b458",wall2:"#b39f45",floor:"#7a6f3c",ceil:"#3a3520",fog:"#16140a",
+   gw:24,gh:20,density:0.10,cash:9,monsters:[["smiler",3]],reward:120},
+  {name:"LEVEL 1 — THE WAREHOUSE", wall:"#8a7d54",wall2:"#6f6443",floor:"#2c281b",ceil:"#1c1a12",fog:"#0e0d08",
+   gw:28,gh:24,density:0.15,cash:12,monsters:[["smiler",3],["hound",2]],reward:200},
+  {name:"LEVEL 2 — THE PIPES", wall:"#2f5050",wall2:"#244040",floor:"#13201f",ceil:"#0a1413",fog:"#070b0b",
+   gw:32,gh:28,density:0.18,cash:16,monsters:[["hound",3],["stealer",2]],reward:320},
+];
+
+const MTYPE={
+  smiler:{name:"Smiler", color:"#ffe24d", r:14, speed:95,  hp:50,  dmg:10, vision:420, behavior:"los",  scale:0.85},
+  hound: {name:"Hound",  color:"#ff7043", r:13, speed:165, hp:75,  dmg:22, vision:540, behavior:"chase",scale:0.7},
+  stealer:{name:"Skin-Stealer", color:"#c060ff", r:15, speed:70, hp:100, dmg:40, vision:480, behavior:"stalk",scale:1.05},
+};
+
+const SHOP_ITEMS=[
+  {id:"sense", name:"SIXTH SENSE", cost:150, key:"F", desc:"See all monsters through walls for 6s. CD 30s.", consumable:false},
+  {id:"transform", name:"TRANSFORMATION", cost:300, key:"T", desc:"Become a monster 12s: +speed, claw survivors. CD 45s.", consumable:false},
+  {id:"sprint", name:"SPRINT", cost:120, key:"SHIFT", desc:"Hold SHIFT to run faster.", consumable:false},
+  {id:"flashlight", name:"FLASHLIGHT", cost:100, key:"L", desc:"Toggle a brighter, longer field of view.", consumable:false},
+  {id:"sharp", name:"SHARPENED", cost:200, key:"—", desc:"+60% melee damage. Permanent.", consumable:false},
+  {id:"medkit", name:"MED-KIT ×1", cost:80, key:"H", desc:"Heal 60 HP. Press H to use.", consumable:true},
+];
+
+const Game={
+  canvas:null,ctx:null,mm:null,mmctx:null, W:0,H:0,
+  state:"MENU", uid:Math.random().toString(36).slice(2,9), name:"PLAYER",
+  net:null, code:null, isHost:false, maxPlayers:4,
+  seed:"seed", levelIdx:0, grid:null, gw:0,gh:0, spawn:{x:0,y:0},
+  exit:null, shopPos:null, pickups:[],
+  me:null, players:{}, monsters:[],
+  lastT:0, keys:{}, locked:false,
+  zbuf:null, _wallRGB:{},
+  meleeTimer:0, msgTimer:0, stateTimer:0, monTimer:0,
+  abilityCD:{sense:0,transform:0}, senseTimer:0, transformTimer:0,
+  flashlight:false, medkits:0, shake:0, meleeFx:0, _shopHint:false,
+};
+
+/* ---------- world gen (deterministic) ---------- */
+function generateLevel(seed,idx){
+  const L=LEVELS[idx], rng=mulberry32(hashStr(seed)+idx*97531);
+  const gw=L.gw, gh=L.gh, grid=[];
+  for(let y=0;y<gh;y++){const row=[];for(let x=0;x<gw;x++)
+    row.push((x===0||y===0||x===gw-1||y===gh-1)?WALL:FLOOR);grid.push(row);}
+  const clusters=Math.floor(gw*gh*L.density/3);
+  for(let i=0;i<clusters;i++){
+    const cw=1+Math.floor(rng()*3), ch=1+Math.floor(rng()*3);
+    const cx=2+Math.floor(rng()*(gw-4)), cy=2+Math.floor(rng()*(gh-4));
+    for(let y=cy;y<Math.min(cy+ch,gh-1);y++)for(let x=cx;x<Math.min(cx+cw,gw-1);x++){
+      if(x<4&&y<4)continue; grid[y][x]=WALL;}
+  }
+  for(let y=1;y<4;y++)for(let x=1;x<4;x++)grid[y][x]=FLOOR;
+  const spawn={x:2*TILE+TILE/2,y:2*TILE+TILE/2};
+  let ex=gw-3,ey=gh-3; grid[ey][ex]=EXIT;
+  for(let y=ey-1;y<=ey+1;y++)for(let x=ex-1;x<=ex+1;x++)if(grid[y]&&grid[y][x]===WALL)grid[y][x]=FLOOR;
+  const exit={tx:ex,ty:ey,x:ex*TILE+TILE/2,y:ey*TILE+TILE/2};
+  let sx=Math.floor(gw/2),sy=Math.floor(gh/2);
+  while(grid[sy][sx]===WALL){sx=2+Math.floor(rng()*(gw-4));sy=2+Math.floor(rng()*(gh-4));}
+  grid[sy][sx]=SHOP;
+  const shopPos={tx:sx,ty:sy,x:sx*TILE+TILE/2,y:sy*TILE+TILE/2};
+  const pickups=[];let tries=0;
+  while(pickups.length<L.cash&&tries<500){tries++;
+    const x=2+Math.floor(rng()*(gw-4)), y=2+Math.floor(rng()*(gh-4));
+    if(grid[y][x]!==FLOOR||(x<5&&y<5))continue;
+    pickups.push({id:"p"+pickups.length,x:x*TILE+TILE/2,y:y*TILE+TILE/2,taken:false,amt:15+Math.floor(rng()*20)});}
+  const monsters=[];let mc=0;
+  for(const [type,n] of L.monsters)for(let i=0;i<n;i++){
+    let mx,my,t=0;
+    do{mx=2+Math.floor(rng()*(gw-4));my=2+Math.floor(rng()*(gh-4));t++;}
+    while((grid[my][mx]!==FLOOR||(mx<7&&my<7))&&t<200);
+    const proto=MTYPE[type];
+    monsters.push({id:"m"+(mc++),type,x:mx*TILE+TILE/2,y:my*TILE+TILE/2,
+      hp:proto.hp,dir:0,wanderT:0,wx:mx*TILE,wy:my*TILE,lastX:0,lastY:0,searchT:0,state:"idle"});
+  }
+  return {grid,gw,gh,spawn,exit,shopPos,pickups,monsters};
+}
+function loadLevel(idx){
+  Game.levelIdx=idx;
+  const lv=generateLevel(Game.seed,idx);
+  Game.grid=lv.grid;Game.gw=lv.gw;Game.gh=lv.gh;Game.spawn=lv.spawn;
+  Game.exit=lv.exit;Game.shopPos=lv.shopPos;Game.pickups=lv.pickups;
+  Game.monsters=Game.isHost?lv.monsters:[];
+  Game.me.x=lv.spawn.x;Game.me.y=lv.spawn.y;Game.me.ang=Math.PI/4;
+  Game._shopHint=false; Game._advancing=false;
+  document.getElementById("hudLevel").textContent=LEVELS[idx].name;
+  toast(LEVELS[idx].name);
+}
+
+/* ---------- collision / map helpers ---------- */
+function isWallCell(tx,ty){
+  if(tx<0||ty<0||tx>=Game.gw||ty>=Game.gh)return true;
+  return Game.grid[ty][tx]===WALL;
+}
+function isWallAt(px,py){return isWallCell(Math.floor(px/TILE),Math.floor(py/TILE));}
+function tileAt(px,py){
+  const tx=Math.floor(px/TILE),ty=Math.floor(py/TILE);
+  if(tx<0||ty<0||tx>=Game.gw||ty>=Game.gh)return WALL;
+  return Game.grid[ty][tx];
+}
+function lineClear(x1,y1,x2,y2){
+  const steps=Math.ceil(Math.hypot(x2-x1,y2-y1)/16);
+  for(let i=1;i<steps;i++){const t=i/steps;if(isWallAt(x1+(x2-x1)*t,y1+(y2-y1)*t))return false;}
+  return true;
+}
+
+/* ---------- networking (BroadcastChannel) ---------- */
+function openChannel(code){closeChannel();Game.code=code;Game.net=new BroadcastChannel("backrooms-"+code);Game.net.onmessage=onNet;}
+function closeChannel(){if(Game.net){Game.net.close();Game.net=null;}}
+function send(type,data){if(Game.net)Game.net.postMessage(Object.assign({type,uid:Game.uid,ts:Date.now()},data));}
+function onNet(e){
+  const m=e.data; if(!m||m.uid===Game.uid)return;
+  switch(m.type){
+    case "PRESENCE":
+      Game.players[m.uid]=Game.players[m.uid]||{};
+      Object.assign(Game.players[m.uid],{name:m.name,ts:m.ts,ready:true});
+      if(Game.isHost)send("ROSTER",{count:rosterCount(),max:Game.maxPlayers,host:Game.uid});
+      if(Game.state==="LOBBY")renderRoster(); break;
+    case "ROSTER": if(Game.state==="LOBBY"){Game.maxPlayers=m.max;renderRoster();} break;
+    case "START": if(Game.state==="LOBBY"){Game.seed=m.seed;Game.maxPlayers=m.max;beginGame(0);} break;
+    case "STATE":
+      Game.players[m.uid]=Game.players[m.uid]||{};
+      Object.assign(Game.players[m.uid],{name:m.name,x:m.x,y:m.y,hp:m.hp,ang:m.ang,transformed:m.transformed,level:m.level,ts:m.ts}); break;
+    case "MONSTERS": if(!Game.isHost&&m.level===Game.levelIdx)Game.monsters=m.list; break;
+    case "HIT": if(Game.isHost){const mon=Game.monsters.find(x=>x.id===m.id);if(mon){mon.hp-=m.dmg;if(mon.hp<=0)Game.monsters=Game.monsters.filter(x=>x.id!==mon.id);}} break;
+    case "PVP_HIT": if(m.target===Game.uid&&Game.me&&!Game.me.dead)damageMe(m.dmg,"a TRANSFORMED player"); break;
+    case "PICKUP": {const p=Game.pickups.find(x=>x.id===m.id);if(p)p.taken=true;} break;
+    case "REQ_LEVEL": if(Game.isHost&&!Game._advancing&&Game.levelIdx+1<LEVELS.length){Game._advancing=true;doHostAdvance(Game.levelIdx+1);} break;
+    case "LEVEL": if(!Game.isHost){Game.seed=m.seed;loadLevel(m.idx);} break;
+    case "BYE": delete Game.players[m.uid]; if(Game.state==="LOBBY")renderRoster(); break;
+  }
+}
+function rosterCount(){const now=Date.now();let n=1;for(const id in Game.players)if(now-(Game.players[id].ts||0)<5000)n++;return n;}
+
+/* ---------- flow ---------- */
+function show(id){
+  ["menu","createScreen","joinScreen","lobbyScreen","shop","deadscreen"].forEach(s=>
+    document.getElementById(s).classList.toggle("hidden",s!==id));
+  document.getElementById("hud").classList.toggle("hidden",!(id==="HUD"||id==="shop"));
+}
+function randCode(){return Math.random().toString(36).slice(2,6).toUpperCase();}
+function newPlayer(){return {x:0,y:0,ang:Math.PI/4,hp:MAX_HP,owned:new Set(),transformed:false,dead:false,dmgCD:0,cash:0};}
+
+function startSolo(){Game.isHost=true;Game.maxPlayers=1;closeChannel();Game.me=newPlayer();Game.players={};
+  Game.seed=randCode()+Date.now();beginGame(0);}
+function createLobby(){
+  Game.isHost=true;Game.code=document.getElementById("newCode").textContent;
+  Game.maxPlayers=parseInt(document.getElementById("maxPlayers").value,10);
+  Game.me=newPlayer();Game.players={};openChannel(Game.code);
+  Game.state="LOBBY";show("lobbyScreen");
+  document.getElementById("lobbyCode").textContent=Game.code;
+  const sb=document.getElementById("btnStart");sb.disabled=false;sb.classList.remove("hidden");
+  renderRoster();
+}
+function joinLobby(code){
+  Game.isHost=false;Game.code=code;Game.me=newPlayer();Game.players={};openChannel(code);
+  Game.state="LOBBY";show("lobbyScreen");
+  document.getElementById("lobbyCode").textContent=code;
+  document.getElementById("btnStart").classList.add("hidden");
+  document.getElementById("lobbyStatus").textContent="WAITING FOR HOST TO START…";
+  send("PRESENCE",{name:Game.name});renderRoster();
+}
+function renderRoster(){
+  const ul=document.getElementById("roster");ul.innerHTML="";const now=Date.now();
+  const li=document.createElement("li");
+  li.innerHTML=`<span>${Game.name} (you)</span><span class="tag">${Game.isHost?"HOST":"GUEST"}</span>`;ul.appendChild(li);
+  for(const id in Game.players){if(now-(Game.players[id].ts||0)>5000)continue;
+    const l=document.createElement("li");
+    l.innerHTML=`<span>${Game.players[id].name||"???"}</span><span class="tag">GUEST</span>`;ul.appendChild(l);}
+  if(Game.isHost)document.getElementById("lobbyStatus").textContent=`${rosterCount()}/${Game.maxPlayers} PLAYERS · YOU HOST`;
+}
+function beginGame(idx){Game.state="PLAYING";show("HUD");Game.me=Game.me||newPlayer();loadLevel(idx);
+  Game.lastT=performance.now();buildAbilityBar();}
+function advanceLevel(){
+  if(Game._advancing)return;                 // guard: don't re-trigger while standing on exit
+  const cur=Game.levelIdx, next=cur+1;
+  Game.me.cash+=LEVELS[cur].reward;          // only the player who reached the exit is rewarded
+  if(next>=LEVELS.length){winGame();return;}
+  Game._advancing=true;
+  if(Game.isHost){ doHostAdvance(next); toast("+"+LEVELS[cur].reward+" credits · descending…"); }
+  else { send("REQ_LEVEL",{}); toast("+"+LEVELS[cur].reward+" · descending…"); } // host owns the world seed
+}
+function doHostAdvance(next){                 // host is authoritative for world geometry
+  Game.seed=Game.seed+"-"+next; send("LEVEL",{idx:next,seed:Game.seed}); loadLevel(next);
+}
+function winGame(){Game.state="DEAD";
+  const h=document.getElementById("deadscreen").querySelector("h1");h.textContent="YOU ESCAPED";h.style.color="#7CFC9A";
+  document.getElementById("deadMsg").textContent="You found the way out. Credits: "+Game.me.cash;show("deadscreen");}
+
+/* ---------- combat / abilities ---------- */
+function damageMe(dmg,src){if(Game.me.dead||Game.me.dmgCD>0)return;
+  Game.me.hp-=dmg;Game.me.dmgCD=550;Game.shake=8;if(Game.me.hp<=0){Game.me.hp=0;killMe(src);}}
+function killMe(src){Game.me.dead=true;Game.state="DEAD";Game.me.cash=Math.floor(Game.me.cash*0.75);
+  const h=document.getElementById("deadscreen").querySelector("h1");h.textContent="YOU DIED";h.style.color="";
+  document.getElementById("deadMsg").textContent=(src?("Killed by "+src+". "):"")+"Lost 25% of your credits.";show("deadscreen");}
+function respawn(){Game.me.dead=false;Game.me.hp=MAX_HP;Game.me.x=Game.spawn.x;Game.me.y=Game.spawn.y;
+  Game.me.transformed=false;Game.state="PLAYING";show("HUD");Game.lastT=performance.now();}
+
+function angDiff(a){return Math.atan2(Math.sin(a),Math.cos(a));}
+function doMelee(){
+  if(Game.meleeTimer>0||Game.state!=="PLAYING")return;
+  Game.meleeTimer=MELEE_CD;Game.meleeFx=12;
+  const me=Game.me, aim=me.ang;
+  let dmg=35*(me.owned.has("sharp")?1.6:1); if(me.transformed)dmg*=1.4;
+  for(const mon of Game.monsters){
+    const d=Math.hypot(mon.x-me.x,mon.y-me.y); if(d>MELEE_RANGE)continue;
+    if(Math.abs(angDiff(Math.atan2(mon.y-me.y,mon.x-me.x)-aim))>MELEE_ARC/2)continue;
+    if(Game.isHost){mon.hp-=dmg;if(mon.hp<=0)Game.monsters=Game.monsters.filter(x=>x.id!==mon.id);}
+    else send("HIT",{id:mon.id,dmg});
+  }
+  if(me.transformed){for(const id in Game.players){const p=Game.players[id];if(!p||p.transformed)continue;
+    const d=Math.hypot(p.x-me.x,p.y-me.y);if(d>MELEE_RANGE)continue;
+    if(Math.abs(angDiff(Math.atan2(p.y-me.y,p.x-me.x)-aim))>MELEE_ARC/2)continue;
+    send("PVP_HIT",{target:id,dmg:18});}}
+}
+function useAbility(id){
+  const me=Game.me;
+  if(id==="sense"&&me.owned.has("sense")&&Game.abilityCD.sense<=0){Game.senseTimer=6000;Game.abilityCD.sense=30000;toast("SIXTH SENSE — entities revealed");}
+  if(id==="transform"&&me.owned.has("transform")&&Game.abilityCD.transform<=0){me.transformed=true;Game.transformTimer=12000;Game.abilityCD.transform=45000;toast("YOU BECOME THE MONSTER");}
+  if(id==="flashlight"&&me.owned.has("flashlight"))Game.flashlight=!Game.flashlight;
+  if(id==="medkit"&&Game.medkits>0){Game.medkits--;me.hp=Math.min(MAX_HP,me.hp+60);toast("+60 HP");buildAbilityBar();}
+}
+
+/* ---------- update ---------- */
+function update(dt){
+  const me=Game.me; if(!me||Game.state!=="PLAYING")return;
+  Game.meleeTimer=Math.max(0,Game.meleeTimer-dt*1000);
+  me.dmgCD=Math.max(0,me.dmgCD-dt*1000);
+  Game.abilityCD.sense=Math.max(0,Game.abilityCD.sense-dt*1000);
+  Game.abilityCD.transform=Math.max(0,Game.abilityCD.transform-dt*1000);
+  Game.senseTimer=Math.max(0,Game.senseTimer-dt*1000);
+  if(Game.transformTimer>0){Game.transformTimer-=dt*1000;if(Game.transformTimer<=0){me.transformed=false;toast("Transformation faded");}}
+
+  // turning via arrow keys (mouse handled in event)
+  if(Game.keys["ArrowLeft"])me.ang-=TURN_SPEED*dt;
+  if(Game.keys["ArrowRight"])me.ang+=TURN_SPEED*dt;
+
+  // relative movement (MISTRAL)
+  let fwd=0,strafe=0;
+  if(Game.keys["KeyW"]||Game.keys["ArrowUp"])fwd+=1;
+  if(Game.keys["KeyS"]||Game.keys["ArrowDown"])fwd-=1;
+  if(Game.keys["KeyD"])strafe+=1;
+  if(Game.keys["KeyA"])strafe-=1;
+  if(fwd||strafe){
+    let sp=PLAYER_SPEED; if(me.transformed)sp*=1.35;
+    if(me.owned.has("sprint")&&(Game.keys["ShiftLeft"]||Game.keys["ShiftRight"]))sp*=SPRINT_MULT;
+    let dx=Math.cos(me.ang)*fwd+Math.cos(me.ang+Math.PI/2)*strafe;
+    let dy=Math.sin(me.ang)*fwd+Math.sin(me.ang+Math.PI/2)*strafe;
+    const len=Math.hypot(dx,dy); if(len>0){dx/=len;dy/=len;}
+    const nx=me.x+dx*sp*dt, ny=me.y+dy*sp*dt;
+    if(!isWallAt(nx+Math.sign(dx)*PLAYER_R,me.y))me.x=nx;
+    if(!isWallAt(me.x,ny+Math.sign(dy)*PLAYER_R))me.y=ny;
+  }
+
+  const t=tileAt(me.x,me.y);
+  if(t===EXIT)advanceLevel();
+  if(t===SHOP&&!Game._shopHint){toast("Press B to open the shop");Game._shopHint=true;}
+
+  for(const p of Game.pickups){if(p.taken)continue;
+    if(Math.hypot(p.x-me.x,p.y-me.y)<26){p.taken=true;me.cash+=p.amt;send("PICKUP",{id:p.id});}}
+
+  if(Game.isHost)updateMonsters(dt);
+  for(const mon of Game.monsters)
+    if(Math.hypot(mon.x-me.x,mon.y-me.y)<(MTYPE[mon.type].r+PLAYER_R+4)&&!me.transformed)
+      damageMe(MTYPE[mon.type].dmg*dt*2.2,MTYPE[mon.type].name);
+
+  if(Game.net){
+    Game.stateTimer-=dt*1000;
+    if(Game.stateTimer<=0){Game.stateTimer=80;
+      send("STATE",{name:Game.name,x:me.x,y:me.y,hp:me.hp,ang:me.ang,transformed:me.transformed,level:Game.levelIdx});}
+    if(Game.isHost){Game.monTimer-=dt*1000;if(Game.monTimer<=0){Game.monTimer=100;send("MONSTERS",{level:Game.levelIdx,list:Game.monsters});}}
+  }
+  if(Game.shake>0)Game.shake=Math.max(0,Game.shake-dt*30);
+  if(Game.meleeFx>0)Game.meleeFx=Math.max(0,Game.meleeFx-dt*40);
+}
+function updateMonsters(dt){
+  const targets=[Game.me,...Object.values(Game.players).filter(p=>Date.now()-(p.ts||0)<3000&&!p.transformed&&p.x!=null)];
+  for(const mon of Game.monsters){
+    const proto=MTYPE[mon.type]; let tgt=null,best=1e9;
+    for(const p of targets){if(!p||p.dead)continue;const d=Math.hypot(p.x-mon.x,p.y-mon.y);if(d<best){best=d;tgt=p;}}
+    let mvx=0,mvy=0;
+    const sees=tgt&&best<proto.vision&&lineClear(mon.x,mon.y,tgt.x,tgt.y);
+    if(proto.behavior==="los"){
+      if(sees){mon.state="chase";mon.lastX=tgt.x;mon.lastY=tgt.y;mvx=tgt.x-mon.x;mvy=tgt.y-mon.y;}
+      else wander(mon,dt,()=>{mvx=mon.wx-mon.x;mvy=mon.wy-mon.y;});
+    }else if(proto.behavior==="chase"){
+      if(best<proto.vision){mon.state="chase";mon.lastX=tgt.x;mon.lastY=tgt.y;mon.searchT=2500;mvx=tgt.x-mon.x;mvy=tgt.y-mon.y;}
+      else if(mon.searchT>0){mon.searchT-=dt*1000;mvx=mon.lastX-mon.x;mvy=mon.lastY-mon.y;}
+      else wander(mon,dt,()=>{mvx=mon.wx-mon.x;mvy=mon.wy-mon.y;});
+    }else{ if(tgt){mon.state=best<200?"chase":"stalk";mvx=tgt.x-mon.x;mvy=tgt.y-mon.y;} }
+    const len=Math.hypot(mvx,mvy);
+    if(len>2){mvx/=len;mvy/=len;const sp=proto.speed*(mon.state==="chase"?1:0.6);
+      const nx=mon.x+mvx*sp*dt,ny=mon.y+mvy*sp*dt;
+      if(!isWallAt(nx,mon.y))mon.x=nx; if(!isWallAt(mon.x,ny))mon.y=ny; mon.dir=Math.atan2(mvy,mvx);}
+  }
+}
+function wander(mon,dt,apply){
+  mon.wanderT-=dt*1000;
+  if(mon.wanderT<=0||Math.hypot(mon.wx-mon.x,mon.wy-mon.y)<24){
+    mon.wanderT=2000+Math.random()*2000;mon.wx=mon.x+(Math.random()-0.5)*300;mon.wy=mon.y+(Math.random()-0.5)*300;}
+  mon.state="idle";apply();
+}
+
+/* =========================================================================
+   3D RAYCASTER RENDER (CEREBRAS core + OPENROUTER sprites + GROQ textures)
+   ========================================================================= */
+function wallRGB(hex){
+  if(Game._wallRGB[hex])return Game._wallRGB[hex];
+  const n=parseInt(hex.slice(1),16);
+  const c={r:(n>>16)&255,g:(n>>8)&255,b:n&255};Game._wallRGB[hex]=c;return c;
+}
+function render(){
+  const ctx=Game.ctx,W=Game.W,H=Game.H;
+  if(Game.state!=="PLAYING"&&Game.state!=="DEAD"){ctx.clearRect(0,0,W,H);return;}
+  const me=Game.me; if(!me){return;}
+  const L=LEVELS[Game.levelIdx];
+  const shk=Game.shake>0?(Math.random()-0.5)*Game.shake:0;
+  const horizon=H/2+shk;
+
+  // ceiling + floor with distance fog
+  let cg=ctx.createLinearGradient(0,0,0,horizon);
+  cg.addColorStop(0,L.ceil);cg.addColorStop(1,L.fog);
+  ctx.fillStyle=cg;ctx.fillRect(0,0,W,horizon);
+  let fg=ctx.createLinearGradient(0,horizon,0,H);
+  fg.addColorStop(0,L.fog);fg.addColorStop(1,L.floor);
+  ctx.fillStyle=fg;ctx.fillRect(0,horizon,W,H-horizon);
+
+  // raycast walls
+  const px=me.x/TILE, py=me.y/TILE, ang=me.ang;
+  const dirX=Math.cos(ang),dirY=Math.sin(ang);
+  const planeX=-Math.sin(ang)*Math.tan(HALF_FOV),planeY=Math.cos(ang)*Math.tan(HALF_FOV);
+  const zbuf=Game.zbuf;
+  const lightBoost=Game.flashlight?1.5:1, viewDist=Game.flashlight?13:9;
+  const wc=wallRGB(L.wall), wc2=wallRGB(L.wall2);
+  for(let x=0;x<W;x++){
+    const cameraX=2*x/W-1;
+    const rdx=dirX+planeX*cameraX, rdy=dirY+planeY*cameraX; // keep true ray dir (no mutation)
+    let mapX=Math.floor(px),mapY=Math.floor(py);
+    // guard the DIVISION, not the direction, for axis-aligned rays (CEREBRAS)
+    const ddx=Math.abs(rdx)<1e-9?1e9:Math.abs(1/rdx), ddy=Math.abs(rdy)<1e-9?1e9:Math.abs(1/rdy);
+    let stepX,stepY,sdx,sdy;
+    if(rdx<0){stepX=-1;sdx=(px-mapX)*ddx;}else{stepX=1;sdx=(mapX+1-px)*ddx;}
+    if(rdy<0){stepY=-1;sdy=(py-mapY)*ddy;}else{stepY=1;sdy=(mapY+1-py)*ddy;}
+    let side=0,hit=false,guard=0;
+    while(!hit&&guard++<64){
+      if(sdx<sdy){sdx+=ddx;mapX+=stepX;side=0;}else{sdy+=ddy;mapY+=stepY;side=1;}
+      if(isWallCell(mapX,mapY))hit=true;
+    }
+    let perp=side===0?(mapX-px+(1-stepX)/2)/rdx:(mapY-py+(1-stepY)/2)/rdy;
+    if(perp<0.0001)perp=0.0001;
+    zbuf[x]=perp;
+    const lineH=H/perp;
+    let y0=horizon-lineH/2, y1=horizon+lineH/2;
+    // shading: distance + side + flashlight
+    let b=Math.min(1,(viewDist/(perp+1.2))*0.5)*lightBoost;
+    b=Math.max(0.06,Math.min(1,b)); if(side===1)b*=0.72;
+    const base=side===1?wc2:wc;
+    // wall texture: vertical seam at tile edges, faint stains (GROQ)
+    let wallX=side===0?(py+perp*rdy):(px+perp*rdx); wallX-=Math.floor(wallX);
+    let seam=(wallX<0.04||wallX>0.96)?0.78:1;
+    let r=base.r*b*seam, g=base.g*b*seam, bl=base.b*b*seam;
+    ctx.fillStyle=`rgb(${r|0},${g|0},${bl|0})`;
+    ctx.fillRect(x,y0,1,y1-y0);
+    // damp baseboard line
+    ctx.fillStyle=`rgba(0,0,0,${0.25*b})`; ctx.fillRect(x,y1-Math.max(2,lineH*0.04),1,Math.max(2,lineH*0.04));
+  }
+
+  // ---- sprites (monsters, players, pickups, exit/shop) ----
+  const sprites=[];
+  for(const mon of Game.monsters) sprites.push({kind:"mon",mon,x:mon.x,y:mon.y});
+  const now=Date.now();
+  for(const id in Game.players){const p=Game.players[id];
+    if(p&&p.x!=null&&now-(p.ts||0)<3000&&p.level===Game.levelIdx)sprites.push({kind:"player",p,x:p.x,y:p.y});}
+  for(const p of Game.pickups)if(!p.taken)sprites.push({kind:"pickup",x:p.x,y:p.y});
+  if(Game.exit)sprites.push({kind:"exit",x:Game.exit.x,y:Game.exit.y});
+  if(Game.shopPos)sprites.push({kind:"shop",x:Game.shopPos.x,y:Game.shopPos.y});
+
+  const invDet=1/(planeX*dirY-dirX*planeY);
+  for(const s of sprites){
+    const sx=s.x/TILE-px, sy=s.y/TILE-py;
+    s.tX=invDet*(dirY*sx-dirX*sy);
+    s.tY=invDet*(-planeY*sx+planeX*sy);
+  }
+  sprites.filter(s=>s.tY>0.1).sort((a,b)=>b.tY-a.tY).forEach(s=>{
+    const screenX=(W/2)*(1+s.tX/s.tY);
+    const size=Math.abs(H/s.tY);
+    // per-column occlusion: visible if ANY column across the sprite's width is unobstructed
+    const halfW=size*0.32; // ~drawn monster half-width, so edge columns are depth-tested too
+    const left=Math.max(0,Math.floor(screenX-halfW)), right=Math.min(W-1,Math.ceil(screenX+halfW));
+    let occluded=true;
+    for(let c=left;c<=right;c++){ if(s.tY<zbuf[c]){occluded=false;break;} }
+    const floorY=horizon+size/2;
+    drawSprite(ctx,s,screenX,size,floorY,occluded,me);
+  });
+
+  // melee swipe flash
+  if(Game.meleeFx>0){ctx.fillStyle=`rgba(255,255,255,${Game.meleeFx/12*0.18})`;
+    ctx.fillRect(0,0,W,H);}
+
+  // SIXTH SENSE: monster markers through walls
+  if(Game.senseTimer>0){
+    const pulse=0.5+0.4*Math.sin(Date.now()/140);
+    for(const s of sprites){if(s.kind!=="mon"||s.tY<=0.1)continue;
+      const screenX=(W/2)*(1+s.tX/s.tY), size=Math.abs(H/s.tY);
+      ctx.strokeStyle=`rgba(255,60,60,${pulse})`;ctx.lineWidth=2;
+      ctx.strokeRect(screenX-size*0.2,horizon-size*0.35,size*0.4,size*0.7);}
+  }
+
+  // crosshair (COHERE: idle / melee-ready / cooldown)
+  drawCrosshair(ctx,W,H,me);
+  // damage vignette
+  if(me.dmgCD>0){ctx.fillStyle=`rgba(150,0,0,${me.dmgCD/550*0.35})`;ctx.fillRect(0,0,W,H);}
+  if(me.transformed){ctx.fillStyle="rgba(120,0,160,0.12)";ctx.fillRect(0,0,W,H);}
+  if(Math.random()<0.012){ctx.fillStyle="rgba(247,233,138,.05)";ctx.fillRect(0,0,W,H);}
+
+  drawMinimap();updateHUD();
+}
+
+function drawSprite(ctx,s,screenX,size,floorY,occluded,me){
+  if(s.kind==="pickup"){
+    if(occluded)return;
+    const r=Math.max(3,size*0.07), y=floorY-r*1.5;
+    ctx.fillStyle="#ffd24d";ctx.globalAlpha=.85+0.15*Math.sin(Date.now()/200+screenX);
+    ctx.beginPath();ctx.moveTo(screenX,y-r);ctx.lineTo(screenX+r,y);ctx.lineTo(screenX,y+r);ctx.lineTo(screenX-r,y);ctx.closePath();ctx.fill();
+    ctx.globalAlpha=1;ctx.strokeStyle="#a87f00";ctx.stroke();return;
+  }
+  if(s.kind==="exit"||s.kind==="shop"){
+    if(occluded)return;
+    const w=Math.max(6,size*0.32), h=size*0.9, x=screenX-w/2, y=floorY-h;
+    const col=s.kind==="exit"?"#2ecc71":"#33ccff";
+    ctx.globalAlpha=.55+0.25*Math.sin(Date.now()/300);
+    const gd=ctx.createLinearGradient(0,y,0,floorY);gd.addColorStop(0,col);gd.addColorStop(1,"rgba(0,0,0,0)");
+    ctx.fillStyle=gd;ctx.fillRect(x,y,w,h);ctx.globalAlpha=1;
+    ctx.fillStyle="#fff";ctx.font=`${Math.max(10,size*0.12)}px monospace`;ctx.textAlign="center";
+    ctx.fillText(s.kind==="exit"?"EXIT":"SHOP",screenX,y-4);ctx.textAlign="left";return;
+  }
+  if(s.kind==="player"){
+    if(occluded)return;
+    const p=s.p, r=Math.max(5,size*0.16), cy=floorY-r*2;
+    ctx.fillStyle=p.transformed?"#c060ff":"#33ccff";
+    ctx.beginPath();ctx.arc(screenX,cy,r,0,7);ctx.fill();
+    ctx.fillStyle="rgba(0,0,0,.5)";ctx.fillRect(screenX-r*0.7,cy+r,r*1.4,r*2.2);
+    ctx.fillStyle=p.transformed?"#c060ff":"#33ccff";ctx.fillRect(screenX-r*0.7,cy+r,r*1.4,r*2.2);
+    ctx.fillStyle="rgba(255,255,255,.9)";ctx.font="11px monospace";ctx.textAlign="center";
+    ctx.fillText(p.name||"???",screenX,cy-r-4);ctx.textAlign="left";return;
+  }
+  // monster
+  const mon=s.mon, proto=MTYPE[mon.type];
+  const dist=Math.hypot(mon.x-me.x,mon.y-me.y);
+  let alpha=1;
+  if(proto.behavior==="stalk"&&dist>260&&Game.senseTimer<=0)alpha=0.14;
+  if(occluded&&Game.senseTimer<=0)return;
+  if(occluded)alpha*=0.5;
+  const r=Math.max(5,size*0.13*proto.scale*2.4), cy=floorY-r;
+  ctx.globalAlpha=alpha;
+  ctx.fillStyle=proto.color;ctx.beginPath();ctx.arc(screenX,cy,r,0,7);ctx.fill();
+  ctx.fillStyle="#000";
+  ctx.beginPath();ctx.arc(screenX-r*0.35,cy-r*0.2,r*0.16,0,7);ctx.arc(screenX+r*0.35,cy-r*0.2,r*0.16,0,7);ctx.fill();
+  if(mon.type==="smiler"){ctx.strokeStyle="#000";ctx.lineWidth=Math.max(1,r*0.12);
+    ctx.beginPath();ctx.arc(screenX,cy+r*0.1,r*0.5,0.15,Math.PI-0.15);ctx.stroke();}
+  else if(mon.type==="hound"){ctx.fillStyle="#000";ctx.fillRect(screenX-r*0.4,cy+r*0.2,r*0.8,r*0.2);}
+  ctx.globalAlpha=1;
+  if(mon.hp<proto.hp){ctx.fillStyle="#000";ctx.fillRect(screenX-r,cy-r-8,r*2,4);
+    ctx.fillStyle="#f44";ctx.fillRect(screenX-r,cy-r-8,r*2*(mon.hp/proto.hp),4);}
+}
+
+function drawCrosshair(ctx,W,H,me){
+  const cx=W/2,cy=H/2,s=8;
+  let ready=false;
+  for(const mon of Game.monsters){if(Math.hypot(mon.x-me.x,mon.y-me.y)>MELEE_RANGE)continue;
+    if(Math.abs(angDiff(Math.atan2(mon.y-me.y,mon.x-me.x)-me.ang))<MELEE_ARC/2){ready=true;break;}}
+  ctx.lineWidth=2;
+  ctx.strokeStyle=Game.meleeTimer>0?"rgba(255,255,255,.3)":ready?"#ff4d4d":"rgba(255,255,255,.8)";
+  ctx.beginPath();ctx.moveTo(cx-s,cy);ctx.lineTo(cx-3,cy);ctx.moveTo(cx+3,cy);ctx.lineTo(cx+s,cy);
+  ctx.moveTo(cx,cy-s);ctx.lineTo(cx,cy-3);ctx.moveTo(cx,cy+3);ctx.lineTo(cx,cy+s);ctx.stroke();
+  if(ready){ctx.beginPath();ctx.arc(cx,cy,2,0,7);ctx.fillStyle="#ff4d4d";ctx.fill();}
+}
+
+function drawMinimap(){
+  const c=Game.mmctx,W=150,H=120;if(!c)return;
+  c.clearRect(0,0,W,H);
+  const sx=W/Game.gw,sy=H/Game.gh;
+  for(let y=0;y<Game.gh;y++)for(let x=0;x<Game.gw;x++){
+    const t=Game.grid[y][x];
+    c.fillStyle=t===WALL?"#3a3520":t===EXIT?"#2ecc71":t===SHOP?"#33ccff":"#15140c";
+    c.fillRect(x*sx,y*sy,Math.ceil(sx),Math.ceil(sy));}
+  const now=Date.now();
+  for(const id in Game.players){const p=Game.players[id];if(!p||p.x==null||now-(p.ts||0)>3000)continue;
+    c.fillStyle="#33ccff";c.fillRect(p.x/TILE*sx-1,p.y/TILE*sy-1,3,3);}
+  if(Game.senseTimer>0){c.fillStyle="#ff3b3b";for(const m of Game.monsters)c.fillRect(m.x/TILE*sx-1,m.y/TILE*sy-1,3,3);}
+  // player heading triangle
+  const mx=Game.me.x/TILE*sx,my=Game.me.y/TILE*sy,a=Game.me.ang;
+  c.fillStyle="#7CFC9A";c.beginPath();
+  c.moveTo(mx+Math.cos(a)*6,my+Math.sin(a)*6);
+  c.lineTo(mx+Math.cos(a+2.5)*4,my+Math.sin(a+2.5)*4);
+  c.lineTo(mx+Math.cos(a-2.5)*4,my+Math.sin(a-2.5)*4);
+  c.closePath();c.fill();
+}
+
+/* ---------- HUD ---------- */
+function buildAbilityBar(){
+  const bar=document.getElementById("abilities");bar.innerHTML="";
+  const defs=[{id:"melee",k:"M1",n:"ATTACK",always:true},{id:"sense",k:"F",n:"6TH SENSE"},
+    {id:"transform",k:"T",n:"TRANSFORM"},{id:"sprint",k:"⇧",n:"SPRINT"},
+    {id:"flashlight",k:"L",n:"LIGHT"},{id:"medkit",k:"H",n:"MEDKIT"}];
+  for(const d of defs){
+    if(!d.always&&!Game.me.owned.has(d.id)&&!(d.id==="medkit"&&Game.medkits>0))continue;
+    const el=document.createElement("div");el.className="ab";el.id="ab-"+d.id;
+    el.innerHTML=`<div class="k">${d.k}</div><div class="n">${d.n}</div><div class="cd" id="cd-${d.id}"></div>`;
+    bar.appendChild(el);}
+}
+function updateHUD(){
+  const me=Game.me;
+  document.getElementById("hp").style.width=(me.hp/MAX_HP*100)+"%";
+  document.getElementById("cash").textContent="⛁ "+me.cash;
+  const s=document.getElementById("cd-sense");if(s)s.style.height=(Game.abilityCD.sense/30000*100)+"%";
+  const t=document.getElementById("cd-transform");if(t)t.style.height=(Game.abilityCD.transform/45000*100)+"%";
+  const sa=document.getElementById("ab-sense");if(sa)sa.classList.toggle("on",Game.senseTimer>0);
+  const ta=document.getElementById("ab-transform");if(ta)ta.classList.toggle("on",me.transformed);
+  const fa=document.getElementById("ab-flashlight");if(fa)fa.classList.toggle("on",Game.flashlight);
+}
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.style.opacity=1;
+  clearTimeout(Game.msgTimer);Game.msgTimer=setTimeout(()=>t.style.opacity=0,1800);}
+
+/* ---------- shop ---------- */
+function openShop(){
+  if(Game.state!=="PLAYING")return;
+  document.getElementById("shopCash").textContent=Game.me.cash;
+  const box=document.getElementById("shopItems");box.innerHTML="";
+  for(const it of SHOP_ITEMS){
+    const owned=Game.me.owned.has(it.id)&&!it.consumable;
+    const div=document.createElement("div");div.className="item";
+    div.innerHTML=`<div class="info"><b>${it.name}</b> <span style="color:#ffd24d">[${it.key}]</span><span>${it.desc}</span></div>`;
+    const b=document.createElement("button");b.textContent=owned?"OWNED":("⛁ "+it.cost);
+    b.disabled=owned||Game.me.cash<it.cost;b.onclick=()=>buy(it);div.appendChild(b);box.appendChild(div);}
+  show("shop");
+}
+function buy(it){if(Game.me.cash<it.cost)return;if(!it.consumable&&Game.me.owned.has(it.id))return;Game.me.cash-=it.cost;
+  if(it.consumable){if(it.id==="medkit")Game.medkits++;}else Game.me.owned.add(it.id);
+  buildAbilityBar();openShop();toast("Purchased "+it.name);}
+function closeShop(){show("HUD");Game.lastT=performance.now();}
+
+/* ---------- main loop ---------- */
+function loop(now){
+  let dt=(now-Game.lastT)/1000;Game.lastT=now;
+  if(dt>0.05)dt=0.05;
+  if(Game.state==="PLAYING")update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+/* ---------- input + wiring ---------- */
+function resize(){Game.W=Game.canvas.width=window.innerWidth;Game.H=Game.canvas.height=window.innerHeight;
+  Game.zbuf=new Float32Array(Game.W);}
+function init(){
+  Game.canvas=document.getElementById("game");Game.ctx=Game.canvas.getContext("2d");
+  Game.mm=document.getElementById("minimap");Game.mmctx=Game.mm.getContext("2d");
+  resize();window.addEventListener("resize",resize);
+
+  addEventListener("keydown",e=>{
+    Game.keys[e.code]=true;
+    if(Game.state!=="PLAYING")return;
+    if(e.code==="Space"){doMelee();e.preventDefault();}
+    if(e.code==="KeyF")useAbility("sense");
+    if(e.code==="KeyT")useAbility("transform");
+    if(e.code==="KeyL")useAbility("flashlight");
+    if(e.code==="KeyH")useAbility("medkit");
+    if(e.code==="KeyB")openShop();
+  });
+  addEventListener("keyup",e=>{Game.keys[e.code]=false;});
+
+  // pointer lock mouse look (MISTRAL)
+  Game.canvas.addEventListener("click",()=>{
+    if(Game.state==="PLAYING"&&!Game.locked&&Game.canvas.requestPointerLock)Game.canvas.requestPointerLock();
+  });
+  document.addEventListener("pointerlockchange",()=>{
+    Game.locked=document.pointerLockElement===Game.canvas;
+    document.getElementById("lockhint").classList.toggle("hidden",Game.locked||Game.state!=="PLAYING");
+  });
+  document.addEventListener("mousemove",e=>{if(Game.locked&&Game.me)Game.me.ang+=e.movementX*MOUSE_SENS;});
+  Game.canvas.addEventListener("mousedown",e=>{if(e.button===0&&Game.state==="PLAYING"&&Game.locked)doMelee();});
+  Game.canvas.addEventListener("touchstart",()=>{if(Game.state==="PLAYING")doMelee();},{passive:true});
+
+  const $=id=>document.getElementById(id);
+  $("nameInput").value="P"+Game.uid.slice(0,3).toUpperCase();
+  const grabName=()=>{Game.name=($("nameInput").value||"PLAYER").toUpperCase().slice(0,10);};
+  $("btnSolo").onclick=()=>{grabName();startSolo();};
+  $("btnCreate").onclick=()=>{grabName();$("newCode").textContent=randCode();show("createScreen");};
+  $("btnJoin").onclick=()=>{grabName();show("joinScreen");};
+  $("maxPlayers").oninput=e=>$("maxVal").textContent=e.target.value;
+  $("btnHostStart").onclick=()=>createLobby();
+  $("btnCreateBack").onclick=()=>show("menu");
+  $("btnJoinGo").onclick=()=>{const c=($("joinCode").value||"").toUpperCase().trim();if(c.length>=3)joinLobby(c);else toast("enter a code");};
+  $("btnJoinBack").onclick=()=>show("menu");
+  $("btnStart").onclick=()=>{Game.seed=Game.code+"-"+Date.now();send("START",{seed:Game.seed,max:Game.maxPlayers});beginGame(0);};
+  $("btnLeave").onclick=()=>{send("BYE",{});closeChannel();Game.state="MENU";show("menu");};
+  $("btnCloseShop").onclick=closeShop;
+  $("btnRespawn").onclick=()=>{if(Game.levelIdx>=LEVELS.length-1&&Game.me.hp>0)toMenu();else respawn();};
+  $("btnQuit").onclick=toMenu;
+
+  setInterval(()=>{
+    if(Game.state==="LOBBY"&&Game.net){send("PRESENCE",{name:Game.name});renderRoster();}
+    const now=Date.now();for(const id in Game.players)if(now-(Game.players[id].ts||0)>6000)delete Game.players[id];
+  },1500);
+
+  requestAnimationFrame(loop);
+}
+function toMenu(){if(Game.net)send("BYE",{});closeChannel();Game.state="MENU";Game.players={};
+  if(document.pointerLockElement)document.exitPointerLock();
+  document.getElementById("deadscreen").querySelector("h1").style.color="";show("menu");}
+
+window.addEventListener("DOMContentLoaded",init);
+window.Game=Game;
+</script>
+</body>
+</html>
