@@ -87,6 +87,23 @@ Schemas: [Vibrant Visuals docs](https://learn.microsoft.com/en-us/minecraft/crea
 
 ## Changelog
 
+### 1.6.0 — Shader-only: water, grading & AO pass
+- **Removed all custom block/lava textures** — this is now a pure shader (lighting, water,
+  atmosphere, fog, color grading, local lights). Blocks use vanilla art.
+- **Water**: clearer/darker body for stronger Fresnel contrast (dark looking down, bright sky
+  reflection at grazing angles); particle concentrations retuned so **shallows read turquoise and
+  depths read deep blue**; calmer surface + brighter caustics for a cleaner, glowing sun glint.
+  *(Fresnel, reflections and the sun reflection are rendered by the engine — these settings shape
+  how strongly that look comes through; there is no JSON to author a Fresnel curve directly.)*
+- **Underwater depth shading**: stronger volumetric water fog with blue-weighted absorption so
+  deeper water darkens naturally.
+- **Sun glint glow**: higher midday Mie scattering + softer sun-glare shape so the sun (and its
+  reflection on water) glows and stretches.
+- **Color grading**: higher contrast, more saturation, **warm highlights (sunlight) + cool shadows**
+  split-tone, warmer overall temperature.
+- **Soft fake AO**: lower ambient + sky intensity so corners, edges and caves sink into deeper
+  shade (combined with the engine's SSAO) without going pitch-black.
+
 ### 1.5.0 — Real emissive lava + waving foliage back
 - **Real molten lava**: animated `lava_still`/`lava_flow` built from the CC0 AmbientCG **Lava001**
   material — dark basalt crust with glowing orange veins, a real **emission map** driving strong
