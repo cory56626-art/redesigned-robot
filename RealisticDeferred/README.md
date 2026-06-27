@@ -87,6 +87,14 @@ Schemas: [Vibrant Visuals docs](https://learn.microsoft.com/en-us/minecraft/crea
 
 ## Changelog
 
+### 1.6.2 — Small tuning pass
+- **Stronger sun streak**: higher midday Mie scattering + broader sun-glare lobe + brighter sun, so
+  the water glows more when facing the sun.
+- **More water-surface contrast**: a touch more wave depth/shape definition.
+- **More saturated shallows**: slightly more chlorophyll for a more vivid turquoise.
+- **Smoother cave shadow falloff / more realistic lighting**: raised the ambient floor (0.0055 →
+  0.009) and sky indirect (0.33 → 0.37) so darkness eases in instead of slamming to black.
+
 ### 1.6.1 — Reflective surfaces
 - **Added world reflections** by lowering the default block roughness in `pbr/global.json`
   (235 → 132). In Vibrant Visuals, lower roughness = smoother = the surface reflects the sky and
