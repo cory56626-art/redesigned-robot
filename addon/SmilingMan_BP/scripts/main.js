@@ -291,8 +291,8 @@ function playFor(player, soundId, opts = {}) {
 }
 const SND = {
   footstep: "step.gravel",   // subtle ambient step kept vanilla
-  breath: "sm.breath",       // custom low demonic breath
-  whisper: "sm.breath",
+  breath: "sm.scream",       // breath removed -> use the scream
+  whisper: "sm.scream",
   knock: "sm.bang",          // custom organic thud
   creak: "open.iron_door",   // door opening (contextual)
   scream: "sm.scream",       // custom demonic scream (CC0 source, processed)
@@ -418,8 +418,8 @@ system.runInterval(() => {
       // rare footsteps
       if (Math.random() < 0.04) playFor(player, SND.footstep, { volume: 0.5, pitch: 0.7 });
     } else {
-      // observed: frozen. Occasional breath/whisper in later phases.
-      if (phase() >= 2 && Math.random() < 0.02) playFor(player, SND.breath, { volume: 0.6 });
+      // observed: frozen. A rare, faint distant scream in later phases (not spammy).
+      if (phase() >= 2 && Math.random() < 0.005) playFor(player, SND.scream, { volume: 0.45, pitch: 0.8 });
     }
 
     if (debug) {

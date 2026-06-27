@@ -42,7 +42,7 @@ Scares use **custom audio**, not Minecraft sounds, in
 - `sm_scream.ogg` — the demonic scream (after window-banging, and on the kill)
 - `sm_bang.ogg` — window banging thud
 - `sm_lookdown.ogg` — back-spawn jump sting
-- `sm_breath.ogg` — low breathing
+- `sm_glass.ogg` — window shatter
 
 These are **real CC0 (public-domain) recordings** from OpenGameArt, pitch-shifted
 and distorted into demonic versions — free to use, no attribution required (see

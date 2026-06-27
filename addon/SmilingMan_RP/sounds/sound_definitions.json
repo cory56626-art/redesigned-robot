@@ -17,11 +17,6 @@
       "max_distance": 64.0,
       "sounds": [{ "name": "sounds/smiling_man/sm_lookdown", "stream": true, "volume": 1.0 }]
     },
-    "sm.breath": {
-      "category": "hostile",
-      "max_distance": 24.0,
-      "sounds": [{ "name": "sounds/smiling_man/sm_breath", "volume": 1.0 }]
-    },
     "sm.glass": {
       "category": "hostile",
       "max_distance": 48.0,
