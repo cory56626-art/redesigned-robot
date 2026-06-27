@@ -87,6 +87,12 @@ Schemas: [Vibrant Visuals docs](https://learn.microsoft.com/en-us/minecraft/crea
 
 ## Changelog
 
+### 1.6.3 — Restore realistic lava
+- **Brought back the realistic emissive lava** (CC0 AmbientCG Lava001): animated dark basalt crust
+  with glowing molten veins, strong emission for bloom, flowing scroll. It had been removed in 1.6.0
+  along with the other custom block textures; this restores only the lava, everything else stays
+  vanilla/shader-only.
+
 ### 1.6.2 — Small tuning pass
 - **Stronger sun streak**: higher midday Mie scattering + broader sun-glare lobe + brighter sun, so
   the water glows more when facing the sun.
