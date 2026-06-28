@@ -243,7 +243,7 @@ function unlockRandomPower(player) {
   } catch (e) {}
   player.sendMessage(`§d§lPOWERS§r §7» Your power is §r${POWER_NAMES[power]}§7!`);
   if (power === "god_of_war") {
-    player.sendMessage("§7» You got two relics: §cApex Rage§7 and §9Blue Inferno§7. Fight with any weapon to build rage, then right-click a relic to use it.");
+    player.sendMessage("§7» Two relics: §cApex Rage§7 — attacks lunge you onto the nearest mob with bonus damage; take hits to build §6Spartan Rage§7 (Strength IV). §9Blue Inferno§7 — right-click to arm after 5 kills.");
   } else {
     player.sendMessage("§7» Hold it and right-click to use its ability.");
   }
@@ -279,17 +279,17 @@ function hasGodOfWar(p) { return hasPower(p, "god_of_war") || hasPower(p, "blue_
 function abilityApexRage(player) {
   const r = getRage(player);
   if (r <= 0) {
-    actionbar(player, "§cSpartan Rage: §70% §8— take hits in battle to build it, then attacks blink you onto enemies.");
+    actionbar(player, "§6Spartan Rage §70% §8— take hits to build it (Strength IV while active). Attacks lunge you onto the nearest mob.");
   } else {
-    actionbar(player, rageBar(player) + " §7— attack to blink onto foes!");
+    actionbar(player, rageBar(player) + " §7— §6§lStrength IV active!");
   }
   try { player.playSound("note.bass"); } catch (e) {}
 }
 
 // Blue Inferno relic — right-click to arm (needs 20 kills); next hit ignites.
 function abilityBlueInferno(player) {
-  if (getKills(player) < 20) {
-    actionbar(player, `§9Blue Inferno locked §7— kills ${getKills(player)}/20`);
+  if (getKills(player) < 5) {
+    actionbar(player, `§9Blue Inferno locked §7— kills ${getKills(player)}/5`);
     return;
   }
   const cd = checkCooldown(player, "inferno", 160);
@@ -462,20 +462,18 @@ world.afterEvents.entityHitEntity.subscribe((ev) => {
   // Every power is a relic now, so on-hit effects apply by OWNERSHIP — they
   // work with whatever weapon (or fists) you're actually swinging.
 
-  // --- God of War: Spartan Rage ---
+  // --- God of War ---
   if (hasGodOfWar(attacker)) {
-    // Spend rage to blink onto the foe you're aiming at and strike it, so the
-    // attack lands right as you teleport in (Kratos-style).
-    if (getRage(attacker) >= 10) {
-      const target = aimedOrNearest(attacker, 25) || victim;
-      blinkToTarget(attacker, target, 1.6);
-      damage(target, 8, attacker);
-      setRage(attacker, getRage(attacker) - 10);
-      actionbar(attacker, "§c§lRAGE STRIKE! §r" + rageBar(attacker));
-      particle(attacker.dimension, "minecraft:critical_hit_emitter", target.location);
-      try { attacker.playSound("mob.enderdragon.flap"); } catch (e) {}
-    }
-    // Blue Inferno finisher (armed via the relic, after 20 kills).
+    // Signature lunge (God of War: Ragnarök style): every attack tweens you to
+    // the NEAREST mob, snaps you to look straight at it, and deals bonus damage
+    // on top of your weapon hit.
+    const target = nearestMob(attacker, 22) || victim;
+    blinkToTarget(attacker, target, 1.5);
+    damage(target, 5, attacker);
+    particle(attacker.dimension, "minecraft:critical_hit_emitter", target.location);
+    try { attacker.playSound("mob.enderdragon.flap"); } catch (e) {}
+
+    // Blue Inferno finisher (armed via the relic, after 5 kills).
     if (infernoCharged.has(attacker.id)) {
       infernoCharged.delete(attacker.id);
       burning.set(victim, { ticks: 120, attacker });
@@ -523,11 +521,11 @@ world.afterEvents.entityDie.subscribe((ev) => {
   if (!hasGodOfWar(killer)) return;
   const kills = getKills(killer) + 1;
   killer.setDynamicProperty("powers:kills", kills);
-  if (kills === 20) {
+  if (kills === 5) {
     killer.sendMessage("§6§lGOD OF WAR§r §7» §9Blue Inferno§7 unlocked! Right-click the §9Blue Inferno§7 relic to arm it, then hit with any weapon.");
     try { killer.playSound("random.levelup"); } catch (e) {}
-  } else if (kills < 20) {
-    actionbar(killer, `§6Kills: ${kills}/20 §7(unlocks Blue Inferno)`);
+  } else if (kills < 5) {
+    actionbar(killer, `§6Kills: ${kills}/5 §7(unlocks Blue Inferno)`);
   }
 });
 
@@ -564,7 +562,16 @@ world.afterEvents.entityHurt.subscribe((ev) => {
 system.runInterval(() => {
   for (const player of world.getAllPlayers()) {
     try {
-      if (hasGodOfWar(player)) safeEffect(player, "strength", 200,1);
+      if (hasGodOfWar(player)) {
+        // Strength IV while Spartan Rage is active, Strength II otherwise.
+        const amp = getRage(player) > 0 ? 3 : 1;
+        safeEffect(player, "strength", 200, amp);
+        // Spartan Rage naturally drains over time (~2%/s).
+        if (getRage(player) > 0) {
+          setRage(player, getRage(player) - 1);
+          actionbar(player, rageBar(player));
+        }
+      }
       if (hasPower(player, "sonic_boots")) {
         // base nimbleness; full speed only while toggled on (handled in fast tick)
         if (!sonicActive.has(player.id)) safeEffect(player, "speed", 200,0);

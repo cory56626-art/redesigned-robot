@@ -42,13 +42,14 @@ active ability.
 ### 1. ⚔️ God of War — **two relics** (`god_of_war` + `blue_inferno`)
 God of War comes as **two relics** you keep in your inventory. Like Kratos'
 **Spartan Rage**:
-- **Passive:** permanent **Strength II** while you hold either relic.
+- **Lunge on attack:** every attack **tweens you to the nearest mob**, snaps you
+  to look straight at it, and deals **bonus damage** on top of your hit.
 - **⚔️ Spartan Rage (Apex Rage relic):**
-  - You **gain +5% rage every time you get attacked**.
-  - When you **attack a mob**, you **spend 10% rage** and instantly **blink onto
-    the enemy you're aiming at**, snap to face it, and your strike lands on it.
+  - **Strength II** baseline; while the rage meter is up you get **Strength IV**.
+  - You **gain +5% rage every time you get attacked**, and the meter **drains
+    naturally** (~2%/s) when you stop taking hits.
   - Right-click the relic any time to read your current rage.
-- **🔥 Blue Inferno relic** *(unlocks after 20 kills → right-click to arm)*:
+- **🔥 Blue Inferno relic** *(unlocks after 5 kills → right-click to arm)*:
   right-click to arm it, then hit with any weapon — the target erupts in
   **extremely strong blue fire** (custom particle) that keeps burning.
 
