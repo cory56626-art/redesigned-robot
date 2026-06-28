@@ -86,34 +86,41 @@ def gem():
     return outline(img)
 
 
-# ---------------------------------------------------------------- God of War blade
-def gow_blade():
+# ---------------------------------------------------------------- God of War relic (war helm)
+def god_of_war():
     img = new()
-    blade = (220, 60, 50, 255)
-    blade_l = (255, 130, 110, 255)
-    blade_d = (150, 25, 25, 255)
-    hilt = (60, 55, 70, 255)
-    gold = (250, 205, 80, 255)
-    # diagonal blade from bottom-left handle to top-right tip
-    for i in range(10):
-        x = 5 + i
-        y = 10 - i
-        px(img, x, y, blade)
-        px(img, x - 1, y, blade_l)
-        px(img, x + 1, y, blade_d)
-        px(img, x, y - 1, blade_l)
-        px(img, x, y + 1, blade_d)
-    px(img, 14, 1, blade_l)
-    px(img, 15, 0, blade_l)
-    # cross guard
-    for x, y in [(3, 11), (4, 12), (5, 11), (6, 12), (4, 11), (5, 12)]:
-        px(img, x, y, gold)
-    # handle
-    for i in range(3):
-        px(img, 3 - i, 12 + i, hilt)
-        px(img, 2 - i, 13 + i, hilt)
-    px(img, 1, 14, gold)
-    px(img, 0, 15, gold)
+    bronze = (205, 150, 60, 255)
+    bl = (240, 205, 115, 255)
+    bd = (150, 100, 30, 255)
+    red = (200, 45, 38, 255)
+    redl = (240, 95, 70, 255)
+    dark = (28, 20, 16, 255)
+    # crest plume (mohawk) across the top
+    for x, y in [(7, 0), (8, 0),
+                 (6, 1), (7, 1), (8, 1), (9, 1),
+                 (5, 2), (6, 2), (7, 2), (8, 2), (9, 2), (10, 2)]:
+        px(img, x, y, red)
+    for x, y in [(7, 0), (6, 1), (5, 2)]:
+        px(img, x, y, redl)
+    # helm dome
+    for y in range(3, 8):
+        for x in range(4, 12):
+            px(img, x, y, bronze)
+    # cheek guards (slightly narrower)
+    for y in range(8, 13):
+        for x in range(5, 11):
+            px(img, x, y, bronze)
+    # highlights / shadows for shape
+    for x, y in [(4, 3), (4, 4), (5, 3)]:
+        px(img, x, y, bl)
+    for x, y in [(11, 6), (11, 7), (10, 12), (10, 11), (9, 12)]:
+        px(img, x, y, bd)
+    # T-shaped face opening (eye slit + nose guard gap)
+    for x in range(6, 10):
+        px(img, x, 8, dark)
+    for y in range(9, 12):
+        px(img, 7, y, dark)
+        px(img, 8, y, dark)
     return outline(img)
 
 
@@ -372,7 +379,7 @@ def main():
     os.makedirs(PART, exist_ok=True)
     items = {
         "power_gem": gem(),
-        "gow_blade": gow_blade(),
+        "god_of_war": god_of_war(),
         "sonic_boots": sonic_boots(),
         "frost_scepter": frost_scepter(),
         "storm_hammer": storm_hammer(),

@@ -39,15 +39,18 @@ active ability.
 
 ## 🦸 The 8 Powers
 
-### 1. 🗡️ God of War — `gow_blade`
-- **Passive:** permanent **Strength II**.
-- **Apex Rage** *(crit to charge → use to unleash)*: landing **critical hits**
-  (attacking while falling) fills your **Apex Rage** bar (+20% per crit). Once
-  the bar reaches **80%**, right-click to **teleport to the nearest mob**, snap
-  your aim onto it and deal a heavy bonus strike.
-- **Blue Inferno** *(2nd ability — unlocks after 20 kills)*: **sneak + use** to
-  charge your blade. Your next hit ignites the target in **extremely strong
-  blue fire** (custom particle) that keeps burning and dealing damage.
+### 1. ⚔️ God of War — `god_of_war` *(relic — buffs whatever weapon you hold)*
+This is a **relic** you keep in your inventory, **not** a weapon. It buffs
+whatever weapon (or fists) you fight with. Both abilities are **fully manual** —
+you charge them by fighting and **you** trigger them; nothing auto-fires.
+- **Passive:** permanent **Strength II** while the relic is in your inventory.
+- **Apex Rage** *(charge by fighting → use the relic to unleash)*: every hit you
+  land builds the **Apex Rage** bar (**+10%** per hit, **+25%** per crit,
+  **+20%** per kill). Once it reaches **80%**, **right-click the relic** to
+  **teleport to the nearest mob**, snap your aim onto it and deal a heavy strike.
+- **Blue Inferno** *(2nd ability — unlocks after 20 kills)*: **sneak + use the
+  relic** to arm it, then hit with any weapon — the target erupts in
+  **extremely strong blue fire** (custom particle) that keeps burning.
 
 ### 2. 👟 As Fast As Sonic — `sonic_boots`
 - **Active (toggle):** right-click to switch **Super Speed** on/off (Speed V +

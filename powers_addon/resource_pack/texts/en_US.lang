@@ -2,7 +2,7 @@ pack.name=Powers
 pack.description=Spawn with a random super power. 8 unique powers with custom abilities and textures.
 
 item.powers:power_gem=Power Gem
-item.powers:gow_blade=God of War
+item.powers:god_of_war=God of War
 item.powers:sonic_boots=As Fast As Sonic
 item.powers:frost_scepter=Frost Sovereign
 item.powers:storm_hammer=Storm Bringer

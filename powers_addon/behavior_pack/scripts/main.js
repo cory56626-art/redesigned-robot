@@ -20,7 +20,7 @@ import {
 // ---------------------------------------------------------------------------
 const NS = "powers:";
 const POWERS = [
-  "gow_blade",      // God of War
+  "god_of_war",     // God of War (relic — buffs whatever weapon you hold)
   "sonic_boots",    // As Fast As Sonic
   "frost_scepter",  // Frost Sovereign
   "storm_hammer",   // Storm Bringer
@@ -31,7 +31,7 @@ const POWERS = [
 ];
 
 const POWER_NAMES = {
-  gow_blade: "§6God of War",
+  god_of_war: "§6God of War",
   sonic_boots: "§bAs Fast As Sonic",
   frost_scepter: "§bFrost Sovereign",
   storm_hammer: "§eStorm Bringer",
@@ -179,7 +179,7 @@ world.afterEvents.itemUse.subscribe((ev) => {
   if (!id.startsWith(NS)) return;
   const power = id.slice(NS.length);
   switch (power) {
-    case "gow_blade": return abilityGodOfWar(player);
+    case "god_of_war": return abilityGodOfWar(player);
     case "sonic_boots": return abilitySonic(player);
     case "frost_scepter": return abilityFrost(player);
     case "storm_hammer": return abilityStorm(player);
@@ -216,8 +216,20 @@ function getRage(p) { return Number(p.getDynamicProperty("powers:rage") || 0); }
 function setRage(p, v) { p.setDynamicProperty("powers:rage", Math.max(0, Math.min(100, v))); }
 function getKills(p) { return Number(p.getDynamicProperty("powers:kills") || 0); }
 
+// A simple visual rage meter for the action bar.
+function rageBar(p) {
+  const r = getRage(p);
+  const filled = Math.round(r / 10);
+  const bar = "§c" + "|".repeat(filled) + "§8" + "|".repeat(10 - filled);
+  const ready = r >= 80 ? " §6§lREADY" : "";
+  return `§6Apex Rage §r[${bar}§r] §c${r}%${ready}`;
+}
+
+// God of War is a relic: it buffs whatever weapon you fight with. Both abilities
+// are fully MANUAL — you charge rage by fighting, then YOU right-click the relic
+// to unleash. Nothing ever auto-fires.
 function abilityGodOfWar(player) {
-  // Sneak + use = Blue Inferno charge (second ability, needs 20 kills)
+  // Sneak + use = arm Blue Inferno (second ability, needs 20 kills)
   if (player.isSneaking) {
     if (getKills(player) < 20) {
       actionbar(player, `§9Blue Inferno locked §7— kills ${getKills(player)}/20`);
@@ -226,19 +238,20 @@ function abilityGodOfWar(player) {
     const cd = checkCooldown(player, "inferno", 160);
     if (cd) { actionbar(player, `§9Blue Inferno on cooldown (${cd}s)`); return; }
     infernoCharged.add(player.id);
-    actionbar(player, "§9§lBLUE INFERNO CHARGED §r§7— next strike ignites!");
+    actionbar(player, "§9§lBLUE INFERNO ARMED §r§7— your next hit ignites!");
     try { player.playSound("mob.ghast.fireball"); } catch (e) {}
     return;
   }
-  // Normal use = Apex Rage dash (needs 80% rage)
+  // Normal use = unleash Apex Rage (manual — needs the bar at 80%+)
   if (getRage(player) < 80) {
-    actionbar(player, `§cApex Rage: ${getRage(player)}% §7(need 80%)`);
+    actionbar(player, `§cApex Rage not ready §7— ${getRage(player)}%/80%. Fight to charge it!`);
+    try { player.playSound("note.bass"); } catch (e) {}
     return;
   }
   const target = nearestMob(player, 22);
   if (!target) { actionbar(player, "§cApex Rage: no target in range"); return; }
   blinkToTarget(player, target, 1.6);
-  damage(target, 9, player);
+  damage(target, 10, player);
   setRage(player, getRage(player) - 80);
   actionbar(player, "§c§lAPEX RAGE!");
   try { player.playSound("mob.enderdragon.flap"); } catch (e) {}
@@ -404,16 +417,14 @@ world.afterEvents.entityHitEntity.subscribe((ev) => {
   const attacker = ev.damagingEntity;
   const victim = ev.hitEntity;
   if (!attacker || attacker.typeId !== "minecraft:player") return;
-  const wield = mainhandId(attacker);
-  if (!wield || !wield.startsWith(NS)) return;
-  const power = wield.slice(NS.length);
 
-  if (power === "gow_blade") {
-    if (isCrit(attacker)) {
-      setRage(attacker, getRage(attacker) + 20);
-      actionbar(attacker, `§c§lCRIT! §r§cApex Rage: ${getRage(attacker)}%`);
-      particle(attacker.dimension, "minecraft:critical_hit_emitter", victim.location);
-    }
+  // God of War is relic-based: rage builds from EVERY hit you land with any
+  // weapon (more on crits), so it charges fairly during a fight.
+  if (hasPower(attacker, "god_of_war")) {
+    const crit = isCrit(attacker);
+    setRage(attacker, getRage(attacker) + (crit ? 25 : 10));
+    actionbar(attacker, (crit ? "§c§lCRIT! " : "") + rageBar(attacker));
+    if (crit) particle(attacker.dimension, "minecraft:critical_hit_emitter", victim.location);
     if (infernoCharged.has(attacker.id)) {
       infernoCharged.delete(attacker.id);
       burning.set(victim, { ticks: 120, attacker });
@@ -421,7 +432,14 @@ world.afterEvents.entityHitEntity.subscribe((ev) => {
       damage(victim, 6, attacker);
       actionbar(attacker, "§9§lBLUE INFERNO IGNITES!");
     }
-  } else if (power === "frost_scepter") {
+  }
+
+  // The remaining powers still apply through their held weapon item.
+  const wield = mainhandId(attacker);
+  if (!wield || !wield.startsWith(NS)) return;
+  const power = wield.slice(NS.length);
+
+  if (power === "frost_scepter") {
     safeEffect(victim, "slowness", 80, 2, true);
     safeEffect(victim, "weakness", 80, 0);
     particle(attacker.dimension, "minecraft:snowflake_particle", victim.location);
@@ -451,14 +469,15 @@ world.afterEvents.entityHitEntity.subscribe((ev) => {
 world.afterEvents.entityDie.subscribe((ev) => {
   const killer = ev.damageSource?.damagingEntity;
   if (!killer || killer.typeId !== "minecraft:player") return;
-  if (!hasPower(killer, "gow_blade")) return;
+  if (!hasPower(killer, "god_of_war")) return;
   const kills = getKills(killer) + 1;
   killer.setDynamicProperty("powers:kills", kills);
+  setRage(killer, getRage(killer) + 20); // kills also build Apex Rage
   if (kills === 20) {
-    killer.sendMessage("§6§lGOD OF WAR§r §7» §9Blue Inferno§7 unlocked! Sneak + use your blade to charge it.");
+    killer.sendMessage("§6§lGOD OF WAR§r §7» §9Blue Inferno§7 unlocked! Sneak + use the relic to arm it, then hit with any weapon.");
     try { killer.playSound("random.levelup"); } catch (e) {}
   } else if (kills < 20) {
-    actionbar(killer, `§6Kills: ${kills}/20 §7(Blue Inferno)`);
+    actionbar(killer, `§6Kills: ${kills}/20 §7(Blue Inferno) §8| §c${getRage(killer)}% rage`);
   }
 });
 
@@ -489,7 +508,7 @@ world.afterEvents.entityHurt.subscribe((ev) => {
 system.runInterval(() => {
   for (const player of world.getAllPlayers()) {
     try {
-      if (hasPower(player, "gow_blade")) safeEffect(player, "strength", 40, 1);
+      if (hasPower(player, "god_of_war")) safeEffect(player, "strength", 40, 1);
       if (hasPower(player, "sonic_boots")) {
         // base nimbleness; full speed only while toggled on (handled in fast tick)
         if (!sonicActive.has(player.id)) safeEffect(player, "speed", 40, 0);

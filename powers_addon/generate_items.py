@@ -9,7 +9,7 @@ RP = os.path.join(os.path.dirname(__file__), "resource_pack")
 # id, texture(shortname), display name (with colour codes), damage, is the gem?
 ITEMS = [
     ("power_gem",      "power_gem",      "§dPower Gem",         0, True),
-    ("gow_blade",      "gow_blade",      "§6God of War",        7, False),
+    ("god_of_war",     "god_of_war",     "§6God of War",        0, False),
     ("sonic_boots",    "sonic_boots",    "§bAs Fast As Sonic",  3, False),
     ("frost_scepter",  "frost_scepter",  "§bFrost Sovereign",   5, False),
     ("storm_hammer",   "storm_hammer",   "§eStorm Bringer",     6, False),
@@ -26,7 +26,10 @@ def make_item(idn, tex, name, dmg, is_gem):
         "minecraft:display_name": {"value": name},
         "minecraft:max_stack_size": 16 if is_gem else 1,
     }
-    if is_gem:
+    # Relics are power tokens you keep in your inventory; they buff whatever
+    # weapon you actually fight with rather than being a weapon themselves.
+    RELICS = {"god_of_war"}
+    if is_gem or idn in RELICS:
         category = "items"
     else:
         category = "equipment"
