@@ -1,27 +1,40 @@
 # Cheat Feather Menu — Minecraft Bedrock Addon
 
-A joke/prank addon. You get a **Cheat Feather**, and using it opens a **fake cheat menu**
-(Aim Assist, Bow Aimbot, Kill Aura, ESP, Fly, etc.). The toggles flip a fancy `ON/OFF`
-state and play a sound — but **none of them do anything real**. It's purely for fun/trolling.
+You get a **Cheat Feather**. Use it to open a cheat menu whose toggles **actually work**.
+Designed for your own worlds / private realms and trolling friends.
 
-## What it does
-- Gives every player a **Cheat Feather** the first time they spawn in.
-- **Use / long-press** the feather to open the fake cheat menu.
-- Tap any cheat to toggle it `ON`/`OFF` (fake — no effect on gameplay).
-- Lost your feather? Type `!feather` (or `!cheat`) in chat, or run
-  `/give @s fcm:cheat_feather`.
+## Cheats (all functional)
+| Toggle | What it really does |
+|---|---|
+| Aimbot | Snaps your view onto the nearest player or mob every 0.1s |
+| Bow Aimbot | Same, locked to the nearest player (PvP) |
+| Trigger Bot | Auto-damages whatever your crosshair is on |
+| Auto Clicker | Faster auto-damage on your crosshair target |
+| Kill Aura | Damages every entity within range, no aiming needed |
+| Reach | Extends combat/trigger range from 4 → 7 blocks |
+| Velocity (Anti-Knockback) | Cancels knockback the instant you're hit |
+| Fly | Grants creative-style flight (`mayfly`) |
+| No Fall Damage | Instantly heals any fall damage |
+| ESP / Radar | Lists nearby players & mobs (through walls) with distance + direction in the action bar |
 
-## Install (Cheat Feather Menu.mcaddon)
-1. On a device with Minecraft Bedrock installed, open **`Cheat Feather Menu.mcaddon`**.
-   Minecraft imports it automatically.
-2. Create/edit a world.
-3. Under **Behavior Packs**, activate **Cheat Feather Menu**.
-4. In world settings, turn **ON**:
-   - **Beta APIs** (Experiments)  ← required, the menu uses the Script API.
-5. Play the world. You'll be handed a Cheat Feather on spawn.
+## Honest limitations of the Bedrock Script API
+- **ESP can't draw boxes/outlines through walls** — the API has no rendering access, so it's a
+  live **text radar** instead. That's as close as an addon can get.
+- **Aimbot moves your real camera** (it sets your rotation) — you'll see your view snap.
+- This addon only runs in a **world where it's installed**. It cannot be injected into servers
+  you don't host, and won't work against people who aren't in your world.
+
+## Install
+1. Open **`Cheat Feather Menu.mcaddon`** on a device with Minecraft Bedrock — it imports itself.
+2. Create/edit a world → **Behavior Packs** → activate **Cheat Feather Menu**.
+3. In world settings turn **ON**:
+   - **Beta APIs** (Experiments) — required, the cheats use the Script API.
+4. Play. You're handed a Cheat Feather on spawn. Lost it? Type `!feather` in chat or
+   `/give @s fcm:cheat_feather`.
 
 ## Notes
-- Requires Minecraft Bedrock **1.21.0+** with the **Beta APIs / Script API** experiment enabled.
-- Uses script modules `@minecraft/server 1.11.0` and `@minecraft/server-ui 1.2.0`.
-  If a much newer Minecraft version rejects these, bump the versions in
-  `CheatFeatherBP/manifest.json` to the ones your version ships.
+- Requires Bedrock **1.21.0+** with the **Beta APIs** experiment.
+- Fly uses `/ability @s mayfly` — if your version blocks the `ability` command, enable it
+  (Education/Ability features) or it'll be the only toggle that no-ops.
+- Script modules: `@minecraft/server 1.11.0`, `@minecraft/server-ui 1.2.0`. Bump these in
+  `CheatFeatherBP/manifest.json` if a newer Minecraft rejects them.
