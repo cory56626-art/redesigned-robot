@@ -76,11 +76,30 @@ python3 build_mcaddon.py
 
 This zips `behavior_pack/` and `resource_pack/` into `AdvancedWeather.mcaddon`.
 
+## Range — it's world-wide weather, not just "around you"
+
+The storm is global, like real Minecraft weather:
+
+- **Vanilla snow/rain/thunder** and **fog** affect the whole dimension / every
+  player's full view.
+- **Freezing** applies to every player anywhere in the world, not just near a
+  spawn point.
+- **Snow accumulation** scatters across the entire **loaded area** around every
+  player — up to ~110 blocks out at level 4 — landing correctly on hills,
+  valleys and rooftops via `getTopmostBlock`. Coverage builds over the storm,
+  so given a minute an L4 blizzard blankets thousands of blocks in every
+  direction.
+
+The one hard limit (true of *any* add-on): blocks can only change in **loaded
+chunks**. Chunks the game hasn't loaded — far past your simulation distance —
+can't be edited by script, so snow piles out as far as Minecraft actually
+simulates around players, then stops.
+
 ## Notes
 
 - Targets the `@minecraft/server` Script API (manifest pins `1.13.0`). The
   wind knockback call is written to work on both the 1.x and 2.x signatures.
-- Snow accumulation is throttled with a per-pass block-write budget so it
+- Snow accumulation is throttled with a per-pass column budget so wide coverage
   never lags the server.
-- Tunable numbers (freeze rates, wind strength, fog, block budgets) all live in
-  `behavior_pack/scripts/config.js`.
+- Tunable numbers (freeze rates, wind strength, fog, accumulation radius &
+  budgets) all live in `behavior_pack/scripts/config.js`.

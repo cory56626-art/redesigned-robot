@@ -83,9 +83,9 @@ system.runInterval(() => {
     }
   }
 
-  // ---- Snow accumulation (levels 3-4, throttled) ----
-  if (SNOW_STORMS.has(storm.type) && storm.level >= 3 &&
-      iteration % ACCUMULATION_EVERY === 0) {
+  // ---- Snow accumulation (scattered across the loaded area, throttled) ----
+  // L1's budget is 0 so it no-ops; L2+ dust/pile/bury at increasing scale.
+  if (SNOW_STORMS.has(storm.type) && iteration % ACCUMULATION_EVERY === 0) {
     for (const p of players) {
       try { accumulate(p, storm.level); } catch { /* unloaded chunk */ }
     }

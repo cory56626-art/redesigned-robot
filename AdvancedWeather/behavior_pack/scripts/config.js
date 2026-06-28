@@ -10,20 +10,33 @@ export const LOOP_TICKS = 20;
 // 2 means "every 2 seconds" when LOOP_TICKS is 20.
 export const ACCUMULATION_EVERY = 2;
 
-// Max block writes per player per accumulation pass (performance guard).
-// Cranked up so snow visibly piles, buries caves and covers builds.
+// Column attempts per player per accumulation pass (performance guard). Each
+// attempt drops snow on a random column somewhere in the disc below, so snow
+// spreads across the whole loaded area over the storm rather than all at once.
 export const MAX_BLOCKS_PER_PASS = {
   1: 0,
-  2: 10,
-  3: 110,
-  4: 320,
+  2: 45,
+  3: 170,
+  4: 360,
 };
 
-// Horizontal radius around each player that snow accumulation/cave-fill scans.
+// Horizontal radius (blocks) over which snow scatters around each player.
+// Sized to blanket the whole loaded/simulation area like real weather; columns
+// in unloaded chunks are simply skipped (no mod can edit those).
 export const ACCUMULATION_RADIUS = {
-  2: 3,
-  3: 6,
-  4: 11,
+  2: 32,
+  3: 64,
+  4: 110,
+};
+
+// Per-level piling/cave behaviour.
+//   maxHeight  : how many blocks high snow may pile on a column.
+//   caveDepth  : how deep below the surface to bury cave pockets (0 = none).
+//   caveChance : per-column probability of attempting a cave fill.
+export const ACCUMULATION_TUNING = {
+  2: { maxHeight: 1, caveDepth: 0, caveChance: 0 },
+  3: { maxHeight: 3, caveDepth: 8, caveChance: 0.25 },
+  4: { maxHeight: 6, caveDepth: 16, caveChance: 0.5 },
 };
 
 // Storm definitions. Each storm has 4 levels (1..4).
