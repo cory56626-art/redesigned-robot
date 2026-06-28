@@ -1,0 +1,33 @@
+{
+  "resource_pack_name": "powers",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "power_gem": {
+      "textures": "textures/items/power_gem"
+    },
+    "gow_blade": {
+      "textures": "textures/items/gow_blade"
+    },
+    "sonic_boots": {
+      "textures": "textures/items/sonic_boots"
+    },
+    "frost_scepter": {
+      "textures": "textures/items/frost_scepter"
+    },
+    "storm_hammer": {
+      "textures": "textures/items/storm_hammer"
+    },
+    "titan_gauntlet": {
+      "textures": "textures/items/titan_gauntlet"
+    },
+    "phantom_dagger": {
+      "textures": "textures/items/phantom_dagger"
+    },
+    "phoenix_feather": {
+      "textures": "textures/items/phoenix_feather"
+    },
+    "void_eye": {
+      "textures": "textures/items/void_eye"
+    }
+  }
+}

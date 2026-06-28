@@ -1,0 +1,34 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "§dPowers§r — Behavior",
+    "description": "Spawn with a random super power. 8 unique powers with custom abilities, textures and effects.",
+    "uuid": "e50d50ca-3f62-4e7e-85e4-5e12b482478d",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 70]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "3e54f0b8-f09d-4eb0-8791-2f68ae31495b",
+      "version": [1, 0, 0]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "entry": "scripts/main.js",
+      "uuid": "71389c8e-32b2-4cd4-9ac4-3f33faa980d6",
+      "version": [1, 0, 0]
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "2.0.0"
+    },
+    {
+      "uuid": "957cef29-d86c-4bec-8f0a-0cbbb5016f78",
+      "version": [1, 0, 0]
+    }
+  ]
+}

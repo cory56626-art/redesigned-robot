@@ -1,0 +1,23 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "§dPowers§r — Resources",
+    "description": "Textures, icons and the custom blue-fire particle for the Powers addon.",
+    "uuid": "957cef29-d86c-4bec-8f0a-0cbbb5016f78",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 70]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "110e1a94-b9e3-443c-896e-adaafc793f0b",
+      "version": [1, 0, 0]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "e50d50ca-3f62-4e7e-85e4-5e12b482478d",
+      "version": [1, 0, 0]
+    }
+  ]
+}
