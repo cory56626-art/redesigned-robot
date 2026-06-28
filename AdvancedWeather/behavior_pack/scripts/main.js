@@ -5,7 +5,7 @@ import { LOOP_TICKS, ACCUMULATION_EVERY, SNOW_STORMS, WIND_STORMS } from "./conf
 import { getStorm, isExpired, clearStorm } from "./state.js";
 import { updateFreezing, resetWarmth } from "./freezing.js";
 import { applyWind, advanceWind } from "./wind.js";
-import { accumulate } from "./accumulation.js";
+import { accumulate, resetSweep } from "./accumulation.js";
 import {
   applyEnvironment, clearEnvironment, maybeLightning, announce,
 } from "./storms.js";
@@ -37,6 +37,7 @@ system.runInterval(() => {
   // ---- Handle transitions (storm started / changed / ended) ----
   if (key !== lastKey) {
     if (storm) {
+      resetSweep(); // each new storm starts snowing from the player outward
       const banner = announce(storm.label, storm.level);
       for (const p of players) {
         try {

@@ -87,8 +87,9 @@ The storm is global, like real Minecraft weather:
 - **Snow accumulation** scatters across the entire **loaded area** around every
   player — a full **110-block radius (220 blocks wide) for every storm and
   level** — landing correctly on hills, valleys and rooftops via
-  `getTopmostBlock`. Coverage builds over the storm, so within a minute a
-  blizzard blankets thousands of blocks in every direction.
+  `getTopmostBlock`. Snow fills in **from right around you and expands outward**
+  to the full radius over the storm (it does not just dust the distant rim), so
+  a blizzard blankets the whole area in every direction.
 
 The one hard limit (true of *any* add-on): blocks can only change in **loaded
 chunks**. Chunks the game hasn't loaded — far past your simulation distance —

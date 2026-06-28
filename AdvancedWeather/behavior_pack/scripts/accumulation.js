@@ -70,12 +70,39 @@ function fillCaves(dimension, x, z, startY, depth, budget) {
   return written;
 }
 
-// Run one accumulation pass around a single player, scattered over a big disc.
+// Every (dx,dz) column offset inside the max disc, sorted nearest-first, built
+// once. The accumulation sweep walks this list so snow fills the area right
+// around the player first and then expands outward to the full radius — instead
+// of scattering randomly (which left the centre bare and only dusted the rim).
+const COLUMN_OFFSETS = (() => {
+  const r = MAX_ACCUMULATION_RADIUS;
+  const r2 = r * r;
+  const list = [];
+  for (let dx = -r; dx <= r; dx++) {
+    for (let dz = -r; dz <= r; dz++) {
+      const d2 = dx * dx + dz * dz;
+      if (d2 <= r2) list.push({ dx, dz, d2 });
+    }
+  }
+  list.sort((a, b) => a.d2 - b.d2); // nearest columns first
+  return list;
+})();
+
+// Rolling cursor so consecutive passes continue the outward sweep, then wrap
+// back to the centre to keep topping the whole area up.
+let sweepCursor = 0;
+
+// Restart the sweep at the centre so a fresh storm begins snowing right around
+// the players and expands outward. Called when a storm starts/changes.
+export function resetSweep() {
+  sweepCursor = 0;
+}
+
+// Run one accumulation pass for a single player: process the next `attempts`
+// columns of the near-to-far sweep, centred on the player's current position.
 export function accumulate(player, level) {
   const attempts = MAX_BLOCKS_PER_PASS[level] || 0;
   if (attempts <= 0) return;
-  // Every storm/level scatters snow over the same maxed-out radius.
-  const radius = MAX_ACCUMULATION_RADIUS;
   const tune = ACCUMULATION_TUNING[level] || {};
   const maxHeight = tune.maxHeight || 2;
   const caveDepth = tune.caveDepth || 0;
@@ -86,13 +113,11 @@ export function accumulate(player, level) {
   const px = Math.floor(loc.x);
   const pz = Math.floor(loc.z);
 
+  const total = COLUMN_OFFSETS.length;
   for (let i = 0; i < attempts; i++) {
-    // Uniformly sample a column inside the disc of `radius` (sqrt for even
-    // area coverage instead of clumping near the centre).
-    const ang = Math.random() * Math.PI * 2;
-    const dist = Math.sqrt(Math.random()) * radius;
-    const x = px + Math.round(Math.cos(ang) * dist);
-    const z = pz + Math.round(Math.sin(ang) * dist);
+    const off = COLUMN_OFFSETS[(sweepCursor + i) % total];
+    const x = px + off.dx;
+    const z = pz + off.dz;
 
     const surface = topmost(dim, x, z);
     if (!surface) continue;
@@ -103,4 +128,5 @@ export function accumulate(player, level) {
       fillCaves(dim, x, z, surface.y - 1, caveDepth, 4);
     }
   }
+  sweepCursor = (sweepCursor + attempts) % total;
 }
