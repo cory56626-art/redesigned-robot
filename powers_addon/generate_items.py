@@ -22,10 +22,9 @@ ITEMS = [
 
 def make_item(idn, tex, name, dmg, is_gem):
     components = {
-        "minecraft:icon": {"texture": tex},
+        "minecraft:icon": tex,
         "minecraft:display_name": {"value": name},
         "minecraft:max_stack_size": 16 if is_gem else 1,
-        "minecraft:glint": is_gem or True,
     }
     if is_gem:
         category = "items"
@@ -35,7 +34,7 @@ def make_item(idn, tex, name, dmg, is_gem):
         components["minecraft:damage"] = dmg
         components["minecraft:durability"] = {"max_durability": 2000}
     return {
-        "format_version": "1.21.70",
+        "format_version": "1.21.0",
         "minecraft:item": {
             "description": {
                 "identifier": f"powers:{idn}",
