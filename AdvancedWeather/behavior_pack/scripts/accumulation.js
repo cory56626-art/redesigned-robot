@@ -4,7 +4,7 @@
 // snow over a large disc using getTopmostBlock, so coverage builds up over the
 // whole storm like real weather. (Unloaded chunks can't be edited by any mod.)
 import {
-  MAX_BLOCKS_PER_PASS, ACCUMULATION_RADIUS, ACCUMULATION_TUNING,
+  MAX_BLOCKS_PER_PASS, MAX_ACCUMULATION_RADIUS, ACCUMULATION_TUNING,
 } from "./config.js";
 import { tryGetBlock } from "./util.js";
 
@@ -74,7 +74,8 @@ function fillCaves(dimension, x, z, startY, depth, budget) {
 export function accumulate(player, level) {
   const attempts = MAX_BLOCKS_PER_PASS[level] || 0;
   if (attempts <= 0) return;
-  const radius = ACCUMULATION_RADIUS[level] || 32;
+  // Every storm/level scatters snow over the same maxed-out radius.
+  const radius = MAX_ACCUMULATION_RADIUS;
   const tune = ACCUMULATION_TUNING[level] || {};
   const maxHeight = tune.maxHeight || 2;
   const caveDepth = tune.caveDepth || 0;

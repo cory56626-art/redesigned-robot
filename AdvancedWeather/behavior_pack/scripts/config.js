@@ -13,21 +13,20 @@ export const ACCUMULATION_EVERY = 2;
 // Column attempts per player per accumulation pass (performance guard). Each
 // attempt drops snow on a random column somewhere in the disc below, so snow
 // spreads across the whole loaded area over the storm rather than all at once.
+// Budgets scaled up to keep coverage dense now that every level uses max range.
 export const MAX_BLOCKS_PER_PASS = {
   1: 0,
-  2: 45,
-  3: 170,
-  4: 360,
+  2: 130,
+  3: 300,
+  4: 460,
 };
 
 // Horizontal radius (blocks) over which snow scatters around each player.
-// Sized to blanket the whole loaded/simulation area like real weather; columns
-// in unloaded chunks are simply skipped (no mod can edit those).
-export const ACCUMULATION_RADIUS = {
-  2: 32,
-  3: 64,
-  4: 110,
-};
+// EVERY storm and level uses this single maxed-out radius, so snow blankets the
+// entire loaded/simulation area like real weather. 110 covers a 220-block-wide
+// area around each player; columns in unloaded chunks are simply skipped (no
+// mod can edit those).
+export const MAX_ACCUMULATION_RADIUS = 110;
 
 // Per-level piling/cave behaviour.
 //   maxHeight  : how many blocks high snow may pile on a column.
