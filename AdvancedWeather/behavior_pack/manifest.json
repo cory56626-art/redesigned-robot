@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Advanced Weather System",
+    "description": "Snowstorms, Hurricanes & Omega Storms — each with 4 escalating levels.",
+    "uuid": "ef993b0b-e9c4-4a73-a76d-4f10b419b97a",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 0]
+  },
+  "modules": [
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "fbddf938-ddd2-4ad6-be80-7186abd9cf79",
+      "version": [1, 0, 0],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "1.13.0"
+    },
+    {
+      "uuid": "d801321f-84a6-4b09-8a50-49377989179f",
+      "version": [1, 0, 0]
+    }
+  ]
+}

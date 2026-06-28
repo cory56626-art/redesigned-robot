@@ -1,0 +1,23 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Advanced Weather System — Resources",
+    "description": "Fog & visuals for the Advanced Weather System.",
+    "uuid": "d801321f-84a6-4b09-8a50-49377989179f",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 0]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "985a9910-cce7-4117-8881-416b470c9d33",
+      "version": [1, 0, 0]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "ef993b0b-e9c4-4a73-a76d-4f10b419b97a",
+      "version": [1, 0, 0]
+    }
+  ]
+}
