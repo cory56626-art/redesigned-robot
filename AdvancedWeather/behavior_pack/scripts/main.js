@@ -1,11 +1,11 @@
 // main.js — entry point for the Advanced Weather System.
 // Wires the per-second loop together and registers the command handlers.
 import { world, system } from "@minecraft/server";
-import { LOOP_TICKS, ACCUMULATION_EVERY, SNOW_STORMS, WIND_STORMS } from "./config.js";
+import { LOOP_TICKS, COVERAGE_REFRESH_SECONDS, SNOW_STORMS, WIND_STORMS } from "./config.js";
 import { getStorm, isExpired, clearStorm } from "./state.js";
 import { updateFreezing, resetWarmth } from "./freezing.js";
 import { applyWind, advanceWind } from "./wind.js";
-import { accumulate, resetSweep } from "./accumulation.js";
+import { refreshCoverage, stopCoverage } from "./accumulation.js";
 import {
   applyEnvironment, clearEnvironment, maybeLightning, announce,
 } from "./storms.js";
@@ -37,7 +37,8 @@ system.runInterval(() => {
   // ---- Handle transitions (storm started / changed / ended) ----
   if (key !== lastKey) {
     if (storm) {
-      resetSweep(); // each new storm starts snowing from the player outward
+      // New storm/level: bury the whole radius around every player at once.
+      if (SNOW_STORMS.has(storm.type)) refreshCoverage(players, storm.level);
       const banner = announce(storm.label, storm.level);
       for (const p of players) {
         try {
@@ -48,7 +49,8 @@ system.runInterval(() => {
         } catch { /* player gone */ }
       }
     } else if (lastKey) {
-      // Storm just ended: announce, clear fog/weather and thaw everyone out.
+      // Storm just ended: stop snowing, clear fog/weather and thaw everyone out.
+      stopCoverage();
       clearEnvironment(players, world.getDimension("overworld"));
       for (const p of players) {
         resetWarmth(p);
@@ -84,12 +86,12 @@ system.runInterval(() => {
     }
   }
 
-  // ---- Snow accumulation (scattered across the loaded area, throttled) ----
-  // L1's budget is 0 so it no-ops; L2+ dust/pile/bury at increasing scale.
-  if (SNOW_STORMS.has(storm.type) && iteration % ACCUMULATION_EVERY === 0) {
-    for (const p of players) {
-      try { accumulate(p, storm.level); } catch { /* unloaded chunk */ }
-    }
+  // ---- Snow coverage refresh: re-bury the full radius so it follows players
+  // as they move and catches newly loaded chunks (the storm-start handler above
+  // does the initial instant burial). ----
+  if (SNOW_STORMS.has(storm.type) &&
+      iteration % COVERAGE_REFRESH_SECONDS === 0) {
+    refreshCoverage(players, storm.level);
   }
 
   // ---- Lightning ----

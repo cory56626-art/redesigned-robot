@@ -6,36 +6,25 @@ export const TICKS_PER_SECOND = 20;
 // How often the main weather loop runs (in ticks). 20 = once per second.
 export const LOOP_TICKS = 20;
 
-// How often heavy world edits (snow accumulation) run, in main-loop iterations.
-// 2 means "every 2 seconds" when LOOP_TICKS is 20.
-export const ACCUMULATION_EVERY = 2;
-
-// Column attempts per player per accumulation pass (performance guard). Each
-// attempt drops snow on a random column somewhere in the disc below, so snow
-// spreads across the whole loaded area over the storm rather than all at once.
-// Budgets scaled up to keep coverage dense now that every level uses max range.
-export const MAX_BLOCKS_PER_PASS = {
-  1: 0,
-  2: 130,
-  3: 300,
-  4: 460,
-};
-
-// Horizontal radius (blocks) over which snow scatters around each player.
-// EVERY storm and level uses this single maxed-out radius, so snow blankets the
-// entire loaded/simulation area like real weather. 110 covers a 220-block-wide
-// area around each player; columns in unloaded chunks are simply skipped (no
-// mod can edit those).
+// Horizontal radius (blocks) snow covers around each player. EVERY storm and
+// level uses this single maxed-out radius — the whole disc is buried at once
+// when the storm hits (see accumulation.js / system.runJob), not over time.
+// 110 covers a 220-block-wide area; columns in unloaded chunks are skipped.
 export const MAX_ACCUMULATION_RADIUS = 110;
 
-// Per-level piling/cave behaviour.
-//   maxHeight  : how many blocks high snow may pile on a column.
+// How often (in main-loop seconds) the full-area snow coverage re-runs, so it
+// follows players as they move and catches newly loaded chunks.
+export const COVERAGE_REFRESH_SECONDS = 8;
+
+// Per-level snow behaviour.
+//   depth      : how many blocks deep snow piles on every column (0 = none).
 //   caveDepth  : how deep below the surface to bury cave pockets (0 = none).
 //   caveChance : per-column probability of attempting a cave fill.
 export const ACCUMULATION_TUNING = {
-  2: { maxHeight: 1, caveDepth: 0, caveChance: 0 },
-  3: { maxHeight: 3, caveDepth: 8, caveChance: 0.25 },
-  4: { maxHeight: 6, caveDepth: 16, caveChance: 0.5 },
+  1: { depth: 0, caveDepth: 0, caveChance: 0 },
+  2: { depth: 1, caveDepth: 0, caveChance: 0 },
+  3: { depth: 3, caveDepth: 10, caveChance: 0.35 },
+  4: { depth: 6, caveDepth: 20, caveChance: 0.7 },
 };
 
 // Storm definitions. Each storm has 4 levels (1..4).

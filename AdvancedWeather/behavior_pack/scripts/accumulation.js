@@ -1,59 +1,76 @@
-// accumulation.js — snow piling up, caves filling, and homes getting buried,
-// spread across the ENTIRE loaded area around each player (as far as Minecraft
-// itself simulates) rather than a tight box. Each pass scatters a budget of
-// snow over a large disc using getTopmostBlock, so coverage builds up over the
-// whole storm like real weather. (Unloaded chunks can't be edited by any mod.)
-import {
-  MAX_BLOCKS_PER_PASS, MAX_ACCUMULATION_RADIUS, ACCUMULATION_TUNING,
-} from "./config.js";
+// accumulation.js — full-area snow burial. When a storm hits, the ENTIRE
+// radius around every player is snowed over essentially at once (driven by
+// system.runJob, the engine's bulk-edit job system) instead of dribbling out a
+// few blocks per tick. Snow piles deep (deeper at higher levels), buries caves,
+// and follows players as they move / new chunks load. (Unloaded chunks can't be
+// edited by any add-on.)
+import { system } from "@minecraft/server";
+import { MAX_ACCUMULATION_RADIUS, ACCUMULATION_TUNING } from "./config.js";
 import { tryGetBlock } from "./util.js";
 
 const SNOW_LAYER = "minecraft:snow_layer";
 const SNOW_BLOCK = "minecraft:snow";
 
+// All column offsets inside the disc, nearest-first (so a storm visibly snows
+// out from each player while the job runs). Built once.
+const COLUMN_OFFSETS = (() => {
+  const r = MAX_ACCUMULATION_RADIUS;
+  const r2 = r * r;
+  const list = [];
+  for (let dx = -r; dx <= r; dx++) {
+    for (let dz = -r; dz <= r; dz++) {
+      const d2 = dx * dx + dz * dz;
+      // Skip the 3x3 right under the player so they aren't entombed where they
+      // stand (everything around still buries — you dig out).
+      if (d2 <= r2 && d2 > 2) list.push({ dx, dz, d2 });
+    }
+  }
+  list.sort((a, b) => a.d2 - b.d2);
+  return list;
+})();
+
+let activeJobs = [];
+
 function isSupport(block) {
-  // Something snow can rest on: any non-air, non-liquid block.
   return block && !block.isAir && !block.isLiquid;
 }
 
-// Highest block at an XZ column (works at any elevation, anywhere loaded).
 function topmost(dimension, x, z) {
-  try {
-    return dimension.getTopmostBlock({ x, z });
-  } catch {
-    return undefined; // unloaded / out of world
-  }
+  try { return dimension.getTopmostBlock({ x, z }); } catch { return undefined; }
 }
 
-// Pile snow one step on top of the given surface block. Returns 0/1 written.
-function pileOnTop(dimension, x, z, surface, maxHeight) {
-  // A thin layer on the surface compacts into a full block first.
-  if (surface.typeId === SNOW_LAYER) {
-    try { surface.setType(SNOW_BLOCK); return 1; } catch { return 0; }
+// Pile snow `depth` blocks high on the column, measured from the real ground
+// (descends through any existing snow first, so re-runs don't grow towers).
+function buryColumn(dimension, x, z, depth) {
+  const surface = topmost(dimension, x, z);
+  if (!surface) return;
+
+  // Find ground level beneath any snow already here.
+  let groundY = surface.y;
+  for (let y = surface.y; y > surface.y - depth - 2; y--) {
+    const b = tryGetBlock(dimension, { x, y, z });
+    if (!b) return;
+    if (b.typeId === SNOW_BLOCK || b.typeId === SNOW_LAYER) { groundY = y - 1; continue; }
+    if (!isSupport(b)) return; // floating in air; nothing to rest on
+    groundY = y;
+    break;
   }
-  if (!isSupport(surface)) return 0;
 
-  const above = tryGetBlock(dimension, { x, y: surface.y + 1, z });
-  if (!above || !above.isAir) return 0;
-
-  // Cap how tall a snow pile can grow so it never builds endless towers.
-  if (surface.typeId === SNOW_BLOCK) {
-    let h = 0, y = surface.y;
-    while (h < maxHeight) {
-      const b = tryGetBlock(dimension, { x, y, z });
-      if (b && (b.typeId === SNOW_BLOCK || b.typeId === SNOW_LAYER)) { h++; y--; }
-      else break;
+  for (let h = 1; h <= depth; h++) {
+    const b = tryGetBlock(dimension, { x, y: groundY + h, z });
+    if (!b) break;
+    if (b.isAir || b.typeId === SNOW_LAYER || b.typeId === SNOW_BLOCK) {
+      try { b.setType(h === depth ? SNOW_LAYER : SNOW_BLOCK); } catch { /* skip */ }
+    } else {
+      break; // hit a wall/roof — stop (snow sits on top of structures)
     }
-    if (h >= maxHeight) return 0;
   }
-
-  try { above.setType(SNOW_LAYER); return 1; } catch { return 0; }
 }
 
 // Bury enclosed air pockets (caves/tunnels) just under the surface.
-function fillCaves(dimension, x, z, startY, depth, budget) {
+function fillCaves(dimension, x, z, startY, depth) {
   let written = 0;
-  for (let y = startY; y > startY - depth && written < budget; y--) {
+  for (let y = startY; y > startY - depth && written < 6; y--) {
     const b = tryGetBlock(dimension, { x, y, z });
     if (!b || !b.isAir) continue;
     const neighbours = [
@@ -67,66 +84,41 @@ function fillCaves(dimension, x, z, startY, depth, budget) {
       try { b.setType(SNOW_BLOCK); written++; } catch { /* skip */ }
     }
   }
-  return written;
 }
 
-// Every (dx,dz) column offset inside the max disc, sorted nearest-first, built
-// once. The accumulation sweep walks this list so snow fills the area right
-// around the player first and then expands outward to the full radius — instead
-// of scattering randomly (which left the centre bare and only dusted the rim).
-const COLUMN_OFFSETS = (() => {
-  const r = MAX_ACCUMULATION_RADIUS;
-  const r2 = r * r;
-  const list = [];
-  for (let dx = -r; dx <= r; dx++) {
-    for (let dz = -r; dz <= r; dz++) {
-      const d2 = dx * dx + dz * dz;
-      if (d2 <= r2) list.push({ dx, dz, d2 });
+// Generator that snows the whole disc around (cx,cz). runJob advances it as fast
+// as the engine's per-tick budget allows, so the area fills near-instantly
+// without freezing the game.
+function* coverageJob(dimension, cx, cz, tune) {
+  let n = 0;
+  for (const off of COLUMN_OFFSETS) {
+    const x = cx + off.dx;
+    const z = cz + off.dz;
+    buryColumn(dimension, x, z, tune.depth);
+    if (tune.caveDepth > 0 && Math.random() < tune.caveChance) {
+      const surface = topmost(dimension, x, z);
+      if (surface) fillCaves(dimension, x, z, surface.y - 1, tune.caveDepth);
     }
+    if ((++n & 127) === 0) yield; // let the engine breathe periodically
   }
-  list.sort((a, b) => a.d2 - b.d2); // nearest columns first
-  return list;
-})();
-
-// Rolling cursor so consecutive passes continue the outward sweep, then wrap
-// back to the centre to keep topping the whole area up.
-let sweepCursor = 0;
-
-// Restart the sweep at the centre so a fresh storm begins snowing right around
-// the players and expands outward. Called when a storm starts/changes.
-export function resetSweep() {
-  sweepCursor = 0;
 }
 
-// Run one accumulation pass for a single player: process the next `attempts`
-// columns of the near-to-far sweep, centred on the player's current position.
-export function accumulate(player, level) {
-  const attempts = MAX_BLOCKS_PER_PASS[level] || 0;
-  if (attempts <= 0) return;
-  const tune = ACCUMULATION_TUNING[level] || {};
-  const maxHeight = tune.maxHeight || 2;
-  const caveDepth = tune.caveDepth || 0;
-  const caveChance = tune.caveChance || 0;
-
-  const dim = player.dimension;
-  const loc = player.location;
-  const px = Math.floor(loc.x);
-  const pz = Math.floor(loc.z);
-
-  const total = COLUMN_OFFSETS.length;
-  for (let i = 0; i < attempts; i++) {
-    const off = COLUMN_OFFSETS[(sweepCursor + i) % total];
-    const x = px + off.dx;
-    const z = pz + off.dz;
-
-    const surface = topmost(dim, x, z);
-    if (!surface) continue;
-
-    pileOnTop(dim, x, z, surface, maxHeight);
-
-    if (caveDepth > 0 && Math.random() < caveChance) {
-      fillCaves(dim, x, z, surface.y - 1, caveDepth, 4);
-    }
+// (Re)start full-area snow coverage around every player for the given level.
+// Cancels any in-flight jobs first so they never stack up.
+export function refreshCoverage(players, level) {
+  const tune = ACCUMULATION_TUNING[level];
+  stopCoverage();
+  if (!tune || !tune.depth) return; // level 1 = no accumulation
+  for (const p of players) {
+    const loc = p.location;
+    activeJobs.push(system.runJob(
+      coverageJob(p.dimension, Math.floor(loc.x), Math.floor(loc.z), tune)));
   }
-  sweepCursor = (sweepCursor + attempts) % total;
+}
+
+export function stopCoverage() {
+  for (const id of activeJobs) {
+    try { system.clearJob(id); } catch { /* already done */ }
+  }
+  activeJobs = [];
 }

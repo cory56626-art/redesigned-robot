@@ -84,12 +84,14 @@ The storm is global, like real Minecraft weather:
   player's full view.
 - **Freezing** applies to every player anywhere in the world, not just near a
   spawn point.
-- **Snow accumulation** scatters across the entire **loaded area** around every
-  player — a full **110-block radius (220 blocks wide) for every storm and
-  level** — landing correctly on hills, valleys and rooftops via
-  `getTopmostBlock`. Snow fills in **from right around you and expands outward**
-  to the full radius over the storm (it does not just dust the distant rim), so
-  a blizzard blankets the whole area in every direction.
+- **Snow accumulation** buries the **entire 110-block radius (220 blocks wide)
+  around every player at once** when a storm hits — for every storm and level —
+  landing correctly on hills, valleys and rooftops via `getTopmostBlock`, piled
+  **deep** (1 block at L2, 3 at L3, **6 at L4**) with caves/tunnels filled in.
+  It runs through `system.runJob` (the engine's bulk-edit system), so a
+  million-block burial is applied as fast as the game safely can — effectively
+  instant, not a frozen frame — and re-applies as you move so the snow follows
+  you. Oceans/water are left alone.
 
 The one hard limit (true of *any* add-on): blocks can only change in **loaded
 chunks**. Chunks the game hasn't loaded — far past your simulation distance —
@@ -100,7 +102,7 @@ simulates around players, then stops.
 
 - Targets the `@minecraft/server` Script API (manifest pins `1.13.0`). The
   wind knockback call is written to work on both the 1.x and 2.x signatures.
-- Snow accumulation is throttled with a per-pass column budget so wide coverage
-  never lags the server.
+- Snow accumulation uses `system.runJob` so burying a huge area never lags or
+  freezes the server, even though it happens all at once.
 - Tunable numbers (freeze rates, wind strength, fog, accumulation radius &
   budgets) all live in `behavior_pack/scripts/config.js`.
