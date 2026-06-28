@@ -20,9 +20,17 @@ export function resetWarmth(player) {
   setWarmth(player, MAX_WARMTH);
 }
 
+const EFFECT_TICKS = LOOP_TICKS + 10;
+
+function addEffect(player, type, amplifier) {
+  try {
+    player.addEffect(type, EFFECT_TICKS, { amplifier, showParticles: false });
+  } catch { /* invalid effect on this version */ }
+}
+
 // Apply one tick of freezing logic for a single player.
-// `def` is the active storm-level definition. Returns nothing.
-export function updateFreezing(player, def) {
+// `def` is the active storm-level definition; `level` is 1..4. Returns nothing.
+export function updateFreezing(player, def, level = 1) {
   // Storms with no freeze component just keep players topped up.
   if (def.freezePerSec <= 0) {
     setWarmth(player, MAX_WARMTH);
@@ -43,7 +51,15 @@ export function updateFreezing(player, def) {
 
   const fraction = warmth / MAX_WARMTH;
 
-  // Frostbite: once warmth is gone, take damage and slow down.
+  // While exposed and cold, the storm itself bites — escalating debuffs by
+  // level even before warmth hits zero, so high levels feel brutal immediately.
+  if (exposed && !warm && fraction < 0.6) {
+    addEffect(player, "slowness", Math.min(3, level - 1));     // L2:1 L3:2 L4:3
+    if (level >= 3) addEffect(player, "mining_fatigue", level - 2); // L3:1 L4:2
+    if (level >= 4) addEffect(player, "weakness", 1);
+  }
+
+  // Frostbite: once warmth is gone, take damage and seize up hard.
   if (warmth <= 0) {
     if (def.damagePerSec > 0) {
       const dmg = Math.max(1, Math.round(def.damagePerSec * SECONDS_PER_LOOP));
@@ -51,11 +67,9 @@ export function updateFreezing(player, def) {
         player.applyDamage(dmg, { cause: EntityDamageCause.freezing });
       } catch { /* dead / invalid */ }
     }
-    player.addEffect("slowness", LOOP_TICKS + 5, { amplifier: 2, showParticles: false });
-    player.addEffect("weakness", LOOP_TICKS + 5, { amplifier: 1, showParticles: false });
-  } else if (fraction < 0.35) {
-    // Getting dangerously cold: mild slowdown.
-    player.addEffect("slowness", LOOP_TICKS + 5, { amplifier: 0, showParticles: false });
+    addEffect(player, "slowness", Math.min(4, level + 1));
+    addEffect(player, "weakness", 2);
+    if (level >= 4) addEffect(player, "mining_fatigue", 3);
   }
 
   // Only show the meter while the player is actually losing/regaining warmth

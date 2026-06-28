@@ -2,7 +2,7 @@
 // Wires the per-second loop together and registers the command handlers.
 import { world, system } from "@minecraft/server";
 import { LOOP_TICKS, ACCUMULATION_EVERY, SNOW_STORMS, WIND_STORMS } from "./config.js";
-import { getStorm } from "./state.js";
+import { getStorm, isExpired, clearStorm } from "./state.js";
 import { updateFreezing, resetWarmth } from "./freezing.js";
 import { applyWind, advanceWind } from "./wind.js";
 import { accumulate } from "./accumulation.js";
@@ -24,7 +24,14 @@ let iteration = 0;
 system.runInterval(() => {
   iteration++;
   const players = world.getAllPlayers();
-  const storm = getStorm();
+  let storm = getStorm();
+
+  // ---- Storm lifetime: fade out once its rolled duration elapses ----
+  if (isExpired(storm)) {
+    clearStorm();
+    storm = null;
+  }
+
   const key = storm ? `${storm.type}:${storm.level}` : "";
 
   // ---- Handle transitions (storm started / changed / ended) ----
@@ -39,10 +46,17 @@ system.runInterval(() => {
           });
         } catch { /* player gone */ }
       }
-    } else {
-      // Storm just ended: clear fog/weather and thaw everyone out.
+    } else if (lastKey) {
+      // Storm just ended: announce, clear fog/weather and thaw everyone out.
       clearEnvironment(players, world.getDimension("overworld"));
-      for (const p of players) resetWarmth(p);
+      for (const p of players) {
+        resetWarmth(p);
+        try {
+          p.onScreenDisplay.setTitle("§f§oThe storm has passed.", {
+            fadeInDuration: 10, stayDuration: 40, fadeOutDuration: 20,
+          });
+        } catch { /* player gone */ }
+      }
     }
     lastKey = key;
   }
@@ -65,7 +79,7 @@ system.runInterval(() => {
   // ---- Freezing meter ----
   if (SNOW_STORMS.has(storm.type)) {
     for (const p of players) {
-      try { updateFreezing(p, storm.def); } catch { /* player gone */ }
+      try { updateFreezing(p, storm.def, storm.level); } catch { /* player gone */ }
     }
   }
 

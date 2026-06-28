@@ -17,18 +17,33 @@
 //   /scriptevent aw:demo             -> auto-cycle every level of every storm
 //   /scriptevent aw:warmth           -> print your current warmth value
 import { system, world } from "@minecraft/server";
-import { setStorm, clearStorm, getStorm } from "./state.js";
+import { setStorm, clearStorm, getStorm, remainingSeconds } from "./state.js";
 import { STORMS, DP, MAX_WARMTH } from "./config.js";
+
+function fmtTime(secs) {
+  if (secs === null) return "until cleared";
+  const m = Math.floor(secs / 60), s = secs % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
 
 function reply(source, message) {
   if (source && typeof source.sendMessage === "function") source.sendMessage(message);
   else world.sendMessage(message);
 }
 
-function start(source, type, levelRaw) {
+// durationRaw is optional: omitted -> random realistic length; 0 -> infinite;
+// positive -> that many seconds.
+function start(source, type, levelRaw, durationRaw) {
   const level = levelRaw === undefined || levelRaw === "" ? 1 : parseInt(levelRaw, 10);
-  if (setStorm(type, level)) {
-    reply(source, `§aStarted §b${STORMS[type].label} §aLevel ${level}/4.`);
+  let durationSec;
+  if (durationRaw !== undefined && durationRaw !== "") {
+    const d = parseInt(durationRaw, 10);
+    if (!Number.isNaN(d)) durationSec = d;
+  }
+  if (setStorm(type, level, durationSec)) {
+    const storm = getStorm();
+    reply(source, `§aStarted §b${STORMS[type].label} §aLevel ${level}/4 ` +
+      `§7(lasts ${fmtTime(remainingSeconds(storm))}).`);
   } else {
     reply(source, "§cLevel must be a whole number from 1 to 4.");
   }
@@ -37,13 +52,14 @@ function start(source, type, levelRaw) {
 function helpText() {
   return [
     "§b=== Advanced Weather: test commands ===",
-    "§e/scriptevent aw:snow <1-4>§7 — start a snowstorm",
-    "§e/scriptevent aw:hurricane <1-4>§7 — start a hurricane",
-    "§e/scriptevent aw:omega <1-4>§7 — start an omega storm",
+    "§e/scriptevent aw:snow <1-4> [secs]§7 — start a snowstorm",
+    "§e/scriptevent aw:hurricane <1-4> [secs]§7 — start a hurricane",
+    "§e/scriptevent aw:omega <1-4> [secs]§7 — start an omega storm",
+    "§7  ([secs] optional: omit = realistic random, 0 = never ends)",
     "§e/scriptevent aw:level <1-4>§7 — change current level",
     "§e/scriptevent aw:next§7 — step current storm up a level",
     "§e/scriptevent aw:clear§7 — stop the storm",
-    "§e/scriptevent aw:info§7 — show the active storm",
+    "§e/scriptevent aw:info§7 — show storm & time remaining",
     "§e/scriptevent aw:warmth§7 — show your warmth meter",
     "§e/scriptevent aw:demo§7 — auto-cycle every storm & level",
   ].join("\n");
@@ -92,25 +108,25 @@ export function registerCommands() {
       case "set": {
         const type = (arg[0] || "").toLowerCase();
         if (!STORMS[type]) {
-          reply(s, "§cUsage: /scriptevent aw:set <snowstorm|hurricane|omega> <1-4>");
+          reply(s, "§cUsage: /scriptevent aw:set <snowstorm|hurricane|omega> <1-4> [seconds]");
           return;
         }
-        start(s, type, arg[1]);
+        start(s, type, arg[1], arg[2]);
         break;
       }
       case "snow":
-        start(s, "snowstorm", arg[0]);
+        start(s, "snowstorm", arg[0], arg[1]);
         break;
       case "hurricane":
-        start(s, "hurricane", arg[0]);
+        start(s, "hurricane", arg[0], arg[1]);
         break;
       case "omega":
-        start(s, "omega", arg[0]);
+        start(s, "omega", arg[0], arg[1]);
         break;
       case "level": {
         const storm = getStorm();
         if (!storm) { reply(s, "§cNo storm active. Start one first."); return; }
-        start(s, storm.type, arg[0]);
+        start(s, storm.type, arg[0], arg[1]);
         break;
       }
       case "next": {
@@ -127,7 +143,8 @@ export function registerCommands() {
       case "info": {
         const storm = getStorm();
         reply(s, storm
-          ? `§bActive: ${storm.label} (Level ${storm.level}/4)`
+          ? `§bActive: ${storm.label} (Level ${storm.level}/4) §7- ` +
+            `${fmtTime(remainingSeconds(storm))} left`
           : "§7No storm active.");
         break;
       }

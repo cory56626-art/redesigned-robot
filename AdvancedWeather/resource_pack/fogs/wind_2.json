@@ -6,15 +6,15 @@
     },
     "distance": {
       "air": {
-        "fog_start": 30,
-        "fog_end": 100,
-        "fog_color": "#a9b0b6",
+        "fog_start": 18,
+        "fog_end": 60,
+        "fog_color": "#a3aab1",
         "render_distance_type": "fixed"
       },
       "weather": {
-        "fog_start": 24,
-        "fog_end": 85,
-        "fog_color": "#a9b0b6",
+        "fog_start": 13,
+        "fog_end": 50,
+        "fog_color": "#a3aab1",
         "render_distance_type": "fixed"
       }
     }

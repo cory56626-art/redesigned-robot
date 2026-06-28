@@ -10,35 +10,54 @@ Three escalating storm systems for Minecraft Bedrock, each with **4 levels**:
 
 ## Storm levels
 
-**Snowstorm**
+**Snowstorm** (death times are for an unsheltered player ignoring the warmth meter)
 1. Normal winter — snow falls, ambient fog. No danger.
-2. A freezing/warmth meter appears. Exposed to the open sky (and away from heat) you slowly freeze; at 0 warmth you take frostbite damage and slow down.
-3. Snow piles up — small caves fill in, doorways and paths get blocked, you must dig out. You freeze noticeably faster and visibility drops.
-4. **Fimbulwinter** — snow buries huge caves and can fully cover a house; whiteout fog; unsheltered players can die in about a minute.
+2. A freezing/warmth meter appears. Warmth drains in ~9s exposed, then frostbite damage + slowdown set in (death in ~20s if ignored). Light snow dusting builds up.
+3. Brutal cold — warmth gone in ~4s, heavy frostbite, mining-fatigue and strong slowdown; snow actively buries small caves, doorways and paths. Visibility drops hard.
+4. **Fimbulwinter** — warmth gone in ~2s and lethal within seconds; near-whiteout fog; snow buries huge caves and fully covers houses. Get inside or die.
+
+> A single torch or lantern is **not** enough heat to survive a blizzard — you need a real heat source nearby (campfire, fire, lava, magma) or solid shelter from the open sky.
 
 **Hurricane** — wind strength climbs each level (push → stagger → toss), rain becomes thunder, and lightning strikes near exposed players at levels 3–4.
 
 **Omega Storm** — snowstorm + hurricane combined and amplified at every level.
+
+## How long do storms last?
+
+Storms now have a **finite, realistic duration** and fade on their own (you'll
+see *"The storm has passed."*). Each level rolls a random length within a range:
+
+| Storm | L1 | L2 | L3 | L4 |
+|-------|----|----|----|----|
+| Snowstorm | 6–10 min | 5–8 min | 4–6 min | 3–5 min |
+| Hurricane | 4–7 min | 4–6 min | 3–5 min | 2–4 min |
+| Omega | 3–6 min | 3–5 min | 2.5–4 min | 2–3.5 min |
+
+You can override the length per command (see below). Ranges live in
+`config.js` under each level's `durationSec`.
 
 ## How to use / test
 
 Open chat and run any of these (`/scriptevent`):
 
 ```
-/scriptevent aw:snow 1        start a snowstorm at level 1
+/scriptevent aw:snow 1        start a snowstorm at level 1 (random duration)
 /scriptevent aw:snow 4        jump straight to Fimbulwinter
+/scriptevent aw:snow 4 120    Fimbulwinter for exactly 120 seconds
+/scriptevent aw:snow 4 0      Fimbulwinter that never ends (great for building)
 /scriptevent aw:hurricane 3   hurricane with lightning
 /scriptevent aw:omega 4       the full combined storm
 /scriptevent aw:level 2       change the current storm's level
 /scriptevent aw:next          step the current storm up one level
 /scriptevent aw:clear         stop the storm
-/scriptevent aw:info          show the active storm
+/scriptevent aw:info          show the active storm + time remaining
 /scriptevent aw:warmth        print your warmth value
 /scriptevent aw:demo          auto-cycle every storm and level (run again to stop)
 /scriptevent aw:help          list all commands
 ```
 
-Also: `/scriptevent aw:set <snowstorm|hurricane|omega> <1-4>`.
+Also: `/scriptevent aw:set <snowstorm|hurricane|omega> <1-4> [seconds]`
+(`[seconds]` optional: omit = random realistic length, `0` = never ends).
 
 ## Install
 
