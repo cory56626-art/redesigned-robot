@@ -1,0 +1,40 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "§bCheat Feather Menu",
+    "description": "Gives you a Cheat Feather. Use it to open a (fake) cheat menu!\n§7Aim Assist, Bow Aimbot, Kill Aura & more — all for fun, none of it real.",
+    "uuid": "f5429ba0-5c6e-402e-81a9-a1fba382e0b7",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 0]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "ce5d68a9-1d48-498a-96d0-86ea1333b900",
+      "version": [1, 0, 0]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "85695920-746a-480d-ac93-2d547236248a",
+      "version": [1, 0, 0],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "1.11.0"
+    },
+    {
+      "module_name": "@minecraft/server-ui",
+      "version": "1.2.0"
+    }
+  ],
+  "metadata": {
+    "authors": ["Cheat Feather Menu"],
+    "generated_with": {
+      "cheat_feather": ["1.0.0"]
+    }
+  }
+}
