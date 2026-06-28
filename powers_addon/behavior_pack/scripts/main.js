@@ -179,7 +179,8 @@ world.afterEvents.itemUse.subscribe((ev) => {
   if (!id.startsWith(NS)) return;
   const power = id.slice(NS.length);
   switch (power) {
-    case "god_of_war": return abilityGodOfWar(player);
+    case "god_of_war": return abilityApexRage(player);
+    case "blue_inferno": return abilityBlueInferno(player);
     case "sonic_boots": return abilitySonic(player);
     case "frost_scepter": return abilityFrost(player);
     case "storm_hammer": return abilityStorm(player);
@@ -193,7 +194,14 @@ world.afterEvents.itemUse.subscribe((ev) => {
 function unlockRandomPower(player) {
   const power = POWERS[Math.floor(Math.random() * POWERS.length)];
   try {
-    player.getComponent(EntityComponentTypes.Inventory).container.addItem(new ItemStack(NS + power, 1));
+    const inv = player.getComponent(EntityComponentTypes.Inventory).container;
+    if (power === "god_of_war") {
+      // God of War comes as two separate relics — one per ability.
+      inv.addItem(new ItemStack(NS + "god_of_war", 1));
+      inv.addItem(new ItemStack(NS + "blue_inferno", 1));
+    } else {
+      inv.addItem(new ItemStack(NS + power, 1));
+    }
   } catch (e) {}
   // consume one gem from the main hand
   try {
@@ -204,7 +212,12 @@ function unlockRandomPower(player) {
       else eq.setEquipment(EquipmentSlot.Mainhand, undefined);
     }
   } catch (e) {}
-  player.sendMessage(`§d§lPOWERS§r §7» Your power is §r${POWER_NAMES[power]}§7! Hold it and right-click to use its ability.`);
+  player.sendMessage(`§d§lPOWERS§r §7» Your power is §r${POWER_NAMES[power]}§7!`);
+  if (power === "god_of_war") {
+    player.sendMessage("§7» You got two relics: §cApex Rage§7 and §9Blue Inferno§7. Fight with any weapon to build rage, then right-click a relic to use it.");
+  } else {
+    player.sendMessage("§7» Hold it and right-click to use its ability.");
+  }
   try { player.playSound("beacon.power"); } catch (e) {}
   try { player.dimension.spawnParticle("minecraft:totem_particle", player.location); } catch (e) {}
 }
@@ -225,24 +238,13 @@ function rageBar(p) {
   return `§6Apex Rage §r[${bar}§r] §c${r}%${ready}`;
 }
 
-// God of War is a relic: it buffs whatever weapon you fight with. Both abilities
-// are fully MANUAL — you charge rage by fighting, then YOU right-click the relic
-// to unleash. Nothing ever auto-fires.
-function abilityGodOfWar(player) {
-  // Sneak + use = arm Blue Inferno (second ability, needs 20 kills)
-  if (player.isSneaking) {
-    if (getKills(player) < 20) {
-      actionbar(player, `§9Blue Inferno locked §7— kills ${getKills(player)}/20`);
-      return;
-    }
-    const cd = checkCooldown(player, "inferno", 160);
-    if (cd) { actionbar(player, `§9Blue Inferno on cooldown (${cd}s)`); return; }
-    infernoCharged.add(player.id);
-    actionbar(player, "§9§lBLUE INFERNO ARMED §r§7— your next hit ignites!");
-    try { player.playSound("mob.ghast.fireball"); } catch (e) {}
-    return;
-  }
-  // Normal use = unleash Apex Rage (manual — needs the bar at 80%+)
+// God of War is delivered as TWO relics that buff whatever weapon you fight
+// with. Both abilities are fully MANUAL — you charge rage by fighting, then YOU
+// right-click the matching relic to unleash. Nothing ever auto-fires.
+function hasGodOfWar(p) { return hasPower(p, "god_of_war") || hasPower(p, "blue_inferno"); }
+
+// Apex Rage relic — right-click to unleash (needs the bar at 80%+).
+function abilityApexRage(player) {
   if (getRage(player) < 80) {
     actionbar(player, `§cApex Rage not ready §7— ${getRage(player)}%/80%. Fight to charge it!`);
     try { player.playSound("note.bass"); } catch (e) {}
@@ -256,6 +258,19 @@ function abilityGodOfWar(player) {
   actionbar(player, "§c§lAPEX RAGE!");
   try { player.playSound("mob.enderdragon.flap"); } catch (e) {}
   particle(player.dimension, "minecraft:critical_hit_emitter", target.location);
+}
+
+// Blue Inferno relic — right-click to arm (needs 20 kills); next hit ignites.
+function abilityBlueInferno(player) {
+  if (getKills(player) < 20) {
+    actionbar(player, `§9Blue Inferno locked §7— kills ${getKills(player)}/20`);
+    return;
+  }
+  const cd = checkCooldown(player, "inferno", 160);
+  if (cd) { actionbar(player, `§9Blue Inferno on cooldown (${cd}s)`); return; }
+  infernoCharged.add(player.id);
+  actionbar(player, "§9§lBLUE INFERNO ARMED §r§7— your next hit ignites!");
+  try { player.playSound("mob.ghast.fireball"); } catch (e) {}
 }
 
 // ---------------------------------------------------------------------------
@@ -420,7 +435,7 @@ world.afterEvents.entityHitEntity.subscribe((ev) => {
 
   // God of War is relic-based: rage builds from EVERY hit you land with any
   // weapon (more on crits), so it charges fairly during a fight.
-  if (hasPower(attacker, "god_of_war")) {
+  if (hasGodOfWar(attacker)) {
     const crit = isCrit(attacker);
     setRage(attacker, getRage(attacker) + (crit ? 25 : 10));
     actionbar(attacker, (crit ? "§c§lCRIT! " : "") + rageBar(attacker));
@@ -469,7 +484,7 @@ world.afterEvents.entityHitEntity.subscribe((ev) => {
 world.afterEvents.entityDie.subscribe((ev) => {
   const killer = ev.damageSource?.damagingEntity;
   if (!killer || killer.typeId !== "minecraft:player") return;
-  if (!hasPower(killer, "god_of_war")) return;
+  if (!hasGodOfWar(killer)) return;
   const kills = getKills(killer) + 1;
   killer.setDynamicProperty("powers:kills", kills);
   setRage(killer, getRage(killer) + 20); // kills also build Apex Rage
@@ -508,7 +523,7 @@ world.afterEvents.entityHurt.subscribe((ev) => {
 system.runInterval(() => {
   for (const player of world.getAllPlayers()) {
     try {
-      if (hasPower(player, "god_of_war")) safeEffect(player, "strength", 40, 1);
+      if (hasGodOfWar(player)) safeEffect(player, "strength", 40, 1);
       if (hasPower(player, "sonic_boots")) {
         // base nimbleness; full speed only while toggled on (handled in fast tick)
         if (!sonicActive.has(player.id)) safeEffect(player, "speed", 40, 0);

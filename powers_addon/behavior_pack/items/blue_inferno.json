@@ -2,15 +2,15 @@
   "format_version": "1.21.0",
   "minecraft:item": {
     "description": {
-      "identifier": "powers:god_of_war",
+      "identifier": "powers:blue_inferno",
       "menu_category": {
         "category": "items"
       }
     },
     "components": {
-      "minecraft:icon": "god_of_war",
+      "minecraft:icon": "blue_inferno",
       "minecraft:display_name": {
-        "value": "\u00a76God of War: \u00a7cApex Rage"
+        "value": "\u00a76God of War: \u00a79Blue Inferno"
       },
       "minecraft:max_stack_size": 1
     }

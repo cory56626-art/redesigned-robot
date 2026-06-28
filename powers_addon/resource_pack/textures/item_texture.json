@@ -8,6 +8,9 @@
     "god_of_war": {
       "textures": "textures/items/god_of_war"
     },
+    "blue_inferno": {
+      "textures": "textures/items/blue_inferno"
+    },
     "sonic_boots": {
       "textures": "textures/items/sonic_boots"
     },

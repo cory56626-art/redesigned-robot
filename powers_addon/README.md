@@ -39,17 +39,17 @@ active ability.
 
 ## 🦸 The 8 Powers
 
-### 1. ⚔️ God of War — `god_of_war` *(relic — buffs whatever weapon you hold)*
-This is a **relic** you keep in your inventory, **not** a weapon. It buffs
-whatever weapon (or fists) you fight with. Both abilities are **fully manual** —
-you charge them by fighting and **you** trigger them; nothing auto-fires.
-- **Passive:** permanent **Strength II** while the relic is in your inventory.
-- **Apex Rage** *(charge by fighting → use the relic to unleash)*: every hit you
-  land builds the **Apex Rage** bar (**+10%** per hit, **+25%** per crit,
-  **+20%** per kill). Once it reaches **80%**, **right-click the relic** to
-  **teleport to the nearest mob**, snap your aim onto it and deal a heavy strike.
-- **Blue Inferno** *(2nd ability — unlocks after 20 kills)*: **sneak + use the
-  relic** to arm it, then hit with any weapon — the target erupts in
+### 1. ⚔️ God of War — **two relics** (`god_of_war` + `blue_inferno`)
+God of War comes as **two separate relics** you keep in your inventory (not
+weapons). They buff whatever weapon (or fists) you fight with, and each relic is
+**one clear right-click action** — no sneaking, nothing auto-fires.
+- **Passive:** permanent **Strength II** while you hold either relic.
+- **⚔️ Apex Rage relic** *(charge by fighting → right-click to unleash)*: every
+  hit you land builds the **Apex Rage** bar (**+10%** per hit, **+25%** per crit,
+  **+20%** per kill). At **80%**, right-click the relic to **teleport to the
+  nearest mob**, snap your aim onto it and deal a heavy strike.
+- **🔥 Blue Inferno relic** *(unlocks after 20 kills → right-click to arm)*:
+  right-click to arm it, then hit with any weapon — the target erupts in
   **extremely strong blue fire** (custom particle) that keeps burning.
 
 ### 2. 👟 As Fast As Sonic — `sonic_boots`
