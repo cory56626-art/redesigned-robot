@@ -9,7 +9,7 @@
     },
     "components": {
       "minecraft:icon": {
-        "texture": "feather"
+        "texture": "cheat_feather"
       },
       "minecraft:display_name": {
         "value": "§b§lCheat Feather"
