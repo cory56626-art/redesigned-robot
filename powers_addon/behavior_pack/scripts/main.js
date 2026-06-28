@@ -118,15 +118,44 @@ function knock(entity, dx, dz, h, v) {
   try { entity.applyKnockback(dx, dz, h, v); } catch (e) {}
 }
 
-// Teleport the player next to a target and look at it.
+// Teleport the player right next to a target AND make them look straight at it.
 function blinkToTarget(player, target, gap = 1.8) {
   const tl = target.location;
   const pl = player.location;
   let dx = pl.x - tl.x, dz = pl.z - tl.z;
-  const len = Math.hypot(dx, dz) || 1;
+  let len = Math.hypot(dx, dz);
+  if (len < 0.01) { dx = 0; dz = 1; len = 1; } // player is on top of target
   dx /= len; dz /= len;
   const dest = { x: tl.x + dx * gap, y: tl.y, z: tl.z + dz * gap };
-  try { player.teleport(dest, { facingLocation: { x: tl.x, y: tl.y + 1, z: tl.z } }); } catch (e) {}
+  const face = { x: tl.x, y: tl.y + 1.0, z: tl.z };
+  try { player.teleport(dest, { facingLocation: face }); } catch (e) {}
+  // Belt-and-suspenders: explicitly aim the camera at the target too, because
+  // teleport facingLocation alone has been unreliable for some versions.
+  try {
+    const ddx = face.x - dest.x;
+    const ddy = face.y - (dest.y + 1.62); // eye height
+    const ddz = face.z - dest.z;
+    const horiz = Math.hypot(ddx, ddz) || 1;
+    const yaw = -Math.atan2(ddx, ddz) * (180 / Math.PI);
+    const pitch = -Math.atan2(ddy, horiz) * (180 / Math.PI);
+    player.setRotation({ x: pitch, y: yaw });
+  } catch (e) {}
+}
+
+// The entity the player is aiming at (preferred), else the closest one.
+function aimedOrNearest(player, range) {
+  try {
+    const head = player.getHeadLocation();
+    const dir = player.getViewDirection();
+    const hits = player.dimension.getEntitiesFromRay(head, dir, { maxDistance: range });
+    if (hits) {
+      for (const h of hits) {
+        const e = h.entity;
+        if (e && e.id !== player.id && e.getComponent(EntityComponentTypes.Health)) return e;
+      }
+    }
+  } catch (e) {}
+  return nearestMob(player, range);
 }
 
 function damage(entity, amount, source) {
@@ -234,30 +263,27 @@ function rageBar(p) {
   const r = getRage(p);
   const filled = Math.round(r / 10);
   const bar = "§c" + "|".repeat(filled) + "§8" + "|".repeat(10 - filled);
-  const ready = r >= 80 ? " §6§lREADY" : "";
-  return `§6Apex Rage §r[${bar}§r] §c${r}%${ready}`;
+  return `§6Spartan Rage §r[${bar}§r] §c${r}%`;
 }
 
 // God of War is delivered as TWO relics that buff whatever weapon you fight
-// with. Both abilities are fully MANUAL — you charge rage by fighting, then YOU
-// right-click the matching relic to unleash. Nothing ever auto-fires.
+// with. It works like Kratos' Spartan Rage:
+//   - You GAIN rage (+5%) every time you get attacked.
+//   - When you attack a mob, you SPEND rage (-10%) and instantly blink to the
+//     enemy you're aiming at, snap to face it, and your strike lands on it.
+//   - Blue Inferno is the manual right-click finisher (after 20 kills).
 function hasGodOfWar(p) { return hasPower(p, "god_of_war") || hasPower(p, "blue_inferno"); }
 
-// Apex Rage relic — right-click to unleash (needs the bar at 80%+).
+// Right-clicking the Apex Rage relic just reports your current rage / how it
+// works — the real power is automatic in combat (see the entityHitEntity hook).
 function abilityApexRage(player) {
-  if (getRage(player) < 80) {
-    actionbar(player, `§cApex Rage not ready §7— ${getRage(player)}%/80%. Fight to charge it!`);
-    try { player.playSound("note.bass"); } catch (e) {}
-    return;
+  const r = getRage(player);
+  if (r <= 0) {
+    actionbar(player, "§cSpartan Rage: §70% §8— take hits in battle to build it, then attacks blink you onto enemies.");
+  } else {
+    actionbar(player, rageBar(player) + " §7— attack to blink onto foes!");
   }
-  const target = nearestMob(player, 22);
-  if (!target) { actionbar(player, "§cApex Rage: no target in range"); return; }
-  blinkToTarget(player, target, 1.6);
-  damage(target, 10, player);
-  setRage(player, getRage(player) - 80);
-  actionbar(player, "§c§lAPEX RAGE!");
-  try { player.playSound("mob.enderdragon.flap"); } catch (e) {}
-  particle(player.dimension, "minecraft:critical_hit_emitter", target.location);
+  try { player.playSound("note.bass"); } catch (e) {}
 }
 
 // Blue Inferno relic — right-click to arm (needs 20 kills); next hit ignites.
@@ -433,13 +459,23 @@ world.afterEvents.entityHitEntity.subscribe((ev) => {
   const victim = ev.hitEntity;
   if (!attacker || attacker.typeId !== "minecraft:player") return;
 
-  // God of War is relic-based: rage builds from EVERY hit you land with any
-  // weapon (more on crits), so it charges fairly during a fight.
+  // Every power is a relic now, so on-hit effects apply by OWNERSHIP — they
+  // work with whatever weapon (or fists) you're actually swinging.
+
+  // --- God of War: Spartan Rage ---
   if (hasGodOfWar(attacker)) {
-    const crit = isCrit(attacker);
-    setRage(attacker, getRage(attacker) + (crit ? 25 : 10));
-    actionbar(attacker, (crit ? "§c§lCRIT! " : "") + rageBar(attacker));
-    if (crit) particle(attacker.dimension, "minecraft:critical_hit_emitter", victim.location);
+    // Spend rage to blink onto the foe you're aiming at and strike it, so the
+    // attack lands right as you teleport in (Kratos-style).
+    if (getRage(attacker) >= 10) {
+      const target = aimedOrNearest(attacker, 25) || victim;
+      blinkToTarget(attacker, target, 1.6);
+      damage(target, 8, attacker);
+      setRage(attacker, getRage(attacker) - 10);
+      actionbar(attacker, "§c§lRAGE STRIKE! §r" + rageBar(attacker));
+      particle(attacker.dimension, "minecraft:critical_hit_emitter", target.location);
+      try { attacker.playSound("mob.enderdragon.flap"); } catch (e) {}
+    }
+    // Blue Inferno finisher (armed via the relic, after 20 kills).
     if (infernoCharged.has(attacker.id)) {
       infernoCharged.delete(attacker.id);
       burning.set(victim, { ticks: 120, attacker });
@@ -449,21 +485,19 @@ world.afterEvents.entityHitEntity.subscribe((ev) => {
     }
   }
 
-  // The remaining powers still apply through their held weapon item.
-  const wield = mainhandId(attacker);
-  if (!wield || !wield.startsWith(NS)) return;
-  const power = wield.slice(NS.length);
-
-  if (power === "frost_scepter") {
+  if (hasPower(attacker, "frost_scepter")) {
     safeEffect(victim, "slowness", 80, 2, true);
     safeEffect(victim, "weakness", 80, 0);
     particle(attacker.dimension, "minecraft:snowflake_particle", victim.location);
-  } else if (power === "storm_hammer") {
+  }
+  if (hasPower(attacker, "storm_hammer")) {
     if (Math.random() < 0.3) strikeLightning(attacker.dimension, victim.location);
-  } else if (power === "titan_gauntlet") {
+  }
+  if (hasPower(attacker, "titan_gauntlet")) {
     const al = attacker.location, vl = victim.location;
     knock(victim, vl.x - al.x, vl.z - al.z, 1.2, 0.5);
-  } else if (power === "phantom_dagger") {
+  }
+  if (hasPower(attacker, "phantom_dagger")) {
     const until = Number(attacker.getDynamicProperty("powers:assassinate") || 0);
     if (system.currentTick < until) {
       damage(victim, 8, attacker);
@@ -471,9 +505,11 @@ world.afterEvents.entityHitEntity.subscribe((ev) => {
       particle(attacker.dimension, "minecraft:critical_hit_emitter", victim.location);
       actionbar(attacker, "§5§lASSASSINATE!");
     }
-  } else if (power === "void_eye") {
+  }
+  if (hasPower(attacker, "void_eye")) {
     if (Math.random() < 0.25) safeEffect(victim, "levitation", 30, 1);
-  } else if (power === "phoenix_feather") {
+  }
+  if (hasPower(attacker, "phoenix_feather")) {
     try { victim.setOnFire(4, true); } catch (e) {}
   }
 });
@@ -487,12 +523,11 @@ world.afterEvents.entityDie.subscribe((ev) => {
   if (!hasGodOfWar(killer)) return;
   const kills = getKills(killer) + 1;
   killer.setDynamicProperty("powers:kills", kills);
-  setRage(killer, getRage(killer) + 20); // kills also build Apex Rage
   if (kills === 20) {
-    killer.sendMessage("§6§lGOD OF WAR§r §7» §9Blue Inferno§7 unlocked! Sneak + use the relic to arm it, then hit with any weapon.");
+    killer.sendMessage("§6§lGOD OF WAR§r §7» §9Blue Inferno§7 unlocked! Right-click the §9Blue Inferno§7 relic to arm it, then hit with any weapon.");
     try { killer.playSound("random.levelup"); } catch (e) {}
   } else if (kills < 20) {
-    actionbar(killer, `§6Kills: ${kills}/20 §7(Blue Inferno) §8| §c${getRage(killer)}% rage`);
+    actionbar(killer, `§6Kills: ${kills}/20 §7(unlocks Blue Inferno)`);
   }
 });
 
@@ -503,6 +538,12 @@ world.afterEvents.entityHurt.subscribe((ev) => {
   const p = ev.hurtEntity;
   if (!p || p.typeId !== "minecraft:player") return;
   const cause = ev.damageSource?.cause;
+
+  // Spartan Rage builds when you GET attacked (+5% per hit taken).
+  if (hasGodOfWar(p)) {
+    setRage(p, getRage(p) + 5);
+    actionbar(p, rageBar(p));
+  }
 
   if (cause === "fall" && hasPower(p, "storm_hammer")) {
     try {
@@ -523,28 +564,28 @@ world.afterEvents.entityHurt.subscribe((ev) => {
 system.runInterval(() => {
   for (const player of world.getAllPlayers()) {
     try {
-      if (hasGodOfWar(player)) safeEffect(player, "strength", 40, 1);
+      if (hasGodOfWar(player)) safeEffect(player, "strength", 200,1);
       if (hasPower(player, "sonic_boots")) {
         // base nimbleness; full speed only while toggled on (handled in fast tick)
-        if (!sonicActive.has(player.id)) safeEffect(player, "speed", 40, 0);
+        if (!sonicActive.has(player.id)) safeEffect(player, "speed", 200,0);
       }
       if (hasPower(player, "frost_scepter")) {
-        safeEffect(player, "fire_resistance", 40, 0);
+        safeEffect(player, "fire_resistance", 200,0);
       }
       if (hasPower(player, "storm_hammer")) {
-        safeEffect(player, "haste", 40, 1);
+        safeEffect(player, "haste", 200,1);
       }
       if (hasPower(player, "titan_gauntlet")) {
-        safeEffect(player, "resistance", 40, 1);
-        safeEffect(player, "health_boost", 40, 3);
+        safeEffect(player, "resistance", 200,1);
+        safeEffect(player, "health_boost", 200,3);
       }
       if (hasPower(player, "phantom_dagger")) {
-        safeEffect(player, "speed", 40, 0);
-        if (player.isSneaking) safeEffect(player, "invisibility", 40, 0);
+        safeEffect(player, "speed", 200,0);
+        if (player.isSneaking) safeEffect(player, "invisibility", 200,0);
       }
       if (hasPower(player, "phoenix_feather")) {
-        safeEffect(player, "fire_resistance", 40, 0);
-        if (player.isSneaking) safeEffect(player, "slow_falling", 40, 0);
+        safeEffect(player, "fire_resistance", 200,0);
+        if (player.isSneaking) safeEffect(player, "slow_falling", 200,0);
         // Rebirth: heal to full when critically low (2-min cooldown)
         const hc = player.getComponent(EntityComponentTypes.Health);
         const last = Number(player.getDynamicProperty("powers:rebirth") || 0);

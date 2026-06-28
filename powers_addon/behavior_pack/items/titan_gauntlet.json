@@ -4,7 +4,7 @@
     "description": {
       "identifier": "powers:titan_gauntlet",
       "menu_category": {
-        "category": "equipment"
+        "category": "items"
       }
     },
     "components": {
@@ -12,12 +12,7 @@
       "minecraft:display_name": {
         "value": "\u00a72Titan"
       },
-      "minecraft:max_stack_size": 1,
-      "minecraft:hand_equipped": true,
-      "minecraft:damage": 6,
-      "minecraft:durability": {
-        "max_durability": 2000
-      }
+      "minecraft:max_stack_size": 1
     }
   }
 }

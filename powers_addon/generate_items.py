@@ -27,16 +27,10 @@ def make_item(idn, tex, name, dmg, is_gem):
         "minecraft:display_name": {"value": name},
         "minecraft:max_stack_size": 16 if is_gem else 1,
     }
-    # Relics are power tokens you keep in your inventory; they buff whatever
-    # weapon you actually fight with rather than being a weapon themselves.
-    RELICS = {"god_of_war", "blue_inferno"}
-    if is_gem or idn in RELICS:
-        category = "items"
-    else:
-        category = "equipment"
-        components["minecraft:hand_equipped"] = True
-        components["minecraft:damage"] = dmg
-        components["minecraft:durability"] = {"max_durability": 2000}
+    # Every power is a relic / power token you keep in your inventory — NOT a
+    # weapon. Its passive and abilities apply by ownership and work with
+    # whatever weapon (or fists) you actually fight with.
+    category = "items"
     return {
         "format_version": "1.21.0",
         "minecraft:item": {
