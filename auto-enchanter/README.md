@@ -51,44 +51,39 @@ You get an action-bar message, a level-up sound, and particles on success.
 
 ## What gets applied (vanilla-max levels)
 
-Each item type gets its **own** hand-tuned loadout (not one generic set). A
-`canAddEnchantment()` safety net then drops anything illegal on your version, so it
-works for **every** enchantable thing — including the **Mace** and any **spear**
-added by another pack.
+**Both** enchanters fully max out every enchantable item. The only differences are
+the genuine either/or picks (bow Infinity vs Mending, crossbow Multishot vs Piercing,
+trident Loyalty+Channeling vs Riptide). Armor, tools, weapons, fishing rod, mace,
+spear, etc. all get their complete legal set. Unknown / modded enchantable items fall
+back to an "apply everything legal" pass, so it works for **everything**.
 
-### Enchanter (Tools) — utility
+Enchantments are applied with a direct `addEnchantment()` in a try/catch (the flaky
+`canAddEnchantment()` gate is gone), so anything legal for the item actually lands.
+
+### Highlights
 | Gear | Enchantments |
 |------|--------------|
-| Pickaxe / Shovel / Axe (as tool) | Efficiency V, Fortune III, Unbreaking III, Mending |
-| Hoe / Shears | Efficiency V, Unbreaking III, Mending |
-| Fishing rod | Lure III, Luck of the Sea III, Unbreaking III, Mending |
-| Sword | Looting III, Unbreaking III, Mending |
-| Bow | Infinity, Unbreaking III |
-| Crossbow | Quick Charge III, Unbreaking III, Mending |
-| Trident | Riptide III, Unbreaking III, Mending |
-| Helmet | Respiration III, Aqua Affinity, Unbreaking III, Mending |
-| Chestplate | Unbreaking III, Mending |
-| Leggings | Swift Sneak III, Unbreaking III, Mending |
-| Boots | Feather Falling IV, Depth Strider III, Soul Speed III, Unbreaking III, Mending |
-
-### Enchanter (PVP) — combat
-| Gear | Enchantments |
-|------|--------------|
+| Pickaxe / Shovel | Efficiency V, Fortune III, Unbreaking III, Mending |
+| Axe | Efficiency V, Fortune III, Sharpness V, Unbreaking III, Mending |
+| Hoe | Efficiency V, Fortune III, Unbreaking III, Mending |
 | Sword | Sharpness V, Fire Aspect II, Looting III, Knockback II, Unbreaking III, Mending |
-| Axe (as weapon) | Sharpness V, Unbreaking III, Mending |
-| **Mace** | **Density V, Breach IV, Wind Burst III, Unbreaking III, Mending** |
-| **Spear** | **Sharpness V, Lunge III, Fire Aspect II, Looting III, Knockback II, Unbreaking III, Mending** |
-| Bow | Power V, Flame, Punch II, Infinity, Unbreaking III |
-| Crossbow | Multishot, Piercing IV, Quick Charge III, Unbreaking III, Mending |
-| Trident | Impaling V, Loyalty III, Channeling, Unbreaking III, Mending |
+| **Mace** | Density V, Breach IV, Wind Burst III, Fire Aspect II, Unbreaking III, Mending |
+| **Spear** | Sharpness V, **Lunge III**, Fire Aspect II, Looting III, Knockback II, Unbreaking III, Mending |
+| Bow | Power V, Flame, Punch II, **Infinity** (PVP) / **Mending** (Tools), Unbreaking III |
+| Crossbow | **Multishot** (PVP) / **Piercing IV** (Tools), Quick Charge III, Unbreaking III, Mending |
+| Trident | Impaling V, **Loyalty III + Channeling** (PVP) / **Riptide III** (Tools), Unbreaking III, Mending |
+| Fishing rod | Lure III, Luck of the Sea III, Unbreaking III, Mending |
 | Helmet | Protection IV, Respiration III, Aqua Affinity, Thorns III, Unbreaking III, Mending |
 | Chestplate | Protection IV, Thorns III, Unbreaking III, Mending |
 | Leggings | Protection IV, Thorns III, Swift Sneak III, Unbreaking III, Mending |
-| Boots | Protection IV, Thorns III, Feather Falling IV, Depth Strider III, Unbreaking III, Mending |
+| Boots | Protection IV, Thorns III, Feather Falling IV, Depth Strider III, Frost Walker II, Soul Speed III, Unbreaking III, Mending |
 
-> Only enchantments that exist on your running version and are legal for the item are
-> applied. The **Spear** (Mounts of Mayhem update) and its exclusive **Lunge** enchant
-> are fully supported; the Tools Enchanter puts **Lunge III** on a spear for mobility.
+On success you get a chat message listing **exactly** which enchantments were applied,
+so you can verify it worked.
+
+> **Elytra and shields only show Unbreaking + Mending** — that's the whole list the
+> game allows on them (they can't take Protection/etc.), not a bug. Likewise a pickaxe
+> tops out at 4 enchantments because that's its full legal set.
 
 ---
 
