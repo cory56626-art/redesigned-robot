@@ -1,0 +1,12 @@
+{
+  "resource_pack_name": "auto_enchanter",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "enchanter_tools": {
+      "textures": "textures/items/enchanter_tools"
+    },
+    "enchanter_pvp": {
+      "textures": "textures/items/enchanter_pvp"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "§dAuto Enchanter §7[Resources]",
+    "description": "Textures & names for the Auto Enchanter add-on.\n§7by Auto Enchanter",
+    "uuid": "aa915eb8-dbf2-4c0a-ad02-d396bf739fbd",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 0]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "ea34bed1-ce8f-40c2-a527-d02f3d687dde",
+      "version": [1, 0, 0]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "3def273b-b854-467f-b81b-6fb4205222c9",
+      "version": [1, 0, 0]
+    }
+  ],
+  "metadata": {
+    "authors": ["Auto Enchanter"]
+  }
+}

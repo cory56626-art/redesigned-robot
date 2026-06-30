@@ -1,0 +1,27 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:item": {
+    "description": {
+      "identifier": "ae:enchanter_pvp",
+      "menu_category": {
+        "category": "equipment"
+      }
+    },
+    "components": {
+      "minecraft:max_stack_size": 16,
+      "minecraft:icon": {
+        "texture": "enchanter_pvp"
+      },
+      "minecraft:display_name": {
+        "value": "§c§lEnchanter §r§7(PVP)"
+      },
+      "minecraft:hand_equipped": false,
+      "minecraft:allow_off_hand": true,
+      "minecraft:glint": true,
+      "minecraft:use_modifiers": {
+        "use_duration": 0.1,
+        "movement_modifier": 1.0
+      }
+    }
+  }
+}

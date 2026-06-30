@@ -1,0 +1,6 @@
+## Auto Enchanter
+pack.name=Auto Enchanter
+pack.description=Auto-enchant any gear instantly.
+
+item.ae:enchanter_tools=Enchanter (Tools)
+item.ae:enchanter_pvp=Enchanter (PVP)

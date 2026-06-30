@@ -1,0 +1,40 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "§dAuto Enchanter §7[Behavior]",
+    "description": "Auto-enchant any gear instantly with the Enchanter (Tools) and Enchanter (PVP) items.\n§7by Auto Enchanter",
+    "uuid": "3def273b-b854-467f-b81b-6fb4205222c9",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 0]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "f02f7f5e-d0c3-4c06-880f-966f3c2bebd0",
+      "version": [1, 0, 0]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "68450395-9cc9-470a-8111-9d7b51f9433e",
+      "version": [1, 0, 0],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "1.16.0"
+    },
+    {
+      "uuid": "aa915eb8-dbf2-4c0a-ad02-d396bf739fbd",
+      "version": [1, 0, 0]
+    }
+  ],
+  "metadata": {
+    "authors": ["Auto Enchanter"],
+    "generated_with": {
+      "claude_code": ["1.0.0"]
+    }
+  }
+}
