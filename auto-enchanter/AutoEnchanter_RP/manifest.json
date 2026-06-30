@@ -5,7 +5,7 @@
     "description": "Textures & names for the Auto Enchanter add-on.\n§7by Auto Enchanter",
     "uuid": "aa915eb8-dbf2-4c0a-ad02-d396bf739fbd",
     "version": [1, 0, 0],
-    "min_engine_version": [1, 21, 0]
+    "min_engine_version": [1, 21, 80]
   },
   "modules": [
     {

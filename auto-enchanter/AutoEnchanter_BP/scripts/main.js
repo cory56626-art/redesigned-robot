@@ -3,89 +3,110 @@ import { world, system, EnchantmentType, ItemComponentTypes } from "@minecraft/s
 /*
  * Auto Enchanter
  * --------------
- * Two custom items:
- *   ae:enchanter_tools  -> utility / mining / movement enchantments
- *   ae:enchanter_pvp    -> combat / protection enchantments
+ * Two custom items, each with a PER-ITEM curated, vanilla-max enchantment set:
+ *   ae:enchanter_tools  -> utility / mining / movement
+ *   ae:enchanter_pvp    -> combat / protection
  *
- * Two ways to use it:
- *   1) ITEM  - Hold the Enchanter in your MAIN hand and right-click (use). The
- *              script enchants the first enchantable piece of gear in your hotbar
- *              / inventory and CONSUMES one Enchanter.
- *              (Bedrock can't use items from the off-hand and won't let gear go in
- *               the off-hand, so the trigger has to come from the main hand.)
- *   2) COMMAND - Hold the gear you want and run one of:
- *                  /scriptevent ae:tools
- *                  /scriptevent ae:pvp
- *              This enchants the held item (or first hotbar gear) and does NOT
- *              consume anything.
- *
- * Levels are vanilla-max. We attempt a curated, priority-ordered super-set of
- * enchantments and let the engine's canAddEnchantment() decide which are valid for
- * each item, so it works for EVERY enchantable item automatically. Conflicts
- * (Fortune vs Silk Touch, Sharpness vs Smite, Infinity vs Mending, Protection vs
- * the specialised protections) are resolved by order: the higher-priority one is
- * applied first and the conflicting one is then skipped.
+ * Triggers (Bedrock can't "use" an off-hand item and won't let gear go off-hand):
+ *   1) ITEM    - hold the Enchanter in your MAIN hand, right-click. Enchants the
+ *                first enchantable gear in your hotbar/inventory, consumes one.
+ *   2) COMMAND - hold the gear and run /scriptevent ae:tools  (or ae:pvp). Free.
  */
 
 const ENCHANTER_TOOLS = "ae:enchanter_tools";
 const ENCHANTER_PVP = "ae:enchanter_pvp";
 
-const TOOLS_LOADOUT = [
-  // Mining / harvesting tools
-  { id: "efficiency", level: 5 },
-  { id: "fortune", level: 3 },        // wins over silk_touch by being first
-  { id: "silk_touch", level: 1 },     // applied only when Fortune is invalid (e.g. shears)
-  // Fishing rod
-  { id: "lure", level: 3 },
-  { id: "luck_of_the_sea", level: 3 },
-  // Drops (counts as a "tool/utility" perk)
-  { id: "looting", level: 3 },
-  // Movement / utility armour
-  { id: "feather_falling", level: 4 },
-  { id: "depth_strider", level: 3 },
-  { id: "frost_walker", level: 2 },
-  { id: "soul_speed", level: 3 },
-  { id: "swift_sneak", level: 3 },
-  { id: "respiration", level: 3 },
-  { id: "aqua_affinity", level: 1 },
-  // Durability (universal)
-  { id: "unbreaking", level: 3 },
-  { id: "mending", level: 1 },
-];
+const E = (id, level) => ({ id, level });
+const DUR = [E("unbreaking", 3), E("mending", 1)]; // durability tail for most gear
 
-const PVP_LOADOUT = [
-  // Melee
-  { id: "sharpness", level: 5 },      // wins over smite/bane
-  { id: "impaling", level: 5 },       // trident
-  { id: "fire_aspect", level: 2 },    // sword
-  { id: "looting", level: 3 },        // sword
-  { id: "knockback", level: 2 },      // sword
-  // Ranged
-  { id: "power", level: 5 },          // bow
-  { id: "flame", level: 1 },          // bow
-  { id: "punch", level: 2 },          // bow
-  { id: "multishot", level: 1 },      // crossbow
-  { id: "piercing", level: 4 },       // crossbow
-  { id: "quick_charge", level: 3 },   // crossbow
-  // Trident utility
-  { id: "loyalty", level: 3 },        // wins over riptide
-  { id: "channeling", level: 1 },
-  // Armour
-  { id: "protection", level: 4 },     // wins over the specialised protections
-  { id: "thorns", level: 3 },
-  // Durability (universal)
-  { id: "unbreaking", level: 3 },
-  { id: "infinity", level: 1 },       // bow only; placed before mending
-  { id: "mending", level: 1 },
-];
+// ---- Per-item loadouts -----------------------------------------------------
+// Each list is tuned for that item + role. canAddEnchantment() is still used as a
+// safety net so anything illegal on the running version is skipped automatically.
 
-/** Apply a loadout to an item stack. Returns the count successfully applied. */
+const TOOLS = {
+  pickaxe: [E("efficiency", 5), E("fortune", 3), ...DUR],
+  shovel: [E("efficiency", 5), E("fortune", 3), ...DUR],
+  axe: [E("efficiency", 5), E("fortune", 3), ...DUR], // axe-as-TOOL
+  hoe: [E("efficiency", 5), ...DUR],
+  shears: [E("efficiency", 5), ...DUR],
+  fishing_rod: [E("lure", 3), E("luck_of_the_sea", 3), ...DUR],
+  flint_and_steel: [...DUR],
+  sword: [E("looting", 3), ...DUR], // utility take on a sword
+  spear: [E("lunge", 3), E("looting", 3), ...DUR], // Lunge = the mobility/utility pick
+  mace: [...DUR],
+  bow: [E("infinity", 1), E("unbreaking", 3)],
+  crossbow: [E("quick_charge", 3), ...DUR],
+  trident: [E("riptide", 3), E("unbreaking", 3), E("mending", 1)],
+  helmet: [E("respiration", 3), E("aqua_affinity", 1), ...DUR],
+  chest: [...DUR],
+  leggings: [E("swift_sneak", 3), ...DUR],
+  boots: [E("feather_falling", 4), E("depth_strider", 3), E("soul_speed", 3), ...DUR],
+  elytra: [...DUR],
+  shield: [...DUR],
+  other: [...DUR],
+};
+
+const PVP = {
+  sword: [E("sharpness", 5), E("fire_aspect", 2), E("looting", 3), E("knockback", 2), ...DUR],
+  axe: [E("sharpness", 5), ...DUR], // axe-as-WEAPON
+  // Spear (Mounts of Mayhem update) + its exclusive Lunge enchant.
+  spear: [E("sharpness", 5), E("lunge", 3), E("fire_aspect", 2), E("looting", 3), E("knockback", 2), ...DUR],
+  mace: [E("density", 5), E("breach", 4), E("wind_burst", 3), ...DUR], // heavy weapon
+  pickaxe: [...DUR],
+  shovel: [...DUR],
+  hoe: [...DUR],
+  shears: [...DUR],
+  flint_and_steel: [...DUR],
+  fishing_rod: [E("lure", 3), E("luck_of_the_sea", 3), ...DUR],
+  bow: [E("power", 5), E("flame", 1), E("punch", 2), E("infinity", 1), E("unbreaking", 3)],
+  crossbow: [E("multishot", 1), E("piercing", 4), E("quick_charge", 3), ...DUR],
+  trident: [E("impaling", 5), E("loyalty", 3), E("channeling", 1), ...DUR],
+  helmet: [E("protection", 4), E("respiration", 3), E("aqua_affinity", 1), E("thorns", 3), ...DUR],
+  chest: [E("protection", 4), E("thorns", 3), ...DUR],
+  leggings: [E("protection", 4), E("thorns", 3), E("swift_sneak", 3), ...DUR],
+  boots: [E("protection", 4), E("thorns", 3), E("feather_falling", 4), E("depth_strider", 3), ...DUR],
+  elytra: [...DUR],
+  shield: [...DUR],
+  other: [...DUR],
+};
+
+/** Classify an item by its typeId into a loadout category. */
+function categoryOf(typeId) {
+  const id = typeId.replace(/^.*:/, "");
+  if (id === "mace") return "mace";
+  if (id === "bow") return "bow";
+  if (id === "crossbow") return "crossbow";
+  if (id === "trident") return "trident";
+  if (id === "fishing_rod") return "fishing_rod";
+  if (id === "shears") return "shears";
+  if (id === "flint_and_steel") return "flint_and_steel";
+  if (id === "elytra") return "elytra";
+  if (id === "shield") return "shield";
+  if (id.includes("spear") || id.includes("javelin")) return "spear";
+  if (id.endsWith("_sword")) return "sword";
+  if (id.endsWith("_pickaxe")) return "pickaxe";
+  if (id.endsWith("_axe")) return "axe";
+  if (id.endsWith("_shovel")) return "shovel";
+  if (id.endsWith("_hoe")) return "hoe";
+  if (id === "turtle_helmet" || id.endsWith("_helmet") || id.endsWith("_cap")) return "helmet";
+  if (id.endsWith("_chestplate")) return "chest";
+  if (id.endsWith("_leggings")) return "leggings";
+  if (id.endsWith("_boots")) return "boots";
+  return "other";
+}
+
+function getLoadout(typeId, isTools) {
+  const table = isTools ? TOOLS : PVP;
+  return table[categoryOf(typeId)] ?? table.other;
+}
+
+/** Apply a loadout to an item stack. Returns count actually applied. */
 function enchantItem(itemStack, loadout) {
   const enchantable = itemStack.getComponent(ItemComponentTypes.Enchantable);
   if (!enchantable) return 0;
 
   try {
-    enchantable.removeAllEnchantments(); // start clean so we always reach max
+    enchantable.removeAllEnchantments(); // always rebuild to the full max set
   } catch (e) {}
 
   let applied = 0;
@@ -97,13 +118,12 @@ function enchantItem(itemStack, loadout) {
         applied++;
       }
     } catch (e) {
-      // Unknown id on this version, conflict, or out-of-bounds level: skip it.
+      // unknown id / conflict / bad level on this version: skip
     }
   }
   return applied;
 }
 
-/** "minecraft:diamond_pickaxe" -> "Diamond Pickaxe" */
 function prettyName(typeId) {
   return typeId
     .replace(/^.*:/, "")
@@ -116,23 +136,15 @@ function getSelectedSlot(player) {
   return player.selectedSlotIndex ?? player.selectedSlot ?? 0;
 }
 
-function isEnchanter(item) {
-  return item && (item.typeId === ENCHANTER_TOOLS || item.typeId === ENCHANTER_PVP);
-}
+const isEnchanter = (item) =>
+  item && (item.typeId === ENCHANTER_TOOLS || item.typeId === ENCHANTER_PVP);
 
-/**
- * Find the first enchantable target item.
- *  - heldSlot: the player's selected slot.
- *  - preferHeld: if true, check the held slot first (command mode where you hold
- *    the gear). If false, skip the held slot (item mode where you hold the Enchanter).
- * Returns { item, slot } or null.
- */
 function findTarget(container, heldSlot, preferHeld) {
   const total = container.size;
   const order = [];
   if (preferHeld) order.push(heldSlot);
-  for (let i = 0; i < Math.min(9, total); i++) order.push(i); // hotbar
-  for (let i = 9; i < total; i++) order.push(i);              // rest
+  for (let i = 0; i < Math.min(9, total); i++) order.push(i); // hotbar first
+  for (let i = 9; i < total; i++) order.push(i);
 
   for (const i of order) {
     if (!preferHeld && i === heldSlot) continue;
@@ -151,23 +163,23 @@ function consumeOne(container, slot) {
     held.amount -= 1;
     container.setItem(slot, held);
   } else {
-    container.setItem(slot); // clear the slot
+    container.setItem(slot);
   }
 }
 
-function feedbackFail(player, msg) {
-  player.onScreenDisplay.setActionBar(msg);
+function fail(player, msg) {
   try {
+    player.onScreenDisplay.setActionBar(msg);
     player.playSound("note.bass", { pitch: 0.7 });
   } catch (e) {}
 }
 
-function feedbackSuccess(player, isTools, name, count) {
+function success(player, isTools, name, count) {
   const flavour = isTools ? "§bTools" : "§cPVP";
-  player.onScreenDisplay.setActionBar(
-    `§a✦ ${flavour} §aenchanted §e${name} §awith §b${count} §aenchantment${count === 1 ? "" : "s"}!`
-  );
   try {
+    player.onScreenDisplay.setActionBar(
+      `§a✦ ${flavour} §aenchanted §e${name} §awith §b${count} §aenchantment${count === 1 ? "" : "s"}!`
+    );
     player.playSound("random.levelup", { pitch: 1.0, volume: 0.8 });
     player.dimension.spawnParticle("minecraft:villager_happy", {
       x: player.location.x,
@@ -177,65 +189,43 @@ function feedbackSuccess(player, isTools, name, count) {
   } catch (e) {}
 }
 
-/**
- * Core action shared by the item and the command.
- *  - consume: remove one Enchanter from the held slot (item mode only).
- *  - preferHeld: enchant the held item first (command mode).
- */
 function runEnchant(player, isTools, { consume, preferHeld }) {
   const container = player.getComponent("minecraft:inventory")?.container;
   if (!container) return;
 
   const heldSlot = getSelectedSlot(player);
   const target = findTarget(container, heldSlot, preferHeld);
-
   if (!target) {
-    feedbackFail(
-      player,
-      "§cNo enchantable gear found. §7Hold or hotbar the item you want to enchant."
-    );
+    fail(player, "§cNo enchantable gear found. §7Hold or hotbar the item you want to enchant.");
     return;
   }
 
-  const loadout = isTools ? TOOLS_LOADOUT : PVP_LOADOUT;
-  const count = enchantItem(target.item, loadout);
-
+  const count = enchantItem(target.item, getLoadout(target.item.typeId, isTools));
   if (count === 0) {
-    feedbackFail(player, `§e${prettyName(target.item.typeId)} §ccan't take these enchantments.`);
+    fail(player, `§e${prettyName(target.item.typeId)} §ccan't take these enchantments.`);
     return;
   }
 
   container.setItem(target.slot, target.item);
   if (consume) consumeOne(container, heldSlot);
-
-  feedbackSuccess(player, isTools, prettyName(target.item.typeId), count);
+  success(player, isTools, prettyName(target.item.typeId), count);
 }
 
-// ---- Item trigger: hold Enchanter in main hand, right-click ----
+// Item: hold Enchanter in main hand, right-click (consumes one).
 world.afterEvents.itemUse.subscribe((event) => {
   const player = event.source;
   const used = event.itemStack;
   if (!player || !used) return;
-
-  const isTools = used.typeId === ENCHANTER_TOOLS;
-  const isPvp = used.typeId === ENCHANTER_PVP;
-  if (!isTools && !isPvp) return;
-
-  runEnchant(player, isTools, { consume: true, preferHeld: false });
+  if (used.typeId !== ENCHANTER_TOOLS && used.typeId !== ENCHANTER_PVP) return;
+  runEnchant(player, used.typeId === ENCHANTER_TOOLS, { consume: true, preferHeld: false });
 });
 
-// ---- Command trigger: /scriptevent ae:tools  |  /scriptevent ae:pvp ----
-// Hold the gear you want and run the command. Free (no Enchanter consumed).
+// Command: /scriptevent ae:tools | ae:pvp  (hold the gear; free, nothing consumed).
 system.afterEvents.scriptEventReceive.subscribe((event) => {
-  const id = event.id;
-  if (id !== "ae:tools" && id !== "ae:pvp") return;
-
+  if (event.id !== "ae:tools" && event.id !== "ae:pvp") return;
   const player = event.sourceEntity;
-  // Only players have an inventory + on-screen display we can use.
   if (!player || player.typeId !== "minecraft:player") return;
-
-  const isTools = id === "ae:tools";
-  runEnchant(player, isTools, { consume: false, preferHeld: true });
+  runEnchant(player, event.id === "ae:tools", { consume: false, preferHeld: true });
 });
 
-console.log("[Auto Enchanter] loaded. Items: ae:enchanter_tools / ae:enchanter_pvp. Commands: /scriptevent ae:tools | ae:pvp");
+console.log("[Auto Enchanter] v2 loaded (@minecraft/server 2.x). Items + /scriptevent ae:tools|ae:pvp");

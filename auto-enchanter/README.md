@@ -51,39 +51,44 @@ You get an action-bar message, a level-up sound, and particles on success.
 
 ## What gets applied (vanilla-max levels)
 
-The script attempts a curated, priority-ordered set and lets the game decide which
-enchantments are valid for each item — so it works for **every** enchantable thing
-(swords, axes, pickaxes, shovels, hoes, shears, bows, crossbows, tridents, fishing
-rods, flint & steel, all armor, elytra, shields, etc.). Conflicting enchantments are
-resolved by priority (e.g. Fortune over Silk Touch, Sharpness over Smite, Protection
-over the specialised protections, Infinity over Mending on bows).
+Each item type gets its **own** hand-tuned loadout (not one generic set). A
+`canAddEnchantment()` safety net then drops anything illegal on your version, so it
+works for **every** enchantable thing — including the **Mace** and any **spear**
+added by another pack.
 
 ### Enchanter (Tools) — utility
 | Gear | Enchantments |
 |------|--------------|
 | Pickaxe / Shovel / Axe (as tool) | Efficiency V, Fortune III, Unbreaking III, Mending |
-| Hoe | Efficiency V, Fortune III, Unbreaking III, Mending |
-| Shears | Efficiency V, Silk Touch, Unbreaking III, Mending |
+| Hoe / Shears | Efficiency V, Unbreaking III, Mending |
 | Fishing rod | Lure III, Luck of the Sea III, Unbreaking III, Mending |
 | Sword | Looting III, Unbreaking III, Mending |
+| Bow | Infinity, Unbreaking III |
+| Crossbow | Quick Charge III, Unbreaking III, Mending |
+| Trident | Riptide III, Unbreaking III, Mending |
 | Helmet | Respiration III, Aqua Affinity, Unbreaking III, Mending |
 | Chestplate | Unbreaking III, Mending |
 | Leggings | Swift Sneak III, Unbreaking III, Mending |
-| Boots | Feather Falling IV, Depth Strider III, Frost Walker II, Soul Speed III, Unbreaking III, Mending |
+| Boots | Feather Falling IV, Depth Strider III, Soul Speed III, Unbreaking III, Mending |
 
 ### Enchanter (PVP) — combat
 | Gear | Enchantments |
 |------|--------------|
 | Sword | Sharpness V, Fire Aspect II, Looting III, Knockback II, Unbreaking III, Mending |
 | Axe (as weapon) | Sharpness V, Unbreaking III, Mending |
+| **Mace** | **Density V, Breach IV, Wind Burst III, Unbreaking III, Mending** |
+| **Spear** | **Sharpness V, Lunge III, Fire Aspect II, Looting III, Knockback II, Unbreaking III, Mending** |
 | Bow | Power V, Flame, Punch II, Infinity, Unbreaking III |
 | Crossbow | Multishot, Piercing IV, Quick Charge III, Unbreaking III, Mending |
 | Trident | Impaling V, Loyalty III, Channeling, Unbreaking III, Mending |
-| All armor | Protection IV, Thorns III, Unbreaking III, Mending |
+| Helmet | Protection IV, Respiration III, Aqua Affinity, Thorns III, Unbreaking III, Mending |
+| Chestplate | Protection IV, Thorns III, Unbreaking III, Mending |
+| Leggings | Protection IV, Thorns III, Swift Sneak III, Unbreaking III, Mending |
+| Boots | Protection IV, Thorns III, Feather Falling IV, Depth Strider III, Unbreaking III, Mending |
 
-> Note: which enchantments actually land depends on the running game version — only
-> enchantments that exist on Bedrock and are legal for that item are applied
-> (Java-only enchantments such as Sweeping Edge don't exist on Bedrock).
+> Only enchantments that exist on your running version and are legal for the item are
+> applied. The **Spear** (Mounts of Mayhem update) and its exclusive **Lunge** enchant
+> are fully supported; the Tools Enchanter puts **Lunge III** on a spear for mobility.
 
 ---
 
