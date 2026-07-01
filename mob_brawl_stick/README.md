@@ -1,7 +1,8 @@
 # 🥊 Brawl Stick — make mobs fight each other (Bedrock)
 
 The classic Java "dueling stick" for Minecraft Bedrock 1.21+. Tag two
-mobs with the stick and they turn on each other.
+mobs with the stick and they turn on each other. Comes with a second
+stick — the **Riot Stick** — that turns a mob's whole species against it.
 
 ## Install
 
@@ -10,10 +11,21 @@ world (uses the stable Script API — no experimental toggles needed).
 
 ## How to use
 
+### Brawl Stick (1 vs 1)
+
 1. Craft it: **redstone on top of a stick**.
 2. **Whack (or right-click) mob #1** — it gets tagged (crit sparkle + action bar message).
 3. **Whack mob #2** — angry particles, "FIGHT!", and they go at each other.
 4. Sneak + use the stick to clear your tag. Using it on air shows your current tag.
+
+### Riot Stick (everyone vs 1)
+
+1. Craft it: **gunpowder over redstone over a stick** (3 in a column).
+2. **Whack one mob** — every mob of the **same species** within 24 blocks
+   turns on it at once. Whack one zombie in a horde and watch the horde
+   eat its own.
+3. The riot lasts 60 seconds; the pack is re-angered every few seconds
+   until the victim dies... or outlives everyone who turned on it.
 
 Details:
 

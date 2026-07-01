@@ -2,6 +2,9 @@
 //  BRAWL STICK — make any two mobs fight each other
 //  Whack (or right-click) mob A to tag it, then whack mob B: FIGHT!
 //  Sneak + use the stick to clear your tag.
+//
+//  RIOT STICK — one whack, and every nearby mob of the SAME species
+//  turns on the mob you hit.
 // =====================================================================
 import {
   world,
@@ -11,15 +14,19 @@ import {
 } from "@minecraft/server";
 
 const STICK = "bw:brawl_stick";
+const RIOT_STICK = "bw:riot_stick";
 const SELECT_TIMEOUT = 600;    // tag expires after 30s
 const FIGHT_DURATION = 1200;   // keep the grudge alive for 60s
 const REAGGRO_INTERVAL = 90;   // re-poke every 4.5s so they don't lose interest
 const MAX_FIGHT_RANGE = 40;    // grudge breaks if they separate this far
+const RIOT_RADIUS = 24;        // how far the riot stick rallies the species
 
 // playerId -> { id: taggedEntityId, tick: whenTagged }
 const selections = new Map();
 // active grudges: { aId, bId, until }
 const fights = [];
+// active riots: { targetId, attackerIds: [], until }
+const riots = [];
 // playerId -> last handled tick (debounce double-fired events)
 const lastAction = new Map();
 
@@ -142,30 +149,77 @@ function handleTag(player, target) {
   }
 }
 
-// left click / punch with the stick
+function handleRiot(player, target) {
+  const now = system.currentTick;
+  if (now - (lastAction.get(player.id) ?? -99) < 5) return;
+  lastAction.set(player.id, now);
+
+  if (!canBrawl(target)) {
+    actionbar(player, "§7The Riot Stick can't turn anything against that.");
+    return;
+  }
+
+  // rally every nearby mob of the same species against the one you hit
+  let pack = [];
+  try {
+    pack = target.dimension
+      .getEntities({
+        type: target.typeId,
+        location: target.location,
+        maxDistance: RIOT_RADIUS
+      })
+      .filter((e) => e.id !== target.id && canBrawl(e));
+  } catch { }
+
+  if (pack.length === 0) {
+    actionbar(player, `§7No other ${displayName(target)}s nearby to turn against it.`);
+    sound(player, "random.click", 1);
+    return;
+  }
+
+  const attackerIds = [];
+  for (const mob of pack) {
+    poke(mob, target); // each one now believes the target attacked it
+    attackerIds.push(mob.id);
+    markParticle(mob, "minecraft:villager_angry");
+  }
+  // and the victim swings back at the nearest traitor
+  poke(target, pack[0]);
+  markParticle(target, "minecraft:critical_hit_emitter");
+  sound(player, "mob.irongolem.attack", 1.5);
+  actionbar(player, `§4${pack.length} §c${displayName(target)}s §6turn on §f${displayName(target)}§6 — RIOT!`);
+  riots.push({ targetId: target.id, attackerIds, until: now + FIGHT_DURATION });
+}
+
+// left click / punch with either stick
 world.afterEvents.entityHitEntity.subscribe((ev) => {
   const player = ev.damagingEntity;
   if (player?.typeId !== "minecraft:player") return;
+  let heldId;
   try {
     const equip = player.getComponent("minecraft:equippable");
-    const held = equip?.getEquipment(EquipmentSlot.Mainhand);
-    if (held?.typeId !== STICK) return;
+    heldId = equip?.getEquipment(EquipmentSlot.Mainhand)?.typeId;
   } catch {
     return;
   }
-  handleTag(player, ev.hitEntity);
+  if (heldId === STICK) handleTag(player, ev.hitEntity);
+  else if (heldId === RIOT_STICK) handleRiot(player, ev.hitEntity);
 });
 
-// right click / interact with the stick (where the mob allows it)
+// right click / interact with either stick (where the mob allows it)
 try {
   world.afterEvents.playerInteractWithEntity.subscribe((ev) => {
-    if (ev.itemStack?.typeId !== STICK) return;
-    handleTag(ev.player, ev.target);
+    if (ev.itemStack?.typeId === STICK) handleTag(ev.player, ev.target);
+    else if (ev.itemStack?.typeId === RIOT_STICK) handleRiot(ev.player, ev.target);
   });
 } catch { /* event unavailable on this engine version — punching still works */ }
 
-// using the stick on air: show status, or sneak-use to clear the tag
+// using a stick on air: show status, or sneak-use to clear the tag
 world.afterEvents.itemUse.subscribe((ev) => {
+  if (ev.itemStack?.typeId === RIOT_STICK) {
+    actionbar(ev.source, "§7Whack a mob and every nearby mob of its species turns on it.");
+    return;
+  }
   if (ev.itemStack?.typeId !== STICK) return;
   const player = ev.source;
   const now = system.currentTick;
@@ -222,6 +276,38 @@ system.runInterval(() => {
     } catch {
       fights.splice(i, 1);
     }
+  }
+
+  // keep riots hot: re-anger the surviving pack at the target
+  for (let i = riots.length - 1; i >= 0; i--) {
+    const r = riots[i];
+    if (now > r.until) {
+      riots.splice(i, 1);
+      continue;
+    }
+    let target = null;
+    try { target = world.getEntity(r.targetId); } catch { }
+    if (!target || !canBrawl(target)) {
+      riots.splice(i, 1); // the mob (or the riot) is finished
+      continue;
+    }
+    const survivors = [];
+    for (const id of r.attackerIds) {
+      let mob = null;
+      try { mob = world.getEntity(id); } catch { }
+      if (!mob || !canBrawl(mob)) continue;
+      try {
+        if (mob.dimension.id !== target.dimension.id ||
+          distance(mob.location, target.location) > MAX_FIGHT_RANGE) continue;
+        poke(mob, target);
+        survivors.push(id);
+      } catch { }
+    }
+    if (survivors.length === 0) {
+      riots.splice(i, 1); // target outlived the whole mob... respect
+      continue;
+    }
+    r.attackerIds = survivors;
   }
 }, REAGGRO_INTERVAL);
 

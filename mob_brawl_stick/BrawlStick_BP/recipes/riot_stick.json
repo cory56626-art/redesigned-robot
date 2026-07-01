@@ -1,0 +1,15 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": { "identifier": "bw:riot_stick_recipe" },
+    "tags": ["crafting_table"],
+    "unlock": [{ "item": "minecraft:gunpowder" }],
+    "pattern": ["G", "R", "S"],
+    "key": {
+      "G": { "item": "minecraft:gunpowder" },
+      "R": { "item": "minecraft:redstone" },
+      "S": { "item": "minecraft:stick" }
+    },
+    "result": { "item": "bw:riot_stick" }
+  }
+}

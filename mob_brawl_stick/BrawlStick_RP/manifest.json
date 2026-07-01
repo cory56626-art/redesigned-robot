@@ -4,14 +4,26 @@
     "name": "Brawl Stick [RP]",
     "description": "Icon and textures for the Brawl Stick.",
     "uuid": "b846e04e-1561-452d-8e0a-edaa25252d54",
-    "version": [1, 0, 0],
-    "min_engine_version": [1, 21, 0]
+    "version": [
+      1,
+      1,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      21,
+      0
+    ]
   },
   "modules": [
     {
       "type": "resources",
       "uuid": "424e8872-df16-4e96-96d1-cfc94bf3d7d9",
-      "version": [1, 0, 0]
+      "version": [
+        1,
+        1,
+        0
+      ]
     }
   ]
 }

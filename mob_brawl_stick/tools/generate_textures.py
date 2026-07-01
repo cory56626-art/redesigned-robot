@@ -46,6 +46,42 @@ def tex_brawl_stick():
     return img
 
 
+def tex_riot_stick():
+    img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    px = img.load()
+    # diagonal stick, but angrier: charred wood, crimson head, spark burst
+    wood = (70, 50, 34, 255)
+    wood_hi = (96, 68, 44, 255)
+    for i in range(11):
+        x, y = 2 + i, 13 - i
+        px[x, y] = wood
+        if x + 1 < 16:
+            px[x + 1, y] = wood_hi
+    # long crimson riot head (top 5 segments)
+    for i in range(6, 11):
+        x, y = 2 + i, 13 - i
+        px[x, y] = (160, 20, 20, 255)
+        if x + 1 < 16:
+            px[x + 1, y] = (210, 40, 30, 255)
+    # spark burst at the tip
+    for dx, dy in ((0, 0), (1, -1), (-1, -1), (1, 1), (-1, 0), (0, -2)):
+        x, y = 13 + dx, 2 + dy
+        if 0 <= x < 16 and 0 <= y < 16:
+            px[x, y] = (255, 170, 60, 255)
+    px[13, 2] = (255, 240, 160, 255)
+    # gunpowder-gray band mid-stick
+    for i in (4, 5):
+        x, y = 2 + i, 13 - i
+        px[x, y] = (110, 110, 115, 255)
+        if x + 1 < 16:
+            px[x + 1, y] = (140, 140, 145, 255)
+    # grip wrap at the base
+    px[2, 13] = (45, 30, 22, 255)
+    px[3, 13] = (45, 30, 22, 255)
+    px[3, 12] = (45, 30, 22, 255)
+    return img
+
+
 def pack_icon(bg):
     img = Image.new("RGBA", (256, 256), bg)
     d = ImageDraw.Draw(img)
@@ -77,6 +113,7 @@ def save(img, *path):
 
 
 save(tex_brawl_stick(), RP, "textures/items/brawl_stick.png")
+save(tex_riot_stick(), RP, "textures/items/riot_stick.png")
 save(pack_icon((44, 30, 26, 255)), BP, "pack_icon.png")
 save(pack_icon((30, 26, 44, 255)), RP, "pack_icon.png")
 print("done")
