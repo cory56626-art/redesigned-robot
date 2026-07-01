@@ -3,561 +3,687 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>THE HOLLOW — Horror Survival</title>
+<title>HOLLOW CREEK — 3D Horror Survival</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; background: #000; overflow: hidden; font-family: 'Courier New', monospace; }
-  #game { display: block; width: 100vw; height: 100vh; cursor: none; }
-  #ui {
-    position: fixed; inset: 0; pointer-events: none;
-    display: flex; flex-direction: column; justify-content: space-between;
-    padding: 18px; color: #b8b8b8; text-shadow: 0 0 6px #000;
+  #game { display: block; width: 100vw; height: 100vh; image-rendering: pixelated; }
+  #ui { position: fixed; inset: 0; pointer-events: none; color: #b8b8b8; text-shadow: 0 0 6px #000; }
+  #objectives {
+    position: fixed; top: 16px; left: 16px; font-size: 13px; line-height: 1.9;
+    letter-spacing: 1px; opacity: .85;
   }
-  .hud-top { display: flex; justify-content: space-between; font-size: 15px; letter-spacing: 1px; }
-  .hud-bottom { display: flex; justify-content: space-between; align-items: flex-end; font-size: 13px; }
-  .bar-wrap { width: 180px; }
-  .bar-label { font-size: 11px; margin-bottom: 3px; opacity: .8; }
-  .bar { height: 9px; background: #111; border: 1px solid #333; }
-  .bar > div { height: 100%; transition: width .2s; }
+  #objectives .done { color: #4d8a4d; text-decoration: line-through; opacity: .6; }
+  #objectives .active { color: #d8c66a; }
+  #inv { position: fixed; top: 16px; right: 16px; font-size: 13px; text-align: right; line-height: 1.9; color: #d8c66a; }
+  .hud-bottom {
+    position: fixed; bottom: 16px; left: 16px; right: 16px;
+    display: flex; justify-content: space-between; align-items: flex-end; font-size: 12px;
+  }
+  .bar-wrap { width: 170px; }
+  .bar-label { font-size: 10px; margin-bottom: 3px; opacity: .8; letter-spacing: 2px; }
+  .bar { height: 8px; background: #111; border: 1px solid #333; }
+  .bar > div { height: 100%; transition: width .15s; }
   #batteryFill { background: linear-gradient(90deg, #6a5d00, #e8d44d); }
   #sanityFill  { background: linear-gradient(90deg, #3a0d4d, #b04de8); }
-  #keys { color: #d8c66a; }
+  #staminaFill { background: linear-gradient(90deg, #0d3a4d, #4db0e8); }
+  #prompt {
+    position: fixed; left: 50%; top: 62%; transform: translateX(-50%);
+    font-size: 15px; letter-spacing: 2px; color: #d8c66a; text-shadow: 0 0 8px #000;
+  }
   #msg {
-    position: fixed; left: 50%; top: 68%; transform: translateX(-50%);
-    color: #ddd; font-size: 17px; letter-spacing: 2px; text-align: center;
-    text-shadow: 0 0 10px #000; opacity: 0; transition: opacity .6s; pointer-events: none;
+    position: fixed; left: 50%; top: 70%; transform: translateX(-50%); width: 90%;
+    color: #ccc; font-size: 16px; letter-spacing: 2px; text-align: center;
+    text-shadow: 0 0 10px #000; opacity: 0; transition: opacity .5s;
   }
-  #vignette {
-    position: fixed; inset: 0; pointer-events: none;
-    background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,.85) 100%);
+  #crosshair {
+    position: fixed; left: 50%; top: 50%; width: 4px; height: 4px;
+    margin: -2px; background: rgba(255,255,255,.35); border-radius: 50%;
   }
-  #blood {
-    position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity .3s;
-    background: radial-gradient(ellipse at center, transparent 30%, rgba(120,0,0,.55) 100%);
-  }
+  #vignette { position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,.9) 100%); }
+  #blood { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity .25s;
+    background: radial-gradient(ellipse at center, transparent 25%, rgba(120,0,0,.6) 100%); }
+  #scare { position: fixed; inset: 0; z-index: 20; pointer-events: none; display: none; }
   #overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,.92);
+    position: fixed; inset: 0; background: rgba(0,0,0,.93); z-index: 30;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    color: #c9c9c9; text-align: center; z-index: 10;
+    color: #c9c9c9; text-align: center; padding: 20px;
   }
   #overlay h1 {
-    font-size: 54px; letter-spacing: 14px; font-weight: normal; color: #8a1010;
-    text-shadow: 0 0 24px rgba(160,0,0,.7); margin-bottom: 24px;
-    animation: flicker 4s infinite;
+    font-size: 50px; letter-spacing: 12px; font-weight: normal; color: #8a1010;
+    text-shadow: 0 0 24px rgba(160,0,0,.7); margin-bottom: 22px; animation: flicker 4s infinite;
   }
-  @keyframes flicker {
-    0%,100% { opacity: 1; } 92% { opacity: 1; } 93% { opacity: .3; }
-    94% { opacity: 1; } 96% { opacity: .5; } 97% { opacity: 1; }
-  }
-  #overlay p { max-width: 520px; line-height: 1.8; font-size: 14px; margin-bottom: 10px; opacity: .85; }
-  #overlay .keys { color: #d8c66a; }
+  @keyframes flicker { 0%,100%{opacity:1} 92%{opacity:1} 93%{opacity:.25} 94%{opacity:1} 96%{opacity:.5} 97%{opacity:1} }
+  #overlay p { max-width: 560px; line-height: 1.8; font-size: 14px; margin-bottom: 9px; opacity: .85; }
+  #overlay .gold { color: #d8c66a; }
   #overlay button {
-    margin-top: 28px; padding: 14px 44px; font-family: inherit; font-size: 16px;
+    margin-top: 26px; padding: 14px 44px; font-family: inherit; font-size: 16px;
     letter-spacing: 4px; background: transparent; color: #c9c9c9;
     border: 1px solid #555; cursor: pointer; transition: all .3s;
   }
   #overlay button:hover { background: #8a1010; border-color: #8a1010; color: #fff; }
+  #note {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    width: 340px; padding: 28px; background: #d9cfae; color: #2a2018; z-index: 15;
+    font-size: 14px; line-height: 1.7; box-shadow: 0 0 60px #000; display: none;
+    font-style: italic;
+  }
+  #note small { display:block; margin-top: 14px; font-style: normal; opacity: .6; }
   .hidden { display: none !important; }
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
+<canvas id="scare"></canvas>
 <div id="vignette"></div>
 <div id="blood"></div>
 <div id="ui">
-  <div class="hud-top">
-    <span id="keys">SIGILS: 0 / 5</span>
-    <span id="clock">3:00 AM</span>
-  </div>
+  <div id="objectives"></div>
+  <div id="inv"></div>
   <div class="hud-bottom">
-    <div class="bar-wrap">
-      <div class="bar-label">FLASHLIGHT</div>
-      <div class="bar"><div id="batteryFill" style="width:100%"></div></div>
-    </div>
-    <div class="bar-wrap">
-      <div class="bar-label" style="text-align:right">SANITY</div>
-      <div class="bar"><div id="sanityFill" style="width:100%"></div></div>
-    </div>
+    <div class="bar-wrap"><div class="bar-label">FLASHLIGHT</div><div class="bar"><div id="batteryFill" style="width:100%"></div></div></div>
+    <div class="bar-wrap"><div class="bar-label" style="text-align:center">STAMINA</div><div class="bar"><div id="staminaFill" style="width:100%"></div></div></div>
+    <div class="bar-wrap"><div class="bar-label" style="text-align:right">SANITY</div><div class="bar"><div id="sanityFill" style="width:100%"></div></div></div>
   </div>
+  <div id="crosshair"></div>
+  <div id="prompt"></div>
 </div>
 <div id="msg"></div>
+<div id="note"></div>
 <div id="overlay">
-  <h1>THE HOLLOW</h1>
-  <p>You wake in the woods at 3 AM. Something is out there, and it hates the light.</p>
-  <p>Find the <span class="keys">5 sigils</span> to open the gate before it finds you.</p>
-  <p><span class="keys">WASD / arrows</span> move &nbsp;·&nbsp; <span class="keys">mouse</span> aims the flashlight &nbsp;·&nbsp; <span class="keys">F</span> toggles it &nbsp;·&nbsp; <span class="keys">shift</span> sprints</p>
-  <p>The flashlight holds the creature back — but the battery is dying, and in the dark your mind unravels. Batteries glow faintly amber. Listen for its breathing.</p>
-  <button id="startBtn">ENTER THE WOODS</button>
+  <h1>HOLLOW CREEK</h1>
+  <p>Your car died on the forest road. The only lights you saw were the gates of Camp Hollow Creek — abandoned since the children vanished in '86. The gate locked itself behind you.</p>
+  <p>Restore power to open it: find the <span class="gold">rusty key</span>, unlock the chapel, collect <span class="gold">3 fuses</span> from the buildings, and start the <span class="gold">generator</span>. Then run.</p>
+  <p><span class="gold">CLICK</span> to look around (mouse) · <span class="gold">WASD</span> move · <span class="gold">SHIFT</span> sprint · <span class="gold">F</span> flashlight · <span class="gold">E</span> interact</p>
+  <p>It hunts in the dark. The beam holds it — briefly. It hates being seen. It does not stay where you left it.</p>
+  <button id="startBtn">ENTER THE CAMP</button>
 </div>
 
 <script>
 (() => {
 "use strict";
+// ============================================================ setup
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
-let W, H;
-function resize() { W = canvas.width = innerWidth; H = canvas.height = innerHeight; }
+const scareCv = document.getElementById('scare');
+const scareCx = scareCv.getContext('2d');
+let W, H, RW, RH; // css size and render size (render at reduced res for speed+grit)
+function resize() {
+  W = innerWidth; H = innerHeight;
+  RW = canvas.width = Math.floor(W / 2.5);
+  RH = canvas.height = Math.floor(H / 2.5);
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  scareCv.width = W; scareCv.height = H;
+  scareCv.style.width = W + 'px'; scareCv.style.height = H + 'px';
+}
 addEventListener('resize', resize); resize();
+const rand = (a, b) => a + Math.random() * (b - a);
 
-// ---------- Audio (procedural, no assets) ----------
-let AC = null, droneGain = null, heartTimer = 0;
+// ============================================================ audio (all procedural)
+let AC = null, droneGain = null, windGain = null;
 function initAudio() {
   if (AC) return;
   AC = new (window.AudioContext || window.webkitAudioContext)();
-  // low drone
   const o1 = AC.createOscillator(), o2 = AC.createOscillator();
-  o1.type = 'sawtooth'; o1.frequency.value = 41;
-  o2.type = 'sine'; o2.frequency.value = 43.5;
-  const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 120;
+  o1.type = 'sawtooth'; o1.frequency.value = 38;
+  o2.type = 'sine'; o2.frequency.value = 40.7;
+  const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 110;
   droneGain = AC.createGain(); droneGain.gain.value = 0.05;
   o1.connect(f); o2.connect(f); f.connect(droneGain); droneGain.connect(AC.destination);
   o1.start(); o2.start();
+  // wind: filtered noise
+  const nb = AC.createBuffer(1, AC.sampleRate * 4, AC.sampleRate);
+  const nd = nb.getChannelData(0);
+  for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+  const ns = AC.createBufferSource(); ns.buffer = nb; ns.loop = true;
+  const nf = AC.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 300; nf.Q.value = 0.6;
+  windGain = AC.createGain(); windGain.gain.value = 0.02;
+  ns.connect(nf); nf.connect(windGain); windGain.connect(AC.destination); ns.start();
 }
-function blip(freq, dur, vol, type = 'sine') {
+function blip(freq, dur, vol, type = 'sine', slideTo) {
   if (!AC) return;
   const o = AC.createOscillator(), g = AC.createGain();
   o.type = type; o.frequency.value = freq;
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, AC.currentTime + dur);
   g.gain.setValueAtTime(vol, AC.currentTime);
   g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + dur);
   o.connect(g); g.connect(AC.destination);
   o.start(); o.stop(AC.currentTime + dur);
 }
-function heartbeat() {
-  blip(55, 0.12, 0.35, 'sine');
-  setTimeout(() => blip(48, 0.1, 0.25, 'sine'), 140);
-}
-function whisper() {
+function noiseHit(dur, vol, freq, q) {
   if (!AC) return;
-  const buf = AC.createBuffer(1, AC.sampleRate * 0.7, AC.sampleRate);
+  const buf = AC.createBuffer(1, AC.sampleRate * dur, AC.sampleRate);
   const d = buf.getChannelData(0);
-  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / d.length * 4) * 0.5;
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / d.length * 5);
   const src = AC.createBufferSource(); src.buffer = buf;
-  const f = AC.createBiquadFilter(); f.type = 'bandpass';
-  f.frequency.value = 900 + Math.random() * 2200; f.Q.value = 8;
-  const g = AC.createGain(); g.gain.value = 0.18;
+  const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+  const g = AC.createGain(); g.gain.value = vol;
   src.connect(f); f.connect(g); g.connect(AC.destination); src.start();
 }
+const whisper = () => noiseHit(0.8, 0.35, rand(800, 3000), 9);
+const footstep = () => noiseHit(0.09, 0.25, rand(90, 140), 2);
+const doorCreak = () => { blip(180, 1.1, 0.22, 'sawtooth', 90); noiseHit(0.9, 0.2, 400, 4); };
+function screamSting() {
+  blip(rand(700, 900), 0.9, 0.5, 'sawtooth', 120);
+  blip(rand(300, 400), 1.1, 0.4, 'square', 60);
+  noiseHit(1.0, 0.6, 1800, 3);
+}
+function heartbeat() { blip(52, 0.12, 0.4); setTimeout(() => blip(45, 0.1, 0.3), 150); }
 
-// ---------- World ----------
-const WORLD = 3000;
-const TILE = 60;
-let trees = [], sigils = [], batteries = [], gate;
-let player, monster, state;
+// ============================================================ map
+// tiles: 0 floor, 1 tree, 2 wood wall, 3 stone wall, 4 door, 5 locked door, 6 gate, 7 metal wall
+const MS = 48;
+let map = [];
+const tileAt = (x, y) => (x < 0 || y < 0 || x >= MS || y >= MS) ? 1 : map[y * MS + x];
+const solid = t => t !== 0;
 
-function rand(a, b) { return a + Math.random() * (b - a); }
-function dist(a, b) { const dx = a.x - b.x, dy = a.y - b.y; return Math.hypot(dx, dy); }
-
-function genWorld() {
-  trees = [];
-  const cx = WORLD / 2, cy = WORLD / 2;
-  for (let i = 0; i < 420; i++) {
-    const t = { x: rand(80, WORLD - 80), y: rand(80, WORLD - 80), r: rand(14, 30), sway: Math.random() * 6.28 };
-    if (Math.hypot(t.x - cx, t.y - cy) < 160) continue; // spawn clearing
-    trees.push(t);
-  }
-  sigils = [];
-  for (let i = 0; i < 5; i++) {
-    const ang = (i / 5) * Math.PI * 2 + rand(-0.3, 0.3);
-    const d = rand(700, 1300);
-    sigils.push({ x: cx + Math.cos(ang) * d, y: cy + Math.sin(ang) * d, got: false, pulse: Math.random() * 6.28 });
-  }
-  batteries = [];
-  for (let i = 0; i < 8; i++)
-    batteries.push({ x: rand(200, WORLD - 200), y: rand(200, WORLD - 200), got: false });
-  gate = { x: cx, y: 200, open: false };
+function building(x0, y0, x1, y1, wall, doorX, doorY, doorTile) {
+  for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++)
+    if (x === x0 || x === x1 || y === y0 || y === y1) map[y * MS + x] = wall;
+  map[doorY * MS + doorX] = doorTile;
+  // clear a step outside the door
+  const ox = doorX + (doorX === x0 ? -1 : doorX === x1 ? 1 : 0);
+  const oy = doorY + (doorY === y0 ? -1 : doorY === y1 ? 1 : 0);
+  if (ox >= 0 && oy >= 0) map[oy * MS + ox] = 0;
 }
 
+let sprites = []; // {x,y,type,taken}
+function genWorld() {
+  map = new Array(MS * MS).fill(0);
+  for (let i = 0; i < MS; i++) { // tree border, 2 deep
+    map[i] = 1; map[(MS - 1) * MS + i] = 1; map[i * MS] = 1; map[i * MS + MS - 1] = 1;
+    map[MS + i] = 1; map[(MS - 2) * MS + i] = 1; map[i * MS + 1] = 1; map[i * MS + MS - 2] = 1;
+  }
+  // gate in north border
+  map[1 * MS + 23] = 6; map[1 * MS + 24] = 6; map[1 * MS + 25] = 6;
+  map[0 * MS + 23] = 7; map[0 * MS + 25] = 7;
+
+  // buildings
+  building(5, 5, 14, 12, 2, 10, 12, 4);    // Cabin 1 (fuse)
+  building(33, 6, 42, 13, 7, 33, 10, 4);   // Tool shed (rusty key)
+  building(6, 33, 15, 41, 2, 15, 37, 4);   // Cabin 2 (fuse)
+  building(28, 31, 41, 43, 3, 34, 31, 5);  // Chapel — LOCKED (fuse)
+  // chapel inner pillars
+  map[36 * MS + 31] = 3; map[36 * MS + 38] = 3; map[39 * MS + 31] = 3; map[39 * MS + 38] = 3;
+
+  // random trees as obstacles (avoid buildings margin + spawn + gate lane)
+  const clearRects = [[3,3,17,15],[31,4,44,15],[4,31,18,43],[26,29,43,45],[20,20,28,28],[21,1,27,8]];
+  const inClear = (x, y) => clearRects.some(r => x >= r[0] && x <= r[2] && y >= r[1] && y <= r[3]);
+  for (let i = 0; i < 190; i++) {
+    const x = 2 + Math.floor(Math.random() * (MS - 4));
+    const y = 2 + Math.floor(Math.random() * (MS - 4));
+    if (map[y * MS + x] === 0 && !inClear(x, y)) map[y * MS + x] = 1;
+  }
+
+  sprites = [
+    { x: 9.5,  y: 8.5,  type: 'fuse' },
+    { x: 11.5, y: 37.5, type: 'fuse' },
+    { x: 34.5, y: 40.5, type: 'fuse' },   // inside chapel
+    { x: 37.5, y: 9.5,  type: 'key' },    // in shed
+    { x: 24.5, y: 4.5,  type: 'generator' },
+    { x: 12.5, y: 10.5, type: 'note', text: 'Day 3 — The counselors say the thing in the woods is a bear. Bears do not stand on two legs outside your window. Bears do not whisper your name.', sig: '— camper\'s diary, July 1986' },
+    { x: 30.5, y: 41.5, type: 'note', text: 'We sealed the chapel and cut the power ourselves. If the lights come back on, it will know the gate can open. God forgive whoever turns that generator.', sig: '— Fr. Aldous, final entry' },
+    { x: 35.5, y: 11.5, type: 'note', text: 'Keep your torch on it. It cannot stand being SEEN. But the batteries never last. Nothing lasts here.', sig: '— scratched into the workbench' },
+    { x: 7.5,  y: 6.5,  type: 'battery' },
+    { x: 40.5, y: 7.5,  type: 'battery' },
+    { x: 8.5,  y: 39.5, type: 'battery' },
+    { x: 39.5, y: 42.5, type: 'battery' },
+    { x: 20.5, y: 18.5, type: 'battery' },
+    { x: 30.5, y: 22.5, type: 'battery' },
+    { x: 17.5, y: 28.5, type: 'battery' },
+  ];
+  for (const s of sprites) { s.taken = false; map[Math.floor(s.y) * MS + Math.floor(s.x)] = 0; }
+}
+
+// ============================================================ state
+let player, monster, state;
 function reset() {
   genWorld();
   player = {
-    x: WORLD / 2, y: WORLD / 2, ang: 0, speed: 170, sprint: 290,
-    battery: 100, sanity: 100, keys: 0, stamina: 100,
+    x: 24.5, y: 24.5, ang: -Math.PI / 2,
+    battery: 100, sanity: 100, stamina: 100,
+    fuses: 0, hasKey: false, chapelOpen: false, powered: false,
+    bob: 0, stepT: 0,
   };
   monster = {
-    x: WORLD / 2 + 1400, y: WORLD / 2 + 1400,
-    speed: 120, state: 'stalk', // stalk | hunt | repelled
-    repelTimer: 0, screamCd: 0,
+    x: 40.5, y: 24.5, state: 'lurk', tx: 10, ty: 40,
+    speed: 1.5, repel: 0, flee: 0, seenT: 0, tpT: rand(22, 35), screechT: 0,
   };
-  state = {
-    running: true, dead: false, won: false, time: 0,
-    lightOn: true, flicker: 0, msgTimer: 0, whisperCd: 5,
-    shake: 0, staticLvl: 0,
-  };
+  state = { running: true, time: 0, lightOn: true, flicker: 1, msgT: 0, whisperT: 6, heartT: 0, scareT: 0, noteOpen: false };
+  updateObjectives(); updateInv();
 }
 
-// ---------- Input ----------
+// ============================================================ input
 const keys = {};
-let mouse = { x: 0, y: 0 };
 addEventListener('keydown', e => {
-  keys[e.key.toLowerCase()] = true;
-  if (e.key.toLowerCase() === 'f' && state && state.running) {
-    state.lightOn = !state.lightOn;
-    blip(state.lightOn ? 800 : 500, 0.06, 0.15, 'square');
-  }
+  keys[e.code] = true;
+  if (!state || !state.running) return;
+  if (e.code === 'KeyF') { state.lightOn = !state.lightOn; blip(state.lightOn ? 800 : 500, 0.06, 0.15, 'square'); }
+  if (e.code === 'KeyE') interact();
 });
-addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+addEventListener('keyup', e => keys[e.code] = false);
+canvas.addEventListener('click', () => { if (state && state.running) canvas.requestPointerLock(); });
+addEventListener('mousemove', e => {
+  if (document.pointerLockElement === canvas && state && state.running)
+    player.ang += e.movementX * 0.0021;
+});
 
-// ---------- Messages ----------
+// ============================================================ hud
 const msgEl = document.getElementById('msg');
-function showMsg(text, t = 3) {
-  msgEl.textContent = text;
-  msgEl.style.opacity = 1;
-  state.msgTimer = t;
+function showMsg(t, secs = 3.2) { msgEl.textContent = t; msgEl.style.opacity = 1; state.msgT = secs; }
+function updateObjectives() {
+  const o = [];
+  o.push(player.hasKey ? '<div class="done">✕ find the rusty key</div>' : '<div class="active">◆ find the rusty key (tool shed)</div>');
+  o.push(player.fuses >= 3 ? '<div class="done">✕ collect 3 fuses</div>' : `<div class="active">◆ collect fuses — ${player.fuses}/3</div>`);
+  o.push(player.powered ? '<div class="done">✕ start the generator</div>' : '<div>◇ start the generator (north)</div>');
+  o.push(player.powered ? '<div class="active">◆ ESCAPE THROUGH THE GATE</div>' : '<div>◇ escape through the gate</div>');
+  document.getElementById('objectives').innerHTML = o.join('');
+}
+function updateInv() {
+  const inv = [];
+  if (player.hasKey) inv.push('⚿ rusty key');
+  if (player.fuses) inv.push('⚡ fuse ×' + player.fuses);
+  document.getElementById('inv').innerHTML = inv.join('<br>');
 }
 
-// ---------- Update ----------
+// ============================================================ interaction
+function facingTile() {
+  const fx = player.x + Math.cos(player.ang) * 1.1;
+  const fy = player.y + Math.sin(player.ang) * 1.1;
+  return { x: Math.floor(fx), y: Math.floor(fy), t: tileAt(Math.floor(fx), Math.floor(fy)) };
+}
+function nearestSprite(maxD) {
+  let best = null, bd = maxD;
+  for (const s of sprites) {
+    if (s.taken || s.type === 'generator' && false) continue;
+    const d = Math.hypot(s.x - player.x, s.y - player.y);
+    if (d < bd) { bd = d; best = s; }
+  }
+  return best;
+}
+function interact() {
+  if (state.noteOpen) { document.getElementById('note').style.display = 'none'; state.noteOpen = false; return; }
+  const s = nearestSprite(1.3);
+  if (s) {
+    if (s.type === 'battery') { s.taken = true; player.battery = Math.min(100, player.battery + 40); blip(660,.15,.2,'triangle'); blip(990,.2,.15,'triangle'); showMsg('battery — the light lives a little longer'); return; }
+    if (s.type === 'key') { s.taken = true; player.hasKey = true; blip(1200,.3,.2,'triangle'); showMsg('rusty key — it smells like old blood'); whisper(); updateObjectives(); updateInv(); return; }
+    if (s.type === 'fuse') { s.taken = true; player.fuses++; blip(220,.5,.25); blip(330,.6,.2); whisper(); monster.speed += 0.25;
+      showMsg(player.fuses >= 3 ? 'all fuses. the generator is north of the flagpole. it heard that.' : `fuse ${player.fuses}/3 — something shifted in the treeline`);
+      updateObjectives(); updateInv(); return; }
+    if (s.type === 'note') { const n = document.getElementById('note'); n.innerHTML = s.text + '<small>' + s.sig + '</small><small>[E] put it down</small>'; n.style.display = 'block'; state.noteOpen = true; noiseHit(.3,.2,900,3); return; }
+    if (s.type === 'generator') {
+      if (player.powered) { showMsg('it is running. GO.'); return; }
+      if (player.fuses >= 3) {
+        player.powered = true; player.fuses = 0;
+        blip(60, 2.5, 0.4, 'sawtooth', 110); noiseHit(1.5, 0.4, 200, 1);
+        showMsg('POWER RESTORED — the gate is open. IT IS COMING. RUN.', 6);
+        monster.state = 'hunt'; monster.speed = 3.1; monster.x = 24.5; monster.y = 44.5;
+        updateObjectives(); updateInv();
+      } else showMsg(`the fuse box gapes empty — ${3 - player.fuses} fuse${player.fuses===2?'':'s'} missing`);
+      return;
+    }
+  }
+  const f = facingTile();
+  if (f.t === 4) { map[f.y * MS + f.x] = 0; doorCreak(); showMsg('the door gives way'); return; }
+  if (f.t === 5) {
+    if (player.hasKey) { map[f.y * MS + f.x] = 0; player.chapelOpen = true; doorCreak(); screamSting(); state.scareT = 0.35; showMsg('the chapel exhales forty years of held breath'); }
+    else showMsg('locked. a keyhole crusted with rust.');
+    return;
+  }
+  if (f.t === 6) {
+    if (player.powered) return win();
+    showMsg('the gate is dead. no power.');
+    return;
+  }
+}
+
+// ============================================================ helpers
+function castRay(ang) {
+  const dx = Math.cos(ang), dy = Math.sin(ang);
+  let mx = Math.floor(player.x), my = Math.floor(player.y);
+  const ddx = Math.abs(1 / dx), ddy = Math.abs(1 / dy);
+  let sx, sy, sdx, sdy;
+  if (dx < 0) { sx = -1; sdx = (player.x - mx) * ddx; } else { sx = 1; sdx = (mx + 1 - player.x) * ddx; }
+  if (dy < 0) { sy = -1; sdy = (player.y - my) * ddy; } else { sy = 1; sdy = (my + 1 - player.y) * ddy; }
+  let side = 0, t = 0;
+  for (let i = 0; i < 64; i++) {
+    if (sdx < sdy) { sdx += ddx; mx += sx; side = 0; } else { sdy += ddy; my += sy; side = 1; }
+    t = tileAt(mx, my);
+    if (solid(t)) break;
+  }
+  const dist = side === 0 ? (mx - player.x + (1 - sx) / 2) / dx : (my - player.y + (1 - sy) / 2) / dy;
+  return { dist: Math.max(0.01, dist), side, t };
+}
+function los(ax, ay, bx, by) {
+  const d = Math.hypot(bx - ax, by - ay);
+  const steps = Math.ceil(d * 4);
+  for (let i = 1; i < steps; i++) {
+    const x = ax + (bx - ax) * i / steps, y = ay + (by - ay) * i / steps;
+    if (solid(tileAt(Math.floor(x), Math.floor(y)))) return false;
+  }
+  return true;
+}
+function moveWithCollision(e, dx, dy, r) {
+  const nx = e.x + dx, ny = e.y + dy;
+  if (!solid(tileAt(Math.floor(nx + Math.sign(dx) * r), Math.floor(e.y)))) e.x = nx;
+  if (!solid(tileAt(Math.floor(e.x), Math.floor(ny + Math.sign(dy) * r)))) e.y = ny;
+}
+
+// ============================================================ update
 function update(dt) {
   if (!state.running) return;
   state.time += dt;
 
-  // --- player movement ---
-  let dx = 0, dy = 0;
-  if (keys['w'] || keys['arrowup']) dy -= 1;
-  if (keys['s'] || keys['arrowdown']) dy += 1;
-  if (keys['a'] || keys['arrowleft']) dx -= 1;
-  if (keys['d'] || keys['arrowright']) dx += 1;
-  const moving = dx || dy;
-  const sprinting = keys['shift'] && moving && player.stamina > 0;
-  if (sprinting) player.stamina = Math.max(0, player.stamina - 28 * dt);
-  else player.stamina = Math.min(100, player.stamina + 16 * dt);
-  const spd = sprinting ? player.sprint : player.speed;
+  // --- movement ---
+  let mvF = 0, mvS = 0;
+  if (keys['KeyW'] || keys['ArrowUp']) mvF += 1;
+  if (keys['KeyS'] || keys['ArrowDown']) mvF -= 1;
+  if (keys['KeyA'] || keys['ArrowLeft']) mvS -= 1;
+  if (keys['KeyD'] || keys['ArrowRight']) mvS += 1;
+  const moving = (mvF || mvS) && !state.noteOpen;
+  const sprinting = keys['ShiftLeft'] && moving && player.stamina > 1;
+  player.stamina = sprinting ? Math.max(0, player.stamina - 30 * dt) : Math.min(100, player.stamina + 15 * dt);
+  const spd = (sprinting ? 4.6 : 2.6) * dt;
   if (moving) {
-    const m = Math.hypot(dx, dy);
-    const nx = player.x + dx / m * spd * dt;
-    const ny = player.y + dy / m * spd * dt;
-    // tree collision
-    let blocked = false;
-    for (const t of trees) {
-      if (Math.hypot(nx - t.x, ny - t.y) < t.r + 10) { blocked = true; break; }
-    }
-    if (!blocked) {
-      player.x = Math.min(WORLD - 30, Math.max(30, nx));
-      player.y = Math.min(WORLD - 30, Math.max(30, ny));
-    }
+    const ca = Math.cos(player.ang), sa = Math.sin(player.ang);
+    const m = Math.hypot(mvF, mvS);
+    moveWithCollision(player, (ca * mvF - sa * mvS) / m * spd, (sa * mvF + ca * mvS) / m * spd, 0.25);
+    player.bob += dt * (sprinting ? 13 : 8);
+    player.stepT -= dt;
+    if (player.stepT <= 0) { footstep(); player.stepT = sprinting ? 0.28 : 0.45; }
   }
-  player.ang = Math.atan2(mouse.y - H / 2, mouse.x - W / 2);
 
   // --- battery & sanity ---
-  if (state.lightOn) {
-    player.battery = Math.max(0, player.battery - 1.6 * dt);
-    if (player.battery <= 0) state.lightOn = false;
-  }
-  const inDark = !state.lightOn || player.battery <= 0;
-  if (inDark) {
-    player.sanity = Math.max(0, player.sanity - 4.5 * dt);
-  } else {
-    player.sanity = Math.min(100, player.sanity + 1.2 * dt);
-  }
-  // monster proximity drains sanity too
-  const mDist = dist(player, monster);
-  if (mDist < 500) player.sanity = Math.max(0, player.sanity - (500 - mDist) / 500 * 8 * dt);
-  if (player.sanity <= 0) return die('Your mind gave out before your body did.');
+  if (state.lightOn) { player.battery = Math.max(0, player.battery - 1.5 * dt); if (player.battery <= 0) { state.lightOn = false; blip(400,.3,.2,'square',100); showMsg('the flashlight dies'); } }
+  const inDark = !state.lightOn;
+  const mD = Math.hypot(monster.x - player.x, monster.y - player.y);
+  player.sanity = Math.max(0, Math.min(100, player.sanity + (inDark ? -4.2 : 1.0) * dt - (mD < 8 ? (8 - mD) * 1.4 * dt : 0)));
+  if (player.sanity <= 0) return die('Your mind cracked open in the dark, and something crawled in.');
+  state.flicker = (state.lightOn && player.battery < 20) ? (Math.random() < 0.12 ? rand(0.2, 1) : 1) : 1;
 
-  // low battery flicker
-  state.flicker = player.battery < 20 && state.lightOn
-    ? (Math.random() < 0.1 ? rand(0.3, 1) : 1) : 1;
+  // whispers
+  state.whisperT -= dt;
+  if (player.sanity < 60 && state.whisperT <= 0) { whisper(); state.whisperT = rand(2.5, 8) * (player.sanity / 60 + 0.3); }
 
-  // whispers when sanity low
-  state.whisperCd -= dt;
-  if (player.sanity < 55 && state.whisperCd <= 0) {
-    whisper();
-    state.whisperCd = rand(3, 9) * (player.sanity / 55 + 0.3);
-  }
+  // --- monster ---
+  const canSeeMon = los(player.x, player.y, monster.x, monster.y);
+  const toMon = Math.atan2(monster.y - player.y, monster.x - player.x);
+  let aDiff = Math.abs(((toMon - player.ang) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
+  const litUp = state.lightOn && canSeeMon && aDiff < 0.45 && mD < 9;
 
-  // --- pickups ---
-  for (const b of batteries) {
-    if (!b.got && dist(player, b) < 34) {
-      b.got = true;
-      player.battery = Math.min(100, player.battery + 45);
-      blip(660, 0.15, 0.2, 'triangle'); blip(990, 0.2, 0.15, 'triangle');
-      showMsg('battery — the light lives a little longer');
-    }
-  }
-  for (const s of sigils) {
-    if (!s.got && dist(player, s) < 36) {
-      s.got = true;
-      player.keys++;
-      blip(220, 0.5, 0.25, 'sine'); blip(330, 0.6, 0.2, 'sine');
-      whisper();
-      if (player.keys >= 5) {
-        gate.open = true;
-        showMsg('the gate groans open to the north. RUN.', 5);
-        monster.speed = 200; // endgame chase
-        monster.state = 'hunt';
-      } else {
-        showMsg(`sigil taken — ${5 - player.keys} remain. it knows.`);
-        monster.speed += 14;
-      }
-    }
-  }
-  // win check
-  if (gate.open && dist(player, gate) < 70) return win();
-
-  // --- monster AI ---
-  const facing = Math.atan2(monster.y - player.y, monster.x - player.x);
-  let angDiff = Math.abs(((player.ang - facing) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
-  const litUp = state.lightOn && angDiff < 0.5 && mDist < 420;
-
-  if (monster.repelTimer > 0) {
-    monster.repelTimer -= dt;
-    // flee from player
-    const a = Math.atan2(monster.y - player.y, monster.x - player.x);
-    monster.x += Math.cos(a) * 260 * dt;
-    monster.y += Math.sin(a) * 260 * dt;
+  if (monster.flee > 0) {
+    monster.flee -= dt;
+    moveWithCollision(monster, Math.cos(toMon) * 4.5 * dt, Math.sin(toMon) * 4.5 * dt, 0.3);
   } else if (litUp) {
-    monster.repelTimer = rand(2, 4);
-    blip(90, 0.8, 0.4, 'sawtooth');
-    state.shake = 0.4;
-    showMsg('it recoils from the beam', 1.5);
+    monster.repel += dt;
+    if (monster.repel > 0.7) {
+      monster.flee = rand(1.5, 3); monster.repel = 0;
+      blip(90, 0.9, 0.45, 'sawtooth', 40); state.scareT = Math.max(state.scareT, 0.15);
+      showMsg('it shrieks away from the beam', 1.5);
+    }
   } else {
-    // pursue — faster when player is in the dark or sprinting (noise)
-    let chase = monster.speed;
-    if (inDark) chase *= 1.35;
-    if (sprinting) chase *= 1.2;
-    if (monster.state === 'stalk') {
-      // circle at distance, close in slowly
-      const orbit = facing + 0.6;
-      const want = Math.max(250, mDist - 30 * dt);
-      monster.x = player.x + Math.cos(orbit) * want;
-      monster.y = player.y + Math.sin(orbit) * want;
-      if (state.time > 25 && Math.random() < 0.003 + state.time / 40000) monster.state = 'hunt';
-      if (mDist > 900) { // teleport closer when far — it's always near
-        const a = rand(0, 6.28);
-        monster.x = player.x + Math.cos(a) * 700;
-        monster.y = player.y + Math.sin(a) * 700;
-      }
-    } else {
+    monster.repel = Math.max(0, monster.repel - dt * 2);
+    const aggro = monster.state === 'hunt';
+    if (aggro) {
       const a = Math.atan2(player.y - monster.y, player.x - monster.x);
-      monster.x += Math.cos(a) * chase * dt;
-      monster.y += Math.sin(a) * chase * dt;
-      monster.screamCd -= dt;
-      if (monster.screamCd <= 0 && mDist < 600) {
-        blip(rand(140, 220), 1.2, 0.3, 'sawtooth');
-        monster.screamCd = rand(3, 6);
+      let sp = monster.speed * (inDark ? 1.35 : 1);
+      moveWithCollision(monster, Math.cos(a) * sp * dt, Math.sin(a) * sp * dt, 0.3);
+      // wall-stuck nudge
+      if (!canSeeMon && Math.random() < 0.02) { monster.x += rand(-0.5, 0.5); monster.y += rand(-0.5, 0.5); }
+      monster.screechT -= dt;
+      if (monster.screechT <= 0 && mD < 14) { blip(rand(150, 260), 1.1, 0.32, 'sawtooth', 70); monster.screechT = rand(2.5, 5); }
+      if (!canSeeMon) { monster.seenT += dt; if (monster.seenT > 7 && !player.powered) { monster.state = 'lurk'; monster.seenT = 0; } }
+      else monster.seenT = 0;
+    } else {
+      // lurk: drift toward waypoint near the player
+      const a = Math.atan2(monster.ty - monster.y, monster.tx - monster.x);
+      moveWithCollision(monster, Math.cos(a) * 1.1 * dt, Math.sin(a) * 1.1 * dt, 0.3);
+      if (Math.hypot(monster.tx - monster.x, monster.ty - monster.y) < 1.5) {
+        const wa = rand(0, 6.28), wd = rand(5, 10);
+        monster.tx = Math.min(MS - 3, Math.max(3, player.x + Math.cos(wa) * wd));
+        monster.ty = Math.min(MS - 3, Math.max(3, player.y + Math.sin(wa) * wd));
       }
-      if (Math.random() < 0.002 && mDist > 500) monster.state = 'stalk';
+      if ((canSeeMon && mD < 7) || (sprinting && mD < 9) || (inDark && mD < 11 && Math.random() < 0.005))
+        { monster.state = 'hunt'; noiseHit(0.6, 0.4, 300, 2); }
+    }
+    // teleport scare — it does not stay where you left it
+    monster.tpT -= dt;
+    if (monster.tpT <= 0) {
+      monster.tpT = rand(20, 38);
+      if (mD > 11 && !player.powered) {
+        const behind = player.ang + Math.PI + rand(-0.7, 0.7);
+        let bx = player.x + Math.cos(behind) * 5, by = player.y + Math.sin(behind) * 5;
+        if (!solid(tileAt(Math.floor(bx), Math.floor(by)))) {
+          monster.x = bx; monster.y = by;
+          whisper(); blip(70, 0.6, 0.3, 'sine');
+        }
+      }
     }
   }
-
-  // heartbeat pacing
-  heartTimer -= dt;
-  if (heartTimer <= 0) {
-    const rate = mDist < 200 ? 0.45 : mDist < 450 ? 0.8 : 1.6;
-    if (mDist < 700) heartbeat();
-    heartTimer = rate;
-  }
-  if (droneGain) droneGain.gain.value = 0.04 + Math.max(0, (700 - mDist) / 700) * 0.08;
-
-  // blood overlay near monster
-  document.getElementById('blood').style.opacity = Math.max(0, (350 - mDist) / 350) * 0.9;
-
   // caught
-  if (mDist < 42) return die('It found you in the dark.');
+  if (mD < 0.75) return die('It was already reaching for you when you turned around.');
 
-  // --- HUD ---
+  // heartbeat + drone by proximity
+  state.heartT -= dt;
+  if (state.heartT <= 0) { if (mD < 12) heartbeat(); state.heartT = mD < 4 ? 0.42 : mD < 8 ? 0.75 : 1.5; }
+  if (droneGain) droneGain.gain.value = 0.04 + Math.max(0, (12 - mD) / 12) * 0.09;
+  if (windGain) windGain.gain.value = 0.02 + (inDark ? 0.015 : 0);
+  document.getElementById('blood').style.opacity = Math.max(0, (5 - mD) / 5) * 0.85;
+
+  // --- hud ---
   document.getElementById('batteryFill').style.width = player.battery + '%';
   document.getElementById('sanityFill').style.width = player.sanity + '%';
-  document.getElementById('keys').textContent = `SIGILS: ${player.keys} / 5`;
-  const mins = Math.floor(state.time / 60), secs = Math.floor(state.time % 60);
-  const clockM = (3 + Math.floor((state.time * 4) / 3600)) % 12 || 12;
-  const clockS = Math.floor((state.time * 4) / 60) % 60;
-  document.getElementById('clock').textContent =
-    `${clockM}:${String(clockS).padStart(2, '0')} AM`;
+  document.getElementById('staminaFill').style.width = player.stamina + '%';
+  if (state.msgT > 0) { state.msgT -= dt; if (state.msgT <= 0) msgEl.style.opacity = 0; }
+  state.scareT = Math.max(0, state.scareT - dt);
 
-  if (state.msgTimer > 0) {
-    state.msgTimer -= dt;
-    if (state.msgTimer <= 0) msgEl.style.opacity = 0;
-  }
-  state.shake = Math.max(0, state.shake - dt);
+  // interact prompt
+  let pr = '';
+  const ns = nearestSprite(1.3);
+  if (ns) pr = { battery: '[E] take battery', key: '[E] take the rusty key', fuse: '[E] pull the fuse', note: '[E] read', generator: player.fuses >= 3 ? '[E] START THE GENERATOR' : '[E] inspect fuse box' }[ns.type];
+  else { const f = facingTile();
+    if (f.t === 4) pr = '[E] open door';
+    else if (f.t === 5) pr = player.hasKey ? '[E] unlock the chapel' : '[E] locked';
+    else if (f.t === 6) pr = player.powered ? '[E] ESCAPE' : '[E] gate (no power)'; }
+  document.getElementById('prompt').textContent = state.noteOpen ? '' : pr;
 }
 
+// ============================================================ death / win
+function drawScareFace() {
+  scareCv.style.display = 'block';
+  const c = scareCx; c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
+  const cx = W / 2 + rand(-14, 14), cy = H / 2 + rand(-14, 14), s = Math.min(W, H) / 2;
+  c.fillStyle = '#cfcfd4';
+  c.beginPath(); c.ellipse(cx, cy, s * 0.55, s * 0.85, 0, 0, 6.28); c.fill();
+  c.fillStyle = '#000';
+  c.beginPath(); c.ellipse(cx - s * 0.22, cy - s * 0.22, s * 0.13, s * 0.2, rand(-.2,.2), 0, 6.28); c.fill();
+  c.beginPath(); c.ellipse(cx + s * 0.22, cy - s * 0.22, s * 0.13, s * 0.2, rand(-.2,.2), 0, 6.28); c.fill();
+  c.beginPath(); c.ellipse(cx, cy + s * 0.35, s * 0.18, s * 0.38, 0, 0, 6.28); c.fill(); // gaping mouth
+  c.strokeStyle = 'rgba(0,0,0,.5)'; c.lineWidth = 2;
+  for (let i = 0; i < 24; i++) { // cracks
+    c.beginPath(); c.moveTo(cx + rand(-s*.5, s*.5), cy + rand(-s*.8, s*.8));
+    c.lineTo(cx + rand(-s*.5, s*.5), cy + rand(-s*.8, s*.8)); c.stroke();
+  }
+  c.fillStyle = 'rgba(255,0,0,.12)'; c.fillRect(0, 0, W, H);
+}
 function die(reason) {
-  state.running = false; state.dead = true;
-  blip(60, 2, 0.5, 'sawtooth');
-  showOverlay('YOU DIED', reason + ` You survived ${Math.floor(state.time)} seconds and found ${player.keys} of 5 sigils.`, 'TRY AGAIN');
+  state.running = false;
+  document.exitPointerLock && document.exitPointerLock();
+  screamSting(); setTimeout(screamSting, 150);
+  let n = 0;
+  const iv = setInterval(() => { drawScareFace(); if (++n > 14) { clearInterval(iv); scareCv.style.display = 'none';
+    showOverlay('YOU DIED', reason + ` — ${Math.floor(state.time)}s survived · ${player.fuses} fuse(s) held` + (player.powered ? ' · the gate was OPEN' : ''), 'TRY AGAIN'); } }, 70);
 }
 function win() {
-  state.running = false; state.won = true;
-  blip(440, 0.4, 0.2, 'sine'); blip(550, 0.5, 0.2, 'sine'); blip(660, 0.8, 0.2, 'sine');
-  showOverlay('YOU ESCAPED', `You slipped through the gate as it screamed behind you. ${Math.floor(state.time)} seconds in the Hollow — and part of you never left.`, 'RETURN');
+  state.running = false;
+  document.exitPointerLock && document.exitPointerLock();
+  blip(440,.4,.2); blip(550,.5,.2); blip(660,.9,.2);
+  showOverlay('YOU ESCAPED', `The gate slammed behind you and something hit it hard enough to bend the iron. ${Math.floor(state.time)} seconds in Hollow Creek. On the walk to the road, you kept your light on. You will keep it on for the rest of your life.`, 'AGAIN');
 }
 function showOverlay(title, body, btn) {
   const ov = document.getElementById('overlay');
   ov.querySelector('h1').textContent = title;
-  ov.querySelector('h1').style.color = state.won ? '#4d8a4d' : '#8a1010';
+  ov.querySelector('h1').style.color = title.includes('ESCAPED') ? '#4d8a4d' : '#8a1010';
   const ps = ov.querySelectorAll('p');
-  ps[0].textContent = body;
-  ps[1].textContent = ''; ps[2].textContent = ''; ps[3].textContent = '';
+  ps[0].textContent = body; ps[1].textContent = ''; ps[2].textContent = ''; ps[3].textContent = '';
   document.getElementById('startBtn').textContent = btn;
   ov.classList.remove('hidden');
 }
 
-// ---------- Render ----------
+// ============================================================ render
+const FOV = Math.PI / 2.9;
+const wallCol = { 1: [36, 66, 42], 2: [96, 68, 40], 3: [88, 88, 98], 4: [120, 88, 44], 5: [78, 58, 52], 6: [50, 110, 74], 7: [74, 78, 84] };
+// monster texture
+const monTex = document.createElement('canvas'); monTex.width = 64; monTex.height = 128;
+(() => {
+  const m = monTex.getContext('2d');
+  m.fillStyle = '#c8c8cf';
+  m.beginPath(); m.ellipse(32, 78, 11, 42, 0, 0, 6.28); m.fill();            // body
+  m.beginPath(); m.arc(32, 26, 12, 0, 6.28); m.fill();                       // head
+  m.strokeStyle = '#b8b8c0'; m.lineWidth = 5;
+  m.beginPath(); m.moveTo(23, 52); m.lineTo(10, 108); m.moveTo(41, 52); m.lineTo(54, 108); m.stroke(); // arms
+  m.fillStyle = '#000';
+  m.beginPath(); m.ellipse(27, 24, 3, 5, 0, 0, 6.28); m.fill();
+  m.beginPath(); m.ellipse(37, 24, 3, 5, 0, 0, 6.28); m.fill();
+  m.beginPath(); m.ellipse(32, 36, 4, 7, 0, 0, 6.28); m.fill();              // mouth
+  m.fillStyle = '#f22';
+  m.fillRect(26, 22, 2, 2); m.fillRect(36, 22, 2, 2);                        // red pupils
+})();
+
+const zbuf = new Float32Array(4096);
 function render() {
-  ctx.fillStyle = '#020203';
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, RW, RH);
   if (!player) return;
+  const bobY = Math.sin(player.bob) * 2.2;
+  const horizon = RH / 2 + bobY;
+  const lit = state.lightOn && player.battery > 0;
+  const lightPow = lit ? (3.0 * state.flicker) : 0;
 
-  const camX = player.x - W / 2, camY = player.y - H / 2;
-  const sx = state.shake > 0 ? rand(-6, 6) : 0;
-  const sy = state.shake > 0 ? rand(-6, 6) : 0;
-  ctx.save();
-  ctx.translate(-camX + sx, -camY + sy);
+  // ceiling & floor
+  let g = ctx.createLinearGradient(0, 0, 0, horizon);
+  g.addColorStop(0, '#05060a'); g.addColorStop(1, '#000');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, RW, horizon);
+  g = ctx.createLinearGradient(0, horizon, 0, RH);
+  g.addColorStop(0, '#000'); g.addColorStop(1, '#0c0f0a');
+  ctx.fillStyle = g; ctx.fillRect(0, horizon, RW, RH - horizon);
+  if (lit) { // floor light pool
+    g = ctx.createRadialGradient(RW / 2, RH, 10, RW / 2, RH * 0.98, RH * 0.75);
+    g.addColorStop(0, `rgba(255,240,190,${0.10 * state.flicker})`); g.addColorStop(1, 'rgba(255,240,190,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, horizon, RW, RH - horizon);
+  }
 
-  // ground texture — sparse deterministic dots
-  ctx.fillStyle = '#0a0d0a';
-  const gx0 = Math.floor(camX / TILE) * TILE, gy0 = Math.floor(camY / TILE) * TILE;
-  for (let gx = gx0; gx < camX + W + TILE; gx += TILE) {
-    for (let gy = gy0; gy < camY + H + TILE; gy += TILE) {
-      const h = ((gx * 2654435761) ^ (gy * 40503)) >>> 0;
-      if (h % 5 === 0) ctx.fillRect(gx + h % TILE, gy + (h >> 8) % TILE, 3, 3);
+  // walls
+  for (let x = 0; x < RW; x++) {
+    const camX = (2 * x / RW - 1);
+    const rayA = player.ang + Math.atan(camX * Math.tan(FOV / 2));
+    const r = castRay(rayA);
+    const pd = r.dist * Math.cos(rayA - player.ang);
+    zbuf[x] = pd;
+    const hgt = RH / pd;
+    const y0 = horizon - hgt / 2, y1 = horizon + hgt / 2;
+    const cone = Math.max(0, 1 - Math.abs(camX) * 1.5);
+    let b = cone * cone * lightPow / (1 + pd * pd * 0.06) + 0.22 / (1 + pd * pd * 0.28);
+    if (r.side === 1) b *= 0.72;
+    b = Math.min(1.15, b);
+    const c = wallCol[r.t] || [40, 40, 40];
+    ctx.fillStyle = `rgb(${c[0] * b | 0},${c[1] * b | 0},${c[2] * b | 0})`;
+    ctx.fillRect(x, y0, 1, y1 - y0);
+    if (r.t === 6 && player.powered) { // powered gate glows
+      ctx.fillStyle = `rgba(80,255,120,${0.25 + Math.sin(state.time * 6) * 0.15})`;
+      ctx.fillRect(x, y0, 1, y1 - y0);
     }
   }
 
-  // gate
-  ctx.strokeStyle = gate.open ? '#4d8a4d' : '#333';
-  ctx.lineWidth = 6;
-  ctx.strokeRect(gate.x - 60, gate.y - 15, 120, 30);
-  if (gate.open) {
-    ctx.fillStyle = 'rgba(80,180,80,0.12)';
-    ctx.beginPath(); ctx.arc(gate.x, gate.y, 90 + Math.sin(state.time * 3) * 12, 0, 6.28); ctx.fill();
-  }
+  // sprites (sorted far -> near)
+  const drawList = [];
+  for (const s of sprites) if (!s.taken) drawList.push(s);
+  drawList.push({ x: monster.x, y: monster.y, type: 'monster' });
+  drawList.sort((a, b) => (Math.hypot(b.x - player.x, b.y - player.y)) - (Math.hypot(a.x - player.x, a.y - player.y)));
 
-  // batteries (faint amber glow)
-  for (const b of batteries) {
-    if (b.got) continue;
-    ctx.fillStyle = 'rgba(232,212,77,0.10)';
-    ctx.beginPath(); ctx.arc(b.x, b.y, 26 + Math.sin(state.time * 4 + b.x) * 5, 0, 6.28); ctx.fill();
-    ctx.fillStyle = '#7a6d1d';
-    ctx.fillRect(b.x - 5, b.y - 8, 10, 16);
-  }
+  for (const s of drawList) {
+    const dx = s.x - player.x, dy = s.y - player.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 0.2 || dist > 24) continue;
+    const a = Math.atan2(dy, dx);
+    let rel = ((a - player.ang) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+    if (Math.abs(rel) > FOV / 2 + 0.5) continue;
+    const pd = dist * Math.cos(rel);
+    if (pd < 0.15) continue;
+    const sx = (rel / Math.atan(Math.tan(FOV / 2))) * 0 + (Math.tan(rel) / Math.tan(FOV / 2) * 0.5 + 0.5) * RW;
+    const hgt = RH / pd;
+    const camX = 2 * sx / RW - 1;
+    const cone = Math.max(0, 1 - Math.abs(camX) * 1.5);
+    let b = Math.min(1.2, cone * cone * lightPow / (1 + pd * pd * 0.06) + 0.24 / (1 + pd * pd * 0.28));
 
-  // sigils
-  for (const s of sigils) {
-    if (s.got) continue;
-    const p = Math.sin(state.time * 2 + s.pulse) * 0.5 + 0.5;
-    ctx.strokeStyle = `rgba(176,77,232,${0.25 + p * 0.4})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(s.x, s.y, 16 + p * 5, 0, 6.28); ctx.stroke();
-    ctx.beginPath();
-    for (let i = 0; i < 5; i++) {
-      const a = -Math.PI / 2 + i * (Math.PI * 4 / 5);
-      const px = s.x + Math.cos(a) * 12, py = s.y + Math.sin(a) * 12;
-      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    if (s.type === 'monster') {
+      const mw = hgt * 0.55, mh = hgt * 1.05;
+      const jx = rand(-1.5, 1.5) * (3 / Math.max(1, pd));
+      const x0 = sx - mw / 2 + jx, y0 = horizon - mh * 0.52;
+      const xi0 = Math.max(0, Math.floor(x0)), xi1 = Math.min(RW, Math.ceil(x0 + mw));
+      // occlusion by columns
+      let visCols = 0;
+      for (let xi = xi0; xi < xi1; xi++) if (zbuf[xi] > pd) visCols++;
+      if (visCols > (xi1 - xi0) * 0.25) {
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, b * 1.6 + 0.12);
+        ctx.drawImage(monTex, x0, y0, mw, mh);
+        ctx.restore();
+        // eyes glow through darkness if it faces you
+        ctx.fillStyle = '#f33';
+        ctx.globalAlpha = 0.9;
+        ctx.fillRect(x0 + mw * 0.38, y0 + mh * 0.165, Math.max(1, mw * 0.05), Math.max(1, mw * 0.05));
+        ctx.fillRect(x0 + mw * 0.55, y0 + mh * 0.165, Math.max(1, mw * 0.05), Math.max(1, mw * 0.05));
+        ctx.globalAlpha = 1;
+      }
+      continue;
     }
-    ctx.closePath(); ctx.stroke();
+    // simple item billboards
+    const xi = Math.floor(sx);
+    if (xi < 0 || xi >= RW || zbuf[xi] < pd) continue;
+    const sz = hgt * 0.22;
+    if (s.type === 'battery') {
+      ctx.fillStyle = `rgba(232,212,77,${Math.min(1, b + 0.25)})`;
+      ctx.fillRect(sx - sz * 0.2, horizon + hgt * 0.28 - sz, sz * 0.4, sz);
+    } else if (s.type === 'fuse') {
+      const p = Math.sin(state.time * 3 + s.x) * 0.5 + 0.5;
+      ctx.strokeStyle = `rgba(176,77,232,${0.4 + p * 0.5})`; ctx.lineWidth = Math.max(1, sz * 0.12);
+      ctx.strokeRect(sx - sz * 0.3, horizon + hgt * 0.26 - sz, sz * 0.6, sz);
+      ctx.fillStyle = `rgba(176,77,232,${0.25 + p * 0.3})`;
+      ctx.fillRect(sx - sz * 0.3, horizon + hgt * 0.26 - sz, sz * 0.6, sz);
+    } else if (s.type === 'key') {
+      ctx.fillStyle = `rgba(216,198,106,${Math.min(1, b + 0.35)})`;
+      ctx.beginPath(); ctx.arc(sx, horizon + hgt * 0.24 - sz * 0.6, sz * 0.3, 0, 6.28); ctx.fill();
+      ctx.fillRect(sx - sz * 0.06, horizon + hgt * 0.24 - sz * 0.4, sz * 0.12, sz * 0.5);
+    } else if (s.type === 'note') {
+      ctx.fillStyle = `rgba(217,207,174,${Math.min(1, b + 0.2)})`;
+      ctx.fillRect(sx - sz * 0.35, horizon + hgt * 0.3 - sz * 0.5, sz * 0.7, sz * 0.5);
+    } else if (s.type === 'generator') {
+      const gz = hgt * 0.5;
+      ctx.fillStyle = `rgb(${70*b|0},${75*b|0},${80*b|0})`;
+      ctx.fillRect(sx - gz * 0.5, horizon + hgt * 0.3 - gz * 0.8, gz, gz * 0.8);
+      ctx.fillStyle = player.powered ? '#4f4' : '#f43';
+      ctx.fillRect(sx - gz * 0.1, horizon + hgt * 0.3 - gz * 0.65, gz * 0.2, gz * 0.12);
+    }
   }
 
-  // trees
-  for (const t of trees) {
-    if (t.x < camX - 60 || t.x > camX + W + 60 || t.y < camY - 60 || t.y > camY + H + 60) continue;
-    const sway = Math.sin(state.time * 0.7 + t.sway) * 2;
-    ctx.fillStyle = '#0d1410';
-    ctx.beginPath(); ctx.arc(t.x + sway, t.y, t.r, 0, 6.28); ctx.fill();
-    ctx.fillStyle = '#060a07';
-    ctx.beginPath(); ctx.arc(t.x + sway, t.y, t.r * 0.55, 0, 6.28); ctx.fill();
-  }
-
-  // monster — tall pale figure, mostly seen in the light
-  const md = dist(player, monster);
-  const vis = md < 800 ? 1 : 0;
-  if (vis) {
-    const jitterX = monster.x + rand(-1.5, 1.5);
-    const jitterY = monster.y + rand(-1.5, 1.5);
-    ctx.fillStyle = 'rgba(200,200,205,0.85)';
-    // body
-    ctx.beginPath();
-    ctx.ellipse(jitterX, jitterY, 9, 26, 0, 0, 6.28);
-    ctx.fill();
-    // head
-    ctx.beginPath(); ctx.arc(jitterX, jitterY - 32, 8, 0, 6.28); ctx.fill();
-    // eyes — always visible, even outside the beam
-    ctx.fillStyle = '#ff2222';
-    ctx.beginPath(); ctx.arc(jitterX - 3, jitterY - 33, 1.8, 0, 6.28); ctx.fill();
-    ctx.beginPath(); ctx.arc(jitterX + 3, jitterY - 33, 1.8, 0, 6.28); ctx.fill();
-    // long arms
-    ctx.strokeStyle = 'rgba(200,200,205,0.7)'; ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(jitterX - 8, jitterY - 15);
-    ctx.lineTo(jitterX - 16, jitterY + 20 + Math.sin(state.time * 6) * 4);
-    ctx.moveTo(jitterX + 8, jitterY - 15);
-    ctx.lineTo(jitterX + 16, jitterY + 20 + Math.cos(state.time * 6) * 4);
-    ctx.stroke();
-  }
-
-  // player
-  ctx.fillStyle = '#556';
-  ctx.beginPath(); ctx.arc(player.x, player.y, 11, 0, 6.28); ctx.fill();
-  ctx.fillStyle = '#99a';
-  ctx.beginPath(); ctx.arc(player.x + Math.cos(player.ang) * 6, player.y + Math.sin(player.ang) * 6, 5, 0, 6.28); ctx.fill();
-
-  ctx.restore();
-
-  // ---------- darkness + flashlight (screen space) ----------
-  const dk = document.createElement === undefined ? null : null; // noop
-  ctx.save();
-  ctx.globalCompositeOperation = 'source-over';
-  // darkness layer with holes cut for light
-  const dark = ctx.createRadialGradient(W / 2, H / 2, 20, W / 2, H / 2, 130);
-  ctx.fillStyle = 'rgba(0,0,0,0.955)';
-  ctx.beginPath();
-  ctx.rect(0, 0, W, H);
-  if (state.lightOn && player.battery > 0) {
-    // flashlight cone
-    const reach = (280 + player.battery * 1.6) * state.flicker;
-    const a = player.ang;
-    ctx.moveTo(W / 2, H / 2);
-    ctx.arc(W / 2, H / 2, reach, a - 0.42, a + 0.42);
-    ctx.closePath();
-  }
-  // small ambient circle around player always
-  ctx.moveTo(W / 2 + 70, H / 2);
-  ctx.arc(W / 2, H / 2, 70, 0, 6.28);
-  ctx.fill('evenodd');
-  // soft beam glow
-  if (state.lightOn && player.battery > 0) {
-    const reach = (280 + player.battery * 1.6) * state.flicker;
-    const gEnd = { x: W / 2 + Math.cos(player.ang) * reach, y: H / 2 + Math.sin(player.ang) * reach };
-    const grad = ctx.createLinearGradient(W / 2, H / 2, gEnd.x, gEnd.y);
-    grad.addColorStop(0, 'rgba(255,244,200,0.14)');
-    grad.addColorStop(1, 'rgba(255,244,200,0)');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.moveTo(W / 2, H / 2);
-    ctx.arc(W / 2, H / 2, reach, player.ang - 0.42, player.ang + 0.42);
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.restore();
-
-  // sanity static
+  // sanity effects
   if (player.sanity < 60) {
-    const n = Math.floor((60 - player.sanity) * 14);
-    ctx.fillStyle = 'rgba(255,255,255,0.06)';
-    for (let i = 0; i < n; i++)
-      ctx.fillRect(Math.random() * W, Math.random() * H, 2, 2);
+    const n = Math.floor((60 - player.sanity) * 3.2);
+    ctx.fillStyle = 'rgba(255,255,255,0.07)';
+    for (let i = 0; i < n; i++) ctx.fillRect(Math.random() * RW, Math.random() * RH, 1.5, 1.5);
   }
-  // sanity hallucination: fake red eyes at the screen edge
-  if (player.sanity < 35 && Math.random() < 0.015) {
-    ctx.fillStyle = '#f22';
-    const ex = Math.random() < 0.5 ? rand(20, 80) : W - rand(20, 80);
-    const ey = rand(H * 0.2, H * 0.8);
-    ctx.fillRect(ex, ey, 3, 3); ctx.fillRect(ex + 9, ey, 3, 3);
+  if (player.sanity < 35 && Math.random() < 0.012) { // hallucinated silhouette flash
+    const hx = rand(RW * 0.15, RW * 0.85), hh = rand(RH * 0.3, RH * 0.6);
+    ctx.globalAlpha = 0.25; ctx.drawImage(monTex, hx, RH / 2 - hh / 2, hh * 0.5, hh); ctx.globalAlpha = 1;
   }
-
-  // compass hint toward gate when open
-  if (gate && gate.open && state.running) {
-    const a = Math.atan2(gate.y - player.y, gate.x - player.x);
-    ctx.strokeStyle = 'rgba(80,200,80,0.6)'; ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(W / 2 + Math.cos(a) * 90, H / 2 + Math.sin(a) * 90);
-    ctx.lineTo(W / 2 + Math.cos(a) * 110, H / 2 + Math.sin(a) * 110);
-    ctx.stroke();
-  }
+  if (state.scareT > 0) { ctx.fillStyle = `rgba(150,0,0,${state.scareT})`; ctx.fillRect(0, 0, RW, RH); }
+  // film grain
+  ctx.fillStyle = 'rgba(255,255,255,0.025)';
+  for (let i = 0; i < 40; i++) ctx.fillRect(Math.random() * RW, Math.random() * RH, 1, 1);
 }
 
-// ---------- Loop ----------
+// ============================================================ loop
 let last = 0;
 function loop(t) {
   const dt = Math.min(0.05, (t - last) / 1000); last = t;
@@ -572,7 +698,9 @@ document.getElementById('startBtn').addEventListener('click', () => {
   if (AC && AC.state === 'suspended') AC.resume();
   reset();
   document.getElementById('overlay').classList.add('hidden');
-  showMsg('find the sigils. keep the light on it.', 4);
+  document.getElementById('note').style.display = 'none';
+  canvas.requestPointerLock && canvas.requestPointerLock();
+  showMsg('click to capture the mouse · find the shed first', 5);
 });
 })();
 </script>
