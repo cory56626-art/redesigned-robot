@@ -2,7 +2,7 @@
 
 The classic Java "dueling stick" for Minecraft Bedrock 1.21+. Tag two
 mobs with the stick and they turn on each other. Comes with a second
-stick — the **Riot Stick** — that turns a mob's whole species against it.
+stick — the **Riot Stick** — that sends a whole species at one target.
 
 ## Install
 
@@ -18,14 +18,17 @@ world (uses the stable Script API — no experimental toggles needed).
 3. **Whack mob #2** — angry particles, "FIGHT!", and they go at each other.
 4. Sneak + use the stick to clear your tag. Using it on air shows your current tag.
 
-### Riot Stick (everyone vs 1)
+### Riot Stick (a whole species vs 1)
 
 1. Craft it: **gunpowder over redstone over a stick** (3 in a column).
-2. **Whack one mob** — every mob of the **same species** within 24 blocks
-   turns on it at once. Whack one zombie in a horde and watch the horde
-   eat its own.
-3. The riot lasts 60 seconds; the pack is re-angered every few seconds
-   until the victim dies... or outlives everyone who turned on it.
+2. **Whack mob #1** (say, a skeleton) — you rally its species.
+3. **Whack mob #2** (say, a warden) — every skeleton within 24 blocks of
+   the one you tagged charges the warden at once.
+4. Sneak + use clears the rally; using it on air shows what you're rallying.
+
+The riot lasts 60 seconds; surviving pack members are re-angered every few
+seconds until the target dies... or outlives the entire pack. Rally a mob
+against one of its own kind and it simply gets mobbed by its kin.
 
 Details:
 

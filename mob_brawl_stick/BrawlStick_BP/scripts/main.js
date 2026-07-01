@@ -3,8 +3,8 @@
 //  Whack (or right-click) mob A to tag it, then whack mob B: FIGHT!
 //  Sneak + use the stick to clear your tag.
 //
-//  RIOT STICK — one whack, and every nearby mob of the SAME species
-//  turns on the mob you hit.
+//  RIOT STICK — whack mob A (say, a skeleton), then whack mob B (say,
+//  a warden): every nearby mob of A's species charges B at once.
 // =====================================================================
 import {
   world,
@@ -21,8 +21,10 @@ const REAGGRO_INTERVAL = 90;   // re-poke every 4.5s so they don't lose interest
 const MAX_FIGHT_RANGE = 40;    // grudge breaks if they separate this far
 const RIOT_RADIUS = 24;        // how far the riot stick rallies the species
 
-// playerId -> { id: taggedEntityId, tick: whenTagged }
+// playerId -> { id: taggedEntityId, tick: whenTagged }  (Brawl Stick)
 const selections = new Map();
+// playerId -> { id: taggedEntityId, tick: whenTagged }  (Riot Stick)
+const riotSelections = new Map();
 // active grudges: { aId, bId, until }
 const fights = [];
 // active riots: { targetId, attackerIds: [], until }
@@ -155,25 +157,51 @@ function handleRiot(player, target) {
   lastAction.set(player.id, now);
 
   if (!canBrawl(target)) {
-    actionbar(player, "§7The Riot Stick can't turn anything against that.");
+    actionbar(player, "§7The Riot Stick can't rally (or target) that.");
     return;
   }
 
-  // rally every nearby mob of the same species against the one you hit
-  let pack = [];
-  try {
-    pack = target.dimension
-      .getEntities({
-        type: target.typeId,
-        location: target.location,
-        maxDistance: RIOT_RADIUS
-      })
-      .filter((e) => e.id !== target.id && canBrawl(e));
-  } catch { }
+  const sel = riotSelections.get(player.id);
+  const hasFreshTag = sel && now - sel.tick <= SELECT_TIMEOUT;
 
+  if (hasFreshTag && sel.id === target.id) {
+    actionbar(player, `§eAlready rallying §f${displayName(target)}s§e — whack their target!`);
+    return;
+  }
+
+  if (!hasFreshTag) {
+    // first whack: tag the species you want to rally
+    riotSelections.set(player.id, { id: target.id, tick: now });
+    markParticle(target, "minecraft:critical_hit_emitter");
+    sound(player, "random.orb", 1);
+    actionbar(player, `§eRallying §f${displayName(target)}s§e — now whack their target!`);
+    return;
+  }
+
+  // second whack: send the whole tagged species at this target
+  riotSelections.delete(player.id);
+  let leader = null;
+  try { leader = world.getEntity(sel.id); } catch { }
+  if (!leader || !canBrawl(leader)) {
+    actionbar(player, "§cYour rallied mob is gone. Tag a new one.");
+    return;
+  }
+
+  // gather the pack: every mob of the leader's species near the leader
+  let pack = [leader];
+  try {
+    for (const e of leader.dimension.getEntities({
+      type: leader.typeId,
+      location: leader.location,
+      maxDistance: RIOT_RADIUS
+    })) {
+      if (e.id !== leader.id && e.id !== target.id && canBrawl(e)) pack.push(e);
+    }
+  } catch { }
+  // (if the target is the same species, it just gets mobbed by its kin)
+  pack = pack.filter((e) => e.id !== target.id);
   if (pack.length === 0) {
-    actionbar(player, `§7No other ${displayName(target)}s nearby to turn against it.`);
-    sound(player, "random.click", 1);
+    actionbar(player, "§cNo pack left to rally.");
     return;
   }
 
@@ -183,11 +211,11 @@ function handleRiot(player, target) {
     attackerIds.push(mob.id);
     markParticle(mob, "minecraft:villager_angry");
   }
-  // and the victim swings back at the nearest traitor
-  poke(target, pack[0]);
+  // and the target swings back at the pack leader
+  poke(target, leader);
   markParticle(target, "minecraft:critical_hit_emitter");
   sound(player, "mob.irongolem.attack", 1.5);
-  actionbar(player, `§4${pack.length} §c${displayName(target)}s §6turn on §f${displayName(target)}§6 — RIOT!`);
+  actionbar(player, `§4${pack.length} §c${displayName(leader)}${pack.length > 1 ? "s" : ""} §6charge §f${displayName(target)}§6 — RIOT!`);
   riots.push({ targetId: target.id, attackerIds, until: now + FIGHT_DURATION });
 }
 
@@ -217,7 +245,29 @@ try {
 // using a stick on air: show status, or sneak-use to clear the tag
 world.afterEvents.itemUse.subscribe((ev) => {
   if (ev.itemStack?.typeId === RIOT_STICK) {
-    actionbar(ev.source, "§7Whack a mob and every nearby mob of its species turns on it.");
+    const player = ev.source;
+    const now = system.currentTick;
+    if (now - (lastAction.get(player.id) ?? -99) < 5) return;
+    if (player.isSneaking) {
+      riotSelections.delete(player.id);
+      actionbar(player, "§7Rally cleared.");
+      sound(player, "random.click", 1);
+      return;
+    }
+    const sel = riotSelections.get(player.id);
+    if (sel && now - sel.tick <= SELECT_TIMEOUT) {
+      let e = null;
+      try { e = world.getEntity(sel.id); } catch { }
+      if (e) {
+        markParticle(e, "minecraft:critical_hit_emitter");
+        actionbar(player, `§eRallying: §f${displayName(e)}s §7— whack their target! (sneak-use to clear)`);
+      } else {
+        riotSelections.delete(player.id);
+        actionbar(player, "§7Your rallied mob is gone.");
+      }
+    } else {
+      actionbar(player, "§7Whack a mob to rally its species, whack a second mob and they all charge it.");
+    }
     return;
   }
   if (ev.itemStack?.typeId !== STICK) return;
@@ -311,10 +361,13 @@ system.runInterval(() => {
   }
 }, REAGGRO_INTERVAL);
 
-// tidy stale selections so the map can't grow forever
+// tidy stale selections so the maps can't grow forever
 system.runInterval(() => {
   const now = system.currentTick;
   for (const [pid, sel] of selections) {
     if (now - sel.tick > SELECT_TIMEOUT) selections.delete(pid);
+  }
+  for (const [pid, sel] of riotSelections) {
+    if (now - sel.tick > SELECT_TIMEOUT) riotSelections.delete(pid);
   }
 }, 600);
