@@ -1,0 +1,9 @@
+{
+  "resource_pack_name": "OathbreakerTitan_RP",
+  "texture_name": "atlas.terrain",
+  "padding": 8,
+  "num_mip_levels": 4,
+  "texture_data": {
+    "ob_molten_heart": { "textures": "textures/blocks/molten_heart" }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.ob_titan.attack": {
+      "initial_state": "default",
+      "states": {
+        "default": {
+          "transitions": [
+            { "cleave": "q.property('ob:attack_state') == 'cleave'" },
+            { "leap": "q.property('ob:attack_state') == 'leap'" },
+            { "slam": "q.property('ob:attack_state') == 'slam'" },
+            { "dash": "q.property('ob:attack_state') == 'dash'" },
+            { "parry": "q.property('ob:attack_state') == 'parry'" },
+            { "judgment": "q.property('ob:attack_state') == 'judgment'" },
+            { "stunned": "q.property('ob:attack_state') == 'stunned'" }
+          ]
+        },
+        "cleave": {
+          "animations": ["cleave_anim"],
+          "blend_transition": 0.1,
+          "transitions": [{ "default": "q.property('ob:attack_state') != 'cleave'" }]
+        },
+        "leap": {
+          "animations": ["leap_anim"],
+          "blend_transition": 0.1,
+          "transitions": [
+            { "slam": "q.property('ob:attack_state') == 'slam'" },
+            { "default": "q.property('ob:attack_state') != 'leap' && q.property('ob:attack_state') != 'slam'" }
+          ]
+        },
+        "slam": {
+          "animations": ["slam_anim"],
+          "blend_transition": 0.05,
+          "transitions": [{ "default": "q.property('ob:attack_state') != 'slam'" }]
+        },
+        "dash": {
+          "animations": ["dash_anim"],
+          "blend_transition": 0.1,
+          "transitions": [{ "default": "q.property('ob:attack_state') != 'dash'" }]
+        },
+        "parry": {
+          "animations": ["parry_anim"],
+          "blend_transition": 0.05,
+          "transitions": [{ "default": "q.property('ob:attack_state') != 'parry'" }]
+        },
+        "judgment": {
+          "animations": ["judgment_anim"],
+          "blend_transition": 0.2,
+          "transitions": [{ "default": "q.property('ob:attack_state') != 'judgment'" }]
+        },
+        "stunned": {
+          "animations": ["stunned_anim"],
+          "blend_transition": 0.2,
+          "transitions": [{ "default": "q.property('ob:attack_state') != 'stunned'" }]
+        }
+      }
+    }
+  }
+}

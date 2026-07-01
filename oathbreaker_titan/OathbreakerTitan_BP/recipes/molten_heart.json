@@ -1,0 +1,14 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": { "identifier": "ob:molten_heart_recipe" },
+    "tags": ["crafting_table"],
+    "unlock": [{ "item": "minecraft:magma" }],
+    "pattern": ["MMM", "MGM", "MMM"],
+    "key": {
+      "M": { "item": "minecraft:magma" },
+      "G": { "item": "minecraft:gold_block" }
+    },
+    "result": { "item": "ob:molten_heart" }
+  }
+}

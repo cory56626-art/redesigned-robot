@@ -1,0 +1,40 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "ob:oathbreaker_titan",
+      "materials": { "default": "entity_alphatest" },
+      "textures": {
+        "default": "textures/entity/oathbreaker_titan",
+        "rage": "textures/entity/oathbreaker_titan_rage"
+      },
+      "geometry": { "default": "geometry.ob_titan" },
+      "animations": {
+        "idle": "animation.ob_titan.idle",
+        "walk": "animation.ob_titan.walk",
+        "death": "animation.ob_titan.death",
+        "cleave_anim": "animation.ob_titan.cleave",
+        "leap_anim": "animation.ob_titan.leap",
+        "slam_anim": "animation.ob_titan.slam",
+        "dash_anim": "animation.ob_titan.dash",
+        "parry_anim": "animation.ob_titan.parry",
+        "judgment_anim": "animation.ob_titan.judgment",
+        "stunned_anim": "animation.ob_titan.stunned",
+        "attack_ctrl": "controller.animation.ob_titan.attack"
+      },
+      "scripts": {
+        "animate": [
+          { "idle": "q.property('ob:attack_state') == 'idle' && q.is_alive" },
+          { "walk": "q.modified_move_speed > 0.02 && q.is_alive" },
+          "attack_ctrl",
+          { "death": "!q.is_alive" }
+        ]
+      },
+      "render_controllers": ["controller.render.ob_titan"],
+      "spawn_egg": {
+        "base_color": "#2b2226",
+        "overlay_color": "#ff6a00"
+      }
+    }
+  }
+}
