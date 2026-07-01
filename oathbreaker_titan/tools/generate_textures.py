@@ -265,6 +265,18 @@ def tex_molten_heart():
     return img
 
 
+def tex_boulder():
+    img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+    px = img.load()
+    for x in range(32):
+        for y in range(32):
+            j = random.randint(-12, 12)
+            px[x, y] = (clamp(95 + j), clamp(90 + j), clamp(88 + j), 255)
+    # ember veins from being torn out of the Titan's arena
+    crack_veins(px, (0, 0, 32, 32), 5, hot=True)
+    return img
+
+
 def pack_icon(bg, accent):
     img = Image.new("RGBA", (256, 256), bg)
     d = ImageDraw.Draw(img)
@@ -305,6 +317,7 @@ save(tex_forged_oath(), RP, "textures/items/forged_oath.png")
 save(tex_titan_crest(), RP, "textures/items/titan_crest.png")
 save(tex_oathbreaker_blade(), RP, "textures/items/oathbreaker_blade.png")
 save(tex_molten_heart(), RP, "textures/blocks/molten_heart.png")
+save(tex_boulder(), RP, "textures/entity/titan_boulder.png")
 save(pack_icon((28, 20, 24, 255), (255, 120, 20, 255)), BP, "pack_icon.png")
 save(pack_icon((20, 24, 32, 255), (255, 160, 40, 255)), RP, "pack_icon.png")
 print("done")

@@ -1,9 +1,10 @@
 # ⚔ Oathbreaker Titan — Minecraft Bedrock Boss Addon
 
 A Kratos-inspired (non-horror) boss fight for Minecraft Bedrock 1.21+.
-A towering molten-core warrior with a greatsword, phase changes, a parry
-that punishes button-mashing, and a final stand you can interrupt by
-striking his glowing chest core.
+A human-sized, fast molten-core warrior with a greatsword, phase changes,
+a parry that punishes button-mashing, a shield-breaker that punishes
+turtling, a grapple with a whiff-punish window, and a final stand you can
+interrupt by striking his glowing chest core.
 
 ## Install
 
@@ -33,9 +34,14 @@ You can also spawn him from the creative spawn egg for testing.
 | **Titan Cleave** | You're within ~6 blocks | Back off, or block with a shield (crouch) — reduced damage, but the force staggers you |
 | **Earthsplitter Leap** | Every ~13s, mid range | He tracks you in the air, but the landing point locks shortly before impact — sprint sideways at the last moment, then **dodge the shockwave line** sideways or jump it |
 | **Oathbound Parry** | 3 hits on him within 1.5s | Don't spam — pace your attacks or he parries and instantly counters |
+| **Groundbreaker Throw** | You stay at range | He rips a boulder from the arena floor and hurls it (with lead) — strafe, or block it with your shield |
+| **Core Minis** | Every ~28s | He splinters his core into small grounded ember-titans (vex-like, can't fly, expire after 45s, die with him) — cut them down fast |
+| **Oathcrusher Smash** | Turtling behind a shield near him | He raises the greatsword and slams it down — **2× damage and a stun if your shield is up**. Drop guard and dodge instead |
+| **Titan Grapple** | Mid-close range | He lunges to grab you: connect = hoisted and slammed into the ground (ignores shields). If he **misses, he stumbles** — free punish window, and your hits land 50% harder |
 | **Rage Phase** | 50% HP | He speeds up, hits harder, gains a **fiery dash**, and the arena cracks with flame |
 | **Final Judgment** | 10% HP | 6-second charge — **strike the glowing chest core (from the front!)** to interrupt and stun him. Fail, and a massive blast follows |
 
+- Human-sized (~2.1 blocks) and fast, like the Ghost of Sparta himself.
 - 300 hearts, boss bar, immune to fire/lava/fall/drowning, knockback-proof.
 - Shockwave and Final Judgment explosion do **not** break blocks (arena-safe).
 

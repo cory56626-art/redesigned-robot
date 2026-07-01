@@ -1,7 +1,8 @@
 // =====================================================================
-//  OATHBREAKER TITAN — Kratos-inspired boss AI
+//  OATHBREAKER TITAN — Kratos-inspired boss AI (human-sized, fast)
 //  Moves: Titan Cleave, Earthsplitter Leap, Oathbound Parry,
-//         Rage Phase (50% HP), Final Judgment (10% HP)
+//         Groundbreaker Throw, Core Mini summon, Oathcrusher Smash,
+//         Titan Grapple, Rage Phase (50% HP), Final Judgment (10% HP)
 // =====================================================================
 import {
   world,
@@ -12,44 +13,75 @@ import {
 } from "@minecraft/server";
 
 const TITAN_ID = "ob:oathbreaker_titan";
+const MINI_ID = "ob:core_mini";
+const BOULDER_ID = "ob:titan_boulder";
 const STATE_PROP = "ob:attack_state";
 
 // ---------------------------------------------------------------------
-// Tuning
+// Tuning (human-sized Kratos pacing: shorter reach, tighter cooldowns)
 // ---------------------------------------------------------------------
-const CLEAVE_RANGE = 6.5;        // wide horizontal slash reach
-const CLEAVE_DAMAGE = 13;
-const CLEAVE_BLOCKED_DAMAGE = 5; // blocking reduces damage...
-const CLEAVE_COOLDOWN = 70;      // ticks
-const CLEAVE_HIT_TICK = 11;      // damage lands mid-swing
+const CHEST_Y = 1.25;            // chest/core height on the scaled model
+
+const CLEAVE_RANGE = 5.0;
+const CLEAVE_DAMAGE = 12;
+const CLEAVE_BLOCKED_DAMAGE = 5;
+const CLEAVE_COOLDOWN = 45;
+const CLEAVE_HIT_TICK = 11;
 const CLEAVE_LENGTH = 24;
 
-const LEAP_COOLDOWN = 260;
-const LEAP_AIR_TICKS = 26;       // time in the air
-const LEAP_LOCK_TICK = 18;       // landing spot locks here (dodge window)
-const SLAM_DAMAGE = 14;
-const SLAM_RADIUS = 4.5;
-const SHOCKWAVE_LENGTH = 18;     // blocks the wave travels
+const LEAP_COOLDOWN = 220;
+const LEAP_AIR_TICKS = 20;
+const LEAP_LOCK_TICK = 14;       // landing spot locks here (dodge window)
+const LEAP_ARC_HEIGHT = 7;
+const SLAM_DAMAGE = 13;
+const SLAM_RADIUS = 4;
+const SHOCKWAVE_LENGTH = 18;
 const SHOCKWAVE_DAMAGE = 10;
 const SHOCKWAVE_WIDTH = 1.7;     // dodge sideways...
 const SHOCKWAVE_MAX_RISE = 1.4;  // ...or jump over it
 
-const PARRY_WINDOW = 30;         // ticks; 3 hits inside this = parry
+const PARRY_WINDOW = 30;         // 3 hits inside 1.5s = parry
 const PARRY_HITS = 3;
-const PARRY_COOLDOWN = 160;
-const PARRY_COUNTER_DAMAGE = 12;
-const PARRY_LENGTH = 18;
-const PARRY_COUNTER_TICK = 7;
+const PARRY_COOLDOWN = 140;
+const PARRY_COUNTER_DAMAGE = 11;
+const PARRY_LENGTH = 16;
+const PARRY_COUNTER_TICK = 6;
 
-const DASH_COOLDOWN = 130;       // rage-only fiery dash
+const DASH_COOLDOWN = 90;        // rage-only fiery dash
 const DASH_TICKS = 9;
 const DASH_DAMAGE = 9;
 
-const JUDGMENT_CHARGE_TICKS = 120; // 6 seconds to strike the core
+const THROW_COOLDOWN = 170;      // Groundbreaker: rip up the floor, hurl it
+const THROW_RELEASE_TICK = 17;
+const THROW_LENGTH = 22;
+const BOULDER_SPEED = 1.45;
+
+const SUMMON_COOLDOWN = 550;     // Core Minis
+const SUMMON_TICK = 10;
+const SUMMON_LENGTH = 24;
+const MINI_SPAWN_COUNT = 3;      // +1 in rage
+const MINI_CAP = 4;              // +2 in rage
+
+const SMASH_PRESSURE_TRIGGER = 45; // ticks of shield-turtling that provoke it
+const SMASH_COOLDOWN = 260;
+const SMASH_HIT_TICK = 18;
+const SMASH_LENGTH = 30;
+const SMASH_DAMAGE = 10;         // x2 vs raised shields, plus a stun
+const SMASH_RANGE = 4.5;
+
+const GRAPPLE_COOLDOWN = 240;
+const GRAPPLE_TELEGRAPH = 8;
+const GRAPPLE_LUNGE_END = 18;
+const GRAPPLE_REACH = 2.4;
+const GRAPPLE_HOLD_TICKS = 12;
+const GRAPPLE_DAMAGE = 13;
+const STUMBLE_TICKS = 50;        // free punish window on a whiffed grab
+
+const JUDGMENT_CHARGE_TICKS = 120;
 const JUDGMENT_COOLDOWN = 900;
 const JUDGMENT_EXPLOSION_RADIUS = 7;
-const JUDGMENT_BONUS_DAMAGE = 22;  // manual falloff damage on failure
-const STUN_TICKS = 100;            // reward for striking the core
+const JUDGMENT_BONUS_DAMAGE = 22;
+const STUN_TICKS = 100;
 
 // ---------------------------------------------------------------------
 // Per-titan state
@@ -62,19 +94,29 @@ function getState(titan) {
     s = {
       state: "idle",
       stateTicks: 0,
-      cdCleave: 60,
-      cdLeap: 200,
-      cdDash: 80,
-      cdParry: 100,
+      cdCleave: 40,
+      cdLeap: 160,
+      cdDash: 60,
+      cdParry: 80,
+      cdThrow: 120,
+      cdSummon: 260,
+      cdSmash: 0,
+      cdGrapple: 140,
       cdJudgment: 0,
       raged: false,
       judgmentInterrupted: false,
       hitLog: new Map(),   // playerId -> [tick, tick, ...]
+      shieldPressure: 0,   // builds while the target turtles behind a shield
       cleaveHit: false,
+      smashHit: false,
       leapStart: null,
       leapLock: null,
       dashDir: null,
       dashHit: null,
+      grappleDir: null,
+      grabId: null,
+      holdTicks: 0,
+      throwTargetId: null,
       parryTargetId: null
     };
     titans.set(titan.id, s);
@@ -93,6 +135,12 @@ function norm2d(v) {
   const l = len2d(v);
   if (l < 0.001) return { x: 0, y: 0, z: 1 };
   return { x: v.x / l, y: 0, z: v.z / l };
+}
+
+function norm3d(v) {
+  const l = len3d(v);
+  if (l < 0.001) return { x: 0, y: 0, z: 1 };
+  return { x: v.x / l, y: v.y / l, z: v.z / l };
 }
 
 function distance(a, b) {
@@ -206,6 +254,24 @@ function titleNearby(titan, radius, title, subtitle) {
   }
 }
 
+function shakeCamera(player, intensity, seconds) {
+  try {
+    player.runCommandAsync(`camerashake add @s ${intensity} ${seconds} positional`);
+  } catch { }
+}
+
+function countMinis(titan) {
+  try {
+    return titan.dimension.getEntities({
+      type: MINI_ID,
+      location: titan.location,
+      maxDistance: 40
+    }).length;
+  } catch {
+    return 0;
+  }
+}
+
 // ---------------------------------------------------------------------
 // Active shockwaves (Earthsplitter Leap)
 // ---------------------------------------------------------------------
@@ -214,7 +280,6 @@ const shockwaves = [];
 function spawnShockwave(titan, origin, dir) {
   shockwaves.push({
     dimension: titan.dimension,
-    titanId: titan.id,
     x: origin.x,
     y: origin.y,
     z: origin.z,
@@ -291,6 +356,52 @@ function startDash(titan, s, target) {
   playSoundAt(titan.dimension, "mob.blaze.shoot", titan.location);
 }
 
+function startThrow(titan, s, target) {
+  s.state = "throw";
+  s.stateTicks = 0;
+  s.cdThrow = THROW_COOLDOWN;
+  s.throwTargetId = target.id;
+  setAnimState(titan, "throw");
+  freeze(titan, THROW_LENGTH);
+  faceTarget(titan, target);
+  playSoundAt(titan.dimension, "dig.stone", titan.location, 2);
+}
+
+function startSummon(titan, s) {
+  s.state = "summon";
+  s.stateTicks = 0;
+  s.cdSummon = SUMMON_COOLDOWN;
+  setAnimState(titan, "summon");
+  freeze(titan, SUMMON_LENGTH);
+  playSoundAt(titan.dimension, "mob.evocation_illager.prepare_summon", titan.location, 2.5);
+  actionbarNearby(titan, 40, "§c⚠ The Titan's core splinters — embers rise!");
+}
+
+function startSmash(titan, s, target) {
+  s.state = "smash";
+  s.stateTicks = 0;
+  s.smashHit = false;
+  s.cdSmash = SMASH_COOLDOWN;
+  s.shieldPressure = 0;
+  setAnimState(titan, "smash");
+  freeze(titan, SMASH_LENGTH);
+  faceTarget(titan, target);
+  playSoundAt(titan.dimension, "mob.evocation_illager.prepare_attack", titan.location, 2.5);
+  try { target.onScreenDisplay.setActionBar("§4⚠ OATHCRUSHER — your shield can't save you!"); } catch { }
+}
+
+function startGrapple(titan, s, target) {
+  s.state = "grapple";
+  s.stateTicks = 0;
+  s.cdGrapple = GRAPPLE_COOLDOWN;
+  s.grappleDir = norm2d(sub(target.location, titan.location));
+  s.grabId = null;
+  s.holdTicks = 0;
+  setAnimState(titan, "grapple");
+  faceTarget(titan, target);
+  playSoundAt(titan.dimension, "mob.warden.attack", titan.location, 2);
+}
+
 function startParry(titan, s, attacker) {
   s.state = "parry";
   s.stateTicks = 0;
@@ -341,11 +452,11 @@ function tickCleave(titan, s) {
     s.cleaveHit = true;
     const fwd = titan.getViewDirection();
     playSoundAt(titan.dimension, "mob.irongolem.throw", titan.location, 1.5);
-    const chest = { x: titan.location.x, y: titan.location.y + 2, z: titan.location.z };
+    const chest = { x: titan.location.x, y: titan.location.y + CHEST_Y, z: titan.location.z };
     for (let i = -3; i <= 3; i++) {
       const a = Math.atan2(fwd.z, fwd.x) + i * 0.28;
       particle(titan.dimension, "minecraft:critical_hit_emitter", {
-        x: chest.x + Math.cos(a) * 4, y: chest.y, z: chest.z + Math.sin(a) * 4
+        x: chest.x + Math.cos(a) * 3, y: chest.y, z: chest.z + Math.sin(a) * 3
       });
     }
     // wide 120-degree arc in front of the Titan
@@ -354,7 +465,9 @@ function tickCleave(titan, s) {
       const dot = fwd.x * to.x + fwd.z * to.z;
       if (dot < 0.35) continue;
       if (isBlocking(p)) {
-        // reduced damage, but the sheer force staggers
+        // reduced damage, but the sheer force staggers — and turtling
+        // builds pressure toward the Oathcrusher Smash
+        s.shieldPressure += 14;
         hurtPlayer(titan, p, CLEAVE_BLOCKED_DAMAGE);
         knockPlayer(p, to, 1.6, 0.5);
         try { p.addEffect("slowness", 30, { amplifier: 1 }); } catch { }
@@ -384,7 +497,7 @@ function tickLeap(titan, s) {
     const x = s.leapStart.x + (s.leapLock.x - s.leapStart.x) * f;
     const z = s.leapStart.z + (s.leapLock.z - s.leapStart.z) * f;
     const baseY = s.leapStart.y + (s.leapLock.y - s.leapStart.y) * f;
-    const y = baseY + Math.sin(Math.PI * f) * 9;
+    const y = baseY + Math.sin(Math.PI * f) * LEAP_ARC_HEIGHT;
     try {
       titan.teleport({ x, y, z }, { facingLocation: s.leapLock });
     } catch { }
@@ -416,6 +529,7 @@ function tickLeap(titan, s) {
     for (const p of alivePlayersNear(titan.dimension, land, SLAM_RADIUS)) {
       hurtPlayer(titan, p, SLAM_DAMAGE);
       knockPlayer(p, norm2d(sub(p.location, land)), 1.4, 0.6);
+      shakeCamera(p, 0.4, 0.4);
     }
 
     // straight shockwave line: sidestep it or jump it
@@ -441,9 +555,9 @@ function tickDash(titan, s) {
     try { titan.applyKnockback(s.dashDir.x, s.dashDir.z, 1.6, 0.05); } catch { }
     const loc = titan.location;
     particle(titan.dimension, "minecraft:basic_flame_particle", { x: loc.x, y: loc.y + 0.5, z: loc.z });
-    particle(titan.dimension, "minecraft:basic_flame_particle", { x: loc.x, y: loc.y + 1.6, z: loc.z });
+    particle(titan.dimension, "minecraft:basic_flame_particle", { x: loc.x, y: loc.y + 1.3, z: loc.z });
     particle(titan.dimension, "minecraft:lava_particle", loc);
-    for (const p of alivePlayersNear(titan.dimension, loc, 2.6)) {
+    for (const p of alivePlayersNear(titan.dimension, loc, 2.2)) {
       if (s.dashHit.has(p.id)) continue;
       s.dashHit.add(p.id);
       hurtPlayer(titan, p, DASH_DAMAGE);
@@ -453,6 +567,211 @@ function tickDash(titan, s) {
     return;
   }
   if (t >= DASH_TICKS + 8) backToIdle(titan, s);
+}
+
+function tickThrow(titan, s) {
+  const t = s.stateTicks;
+  const loc = titan.location;
+
+  // ripping a slab out of the arena floor
+  if (t > 3 && t < THROW_RELEASE_TICK && t % 3 === 0) {
+    particle(titan.dimension, "minecraft:basic_smoke_particle", {
+      x: loc.x + (Math.random() - 0.5) * 1.5, y: loc.y + 0.2, z: loc.z + (Math.random() - 0.5) * 1.5
+    });
+  }
+  if (t === 8) playSoundAt(titan.dimension, "dig.gravel", loc, 2);
+
+  if (t === THROW_RELEASE_TICK) {
+    let target = null;
+    try {
+      target = titan.dimension
+        .getPlayers({ location: loc, maxDistance: 40 })
+        .find((p) => p.id === s.throwTargetId) ?? nearestTarget(titan);
+    } catch { }
+    if (target) {
+      faceTarget(titan, target);
+      const chest = { x: loc.x, y: loc.y + CHEST_Y + 0.4, z: loc.z };
+      // lead the shot a little based on the target's velocity
+      let aim = { ...target.location };
+      try {
+        const v = target.getVelocity();
+        aim = { x: aim.x + v.x * 8, y: aim.y + 0.8, z: aim.z + v.z * 8 };
+      } catch { }
+      const dist = distance(aim, chest);
+      const dir = norm3d(sub(aim, chest));
+      const spawnAt = { x: chest.x + dir.x * 1.4, y: chest.y + 0.3, z: chest.z + dir.z * 1.4 };
+      try {
+        const boulder = titan.dimension.spawnEntity(BOULDER_ID, spawnAt);
+        boulder.applyImpulse({
+          x: dir.x * BOULDER_SPEED,
+          y: dir.y * BOULDER_SPEED + Math.min(0.65, 0.18 + dist * 0.022),
+          z: dir.z * BOULDER_SPEED
+        });
+        playSoundAt(titan.dimension, "mob.enderdragon.flap", spawnAt, 2);
+      } catch { }
+    }
+  }
+  if (t >= THROW_LENGTH) backToIdle(titan, s);
+}
+
+function tickSummon(titan, s) {
+  const t = s.stateTicks;
+  const loc = titan.location;
+  if (t % 3 === 0) {
+    particle(titan.dimension, "minecraft:basic_flame_particle", {
+      x: loc.x, y: loc.y + CHEST_Y, z: loc.z
+    });
+  }
+  if (t === SUMMON_TICK) {
+    const count = MINI_SPAWN_COUNT + (s.raged ? 1 : 0);
+    for (let i = 0; i < count; i++) {
+      const a = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+      const pos = {
+        x: loc.x + Math.cos(a) * 2,
+        y: loc.y + 0.1,
+        z: loc.z + Math.sin(a) * 2
+      };
+      try {
+        titan.dimension.spawnEntity(MINI_ID, pos);
+        particle(titan.dimension, "minecraft:lava_particle", pos);
+        particle(titan.dimension, "minecraft:basic_flame_particle", { x: pos.x, y: pos.y + 0.6, z: pos.z });
+      } catch { }
+    }
+    playSoundAt(titan.dimension, "mob.evocation_illager.cast_spell", loc, 2.5);
+  }
+  if (t >= SUMMON_LENGTH) backToIdle(titan, s);
+}
+
+function tickSmash(titan, s) {
+  const t = s.stateTicks;
+  // raising the greatsword high...
+  if (t < SMASH_HIT_TICK && t % 4 === 0) {
+    const loc = titan.location;
+    particle(titan.dimension, "minecraft:basic_flame_particle", {
+      x: loc.x, y: loc.y + 2.4, z: loc.z
+    });
+  }
+  if (t === SMASH_HIT_TICK && !s.smashHit) {
+    s.smashHit = true;
+    const fwd = titan.getViewDirection();
+    const loc = titan.location;
+    playSoundAt(titan.dimension, "random.explode", loc, 2.5);
+    particle(titan.dimension, "minecraft:knockback_roar_particle", {
+      x: loc.x + fwd.x * 1.5, y: loc.y + 0.3, z: loc.z + fwd.z * 1.5
+    });
+    for (const p of alivePlayersNear(titan.dimension, loc, SMASH_RANGE)) {
+      const to = norm2d(sub(p.location, loc));
+      if (fwd.x * to.x + fwd.z * to.z < 0.45) continue;
+      if (isBlocking(p)) {
+        // the whole point: 2x damage through the shield, plus a stun
+        hurtPlayer(titan, p, SMASH_DAMAGE * 2);
+        try { p.addEffect("slowness", 50, { amplifier: 3 }); } catch { }
+        try { p.addEffect("weakness", 50, { amplifier: 1 }); } catch { }
+        shakeCamera(p, 0.6, 0.8);
+        knockPlayer(p, to, 0.4, 0.3);
+        playSoundAt(titan.dimension, "random.break", p.location, 2);
+        try { p.onScreenDisplay.setActionBar("§4🛡 GUARD SHATTERED — you are stunned!"); } catch { }
+      } else {
+        hurtPlayer(titan, p, SMASH_DAMAGE);
+        knockPlayer(p, to, 1.2, 0.45);
+      }
+    }
+  }
+  if (t >= SMASH_LENGTH) backToIdle(titan, s);
+}
+
+function tickGrapple(titan, s) {
+  const t = s.stateTicks;
+
+  // telegraph: keep tracking the target while he coils
+  if (t < GRAPPLE_TELEGRAPH) {
+    const target = nearestTarget(titan);
+    if (target) {
+      s.grappleDir = norm2d(sub(target.location, titan.location));
+      faceTarget(titan, target);
+    }
+    return;
+  }
+
+  // holding a grabbed player
+  if (s.grabId) {
+    s.holdTicks++;
+    const held = titan.dimension
+      .getPlayers({ location: titan.location, maxDistance: 12 })
+      .find((p) => p.id === s.grabId);
+    if (!held) {
+      backToIdle(titan, s);
+      return;
+    }
+    const loc = titan.location;
+    if (s.holdTicks < GRAPPLE_HOLD_TICKS) {
+      // hoisted into the air in his fist
+      try {
+        held.teleport({
+          x: loc.x + s.grappleDir.x * 1.1,
+          y: loc.y + 1.6,
+          z: loc.z + s.grappleDir.z * 1.1
+        });
+      } catch { }
+      if (s.holdTicks % 4 === 0) {
+        particle(titan.dimension, "minecraft:critical_hit_emitter", held.location);
+      }
+    } else {
+      // slammed into the ground — a grab beats a shield
+      const gx = loc.x + s.grappleDir.x * 1.6;
+      const gz = loc.z + s.grappleDir.z * 1.6;
+      const gy = groundY(titan.dimension, gx, loc.y, gz);
+      try { held.teleport({ x: gx, y: gy, z: gz }); } catch { }
+      hurtPlayer(titan, held, GRAPPLE_DAMAGE);
+      try { held.addEffect("slowness", 30, { amplifier: 2 }); } catch { }
+      shakeCamera(held, 0.7, 0.6);
+      particle(titan.dimension, "minecraft:knockback_roar_particle", { x: gx, y: gy + 0.3, z: gz });
+      playSoundAt(titan.dimension, "random.explode", { x: gx, y: gy, z: gz }, 2.5);
+      try { held.onScreenDisplay.setActionBar("§4✊ Slammed into the earth!"); } catch { }
+      backToIdle(titan, s, 10);
+    }
+    return;
+  }
+
+  // lunge phase: try to connect the grab
+  if (t <= GRAPPLE_LUNGE_END) {
+    try { titan.applyKnockback(s.grappleDir.x, s.grappleDir.z, 1.7, 0.05); } catch { }
+    const loc = titan.location;
+    if (t % 2 === 0) {
+      particle(titan.dimension, "minecraft:basic_smoke_particle", { x: loc.x, y: loc.y + 0.8, z: loc.z });
+    }
+    for (const p of alivePlayersNear(titan.dimension, loc, GRAPPLE_REACH)) {
+      const to = norm2d(sub(p.location, loc));
+      if (s.grappleDir.x * to.x + s.grappleDir.z * to.z < 0.2 && distance(p.location, loc) > 1) continue;
+      // CONNECTED
+      s.grabId = p.id;
+      s.holdTicks = 0;
+      freeze(titan, GRAPPLE_HOLD_TICKS + 6);
+      playSoundAt(titan.dimension, "mob.warden.attack", loc, 2.5);
+      try { p.onScreenDisplay.setActionBar("§4✊ GRABBED!"); } catch { }
+      return;
+    }
+    return;
+  }
+
+  // whiffed: he stumbles — free punish window
+  s.state = "stumble";
+  s.stateTicks = 0;
+  setAnimState(titan, "stumble");
+  freeze(titan, STUMBLE_TICKS);
+  playSoundAt(titan.dimension, "mob.ravager.stunned", titan.location, 2);
+  actionbarNearby(titan, 30, "§a⚔ The Titan stumbles — strike now!");
+}
+
+function tickStumble(titan, s) {
+  freeze(titan, 5);
+  if (s.stateTicks % 8 === 0) {
+    const loc = titan.location;
+    particle(titan.dimension, "minecraft:critical_hit_emitter", {
+      x: loc.x, y: loc.y + 2.3, z: loc.z
+    });
+  }
+  if (s.stateTicks >= STUMBLE_TICKS) backToIdle(titan, s);
 }
 
 function tickParry(titan, s) {
@@ -488,7 +807,7 @@ function tickJudgment(titan, s) {
     titleNearby(titan, 50, "§bCORE SHATTERED", "§7The Titan reels, defenseless!");
     for (let i = 0; i < 20; i++) {
       particle(titan.dimension, "minecraft:critical_hit_emitter", {
-        x: loc.x + (Math.random() - 0.5) * 3, y: loc.y + 2 + Math.random() * 2, z: loc.z + (Math.random() - 0.5) * 3
+        x: loc.x + (Math.random() - 0.5) * 2, y: loc.y + 1 + Math.random() * 1.5, z: loc.z + (Math.random() - 0.5) * 2
       });
     }
     return;
@@ -496,7 +815,7 @@ function tickJudgment(titan, s) {
 
   // charge-up drama at the chest core
   if (t % 4 === 0) {
-    const core = { x: loc.x, y: loc.y + 2.3, z: loc.z };
+    const core = { x: loc.x, y: loc.y + CHEST_Y, z: loc.z };
     particle(titan.dimension, "minecraft:basic_flame_particle", core);
     particle(titan.dimension, "minecraft:lava_particle", core);
   }
@@ -521,6 +840,7 @@ function tickJudgment(titan, s) {
       const d = Math.max(1, distance(p.location, loc));
       hurtPlayer(titan, p, Math.round(JUDGMENT_BONUS_DAMAGE * Math.min(1, 3 / d)));
       knockPlayer(p, norm2d(sub(p.location, loc)), 2.5, 0.9);
+      shakeCamera(p, 0.6, 0.8);
     }
     backToIdle(titan, s, 20);
   }
@@ -530,7 +850,7 @@ function tickStunned(titan, s) {
   freeze(titan, 5);
   if (s.stateTicks % 10 === 0) {
     const loc = titan.location;
-    particle(titan.dimension, "minecraft:villager_angry", { x: loc.x, y: loc.y + 4.2, z: loc.z });
+    particle(titan.dimension, "minecraft:villager_angry", { x: loc.x, y: loc.y + 2.4, z: loc.z });
   }
   if (s.stateTicks >= STUN_TICKS) backToIdle(titan, s);
 }
@@ -538,6 +858,7 @@ function tickStunned(titan, s) {
 function backToIdle(titan, s, extraRecovery = 0) {
   s.state = "idle";
   s.stateTicks = -extraRecovery;
+  s.grabId = null;
   setAnimState(titan, "idle");
 }
 
@@ -565,6 +886,10 @@ function tickTitan(titan) {
   if (s.cdLeap > 0) s.cdLeap--;
   if (s.cdDash > 0) s.cdDash--;
   if (s.cdParry > 0) s.cdParry--;
+  if (s.cdThrow > 0) s.cdThrow--;
+  if (s.cdSummon > 0) s.cdSummon--;
+  if (s.cdSmash > 0) s.cdSmash--;
+  if (s.cdGrapple > 0) s.cdGrapple--;
   if (s.cdJudgment > 0) s.cdJudgment--;
 
   // phase checks (also caught in the hurt handler, this is a safety net)
@@ -576,6 +901,11 @@ function tickTitan(titan) {
     case "cleave": return tickCleave(titan, s);
     case "leap": return tickLeap(titan, s);
     case "dash": return tickDash(titan, s);
+    case "throw": return tickThrow(titan, s);
+    case "summon": return tickSummon(titan, s);
+    case "smash": return tickSmash(titan, s);
+    case "grapple": return tickGrapple(titan, s);
+    case "stumble": return tickStumble(titan, s);
     case "parry": return tickParry(titan, s);
     case "judgment": return tickJudgment(titan, s);
     case "stunned": return tickStunned(titan, s);
@@ -602,9 +932,26 @@ function tickTitan(titan) {
   if (!target) return;
   const dist = distance(target.location, titan.location);
 
+  // shield pressure: turtling in his face provokes the Oathcrusher
+  if (dist <= 6 && isBlocking(target)) {
+    s.shieldPressure += 1;
+  } else if (s.shieldPressure > 0) {
+    s.shieldPressure -= 0.5;
+  }
+
   // Final Judgment at 10% HP
   if (hpFrac <= 0.1 && s.cdJudgment <= 0) {
     startJudgment(titan, s);
+    return;
+  }
+  // Oathcrusher Smash: punish shield turtles
+  if (s.cdSmash <= 0 && s.shieldPressure >= SMASH_PRESSURE_TRIGGER && dist <= SMASH_RANGE + 1) {
+    startSmash(titan, s, target);
+    return;
+  }
+  // Titan Grapple
+  if (s.cdGrapple <= 0 && dist >= 3 && dist <= 9) {
+    startGrapple(titan, s, target);
     return;
   }
   // Earthsplitter Leap
@@ -615,6 +962,16 @@ function tickTitan(titan) {
   // Fiery dash (rage only)
   if (s.raged && s.cdDash <= 0 && dist >= 5 && dist <= 16) {
     startDash(titan, s, target);
+    return;
+  }
+  // Groundbreaker Throw: rip up the floor at range
+  if (s.cdThrow <= 0 && dist >= 8 && dist <= 26) {
+    startThrow(titan, s, target);
+    return;
+  }
+  // Core Minis
+  if (s.cdSummon <= 0 && dist <= 30 && countMinis(titan) < MINI_CAP + (s.raged ? 2 : 0)) {
+    startSummon(titan, s);
     return;
   }
   // Titan Cleave
@@ -660,7 +1017,8 @@ system.runInterval(() => {
 }, 600);
 
 // ---------------------------------------------------------------------
-// Damage events: rage trigger, Oathbound Parry, Judgment interrupt
+// Damage events: rage trigger, Oathbound Parry, Judgment interrupt,
+// stumble vulnerability
 // ---------------------------------------------------------------------
 world.afterEvents.entityHurt.subscribe((ev) => {
   const titan = ev.hurtEntity;
@@ -688,6 +1046,17 @@ world.afterEvents.entityHurt.subscribe((ev) => {
   }
   if (s.state === "stunned" || s.state === "parry") return;
 
+  // stumbling after a whiffed grapple: hits land 50% harder
+  if (s.state === "stumble") {
+    try {
+      // extra damage with no damagingEntity, so this can't re-enter
+      titan.applyDamage(Math.max(1, Math.ceil(ev.damage * 0.5)), {
+        cause: EntityDamageCause.override
+      });
+    } catch { }
+    return; // no parry while stumbling
+  }
+
   // Oathbound Parry: punish rapid attacks
   const now = system.currentTick;
   const log = (s.hitLog.get(attacker.id) ?? []).filter((t) => now - t <= PARRY_WINDOW);
@@ -710,11 +1079,18 @@ world.afterEvents.entityDie.subscribe((ev) => {
   try {
     const loc = titan.location;
     playSoundAt(titan.dimension, "mob.wither.death", loc, 3);
-    particle(titan.dimension, "minecraft:huge_explosion_emitter", { x: loc.x, y: loc.y + 2, z: loc.z });
+    particle(titan.dimension, "minecraft:huge_explosion_emitter", { x: loc.x, y: loc.y + 1, z: loc.z });
     for (let i = 0; i < 16; i++) {
       particle(titan.dimension, "minecraft:basic_smoke_particle", {
-        x: loc.x + (Math.random() - 0.5) * 3, y: loc.y + Math.random() * 4, z: loc.z + (Math.random() - 0.5) * 3
+        x: loc.x + (Math.random() - 0.5) * 3, y: loc.y + Math.random() * 2.5, z: loc.z + (Math.random() - 0.5) * 3
       });
+    }
+    // his embers die with him
+    for (const mini of titan.dimension.getEntities({ type: MINI_ID, location: loc, maxDistance: 60 })) {
+      try {
+        particle(titan.dimension, "minecraft:basic_smoke_particle", mini.location);
+        mini.kill();
+      } catch { }
     }
     for (const p of alivePlayersNear(titan.dimension, loc, 60)) {
       p.onScreenDisplay.setTitle("§6THE OATH IS BROKEN", {

@@ -8,7 +8,10 @@
       "properties": {
         "ob:attack_state": {
           "type": "enum",
-          "values": ["idle", "cleave", "leap", "slam", "dash", "parry", "judgment", "stunned"],
+          "values": [
+            "idle", "cleave", "leap", "slam", "dash", "parry", "judgment", "stunned",
+            "throw", "summon", "smash", "grapple", "stumble"
+          ],
           "default": "idle",
           "client_sync": true
         },
@@ -21,15 +24,16 @@
     },
     "component_groups": {
       "ob:rage_group": {
-        "minecraft:movement": { "value": 0.34 },
-        "minecraft:attack": { "damage": 13 }
+        "minecraft:movement": { "value": 0.46 },
+        "minecraft:attack": { "damage": 12 }
       }
     },
     "components": {
       "minecraft:type_family": { "family": ["ob_titan", "monster", "mob"] },
-      "minecraft:collision_box": { "width": 1.5, "height": 3.9 },
+      "minecraft:scale": { "value": 0.55 },
+      "minecraft:collision_box": { "width": 0.9, "height": 2.2 },
       "minecraft:health": { "value": 600, "max": 600 },
-      "minecraft:movement": { "value": 0.25 },
+      "minecraft:movement": { "value": 0.35 },
       "minecraft:navigation.walk": { "can_walk": true, "avoid_water": true },
       "minecraft:movement.basic": {},
       "minecraft:jump.static": {},
@@ -38,7 +42,7 @@
       "minecraft:knockback_resistance": { "value": 1.0 },
       "minecraft:fire_immune": {},
       "minecraft:persistent": {},
-      "minecraft:attack": { "damage": 9 },
+      "minecraft:attack": { "damage": 8 },
       "minecraft:boss": { "should_darken_sky": false, "hud_range": 60 },
       "minecraft:follow_range": { "value": 48, "max": 48 },
       "minecraft:loot": { "table": "loot_tables/entities/oathbreaker_titan.json" },
@@ -69,9 +73,9 @@
       },
       "minecraft:behavior.melee_box_attack": {
         "priority": 3,
-        "cooldown_time": 1.4,
-        "speed_multiplier": 1.1,
-        "horizontal_reach": 1.8
+        "cooldown_time": 0.8,
+        "speed_multiplier": 1.25,
+        "horizontal_reach": 0.9
       },
       "minecraft:behavior.look_at_player": { "priority": 7, "look_distance": 14 },
       "minecraft:behavior.random_look_around": { "priority": 8 }

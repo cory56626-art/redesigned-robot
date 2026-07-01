@@ -12,7 +12,12 @@
             { "dash": "q.property('ob:attack_state') == 'dash'" },
             { "parry": "q.property('ob:attack_state') == 'parry'" },
             { "judgment": "q.property('ob:attack_state') == 'judgment'" },
-            { "stunned": "q.property('ob:attack_state') == 'stunned'" }
+            { "stunned": "q.property('ob:attack_state') == 'stunned'" },
+            { "throw": "q.property('ob:attack_state') == 'throw'" },
+            { "summon": "q.property('ob:attack_state') == 'summon'" },
+            { "smash": "q.property('ob:attack_state') == 'smash'" },
+            { "grapple": "q.property('ob:attack_state') == 'grapple'" },
+            { "stumble": "q.property('ob:attack_state') == 'stumble'" }
           ]
         },
         "cleave": {
@@ -52,6 +57,34 @@
           "animations": ["stunned_anim"],
           "blend_transition": 0.2,
           "transitions": [{ "default": "q.property('ob:attack_state') != 'stunned'" }]
+        },
+        "throw": {
+          "animations": ["throw_anim"],
+          "blend_transition": 0.1,
+          "transitions": [{ "default": "q.property('ob:attack_state') != 'throw'" }]
+        },
+        "summon": {
+          "animations": ["summon_anim"],
+          "blend_transition": 0.15,
+          "transitions": [{ "default": "q.property('ob:attack_state') != 'summon'" }]
+        },
+        "smash": {
+          "animations": ["smash_anim"],
+          "blend_transition": 0.1,
+          "transitions": [{ "default": "q.property('ob:attack_state') != 'smash'" }]
+        },
+        "grapple": {
+          "animations": ["grapple_anim"],
+          "blend_transition": 0.08,
+          "transitions": [
+            { "stumble": "q.property('ob:attack_state') == 'stumble'" },
+            { "default": "q.property('ob:attack_state') != 'grapple' && q.property('ob:attack_state') != 'stumble'" }
+          ]
+        },
+        "stumble": {
+          "animations": ["stumble_anim"],
+          "blend_transition": 0.15,
+          "transitions": [{ "default": "q.property('ob:attack_state') != 'stumble'" }]
         }
       }
     }
