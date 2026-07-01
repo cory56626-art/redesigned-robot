@@ -1,0 +1,14 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": { "identifier": "bw:brawl_stick_recipe" },
+    "tags": ["crafting_table"],
+    "unlock": [{ "item": "minecraft:redstone" }],
+    "pattern": ["R", "S"],
+    "key": {
+      "R": { "item": "minecraft:redstone" },
+      "S": { "item": "minecraft:stick" }
+    },
+    "result": { "item": "bw:brawl_stick" }
+  }
+}
