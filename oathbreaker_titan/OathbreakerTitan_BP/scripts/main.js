@@ -360,14 +360,42 @@ const PROJECTILE_TYPES = new Set([
   "minecraft:arrow", "minecraft:thrown_trident", "minecraft:snowball",
   "minecraft:egg", "minecraft:small_fireball", "minecraft:fireball",
   "minecraft:llama_spit", "minecraft:shulker_bullet", "minecraft:dragon_fireball",
-  "minecraft:wind_charge_projectile", "minecraft:breeze_wind_charge_projectile"
+  "minecraft:wind_charge_projectile", "minecraft:breeze_wind_charge_projectile",
+  "minecraft:wither_skull", "minecraft:wither_skull_dangerous",
+  "minecraft:fireworks_rocket", "minecraft:splash_potion",
+  "minecraft:lingering_potion", "minecraft:xp_bottle"
 ]);
+
+// 5x the source projectile's usual damage, delivered by the return shot
+const RETURN_5X_DAMAGE = {
+  "minecraft:arrow": 15,
+  "minecraft:thrown_trident": 40,
+  "minecraft:wither_skull": 40,
+  "minecraft:wither_skull_dangerous": 40,
+  "minecraft:fireball": 30,
+  "minecraft:small_fireball": 25,
+  "minecraft:dragon_fireball": 25,
+  "minecraft:shulker_bullet": 20,
+  "minecraft:fireworks_rocket": 25,
+  "minecraft:llama_spit": 5,
+  "minecraft:snowball": 5,
+  "minecraft:egg": 5,
+  "minecraft:wind_charge_projectile": 5,
+  "minecraft:breeze_wind_charge_projectile": 5,
+  "minecraft:splash_potion": 5,
+  "minecraft:lingering_potion": 5,
+  "minecraft:xp_bottle": 5
+};
+
+// return shots in flight: projectileId -> { titanId, extra, expire }
+const returnedShots = new Map();
 
 // Spawn a fresh projectile flying back at the shooter. Reversing the
 // original entity's velocity is unreliable on Bedrock, so the returned
-// shot is always a brand-new projectile (which also means it can hit
-// the shooter — script-spawned projectiles have no owner immunity).
-function returnProjectile(titan, s, typeId, incomingSpeed) {
+// shot is always a brand-new arrow (fireball/skull entities won't fly
+// under script impulse) carrying 5x the source projectile's damage,
+// applied on impact via projectileHitEntity below.
+function returnProjectile(titan, s, sourceTypeId, incomingSpeed) {
   const loc = titan.location;
   const chest = { x: loc.x, y: loc.y + CHEST_Y + 0.3, z: loc.z };
 
@@ -401,13 +429,46 @@ function returnProjectile(titan, s, typeId, incomingSpeed) {
   // spawn clear of the Titan's own hitbox
   const spawnAt = { x: chest.x + dir.x * 1.4, y: chest.y + dir.y * 1.4, z: chest.z + dir.z * 1.4 };
   try {
-    const ret = titan.dimension.spawnEntity(typeId, spawnAt);
+    const ret = titan.dimension.spawnEntity("minecraft:arrow", spawnAt);
     s.reflected.add(ret.id); // never re-bat our own return shot
+    // the arrow itself only stings — the real payload lands on impact
+    const total = RETURN_5X_DAMAGE[sourceTypeId] ?? 5;
+    returnedShots.set(ret.id, {
+      titanId: titan.id,
+      extra: Math.max(2, total - 3),
+      expire: system.currentTick + 200
+    });
     ret.applyImpulse(vel);
     particle(titan.dimension, "minecraft:critical_hit_emitter", spawnAt);
+    if (total >= 20) {
+      particle(titan.dimension, "minecraft:basic_flame_particle", spawnAt);
+    }
     playSoundAt(titan.dimension, "random.anvil_land", titan.location, 1);
   } catch { }
 }
+
+// the return shot's 5x payload detonates on whoever it hits
+try {
+  world.afterEvents.projectileHitEntity.subscribe((ev) => {
+    const info = returnedShots.get(ev.projectile?.id);
+    if (!info) return;
+    returnedShots.delete(ev.projectile.id);
+    let hit = null;
+    try { hit = ev.getEntityHit()?.entity; } catch { }
+    if (!hit) return;
+    let titan = null;
+    try { titan = world.getEntity(info.titanId); } catch { }
+    try {
+      hit.applyDamage(info.extra, titan
+        ? { cause: EntityDamageCause.projectile, damagingEntity: titan }
+        : { cause: EntityDamageCause.projectile });
+      particle(hit.dimension, "minecraft:critical_hit_emitter", {
+        x: hit.location.x, y: hit.location.y + 1, z: hit.location.z
+      });
+      playSoundAt(hit.dimension, "random.anvil_land", hit.location, 1.2);
+    } catch { }
+  });
+} catch { /* event unavailable — returns still deal base arrow damage */ }
 
 function removeProjectile(proj) {
   try { proj.remove(); return; } catch { }
@@ -431,9 +492,9 @@ function deflectProjectiles(titan, s) {
     s.reflected.add(proj.id);
     let speed = 2;
     try { speed = Math.max(0.6, len3d(proj.getVelocity())); } catch { }
-    const typeId = proj.typeId === "minecraft:thrown_trident" ? "minecraft:arrow" : proj.typeId;
+    const sourceType = proj.typeId;
     removeProjectile(proj);
-    returnProjectile(titan, s, typeId, speed);
+    returnProjectile(titan, s, sourceType, speed);
   }
 }
 
@@ -595,9 +656,17 @@ function startJudgment(titan, s) {
   titleNearby(titan, 50, "§4FINAL JUDGMENT", "§6Strike the glowing chest core to interrupt!");
 }
 
+function rageBoost(titan) {
+  // rage stats via effects, NOT an entity event: triggering an event
+  // re-initializes the AI on Bedrock, which drops mob combat targets
+  try { titan.addEffect("speed", 120, { amplifier: 1, showParticles: false }); } catch { }
+  try { titan.addEffect("strength", 120, { amplifier: 1, showParticles: false }); } catch { }
+}
+
 function enterRage(titan, s) {
   s.raged = true;
-  try { titan.triggerEvent("ob:enter_rage"); } catch { }
+  try { titan.setProperty("ob:rage", true); } catch { }
+  rageBoost(titan);
   playSoundAt(titan.dimension, "mob.ravager.roar", titan.location, 3);
   titleNearby(titan, 50, "§4THE OATH BURNS", "§cThe Titan enters his rage...");
   const loc = titan.location;
@@ -1226,7 +1295,28 @@ function nearestTarget(titan) {
     } catch { }
   }
 
-  // 3) nearest survival/adventure player
+  // 3) scan for any mob actively hunting HIM (covers aggro the engine
+  //    dropped, e.g. after phase changes) — throttled to every 10 ticks
+  if (system.currentTick - (s.lastHostileScan ?? -99) >= 10) {
+    s.lastHostileScan = system.currentTick;
+    try {
+      for (const e of titan.dimension.getEntities({
+        location: titan.location,
+        maxDistance: 24
+      })) {
+        if (isPlayer(e) || !canFight(e)) continue;
+        try {
+          if (e.target?.id === titan.id) {
+            s.mobFoeId = e.id;
+            s.mobFoeTick = system.currentTick;
+            return e;
+          }
+        } catch { }
+      }
+    } catch { }
+  }
+
+  // 4) nearest survival/adventure player
   const players = alivePlayersNear(titan.dimension, titan.location, 48);
   let best = null;
   let bestD = Infinity;
@@ -1261,6 +1351,8 @@ function tickTitan(titan) {
   const health = titan.getComponent("minecraft:health");
   const hpFrac = health ? health.currentValue / health.effectiveMax : 1;
   if (!s.raged && hpFrac <= 0.5) enterRage(titan, s);
+  // keep the rage stat boost topped up (effect-based, no AI reset)
+  if (s.raged && s.stateTicks % 100 === 0) rageBoost(titan);
 
   switch (s.state) {
     case "cleave": return tickCleave(titan, s);
@@ -1396,6 +1488,10 @@ system.runInterval(() => {
   for (const id of titans.keys()) {
     if (!liveIds.has(id)) titans.delete(id);
   }
+  const now = system.currentTick;
+  for (const [id, info] of returnedShots) {
+    if (now > info.expire) returnedShots.delete(id);
+  }
 }, 600);
 
 // ---------------------------------------------------------------------
@@ -1457,11 +1553,11 @@ world.afterEvents.entityHurt.subscribe((ev) => {
         }
         playSoundAt(titan.dimension, "random.anvil_land", titan.location, 2);
         actionbarNearby(titan, 40, "§6⚔ The Titan bats your projectiles back FIVE-FOLD!");
-        // the shot that triggered the parry comes right back
-        returnProjectile(titan, s, "minecraft:arrow", 2.5);
+        // the shot that triggered the parry comes right back, in kind
+        returnProjectile(titan, s, ev.damageSource?.damagingProjectile?.typeId ?? "minecraft:arrow", 2.5);
       } else if (now < s.deflectUntil) {
         // anything that lands inside the window is answered in kind
-        returnProjectile(titan, s, "minecraft:arrow", 2.5);
+        returnProjectile(titan, s, ev.damageSource?.damagingProjectile?.typeId ?? "minecraft:arrow", 2.5);
       }
     }
   } catch { }
