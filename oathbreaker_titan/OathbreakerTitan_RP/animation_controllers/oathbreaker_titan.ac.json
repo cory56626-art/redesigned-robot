@@ -17,7 +17,8 @@
             { "summon": "q.property('ob:attack_state') == 'summon'" },
             { "smash": "q.property('ob:attack_state') == 'smash'" },
             { "grapple": "q.property('ob:attack_state') == 'grapple'" },
-            { "stumble": "q.property('ob:attack_state') == 'stumble'" }
+            { "stumble": "q.property('ob:attack_state') == 'stumble'" },
+            { "drag": "q.property('ob:attack_state') == 'drag'" }
           ]
         },
         "cleave": {
@@ -36,7 +37,15 @@
         "slam": {
           "animations": ["slam_anim"],
           "blend_transition": 0.05,
-          "transitions": [{ "default": "q.property('ob:attack_state') != 'slam'" }]
+          "transitions": [
+            { "drag": "q.property('ob:attack_state') == 'drag'" },
+            { "default": "q.property('ob:attack_state') != 'slam' && q.property('ob:attack_state') != 'drag'" }
+          ]
+        },
+        "drag": {
+          "animations": ["drag_anim"],
+          "blend_transition": 0.1,
+          "transitions": [{ "default": "q.property('ob:attack_state') != 'drag'" }]
         },
         "dash": {
           "animations": ["dash_anim"],

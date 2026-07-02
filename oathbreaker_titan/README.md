@@ -33,6 +33,8 @@ You can also spawn him from the creative spawn egg for testing.
 |---|---|---|
 | **Titan Cleave** | You're within ~6 blocks | Back off, or block with a shield (crouch) — reduced damage, but the force staggers you |
 | **Earthsplitter Leap** | Every ~13s, mid range | He tracks you in the air, but the landing point locks shortly before impact — sprint sideways at the last moment, then **dodge the shockwave line** sideways or jump it |
+| **Skybreaker** | You spend too much time airborne (jump-spam, towers, elytra) | The leap becomes a snatch: he rips you out of the air, slams you into the ground, and **drags you across it at speed** before hurling you away. Stay grounded, or dodge the landing |
+| **Aegis Return** | 3 projectile hits within 6s | He parries and **bats incoming projectiles back at 5× speed**, aimed at the shooter, for a few seconds. Stop shooting when he braces, or reposition fast |
 | **Oathbound Parry** | 3 hits on him within 1.5s | Don't spam — pace your attacks or he parries and instantly counters |
 | **Groundbreaker Throw** | You stay at range | He rips a boulder from the arena floor and hurls it (with lead) — strafe, or block it with your shield |
 | **Core Minis** | Every ~28s | He splinters his core into small grounded ember-titans (vex-like, can't fly, expire after 45s, die with him) — cut them down fast |

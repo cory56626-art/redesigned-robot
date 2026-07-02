@@ -414,6 +414,30 @@
       }
     },
 
+    "animation.ob_titan.drag": {
+      "loop": true,
+      "bones": {
+        "body": {
+          "rotation": ["34", "0", "math.sin(q.anim_time * 500) * 4"]
+        },
+        "left_arm": {
+          "rotation": ["-72 + math.sin(q.anim_time * 500) * 5", "0", "-14"]
+        },
+        "right_arm": {
+          "rotation": [28, 0, 12]
+        },
+        "head": {
+          "rotation": [-18, 0, 0]
+        },
+        "right_leg": {
+          "rotation": ["math.cos(q.anim_time * 650) * 38", 0, 0]
+        },
+        "left_leg": {
+          "rotation": ["math.cos(q.anim_time * 650 + 180) * 38", 0, 0]
+        }
+      }
+    },
+
     "animation.ob_titan.stumble": {
       "loop": true,
       "bones": {

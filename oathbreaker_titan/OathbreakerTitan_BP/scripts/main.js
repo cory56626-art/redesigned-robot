@@ -77,6 +77,20 @@ const GRAPPLE_HOLD_TICKS = 12;
 const GRAPPLE_DAMAGE = 13;
 const STUMBLE_TICKS = 50;        // free punish window on a whiffed grab
 
+const SKY_AIR_TRIGGER = 30;      // accumulated airtime that provokes Skybreaker
+const SKY_GRAB_RADIUS = 4;       // how close the landing must be to snatch you
+const SKY_DRAG_TICKS = 22;       // dragged across the ground for ~1.1s
+const SKY_DRAG_DAMAGE = 3;       // every 4 ticks while dragged
+const SKY_DRAG_SPEED = 1.9;
+const SKY_FLING_DAMAGE = 4;      // the release throw
+
+const PROJ_PARRY_HITS = 3;       // projectile hits inside the window...
+const PROJ_WINDOW = 120;         // ...of 6 seconds provoke Aegis Return
+const PROJ_PARRY_COOLDOWN = 300;
+const DEFLECT_WINDOW = 70;       // 3.5s of batting projectiles back
+const REFLECT_SPEED_MULT = 5;
+const REFLECT_MAX_SPEED = 6;
+
 const JUDGMENT_CHARGE_TICKS = 120;
 const JUDGMENT_COOLDOWN = 900;
 const JUDGMENT_EXPLOSION_RADIUS = 7;
@@ -119,7 +133,16 @@ function getState(titan) {
       throwTargetId: null,
       parryTargetId: null,
       mobFoeId: null,     // grudge memory: last mob he traded damage with
-      mobFoeTick: -9999
+      mobFoeTick: -9999,
+      targetAir: 0,       // how long the target has been hopping around
+      skyGrab: false,     // current leap is the Skybreaker variant
+      dragVictimId: null,
+      dragDir: null,
+      projHits: [],       // recent projectile hit ticks
+      cdProjParry: 0,
+      deflectUntil: 0,    // while now < this, projectiles get returned
+      reflected: new Set(),
+      lastShooterId: null
     };
     titans.set(titan.id, s);
   }
@@ -325,6 +348,57 @@ function countMinis(titan) {
 }
 
 // ---------------------------------------------------------------------
+// Aegis Return: bat incoming projectiles back at the shooter, 5x faster
+// ---------------------------------------------------------------------
+const PROJECTILE_TYPES = new Set([
+  "minecraft:arrow", "minecraft:thrown_trident", "minecraft:snowball",
+  "minecraft:egg", "minecraft:small_fireball", "minecraft:fireball",
+  "minecraft:llama_spit", "minecraft:shulker_bullet", "minecraft:dragon_fireball",
+  "minecraft:wind_charge_projectile", "minecraft:breeze_wind_charge_projectile"
+]);
+
+function deflectProjectiles(titan, s) {
+  let nearby = [];
+  try {
+    nearby = titan.dimension.getEntities({
+      location: titan.location,
+      maxDistance: 4.5
+    });
+  } catch {
+    return;
+  }
+  for (const proj of nearby) {
+    if (!PROJECTILE_TYPES.has(proj.typeId)) continue;
+    if (s.reflected.has(proj.id)) continue;
+    let vel;
+    try { vel = proj.getVelocity(); } catch { continue; }
+    const speed = Math.max(0.6, len3d(vel));
+
+    // aim straight back at whoever's been shooting; fall back to a
+    // pure reversal if we don't know them
+    let dir = { x: -vel.x, y: -vel.y, z: -vel.z };
+    try {
+      const shooter = s.lastShooterId ? world.getEntity(s.lastShooterId) : null;
+      if (shooter && shooter.dimension.id === titan.dimension.id) {
+        dir = sub(
+          { x: shooter.location.x, y: shooter.location.y + 1.2, z: shooter.location.z },
+          proj.location
+        );
+      }
+    } catch { }
+    dir = norm3d(dir);
+    const newSpeed = Math.min(REFLECT_MAX_SPEED, speed * REFLECT_SPEED_MULT);
+    try {
+      proj.clearVelocity();
+      proj.applyImpulse({ x: dir.x * newSpeed, y: dir.y * newSpeed, z: dir.z * newSpeed });
+      s.reflected.add(proj.id);
+      particle(titan.dimension, "minecraft:critical_hit_emitter", proj.location);
+      playSoundAt(titan.dimension, "random.anvil_land", titan.location, 1);
+    } catch { }
+  }
+}
+
+// ---------------------------------------------------------------------
 // Active shockwaves (Earthsplitter Leap)
 // ---------------------------------------------------------------------
 const shockwaves = [];
@@ -386,15 +460,18 @@ function startCleave(titan, s, target) {
   playSoundAt(titan.dimension, "mob.ravager.bite", titan.location);
 }
 
-function startLeap(titan, s, target) {
+function startLeap(titan, s, target, skyGrab = false) {
   s.state = "leap";
   s.stateTicks = 0;
   s.cdLeap = LEAP_COOLDOWN;
   s.leapStart = { ...titan.location };
   s.leapLock = { ...target.location };
+  s.skyGrab = skyGrab;
   setAnimState(titan, "leap");
   playSoundAt(titan.dimension, "mob.ravager.roar", titan.location);
-  actionbarNearby(titan, 40, "§6⚠ The Titan takes to the sky!");
+  actionbarNearby(titan, 40, skyGrab
+    ? "§4⚠ The Titan leaps to RIP you from the sky!"
+    : "§6⚠ The Titan takes to the sky!");
 }
 
 function startDash(titan, s, target) {
@@ -577,6 +654,47 @@ function tickLeap(titan, s) {
     setAnimState(titan, "slam");
     particle(titan.dimension, "minecraft:knockback_roar_particle", { x: land.x, y: land.y + 0.5, z: land.z });
     playSoundAt(titan.dimension, "random.explode", land, 3);
+
+    // Skybreaker variant: snatch whoever's at the landing point
+    if (s.skyGrab) {
+      let victim = null;
+      let best = SKY_GRAB_RADIUS;
+      for (const v of victimsNearDim(titan.dimension, land, SKY_GRAB_RADIUS + 1)) {
+        const d = distance(v.location, land);
+        if (d < best) {
+          best = d;
+          victim = v;
+        }
+      }
+      if (victim) {
+        // slam them into the ground...
+        try { victim.teleport({ x: land.x, y: land.y, z: land.z }); } catch { }
+        hurtPlayer(titan, victim, SLAM_DAMAGE);
+        shakeCamera(victim, 0.6, 0.6);
+        tellVictim(victim, "§4✊ SLAMMED — he's dragging you!");
+        // ...then drag them across it
+        s.state = "drag";
+        s.stateTicks = 0;
+        s.dragVictimId = victim.id;
+        let dir = norm2d(sub(land, s.leapStart));
+        if (len2d(sub(land, s.leapStart)) < 1) {
+          const v = titan.getViewDirection();
+          dir = norm2d({ x: v.x, y: 0, z: v.z });
+        }
+        s.dragDir = dir;
+        setAnimState(titan, "drag");
+        playSoundAt(titan.dimension, "mob.warden.attack", land, 2.5);
+        return;
+      }
+      // whiffed the snatch: plain slam damage, then recover
+      for (const p of victimsNearDim(titan.dimension, land, SLAM_RADIUS)) {
+        hurtPlayer(titan, p, SLAM_DAMAGE);
+        knockPlayer(p, norm2d(sub(p.location, land)), 1.4, 0.6);
+        shakeCamera(p, 0.4, 0.4);
+      }
+      freeze(titan, 14);
+      return;
+    }
 
     for (const p of victimsNearDim(titan.dimension, land, SLAM_RADIUS)) {
       hurtPlayer(titan, p, SLAM_DAMAGE);
@@ -831,6 +949,40 @@ function tickGrapple(titan, s) {
   actionbarNearby(titan, 30, "§a⚔ The Titan stumbles — strike now!");
 }
 
+function tickDrag(titan, s) {
+  const t = s.stateTicks;
+  let victim = null;
+  try { victim = world.getEntity(s.dragVictimId); } catch { }
+
+  if (!victim || victim.dimension.id !== titan.dimension.id || t >= SKY_DRAG_TICKS) {
+    if (victim && t >= SKY_DRAG_TICKS) {
+      // hurled away at the end of the drag
+      knockPlayer(victim, s.dragDir, 1.7, 0.6);
+      hurtPlayer(titan, victim, SKY_FLING_DAMAGE);
+      shakeCamera(victim, 0.5, 0.5);
+      playSoundAt(titan.dimension, "random.explode", titan.location, 1.5);
+      particle(titan.dimension, "minecraft:knockback_roar_particle", victim.location);
+    }
+    s.dragVictimId = null;
+    backToIdle(titan, s, 12);
+    return;
+  }
+
+  // sprint forward, grinding the victim along the ground
+  try { titan.applyKnockback(s.dragDir.x, s.dragDir.z, SKY_DRAG_SPEED, 0); } catch { }
+  const loc = titan.location;
+  const vx = loc.x + s.dragDir.x * 1.2;
+  const vz = loc.z + s.dragDir.z * 1.2;
+  const vy = groundY(titan.dimension, vx, loc.y, vz);
+  try { victim.teleport({ x: vx, y: vy, z: vz }); } catch { }
+  if (t % 4 === 0) {
+    hurtPlayer(titan, victim, SKY_DRAG_DAMAGE);
+    playSoundAt(titan.dimension, "dig.stone", loc, 1.2);
+  }
+  particle(titan.dimension, "minecraft:basic_smoke_particle", { x: vx, y: vy + 0.2, z: vz });
+  particle(titan.dimension, "minecraft:critical_hit_emitter", { x: vx, y: vy + 0.5, z: vz });
+}
+
 function tickStumble(titan, s) {
   freeze(titan, 5);
   if (s.stateTicks % 8 === 0) {
@@ -927,6 +1079,7 @@ function backToIdle(titan, s, extraRecovery = 0) {
   s.state = "idle";
   s.stateTicks = -extraRecovery;
   s.grabId = null;
+  s.skyGrab = false;
   setAnimState(titan, "idle");
 }
 
@@ -1001,6 +1154,10 @@ function tickTitan(titan) {
   if (s.cdSmash > 0) s.cdSmash--;
   if (s.cdGrapple > 0) s.cdGrapple--;
   if (s.cdJudgment > 0) s.cdJudgment--;
+  if (s.cdProjParry > 0) s.cdProjParry--;
+
+  // Aegis Return: while the window is open, bat projectiles back
+  if (system.currentTick < s.deflectUntil) deflectProjectiles(titan, s);
 
   // phase checks (also caught in the hurt handler, this is a safety net)
   const health = titan.getComponent("minecraft:health");
@@ -1016,6 +1173,7 @@ function tickTitan(titan) {
     case "smash": return tickSmash(titan, s);
     case "grapple": return tickGrapple(titan, s);
     case "stumble": return tickStumble(titan, s);
+    case "drag": return tickDrag(titan, s);
     case "parry": return tickParry(titan, s);
     case "judgment": return tickJudgment(titan, s);
     case "stunned": return tickStunned(titan, s);
@@ -1049,6 +1207,15 @@ function tickTitan(titan) {
     s.shieldPressure -= 0.5;
   }
 
+  // airtime tracking: staying off the ground provokes the Skybreaker
+  try {
+    if (!target.isOnGround) {
+      s.targetAir = Math.min(80, s.targetAir + 1);
+    } else if (s.targetAir > 0) {
+      s.targetAir = Math.max(0, s.targetAir - 2);
+    }
+  } catch { }
+
   // Final Judgment at 10% HP
   if (hpFrac <= 0.1 && s.cdJudgment <= 0) {
     startJudgment(titan, s);
@@ -1062,6 +1229,12 @@ function tickTitan(titan) {
   // Titan Grapple
   if (s.cdGrapple <= 0 && dist >= 3 && dist <= 9) {
     startGrapple(titan, s, target);
+    return;
+  }
+  // Skybreaker: they've been in the air too much — rip them down
+  if (s.cdLeap <= 0 && dist >= 4 && dist <= 24 && s.targetAir >= SKY_AIR_TRIGGER) {
+    s.targetAir = 0;
+    startLeap(titan, s, target, true);
     return;
   }
   // Earthsplitter Leap
@@ -1157,6 +1330,37 @@ world.afterEvents.entityHurt.subscribe((ev) => {
     s.mobFoeId = attacker.id;
     s.mobFoeTick = system.currentTick;
   }
+
+  // pelted with projectiles? He answers with the Aegis Return
+  try {
+    if (ev.damageSource?.cause === EntityDamageCause.projectile) {
+      const now = system.currentTick;
+      if (attacker) s.lastShooterId = attacker.id;
+      s.projHits = s.projHits.filter((t) => now - t <= PROJ_WINDOW);
+      s.projHits.push(now);
+      if (
+        s.projHits.length >= PROJ_PARRY_HITS &&
+        s.cdProjParry <= 0 &&
+        s.state !== "judgment" && s.state !== "stunned" &&
+        s.state !== "drag" && s.state !== "grapple"
+      ) {
+        s.projHits = [];
+        s.cdProjParry = PROJ_PARRY_COOLDOWN;
+        s.deflectUntil = now + DEFLECT_WINDOW;
+        s.reflected.clear();
+        try { titan.addEffect("resistance", DEFLECT_WINDOW, { amplifier: 2, showParticles: false }); } catch { }
+        if (s.state === "idle" || s.state === "cleave") {
+          s.state = "parry";
+          s.stateTicks = 0;
+          s.parryTargetId = null;
+          setAnimState(titan, "parry");
+          freeze(titan, PARRY_LENGTH);
+        }
+        playSoundAt(titan.dimension, "random.anvil_land", titan.location, 2);
+        actionbarNearby(titan, 40, "§6⚔ The Titan bats your projectiles back FIVE-FOLD!");
+      }
+    }
+  } catch { }
   if (!attacker || attacker.typeId !== "minecraft:player") return;
 
   // Final Judgment: only a frontal hit reaches the glowing chest core
