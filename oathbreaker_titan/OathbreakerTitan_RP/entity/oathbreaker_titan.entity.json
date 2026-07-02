@@ -26,6 +26,7 @@
         "grapple_anim": "animation.ob_titan.grapple",
         "stumble_anim": "animation.ob_titan.stumble",
         "drag_anim": "animation.ob_titan.drag",
+        "pummel_anim": "animation.ob_titan.pummel",
         "attack_ctrl": "controller.animation.ob_titan.attack"
       },
       "scripts": {

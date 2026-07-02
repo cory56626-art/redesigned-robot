@@ -438,6 +438,24 @@
       }
     },
 
+    "animation.ob_titan.pummel": {
+      "loop": true,
+      "bones": {
+        "body": {
+          "rotation": ["18 + math.sin(q.anim_time * 720) * 6", "math.sin(q.anim_time * 360) * 8", 0]
+        },
+        "left_arm": {
+          "rotation": ["-55 - math.clamp(math.sin(q.anim_time * 720), 0, 1) * 55", 0, "-10"]
+        },
+        "right_arm": {
+          "rotation": ["-55 - math.clamp(math.sin(q.anim_time * 720 + 180), 0, 1) * 55", 0, "10"]
+        },
+        "head": {
+          "rotation": [-12, 0, 0]
+        }
+      }
+    },
+
     "animation.ob_titan.stumble": {
       "loop": true,
       "bones": {

@@ -77,19 +77,23 @@ const GRAPPLE_HOLD_TICKS = 12;
 const GRAPPLE_DAMAGE = 13;
 const STUMBLE_TICKS = 50;        // free punish window on a whiffed grab
 
+// Skybreaker: slam 8 + drag 6x2 (12) + three 5-dmg punches (15) = 35 total
 const SKY_AIR_TRIGGER = 30;      // accumulated airtime that provokes Skybreaker
 const SKY_GRAB_RADIUS = 4;       // how close the landing must be to snatch you
-const SKY_DRAG_TICKS = 22;       // dragged across the ground for ~1.1s
-const SKY_DRAG_DAMAGE = 3;       // every 4 ticks while dragged
-const SKY_DRAG_SPEED = 1.9;
-const SKY_FLING_DAMAGE = 4;      // the release throw
+const SKY_SLAM_DAMAGE = 8;       // the initial ground slam
+const SKY_DRAG_TICKS = 100;      // dragged across the ground for 5 seconds
+const SKY_DRAG_DAMAGE = 2;       // every 16 ticks while dragged (6 hits)
+const SKY_DRAG_SPEED = 1.6;
+const PUMMEL_PUNCHES = 3;        // finisher: three punches...
+const PUMMEL_DAMAGE = 5;         // ...at 5 damage each
+const PUMMEL_INTERVAL = 10;      // one punch every half second
 
 const PROJ_PARRY_HITS = 3;       // projectile hits inside the window...
 const PROJ_WINDOW = 120;         // ...of 6 seconds provoke Aegis Return
 const PROJ_PARRY_COOLDOWN = 300;
 const DEFLECT_WINDOW = 70;       // 3.5s of batting projectiles back
 const REFLECT_SPEED_MULT = 5;
-const REFLECT_MAX_SPEED = 6;
+const REFLECT_MAX_SPEED = 4.2;   // faster than this and arrows tunnel through targets
 
 const JUDGMENT_CHARGE_TICKS = 120;
 const JUDGMENT_COOLDOWN = 900;
@@ -138,6 +142,8 @@ function getState(titan) {
       skyGrab: false,     // current leap is the Skybreaker variant
       dragVictimId: null,
       dragDir: null,
+      dragStall: 0,
+      dragLastPos: null,
       projHits: [],       // recent projectile hit ticks
       cdProjParry: 0,
       deflectUntil: 0,    // while now < this, projectiles get returned
@@ -357,12 +363,64 @@ const PROJECTILE_TYPES = new Set([
   "minecraft:wind_charge_projectile", "minecraft:breeze_wind_charge_projectile"
 ]);
 
+// Spawn a fresh projectile flying back at the shooter. Reversing the
+// original entity's velocity is unreliable on Bedrock, so the returned
+// shot is always a brand-new projectile (which also means it can hit
+// the shooter — script-spawned projectiles have no owner immunity).
+function returnProjectile(titan, s, typeId, incomingSpeed) {
+  const loc = titan.location;
+  const chest = { x: loc.x, y: loc.y + CHEST_Y + 0.3, z: loc.z };
+
+  // aim at the last shooter; fall back to wherever he's looking
+  let dir = null;
+  let dist = 12;
+  try {
+    const shooter = s.lastShooterId ? world.getEntity(s.lastShooterId) : null;
+    if (shooter && shooter.dimension.id === titan.dimension.id) {
+      const aim = { x: shooter.location.x, y: shooter.location.y + 1.1, z: shooter.location.z };
+      dist = distance(aim, chest);
+      dir = norm3d(sub(aim, chest));
+    }
+  } catch { }
+  if (!dir) {
+    try {
+      const v = titan.getViewDirection();
+      dir = norm3d({ x: v.x, y: v.y + 0.05, z: v.z });
+    } catch {
+      return;
+    }
+  }
+
+  const speed = Math.min(REFLECT_MAX_SPEED, Math.max(1.2, incomingSpeed) * REFLECT_SPEED_MULT);
+  // slight arc so long returns still connect
+  const vel = {
+    x: dir.x * speed,
+    y: dir.y * speed + Math.min(0.35, dist * 0.008),
+    z: dir.z * speed
+  };
+  // spawn clear of the Titan's own hitbox
+  const spawnAt = { x: chest.x + dir.x * 1.4, y: chest.y + dir.y * 1.4, z: chest.z + dir.z * 1.4 };
+  try {
+    const ret = titan.dimension.spawnEntity(typeId, spawnAt);
+    s.reflected.add(ret.id); // never re-bat our own return shot
+    ret.applyImpulse(vel);
+    particle(titan.dimension, "minecraft:critical_hit_emitter", spawnAt);
+    playSoundAt(titan.dimension, "random.anvil_land", titan.location, 1);
+  } catch { }
+}
+
+function removeProjectile(proj) {
+  try { proj.remove(); return; } catch { }
+  try { proj.kill(); return; } catch { }
+  try { proj.teleport({ x: proj.location.x, y: -100, z: proj.location.z }); } catch { }
+}
+
 function deflectProjectiles(titan, s) {
   let nearby = [];
   try {
     nearby = titan.dimension.getEntities({
       location: titan.location,
-      maxDistance: 4.5
+      maxDistance: 5.5
     });
   } catch {
     return;
@@ -370,31 +428,12 @@ function deflectProjectiles(titan, s) {
   for (const proj of nearby) {
     if (!PROJECTILE_TYPES.has(proj.typeId)) continue;
     if (s.reflected.has(proj.id)) continue;
-    let vel;
-    try { vel = proj.getVelocity(); } catch { continue; }
-    const speed = Math.max(0.6, len3d(vel));
-
-    // aim straight back at whoever's been shooting; fall back to a
-    // pure reversal if we don't know them
-    let dir = { x: -vel.x, y: -vel.y, z: -vel.z };
-    try {
-      const shooter = s.lastShooterId ? world.getEntity(s.lastShooterId) : null;
-      if (shooter && shooter.dimension.id === titan.dimension.id) {
-        dir = sub(
-          { x: shooter.location.x, y: shooter.location.y + 1.2, z: shooter.location.z },
-          proj.location
-        );
-      }
-    } catch { }
-    dir = norm3d(dir);
-    const newSpeed = Math.min(REFLECT_MAX_SPEED, speed * REFLECT_SPEED_MULT);
-    try {
-      proj.clearVelocity();
-      proj.applyImpulse({ x: dir.x * newSpeed, y: dir.y * newSpeed, z: dir.z * newSpeed });
-      s.reflected.add(proj.id);
-      particle(titan.dimension, "minecraft:critical_hit_emitter", proj.location);
-      playSoundAt(titan.dimension, "random.anvil_land", titan.location, 1);
-    } catch { }
+    s.reflected.add(proj.id);
+    let speed = 2;
+    try { speed = Math.max(0.6, len3d(proj.getVelocity())); } catch { }
+    const typeId = proj.typeId === "minecraft:thrown_trident" ? "minecraft:arrow" : proj.typeId;
+    removeProjectile(proj);
+    returnProjectile(titan, s, typeId, speed);
   }
 }
 
@@ -669,13 +708,15 @@ function tickLeap(titan, s) {
       if (victim) {
         // slam them into the ground...
         try { victim.teleport({ x: land.x, y: land.y, z: land.z }); } catch { }
-        hurtPlayer(titan, victim, SLAM_DAMAGE);
+        hurtPlayer(titan, victim, SKY_SLAM_DAMAGE);
         shakeCamera(victim, 0.6, 0.6);
         tellVictim(victim, "§4✊ SLAMMED — he's dragging you!");
         // ...then drag them across it
         s.state = "drag";
         s.stateTicks = 0;
         s.dragVictimId = victim.id;
+        s.dragStall = 0;
+        s.dragLastPos = { ...titan.location };
         let dir = norm2d(sub(land, s.leapStart));
         if (len2d(sub(land, s.leapStart)) < 1) {
           const v = titan.getViewDirection();
@@ -949,38 +990,95 @@ function tickGrapple(titan, s) {
   actionbarNearby(titan, 30, "§a⚔ The Titan stumbles — strike now!");
 }
 
+function startPummel(titan, s) {
+  s.state = "pummel";
+  s.stateTicks = 0;
+  setAnimState(titan, "pummel");
+  freeze(titan, PUMMEL_PUNCHES * PUMMEL_INTERVAL + 16);
+  playSoundAt(titan.dimension, "mob.ravager.roar", titan.location, 1.5);
+}
+
 function tickDrag(titan, s) {
   const t = s.stateTicks;
   let victim = null;
   try { victim = world.getEntity(s.dragVictimId); } catch { }
 
-  if (!victim || victim.dimension.id !== titan.dimension.id || t >= SKY_DRAG_TICKS) {
-    if (victim && t >= SKY_DRAG_TICKS) {
-      // hurled away at the end of the drag
-      knockPlayer(victim, s.dragDir, 1.7, 0.6);
-      hurtPlayer(titan, victim, SKY_FLING_DAMAGE);
-      shakeCamera(victim, 0.5, 0.5);
-      playSoundAt(titan.dimension, "random.explode", titan.location, 1.5);
-      particle(titan.dimension, "minecraft:knockback_roar_particle", victim.location);
-    }
+  if (!victim || victim.dimension.id !== titan.dimension.id) {
     s.dragVictimId = null;
     backToIdle(titan, s, 12);
+    return;
+  }
+  if (t >= SKY_DRAG_TICKS) {
+    // drag's over — time for the beatdown
+    startPummel(titan, s);
     return;
   }
 
   // sprint forward, grinding the victim along the ground
   try { titan.applyKnockback(s.dragDir.x, s.dragDir.z, SKY_DRAG_SPEED, 0); } catch { }
   const loc = titan.location;
+
+  // ran into a wall? cut the drag short and start punching
+  if (distance(loc, s.dragLastPos) < 0.25) {
+    s.dragStall++;
+    if (s.dragStall >= 6) {
+      startPummel(titan, s);
+      return;
+    }
+  } else {
+    s.dragStall = 0;
+  }
+  s.dragLastPos = { ...loc };
+
   const vx = loc.x + s.dragDir.x * 1.2;
   const vz = loc.z + s.dragDir.z * 1.2;
   const vy = groundY(titan.dimension, vx, loc.y, vz);
   try { victim.teleport({ x: vx, y: vy, z: vz }); } catch { }
-  if (t % 4 === 0) {
+  if (t % 16 === 0 && t > 0) {
     hurtPlayer(titan, victim, SKY_DRAG_DAMAGE);
     playSoundAt(titan.dimension, "dig.stone", loc, 1.2);
+    shakeCamera(victim, 0.25, 0.3);
   }
   particle(titan.dimension, "minecraft:basic_smoke_particle", { x: vx, y: vy + 0.2, z: vz });
   particle(titan.dimension, "minecraft:critical_hit_emitter", { x: vx, y: vy + 0.5, z: vz });
+}
+
+function tickPummel(titan, s) {
+  const t = s.stateTicks;
+  let victim = null;
+  try { victim = world.getEntity(s.dragVictimId); } catch { }
+  if (!victim || victim.dimension.id !== titan.dimension.id) {
+    s.dragVictimId = null;
+    backToIdle(titan, s, 12);
+    return;
+  }
+
+  // pinned at arm's length while the fists come down
+  const loc = titan.location;
+  const hx = loc.x + s.dragDir.x * 1.3;
+  const hz = loc.z + s.dragDir.z * 1.3;
+  const hy = groundY(titan.dimension, hx, loc.y, hz);
+  try { victim.teleport({ x: hx, y: hy, z: hz }); } catch { }
+
+  // three punches, half a second apart
+  if (t > 0 && t % PUMMEL_INTERVAL === 0 && t <= PUMMEL_PUNCHES * PUMMEL_INTERVAL) {
+    hurtPlayer(titan, victim, PUMMEL_DAMAGE);
+    shakeCamera(victim, 0.4, 0.3);
+    playSoundAt(titan.dimension, "mob.irongolem.attack", loc, 1.6);
+    particle(titan.dimension, "minecraft:critical_hit_emitter", {
+      x: hx, y: hy + 1, z: hz
+    });
+  }
+
+  if (t >= PUMMEL_PUNCHES * PUMMEL_INTERVAL + 8) {
+    // discarded like a ragdoll (the 35 damage is already done)
+    knockPlayer(victim, s.dragDir, 1.6, 0.55);
+    playSoundAt(titan.dimension, "random.explode", loc, 1.5);
+    particle(titan.dimension, "minecraft:knockback_roar_particle", victim.location);
+    tellVictim(victim, "§4Discarded.");
+    s.dragVictimId = null;
+    backToIdle(titan, s, 15);
+  }
 }
 
 function tickStumble(titan, s) {
@@ -1174,6 +1272,7 @@ function tickTitan(titan) {
     case "grapple": return tickGrapple(titan, s);
     case "stumble": return tickStumble(titan, s);
     case "drag": return tickDrag(titan, s);
+    case "pummel": return tickPummel(titan, s);
     case "parry": return tickParry(titan, s);
     case "judgment": return tickJudgment(titan, s);
     case "stunned": return tickStunned(titan, s);
@@ -1342,7 +1441,7 @@ world.afterEvents.entityHurt.subscribe((ev) => {
         s.projHits.length >= PROJ_PARRY_HITS &&
         s.cdProjParry <= 0 &&
         s.state !== "judgment" && s.state !== "stunned" &&
-        s.state !== "drag" && s.state !== "grapple"
+        s.state !== "drag" && s.state !== "pummel" && s.state !== "grapple"
       ) {
         s.projHits = [];
         s.cdProjParry = PROJ_PARRY_COOLDOWN;
@@ -1358,6 +1457,11 @@ world.afterEvents.entityHurt.subscribe((ev) => {
         }
         playSoundAt(titan.dimension, "random.anvil_land", titan.location, 2);
         actionbarNearby(titan, 40, "§6⚔ The Titan bats your projectiles back FIVE-FOLD!");
+        // the shot that triggered the parry comes right back
+        returnProjectile(titan, s, "minecraft:arrow", 2.5);
+      } else if (now < s.deflectUntil) {
+        // anything that lands inside the window is answered in kind
+        returnProjectile(titan, s, "minecraft:arrow", 2.5);
       }
     }
   } catch { }
