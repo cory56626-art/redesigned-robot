@@ -21,7 +21,7 @@
     -webkit-font-smoothing:antialiased;
   }
   #wrap{position:fixed;inset:0;overflow:hidden}
-  canvas{display:block;width:100%;height:100%;cursor:crosshair}
+  canvas{display:block;width:100%;height:100%;cursor:crosshair;touch-action:none}
   .hud{position:absolute;pointer-events:none;user-select:none;z-index:5}
 
   /* Crosshair */
@@ -137,6 +137,40 @@
     display:flex;align-items:center;justify-content:center;color:var(--accent);z-index:8}
   #sound:hover{background:rgba(63,240,230,.12)}
   #sound svg{width:20px;height:20px}
+
+  /* Touch controls (hidden until a touch device is playing) */
+  #mobile{display:none;inset:0;z-index:7;touch-action:none}
+  body.mobile.playing #mobile{display:block}
+  #stick{position:absolute;left:max(20px,env(safe-area-inset-left));bottom:calc(26px + env(safe-area-inset-bottom));
+    width:132px;height:132px;border-radius:50%;pointer-events:auto;touch-action:none;
+    background:radial-gradient(circle at 50% 50%,rgba(63,240,230,.08),rgba(6,26,36,.5));
+    border:1.5px solid var(--stroke);box-shadow:inset 0 0 24px rgba(0,0,0,.4)}
+  #knob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;
+    background:radial-gradient(circle at 40% 35%,#63f4ea,#209b93);border:1px solid rgba(234,252,250,.5);
+    box-shadow:0 0 20px rgba(63,240,230,.5);transition:transform .05s linear}
+  #mbtns{position:absolute;right:calc(20px + env(safe-area-inset-right));
+    bottom:calc(26px + env(safe-area-inset-bottom));display:flex;align-items:flex-end;gap:14px}
+  #mbtns .updown{display:flex;flex-direction:column;gap:12px}
+  #mbtns button{pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;
+    display:flex;align-items:center;justify-content:center;border-radius:50%;cursor:pointer;
+    color:var(--accent);font-family:var(--mono);font-weight:700;
+    background:rgba(6,26,36,.55);border:1.5px solid var(--stroke);backdrop-filter:blur(3px);
+    box-shadow:inset 0 0 18px rgba(0,0,0,.35)}
+  #mbtns button:active{background:rgba(63,240,230,.22);transform:scale(.94)}
+  #mbtns button svg{width:26px;height:26px}
+  #btnAct{width:78px;height:78px;font-size:22px;letter-spacing:.02em;
+    border-color:rgba(63,240,230,.5);box-shadow:0 0 22px rgba(63,240,230,.28),inset 0 0 18px rgba(0,0,0,.3)}
+  #btnUp,#btnDown{width:60px;height:60px}
+
+  .mobile-only{display:none}
+  body.mobile .mobile-only{display:grid}
+  body.mobile .desktop-only{display:none}
+  /* Mobile HUD relayout: vitals to top-left under the directive, mute to bottom-center */
+  body.mobile #vitals{bottom:auto;top:104px;left:16px;width:min(230px,50vw)}
+  body.mobile #obj{max-width:52vw}
+  body.mobile #sound{left:50%;right:auto;transform:translateX(-50%);
+    bottom:calc(22px + env(safe-area-inset-bottom))}
+  body.mobile #prompt{top:auto;bottom:calc(150px + env(safe-area-inset-bottom))}
   @media (prefers-reduced-motion: reduce){.toast{animation-duration:4s}#warn.on{animation:none}}
   @media (max-width:560px){
     #vitals{width:56vw}#obj{max-width:56vw}#depth .val{font-size:24px}
@@ -189,19 +223,41 @@
     <svg id="soundIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg>
   </div>
 
+  <!-- Touch controls -->
+  <div id="mobile" class="hud">
+    <div id="stick" aria-hidden="true"><div id="knob"></div></div>
+    <div id="mbtns">
+      <button id="btnAct" type="button" aria-label="Collect or interact">E</button>
+      <div class="updown">
+        <button id="btnUp" type="button" aria-label="Ascend">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V6M6 12l6-6 6 6"/></svg>
+        </button>
+        <button id="btnDown" type="button" aria-label="Descend">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v13M6 12l6 6 6-6"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- START -->
   <div class="screen" id="startScreen">
     <div class="panel">
       <div class="kicker">Aurora — Escape Pod 7 · Planet 4546B</div>
       <h1 class="title">The Abyss</h1>
       <p class="sub">Your ship is gone. The pod's reactor is dead. Six power cells lie scattered across the reef and the trench below — dive for them, keep your lungs full of air, and stay out of the dark where the leviathans hunt. Recover all six, then return to the pod to launch.</p>
-      <div class="controls">
+      <div class="controls desktop-only">
         <div class="row"><span class="keys"><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span></span><span>Swim</span></div>
         <div class="row"><span class="keys"><span class="key">Mouse</span></span><span>Look around</span></div>
         <div class="row"><span class="keys"><span class="key">Space</span></span><span>Ascend</span></div>
         <div class="row"><span class="keys"><span class="key">Shift</span></span><span>Descend</span></div>
         <div class="row"><span class="keys"><span class="key">E</span></span><span>Collect / interact</span></div>
         <div class="row"><span class="keys"><span class="key">Esc</span></span><span>Release cursor</span></div>
+      </div>
+      <div class="controls mobile-only">
+        <div class="row"><span class="keys"><span class="key">◉</span></span><span>Left stick to swim</span></div>
+        <div class="row"><span class="keys"><span class="key">Drag</span></span><span>Right side to look</span></div>
+        <div class="row"><span class="keys"><span class="key">▲▼</span></span><span>Rise &amp; sink</span></div>
+        <div class="row"><span class="keys"><span class="key">E</span></span><span>Collect / interact</span></div>
       </div>
       <button class="btn" id="startBtn">Begin the Dive</button>
       <div class="foot">Surface for air · Watch your oxygen</div>
@@ -583,13 +639,19 @@ function roar(){
 // ============================================================= input
 const keys={};
 let locked=false, running=false;
+// touch: joystick vector (mx strafe, my forward), rise/sink holds, one-shot interact
+const touch={mx:0,my:0,active:false,up:false,down:false};
+let touchInteract=false;
+const isTouch = (matchMedia && matchMedia('(pointer: coarse)').matches)
+  || ('ontouchstart' in window) || (navigator.maxTouchPoints||0) > 0;
+if(isTouch) document.body.classList.add('mobile');
 addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='KeyM') toggleMute();
   if(['Space','ShiftLeft','ShiftRight'].includes(e.code)) e.preventDefault();
 });
 addEventListener('keyup',e=>{ keys[e.code]=false; });
-canvas.addEventListener('click',()=>{ if(running && !locked) canvas.requestPointerLock(); });
+canvas.addEventListener('click',()=>{ if(running && !locked && !isTouch) canvas.requestPointerLock(); });
 document.addEventListener('pointerlockchange',()=>{ locked=(document.pointerLockElement===canvas); });
 document.addEventListener('mousemove',e=>{
   if(!locked) return;
@@ -609,6 +671,50 @@ const o2fill=el('o2fill'),hpfill=el('hpfill'),o2val=el('o2val'),hpval=el('hpval'
   promptEl=el('prompt'),promptText=el('promptText'),promptKey=el('promptKey'),
   compass=el('compass'),compassDist=el('compassDist'),compassName=el('compassName'),
   warn=el('warn'),danger=el('danger'),flash=el('flash'),toasts=el('toasts');
+
+// ---- touch controls
+(function setupTouch(){
+  const stick=el('stick'), knob=el('knob');
+  let stickId=null, cx=0, cy=0, rad=60;
+  function sStart(e){ const t=e.changedTouches[0]; if(t==null) return;
+    stickId=t.identifier; const r=stick.getBoundingClientRect();
+    cx=r.left+r.width/2; cy=r.top+r.height/2; rad=r.width*0.42; sMove(e); e.preventDefault(); }
+  function sMove(e){ for(const t of e.changedTouches){ if(t.identifier!==stickId) continue;
+    let dx=t.clientX-cx, dy=t.clientY-cy; const d=Math.hypot(dx,dy)||0.0001;
+    const cl=Math.min(d,rad), ux=dx/d, uy=dy/d;
+    knob.style.transform='translate('+(ux*cl)+'px,'+(uy*cl)+'px)';
+    touch.mx=ux*(cl/rad); touch.my=-uy*(cl/rad); touch.active=true; e.preventDefault(); } }
+  function sEnd(e){ for(const t of e.changedTouches){ if(t.identifier!==stickId) continue;
+    stickId=null; touch.active=false; touch.mx=0; touch.my=0; knob.style.transform='translate(0,0)'; } }
+  stick.addEventListener('touchstart',sStart,{passive:false});
+  stick.addEventListener('touchmove',sMove,{passive:false});
+  stick.addEventListener('touchend',sEnd); stick.addEventListener('touchcancel',sEnd);
+
+  // drag-to-look on the canvas (any touch not captured by a control)
+  let lookId=null, lx=0, ly=0;
+  canvas.addEventListener('touchstart',e=>{ if(lookId!==null) return;
+    const t=e.changedTouches[0]; lookId=t.identifier; lx=t.clientX; ly=t.clientY; e.preventDefault(); },{passive:false});
+  canvas.addEventListener('touchmove',e=>{ for(const t of e.changedTouches){ if(t.identifier!==lookId) continue;
+    player.yaw-=(t.clientX-lx)*0.005; player.pitch-=(t.clientY-ly)*0.005;
+    lx=t.clientX; ly=t.clientY; const lim=Math.PI/2-0.05;
+    player.pitch=Math.max(-lim,Math.min(lim,player.pitch)); e.preventDefault(); } },{passive:false});
+  const lookEnd=e=>{ for(const t of e.changedTouches){ if(t.identifier===lookId) lookId=null; } };
+  canvas.addEventListener('touchend',lookEnd); canvas.addEventListener('touchcancel',lookEnd);
+
+  // hold buttons
+  function hold(id,on,off){ const b=el(id);
+    const d=e=>{ e.preventDefault(); on(); };
+    const u=e=>{ if(e.cancelable) e.preventDefault(); off&&off(); };
+    b.addEventListener('touchstart',d,{passive:false});
+    b.addEventListener('touchend',u); b.addEventListener('touchcancel',u);
+    b.addEventListener('mousedown',on); addEventListener('mouseup',()=>off&&off());
+  }
+  hold('btnUp',()=>touch.up=true,()=>touch.up=false);
+  hold('btnDown',()=>touch.down=true,()=>touch.down=false);
+  const act=e=>{ e.preventDefault(); touchInteract=true; };
+  el('btnAct').addEventListener('touchstart',act,{passive:false});
+  el('btnAct').addEventListener('mousedown',()=>{ touchInteract=true; });
+})();
 function setFill(node,frac){ node.style.transform='scaleX('+Math.max(0,Math.min(1,frac))+')'; }
 function toast(html){
   const d=document.createElement('div'); d.className='toast'; d.innerHTML=html;
@@ -639,10 +745,15 @@ function update(dt){
   if(keys['KeyS']){ acc[0]-=fwd[0];acc[1]-=fwd[1];acc[2]-=fwd[2]; }
   if(keys['KeyD']){ acc[0]+=right[0];acc[2]+=right[2]; }
   if(keys['KeyA']){ acc[0]-=right[0];acc[2]-=right[2]; }
-  if(keys['Space']){ acc[1]+=1.1; }
-  if(keys['ShiftLeft']||keys['ShiftRight']){ acc[1]-=1.1; }
+  if(keys['Space']||touch.up){ acc[1]+=1.1; }
+  if(keys['ShiftLeft']||keys['ShiftRight']||touch.down){ acc[1]-=1.1; }
   const al=Math.hypot(acc[0],acc[1],acc[2]);
   if(al>0){ for(let i=0;i<3;i++) player.vel[i]+=acc[i]/al*power*dt; }
+  // analog joystick swim (speed scales with how far the stick is pushed)
+  if(touch.active){
+    const tv=[fwd[0]*touch.my+right[0]*touch.mx, fwd[1]*touch.my, fwd[2]*touch.my+right[2]*touch.mx];
+    for(let i=0;i<3;i++) player.vel[i]+=tv[i]*power*dt;
+  }
   // drag
   const drag=Math.pow(0.0025,dt);
   for(let i=0;i<3;i++) player.vel[i]*=drag;
@@ -689,8 +800,9 @@ function update(dt){
     if(podArmed && pd2<20){ canInteract=true; interactLabel='Launch escape pod';
       interactAct=()=>winGame(); }
   }
-  // trigger interact
-  if(canInteract && keys['KeyE']){ keys['KeyE']=false; if(interactAct) interactAct(); }
+  // trigger interact (keyboard E or the touch button)
+  if(canInteract && (keys['KeyE']||touchInteract)){ keys['KeyE']=false; if(interactAct) interactAct(); }
+  touchInteract=false;
   if(canInteract){ promptEl.classList.add('on'); promptText.textContent=interactLabel; promptKey.textContent='E'; }
   else promptEl.classList.remove('on');
 
@@ -967,6 +1079,10 @@ function updateHUD(){
 function clearAlerts(){
   danger.style.boxShadow='inset 0 0 200px 40px rgba(255,40,34,0)';
   warn.classList.remove('on'); promptEl.classList.remove('on');
+  document.body.classList.remove('playing');
+  // release any held touch inputs so they don't carry into the next run
+  touch.active=touch.up=touch.down=false; touch.mx=touch.my=0; touchInteract=false;
+  const knob=el('knob'); if(knob) knob.style.transform='translate(0,0)';
 }
 function die(){
   if(!player.alive) return;
@@ -1002,14 +1118,16 @@ function resetGame(){
   objTask.textContent='Recover the reactor cells.';
   el('deathScreen').classList.add('hide'); el('winScreen').classList.add('hide');
 }
-function startPlaying(){
+function beginRun(){
   initAudio(); if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
   el('startScreen').classList.add('hide');
-  resetGame(); running=true; canvas.requestPointerLock();
+  resetGame(); running=true;
+  document.body.classList.add('playing');
+  if(!isTouch) canvas.requestPointerLock();
 }
-el('startBtn').addEventListener('click',startPlaying);
-el('retryBtn').addEventListener('click',()=>{ resetGame(); running=true; canvas.requestPointerLock(); });
-el('winBtn').addEventListener('click',()=>{ resetGame(); running=true; canvas.requestPointerLock(); });
+el('startBtn').addEventListener('click',beginRun);
+el('retryBtn').addEventListener('click',beginRun);
+el('winBtn').addEventListener('click',beginRun);
 
 // ============================================================= main loop
 let now=performance.now();
