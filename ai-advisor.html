@@ -1,0 +1,1128 @@
+<title>AI Advisor — Model Desk</title>
+<style>
+  :root{
+    --bg:#0C1116; --surface:#141B22; --surface-2:#1B242C; --surface-3:#212D36;
+    --border:#24313B; --border-2:#324352;
+    --ink:#E7EEF4; --muted:#93A4B1; --faint:#5E6F7B;
+    --gold:#E9B14C; --gold-soft:rgba(233,177,76,.13); --gold-line:rgba(233,177,76,.45);
+    --gain:#46D07F; --gain-soft:rgba(70,208,127,.15);
+    --loss:#FF5D57; --loss-soft:rgba(255,93,87,.15);
+    --info:#4CB0E8;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --r:12px; --r-sm:8px;
+    --shadow:0 8px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(1200px 500px at 82% -8%, rgba(233,177,76,.07), transparent 60%),
+      radial-gradient(900px 500px at 5% 0%, rgba(76,176,232,.05), transparent 55%),
+      var(--bg);
+    color:var(--ink); font-family:var(--sans); line-height:1.5;
+    font-size:15px; -webkit-font-smoothing:antialiased; padding-bottom:80px;
+  }
+  a{color:var(--gold)}
+  h1,h2,h3{text-wrap:balance;margin:0}
+  ::selection{background:var(--gold-soft)}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .eyebrow{font-family:var(--mono);text-transform:uppercase;letter-spacing:.14em;font-size:11px;color:var(--faint)}
+  button{font-family:inherit;cursor:pointer}
+  input,select,button{font-family:inherit;font-size:14px}
+  input:focus-visible,select:focus-visible,button:focus-visible,[tabindex]:focus-visible{
+    outline:2px solid var(--gold);outline-offset:2px;border-radius:6px
+  }
+
+  /* ---------- Top bar ---------- */
+  header.topbar{
+    position:sticky;top:0;z-index:40;
+    background:rgba(12,17,22,.82);backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+  }
+  .topbar-inner{max-width:1180px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:11px;margin-right:auto}
+  .logo{
+    width:36px;height:36px;border-radius:9px;flex:none;
+    background:linear-gradient(145deg,#F0C063,#C68A2A);
+    display:grid;place-items:center;color:#1a1204;font-weight:800;font-family:var(--mono);
+    box-shadow:0 0 0 1px rgba(233,177,76,.35),0 6px 18px rgba(233,177,76,.25);
+  }
+  .brand h1{font-size:16px;font-weight:700;letter-spacing:.01em;line-height:1.1}
+  .brand small{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;color:var(--faint);text-transform:uppercase}
+  .plan-badge{
+    font-family:var(--mono);font-size:11px;letter-spacing:.05em;
+    padding:5px 10px;border-radius:999px;border:1px solid var(--border-2);
+    color:var(--gold);background:var(--gold-soft);white-space:nowrap
+  }
+  .ghost-btn{
+    background:var(--surface-2);border:1px solid var(--border-2);color:var(--ink);
+    padding:7px 13px;border-radius:8px;font-size:13px;display:inline-flex;align-items:center;gap:7px
+  }
+  .ghost-btn:hover{border-color:var(--gold-line);background:var(--surface-3)}
+  .user-chip{display:flex;align-items:center;gap:9px}
+  .avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#3a4a57,#24313b);
+    display:grid;place-items:center;font-family:var(--mono);font-size:12px;color:var(--ink);border:1px solid var(--border-2)}
+
+  /* ---------- Layout ---------- */
+  main{max-width:1180px;margin:0 auto;padding:0 20px}
+  section{margin-top:34px}
+  .sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+  .sec-head h2{font-size:21px;font-weight:700;letter-spacing:-.01em}
+  .sec-head p{margin:4px 0 0;color:var(--muted);font-size:13.5px;max-width:60ch}
+  .sec-num{color:var(--gold);font-family:var(--mono);font-size:13px;margin-right:6px}
+
+  /* hero */
+  .hero{
+    margin-top:26px;border:1px solid var(--border);border-radius:var(--r);
+    background:linear-gradient(180deg,rgba(27,36,44,.6),rgba(20,27,34,.6));
+    padding:22px 24px;display:flex;gap:26px;align-items:center;flex-wrap:wrap
+  }
+  .hero .lead{flex:1;min-width:280px}
+  .hero h2{font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1.12}
+  .hero h2 .accent{color:var(--gold)}
+  .hero p{color:var(--muted);margin:10px 0 0;font-size:14px;max-width:56ch}
+  .disclaimer{
+    display:flex;gap:10px;align-items:flex-start;
+    border:1px solid var(--border-2);background:rgba(233,177,76,.06);
+    border-radius:var(--r-sm);padding:11px 13px;font-size:12.5px;color:var(--muted);
+    max-width:330px
+  }
+  .disclaimer b{color:var(--gold)}
+  .disclaimer .ic{color:var(--gold);flex:none}
+
+  /* ---------- Use case selector ---------- */
+  .usecase-bar{display:flex;gap:8px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);
+    padding:7px;border-radius:12px}
+  .uc-btn{
+    flex:1;min-width:120px;background:transparent;border:1px solid transparent;color:var(--muted);
+    padding:10px 12px;border-radius:8px;text-align:left;transition:.12s
+  }
+  .uc-btn .t{display:block;font-weight:600;color:var(--ink);font-size:13.5px}
+  .uc-btn .s{display:block;font-size:11.5px;color:var(--faint);margin-top:1px}
+  .uc-btn[aria-pressed="true"]{background:var(--gold-soft);border-color:var(--gold-line)}
+  .uc-btn[aria-pressed="true"] .t{color:var(--gold)}
+  .uc-btn:hover{background:var(--surface-2)}
+
+  /* ---------- Model grid ---------- */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
+  .card{
+    position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+    padding:18px;display:flex;flex-direction:column;gap:14px;transition:.15s
+  }
+  .card:hover{border-color:var(--border-2)}
+  .card.top{border-color:var(--gold-line);box-shadow:0 0 0 1px var(--gold-line),0 12px 34px rgba(233,177,76,.1)}
+  .top-ribbon{
+    position:absolute;top:-10px;left:18px;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;
+    background:linear-gradient(145deg,#F0C063,#C68A2A);color:#1a1204;font-weight:700;
+    padding:3px 10px;border-radius:999px;text-transform:uppercase
+  }
+  .card-head{display:flex;align-items:flex-start;gap:12px}
+  .tk{
+    width:44px;height:44px;flex:none;border-radius:10px;display:grid;place-items:center;
+    font-family:var(--mono);font-weight:700;font-size:12px;color:var(--ink);
+    background:var(--surface-3);border:1px solid var(--border-2)
+  }
+  .card-title{flex:1;min-width:0}
+  .card-title .nm{font-weight:700;font-size:16px;display:flex;align-items:center;gap:8px}
+  .card-title .pv{color:var(--faint);font-size:12px;font-family:var(--mono)}
+  .card-title .bl{color:var(--muted);font-size:12.5px;margin-top:5px;line-height:1.4}
+  .score-chip{
+    flex:none;text-align:center;background:var(--surface-2);border:1px solid var(--border-2);
+    border-radius:9px;padding:6px 9px;min-width:56px
+  }
+  .score-chip .v{font-family:var(--mono);font-weight:700;font-size:18px;line-height:1;color:var(--gold)}
+  .score-chip .l{font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--faint);text-transform:uppercase;margin-top:3px}
+
+  .stats{display:flex;flex-direction:column;gap:7px}
+  .stat{display:grid;grid-template-columns:78px 1fr 34px;align-items:center;gap:9px}
+  .stat .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;color:var(--faint);text-transform:uppercase}
+  .stat .bar{height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden}
+  .stat .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#7d5a1c,var(--gold))}
+  .stat .v{font-family:var(--mono);font-size:11.5px;color:var(--muted);text-align:right}
+
+  .verdict{display:flex;gap:10px;align-items:center;padding:11px 12px;border-radius:var(--r-sm);border:1px solid var(--border)}
+  .verdict.buy{background:var(--gain-soft);border-color:rgba(70,208,127,.3)}
+  .verdict.skip{background:var(--loss-soft);border-color:rgba(255,93,87,.28)}
+  .verdict .pill{font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:.08em;padding:4px 9px;border-radius:6px;text-transform:uppercase;flex:none}
+  .verdict.buy .pill{background:var(--gain);color:#052012}
+  .verdict.skip .pill{background:var(--loss);color:#2a0605}
+  .verdict .why{font-size:12.5px;color:var(--muted);line-height:1.35}
+
+  .card-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--border);padding-top:13px;margin-top:auto}
+  .tried-btn{background:var(--surface-2);border:1px solid var(--border-2);color:var(--muted);padding:6px 11px;border-radius:7px;font-size:12px;display:inline-flex;gap:7px;align-items:center}
+  .tried-btn.on{background:var(--gain-soft);border-color:rgba(70,208,127,.4);color:var(--gain)}
+  .tried-btn:hover{border-color:var(--gold-line)}
+  .ctx-tag{font-family:var(--mono);font-size:11px;color:var(--faint)}
+
+  /* prediction */
+  .predict{border-top:1px dashed var(--border-2);padding-top:12px}
+  .predict .ph{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}
+  .predict .ph .lab{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--faint);text-transform:uppercase}
+  .predict .ph .spec{font-family:var(--mono);font-size:9.5px;color:var(--info);border:1px solid rgba(76,176,232,.35);padding:2px 7px;border-radius:999px;letter-spacing:.05em}
+  .predict .txt{font-size:12.5px;color:var(--muted);line-height:1.4;margin-bottom:9px}
+  .conf-row{display:flex;align-items:center;gap:10px}
+  .conf-track{flex:1;height:8px;border-radius:99px;background:var(--surface-3);overflow:hidden}
+  .conf-track i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#2b6a8f,var(--info))}
+  .conf-val{font-family:var(--mono);font-size:12px;color:var(--info);font-weight:700;min-width:62px;text-align:right}
+  .conf-cap{font-family:var(--mono);font-size:9.5px;color:var(--faint);letter-spacing:.05em;min-width:70px}
+
+  /* ---------- Simulation console ---------- */
+  .sim{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+  .sim-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;
+    background:linear-gradient(180deg,var(--surface-2),var(--surface))}
+  .sim-title{display:flex;align-items:center;gap:11px}
+  .sim-title .dot{width:9px;height:9px;border-radius:50%;background:var(--gain);box-shadow:0 0 10px var(--gain)}
+  .sim-title h3{font-size:16px;font-weight:700}
+  .sim-title .sub{font-family:var(--mono);font-size:10.5px;color:var(--loss);letter-spacing:.05em}
+  .bal-display{text-align:right}
+  .bal-display .l{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--faint);text-transform:uppercase}
+  .bal-display .v{font-family:var(--mono);font-weight:800;font-size:26px;letter-spacing:-.01em}
+
+  .sim-controls{padding:18px 20px;display:flex;flex-direction:column;gap:16px}
+  .ctl-row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field label{font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;color:var(--faint);text-transform:uppercase}
+  .field input[type=text],.field input[type=number]{
+    background:var(--bg);border:1px solid var(--border-2);color:var(--ink);border-radius:8px;padding:10px 12px
+  }
+  .field input:disabled{opacity:.5}
+  .prompt-field{flex:1;min-width:220px}
+  .prompt-field input{width:100%}
+
+  .mode-toggle{display:flex;gap:6px;background:var(--bg);border:1px solid var(--border-2);border-radius:9px;padding:4px}
+  .mode-toggle button{background:transparent;border:none;color:var(--muted);padding:9px 15px;border-radius:6px;font-size:13px;font-weight:600;position:relative}
+  .mode-toggle button .d{font-family:var(--mono);font-size:9.5px;font-weight:400;letter-spacing:.05em;color:var(--faint);display:block}
+  .mode-toggle button[aria-pressed="true"]{background:var(--surface-3);color:var(--ink);box-shadow:inset 0 0 0 1px var(--border-2)}
+  .mode-toggle button.dumb[aria-pressed="true"]{color:var(--loss)}
+  .mode-toggle button.pro[aria-pressed="true"]{color:var(--gain)}
+
+  .run-btn{
+    background:linear-gradient(145deg,#F0C063,#D69A34);color:#1a1204;font-weight:700;
+    border:none;padding:12px 22px;border-radius:9px;font-size:14px;display:inline-flex;align-items:center;gap:9px;
+    box-shadow:0 6px 18px rgba(233,177,76,.22)
+  }
+  .run-btn:hover{filter:brightness(1.06)}
+  .run-btn:active{transform:translateY(1px)}
+  .sim-note{font-size:11.5px;color:var(--faint);display:flex;gap:8px;align-items:flex-start;line-height:1.4}
+  .sim-note b{color:var(--loss)}
+
+  /* summary tiles */
+  .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:var(--border);border-top:1px solid var(--border)}
+  .tile{background:var(--surface);padding:14px 16px}
+  .tile .l{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;color:var(--faint);text-transform:uppercase}
+  .tile .v{font-family:var(--mono);font-weight:700;font-size:18px;margin-top:5px;letter-spacing:-.01em}
+  .tile .v.gain{color:var(--gain)} .tile .v.loss{color:var(--loss)}
+
+  /* log */
+  .sim-body{display:grid;grid-template-columns:1fr;gap:0}
+  .log-wrap{border-top:1px solid var(--border)}
+  .log-head{padding:12px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface-2)}
+  .log-head .lt{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+  .log-head .warn{font-family:var(--mono);font-size:10px;color:var(--faint)}
+  .log-scroll{max-height:340px;overflow:auto}
+  table.log{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+  table.log th{position:sticky;top:0;background:var(--surface-2);color:var(--faint);text-align:left;font-weight:400;
+    font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;padding:8px 16px;border-bottom:1px solid var(--border);z-index:1}
+  table.log td{padding:8px 16px;border-bottom:1px solid rgba(36,49,59,.5);white-space:nowrap;font-variant-numeric:tabular-nums}
+  table.log tr:hover td{background:var(--surface-2)}
+  td.t{color:var(--faint)} td.act{white-space:normal;color:var(--ink)}
+  td.chg.up{color:var(--gain)} td.chg.dn{color:var(--loss)}
+  td.bal{color:var(--muted);text-align:right}
+  tr.end td{background:rgba(255,93,87,.07);color:var(--loss);font-weight:600}
+  tr.end.win td{background:var(--gain-soft);color:var(--gain)}
+  .empty{padding:44px 20px;text-align:center;color:var(--faint);font-size:13px}
+
+  /* chart */
+  .chart-panel{border-top:1px solid var(--border);padding:0}
+  .chart-head{padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .chart-head .ct{display:flex;flex-direction:column}
+  .chart-head .ct .tt{font-weight:700;font-size:14px}
+  .chart-head .ct .ds{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.03em;margin-top:2px}
+  .chart-view-toggle{display:flex;gap:5px;background:var(--bg);border:1px solid var(--border-2);border-radius:8px;padding:3px}
+  .chart-view-toggle button{background:transparent;border:none;color:var(--muted);padding:6px 12px;border-radius:5px;font-size:12px;font-family:var(--mono)}
+  .chart-view-toggle button[aria-pressed="true"]{background:var(--surface-3);color:var(--ink)}
+  .chart-wrap{position:relative;padding:6px 12px 16px}
+  svg.chart{width:100%;height:auto;display:block;overflow:visible}
+  .chart-tip{
+    position:absolute;pointer-events:none;background:var(--surface-3);border:1px solid var(--border-2);
+    border-radius:8px;padding:8px 11px;font-family:var(--mono);font-size:11px;box-shadow:var(--shadow);
+    opacity:0;transition:opacity .1s;z-index:5;min-width:130px;transform:translate(-50%,-115%)
+  }
+  .chart-tip .r{display:flex;justify-content:space-between;gap:14px}
+  .chart-tip .r .k{color:var(--faint)}
+  .chart-tip .step{color:var(--gold);margin-bottom:4px;font-size:10px;letter-spacing:.05em}
+
+  /* ---------- Pricing ---------- */
+  .price-note{font-size:12px;color:var(--faint);margin-top:12px;display:flex;gap:8px;align-items:center}
+  .table-scroll{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r)}
+  table.pricing{width:100%;border-collapse:collapse;min-width:660px;background:var(--surface)}
+  table.pricing th,table.pricing td{padding:14px 16px;text-align:left;border-bottom:1px solid var(--border)}
+  table.pricing thead th{background:var(--surface-2);vertical-align:top}
+  table.pricing thead th .tier{font-weight:700;font-size:14px}
+  table.pricing thead th .cur{display:inline-block;margin-top:6px;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;
+    color:var(--gold);background:var(--gold-soft);border:1px solid var(--gold-line);padding:2px 7px;border-radius:999px}
+  table.pricing thead th.on{box-shadow:inset 0 2px 0 var(--gold)}
+  table.pricing thead th .pr{font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:400;margin-top:4px}
+  table.pricing td.feat{color:var(--muted);font-size:13px}
+  table.pricing td.c{text-align:center;font-family:var(--mono)}
+  .yes{color:var(--gain)} .no{color:var(--faint)}
+  table.pricing tbody tr:hover td{background:var(--surface-2)}
+
+  /* ---------- Gating ---------- */
+  .gated{position:relative}
+  .lock-badge{
+    display:none;position:absolute;z-index:6;top:10px;right:10px;
+    font-family:var(--mono);font-size:10px;letter-spacing:.04em;
+    background:var(--surface-3);border:1px solid var(--border-2);color:var(--gold);
+    padding:5px 9px;border-radius:999px;align-items:center;gap:6px;cursor:help
+  }
+  .gated.is-locked .lock-badge{display:inline-flex}
+  .gated.is-locked > .gate-body{opacity:.4;filter:grayscale(.5) saturate(.5);pointer-events:none;user-select:none}
+  .gated.is-locked .gate-body input,.gated.is-locked .gate-body button,.gated.is-locked .gate-body select{pointer-events:none}
+  .predict.gated.is-locked > .gate-body{opacity:.35}
+  .lock-inline{
+    display:none;font-family:var(--mono);font-size:10px;color:var(--gold);background:var(--gold-soft);
+    border:1px solid var(--gold-line);padding:2px 7px;border-radius:999px;letter-spacing:.03em;cursor:help
+  }
+  .gated.is-locked .lock-inline{display:inline-flex;align-items:center;gap:5px}
+
+  /* ---------- Dev panel + modal ---------- */
+  .modal-back{position:fixed;inset:0;background:rgba(6,9,12,.7);backdrop-filter:blur(3px);z-index:60;display:none;place-items:center;padding:20px}
+  .modal-back.open{display:grid}
+  .modal{background:var(--surface);border:1px solid var(--border-2);border-radius:14px;max-width:400px;width:100%;box-shadow:var(--shadow);overflow:hidden}
+  .modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+  .modal-head h3{font-size:15px}
+  .modal-head .x{background:none;border:none;color:var(--faint);font-size:20px;line-height:1;padding:4px}
+  .modal-body{padding:20px}
+  .modal-body .lede{color:var(--muted);font-size:13px;margin:0 0 16px}
+  .dev-plans{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .dev-plans button{
+    background:var(--surface-2);border:1px solid var(--border-2);color:var(--ink);padding:12px;border-radius:9px;text-align:left
+  }
+  .dev-plans button .pn{font-weight:700;font-size:13px} .dev-plans button .pl{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:2px}
+  .dev-plans button[aria-pressed="true"]{border-color:var(--gold);background:var(--gold-soft)}
+  .dev-plans button[aria-pressed="true"] .pn{color:var(--gold)}
+  .dev-warn{margin-top:16px;font-size:11px;color:var(--faint);line-height:1.4;border-top:1px dashed var(--border-2);padding-top:12px}
+  .code-input{display:flex;gap:8px;margin-top:10px}
+  .code-input input{background:var(--bg);border:1px solid var(--border-2);color:var(--ink);border-radius:8px;padding:9px 12px;flex:1;font-family:var(--mono);letter-spacing:.3em}
+
+  footer{max-width:1180px;margin:56px auto 0;padding:24px 20px;border-top:1px solid var(--border);color:var(--faint);font-size:12px;line-height:1.6}
+  footer b{color:var(--muted)}
+
+  @media (max-width:560px){
+    .hero{flex-direction:column;align-items:stretch}
+    .disclaimer{max-width:none}
+    .bal-display{text-align:left}
+    .sim-head{justify-content:flex-start}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="logo">A</div>
+      <div>
+        <h1>AI Advisor</h1>
+        <small>Model Desk · v1</small>
+      </div>
+    </div>
+    <span class="plan-badge" id="planBadge">Plan · Free</span>
+    <button class="ghost-btn" id="devTrigger" title="Enter dev access code">⌘ Dev</button>
+    <div id="authSlot"></div>
+  </div>
+</header>
+
+<main>
+  <!-- HERO -->
+  <div class="hero">
+    <div class="lead">
+      <div class="eyebrow" style="margin-bottom:8px">Your desk for picking AI models</div>
+      <h2>Compare the models, get a <span class="accent">buy / skip</span> call, then let a <span class="accent">fake-money bot</span> lose your imaginary dollars.</h2>
+      <p id="heroGreeting">Sign in to save what you've tried, your fictional plan, and your last simulation across visits. Everything here is a toy — no real accounts, no real money.</p>
+    </div>
+    <div class="disclaimer">
+      <span class="ic">▲</span>
+      <div><b>Heads up:</b> all model stats are <b>rough, opinionated estimates</b> from a fixed knowledge snapshot. They're <b>not live</b>, may be outdated or wrong, and aren't official benchmarks. Treat everything as a fun guess, not advice.</div>
+    </div>
+  </div>
+
+  <!-- 2. USE CASE -->
+  <section id="usecase">
+    <div class="sec-head">
+      <div>
+        <h2><span class="sec-num">01</span>What are you using it for?</h2>
+        <p>Pick a primary use case. The advisor re-weights the stats, re-sorts the directory, and moves the top pick.</p>
+      </div>
+    </div>
+    <div class="usecase-bar" id="ucBar" role="group" aria-label="Primary use case"></div>
+  </section>
+
+  <!-- 1/3/4. DIRECTORY -->
+  <section id="directory">
+    <div class="sec-head">
+      <div>
+        <h2><span class="sec-num">02</span>Model directory</h2>
+        <p>Sorted for your use case. Each card carries a Buy/Skip call and a speculative guess about the provider's next model.</p>
+      </div>
+      <div class="eyebrow">Approximate · not live data</div>
+    </div>
+    <div class="grid" id="modelGrid"></div>
+  </section>
+
+  <!-- 6. SIMULATION -->
+  <section id="simulation">
+    <div class="sec-head">
+      <div>
+        <h2><span class="sec-num">03</span>Fake-money simulation bot</h2>
+        <p>A toy that runs a random walk against a pretend balance. "Dumb" vs "Professional" are cosmetic volatility presets — no strategy, no market data, no real trades.</p>
+      </div>
+      <span class="lock-inline" id="simLockTag" title="">🔒</span>
+    </div>
+
+    <div class="sim gated" data-req-tier="1" id="simGate">
+      <div class="lock-badge" tabindex="0">🔒 <span class="lb-text">Requires Pro</span></div>
+      <div class="gate-body">
+        <div class="sim-head">
+          <div class="sim-title">
+            <span class="dot"></span>
+            <div>
+              <h3>Simulation Console</h3>
+              <span class="sub">100% SIMULATED · FAKE MONEY · NOT REAL TRADING</span>
+            </div>
+          </div>
+          <div class="bal-display">
+            <div class="l">Current balance</div>
+            <div class="v num" id="balVal">$100.00</div>
+          </div>
+        </div>
+
+        <div class="sim-controls">
+          <div class="ctl-row">
+            <div class="field prompt-field">
+              <label for="promptInput">Tell the bot what to do (flavor only)</label>
+              <input id="promptInput" type="text" placeholder="e.g. make me money / buy an AI subscription" value="make me money">
+            </div>
+            <div class="field gated" data-req-tier="3" id="balGate">
+              <span class="lock-badge" tabindex="0" style="position:static;margin-bottom:4px">🔒 <span class="lb-text">Enterprise</span></span>
+              <div class="gate-body">
+                <label for="startBal">Starting balance ($)</label>
+                <input id="startBal" type="number" min="1" max="100000" step="1" value="100" style="width:120px">
+              </div>
+            </div>
+          </div>
+
+          <div class="ctl-row">
+            <div class="field">
+              <label>Bot mode — cosmetic presets, not strategies</label>
+              <div class="mode-toggle" role="group" aria-label="Bot mode">
+                <button class="dumb" id="modeDumb" aria-pressed="true">Dumb<span class="d">reckless · high variance</span></button>
+                <button class="pro gated" data-req-tier="2" id="modeProWrap" aria-pressed="false" style="padding:0">
+                  <span class="lock-badge" tabindex="0" style="top:2px;right:2px;padding:2px 6px">🔒</span>
+                  <span class="gate-body" style="display:block;padding:9px 15px">Professional<span class="d">measured · low variance</span></span>
+                </button>
+              </div>
+            </div>
+            <button class="run-btn" id="runBtn">▶ Run simulation</button>
+          </div>
+
+          <div class="sim-note">
+            <span>ℹ️</span>
+            <span>Both modes are the <b style="color:var(--muted)">same random-walk engine</b> with different step sizes. Stop-loss fires the instant the balance dips below where it started; the run also ends at 2× (target) or the step cap. <b>Nothing here touches real money, markets, or investing.</b></span>
+          </div>
+        </div>
+
+        <div class="summary" id="summary" hidden></div>
+
+        <div class="sim-body">
+          <div class="log-wrap gated" data-req-tier="2" id="chartGate">
+            <span class="lock-badge" tabindex="0">🔒 <span class="lb-text">Requires Team Orchestrator</span></span>
+            <div class="gate-body">
+              <div class="chart-head">
+                <div class="ct">
+                  <span class="tt" id="chartTitle">Performance — run a simulation</span>
+                  <span class="ds">Simulated fake-money trajectory · illustrative only</span>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <div class="chart-view-toggle" role="group" aria-label="Chart view">
+                    <button id="viewLine" aria-pressed="true">Balance</button>
+                    <button id="viewBars" aria-pressed="false">Per-step</button>
+                  </div>
+                  <button class="ghost-btn" id="toggleChart">View performance</button>
+                </div>
+              </div>
+              <div class="chart-wrap" id="chartWrap" hidden>
+                <div class="chart-tip" id="chartTip"></div>
+                <div id="chartHost"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="log-wrap">
+            <div class="log-head">
+              <span class="lt">Activity log — newest first</span>
+              <span class="warn">fictional actions · simulated $</span>
+            </div>
+            <div class="log-scroll">
+              <table class="log">
+                <thead><tr><th>Time</th><th>Action (fictional)</th><th style="text-align:right">Δ</th><th style="text-align:right">Balance</th></tr></thead>
+                <tbody id="logBody"><tr><td colspan="4" class="empty">No runs yet. Hit "Run simulation" to watch the toy bot flail.</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. PRICING -->
+  <section id="pricing">
+    <div class="sec-head">
+      <div>
+        <h2><span class="sec-num">04</span>Plans for this app <span style="color:var(--faint);font-weight:400;font-size:15px">(fictional)</span></h2>
+        <p>Higher-tier features are actually locked at your current plan. Use the Dev panel (code 4949) to switch plans and watch the dashboard lock and unlock live.</p>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table class="pricing" id="pricingTable"></table>
+    </div>
+    <div class="price-note">🔒 <span>Locked features above are greyed out and non-interactive at your current plan. <b style="color:var(--muted)">This is a fictional plan for the demo — not a real purchase or subscription.</b></span></div>
+  </section>
+</main>
+
+<footer>
+  <b>AI Advisor</b> is a personal toy dashboard. Model stats are approximate opinions from a fixed knowledge snapshot — not live, not benchmarks, possibly wrong.
+  The "next model" guesses are <b>speculation</b>, not fact. The simulation bot uses <b>fake money</b> and a cosmetic random walk — no real trading, market data, or investing strategy of any kind.
+  Sign-in and plans are local-only make-believe stored in your browser. Nothing here is a real account, purchase, or financial advice.
+</footer>
+
+<!-- Dev / plan modal -->
+<div class="modal-back" id="devModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="devTitle">
+    <div class="modal-head">
+      <h3 id="devTitle">Dev panel</h3>
+      <button class="x" id="devClose" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body" id="devBody"></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   AI Advisor — single-file toy dashboard.
+   DEV NOTE (not shown to end users): the "4949" dev panel and the
+   plan switcher are a client-side-only toggle for personal/demo use.
+   This is NOT security. Anyone can open devtools and flip the plan or
+   read localStorage. It's fine for a solo fun project, but it would
+   gate nothing for real if this were ever shown to other people.
+   ============================================================ */
+(function(){
+"use strict";
+
+/* ---------- persistence ---------- */
+var KEY = "aiAdvisorState_v1";
+var DEFAULTS = {
+  user:null, plan:0, useCase:"coding", tried:[],
+  startBal:100, lastMode:"dumb", lastSim:null, lastPrompt:"make me money"
+};
+var state = load();
+function load(){
+  try{ var s = JSON.parse(localStorage.getItem(KEY)); if(s&&typeof s==="object") return Object.assign({},DEFAULTS,s); }catch(e){}
+  return Object.assign({},DEFAULTS);
+}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+
+/* ---------- data ---------- */
+var PLANS = ["Free","Pro","Team Orchestrator","Enterprise"];
+var PLAN_PRICE = ["$0","$12 / mo","$40 / seat","Custom"];
+
+var MODELS = [
+  {id:"claude", name:"Claude", provider:"Anthropic", tk:"CLAWD", ticker:"CLAWD",
+   blurb:"Careful reasoning and standout coding, with a long, reliable context window.",
+   price:"~$20/mo Pro · mid-high API", ctx:"~200K ctx",
+   stats:{reasoning:95, coding:96, speed:74, cost:66, context:90},
+   nextConf:72, next:"Anthropic tends to ship meaningful generational jumps; a coding & reasoning edge probably holds through the next release."},
+  {id:"gpt", name:"GPT", provider:"OpenAI", tk:"GPT", ticker:"GPT",
+   blurb:"Broad, polished generalist with the biggest tooling ecosystem around it.",
+   price:"~$20/mo Plus · variable API", ctx:"~128K ctx",
+   stats:{reasoning:93, coding:91, speed:80, cost:68, context:84},
+   nextConf:74, next:"Fast iteration cadence — decent odds the next tier edges ahead on breadth and multimodal polish."},
+  {id:"gemini", name:"Gemini", provider:"Google", tk:"GMNI", ticker:"GMNI",
+   blurb:"Enormous context window and tight integration across Google's stack.",
+   price:"~$20/mo · generous free tier", ctx:"~1M ctx",
+   stats:{reasoning:90, coding:85, speed:82, cost:72, context:98},
+   nextConf:68, next:"Context and multimodal keep improving; the reasoning gap looks like it's narrowing each release."},
+  {id:"llama", name:"Llama", provider:"Meta", tk:"LLMA", ticker:"LLMA",
+   blurb:"Open weights you can self-host — the value and control champion.",
+   price:"Free weights · pay compute", ctx:"~128K ctx",
+   stats:{reasoning:80, coding:82, speed:88, cost:93, context:80},
+   nextConf:62, next:"Open ecosystem moves fast, but flagship cadence is less predictable — harder to call the exact jump."},
+  {id:"deepseek", name:"DeepSeek", provider:"DeepSeek", tk:"DPSK", ticker:"DPSK",
+   blurb:"Aggressive price-to-performance with surprisingly strong reasoning.",
+   price:"Very low API cost", ctx:"~128K ctx",
+   stats:{reasoning:88, coding:87, speed:78, cost:96, context:80},
+   nextConf:65, next:"A price-performance disruptor; further reasoning gains at the same low cost look plausible."},
+  {id:"grok", name:"Grok", provider:"xAI", tk:"GRQ", ticker:"GRQ",
+   blurb:"Fast-moving releases with a chatty, real-time-leaning personality.",
+   price:"via X Premium+ sub", ctx:"~128K ctx",
+   stats:{reasoning:85, coding:84, speed:83, cost:64, context:82},
+   nextConf:60, next:"Rapid releases but quality varies run to run, which makes the next jump genuinely hard to predict."},
+  {id:"mistral", name:"Mistral", provider:"Mistral AI", tk:"MSTL", ticker:"MSTL",
+   blurb:"Efficient European models with strong open options and low cost.",
+   price:"Low API · open weights", ctx:"~128K ctx",
+   stats:{reasoning:78, coding:80, speed:86, cost:86, context:78},
+   nextConf:58, next:"Efficiency focus means it could leapfrog on cost-per-quality more than on raw ceiling."},
+  {id:"qwen", name:"Qwen", provider:"Alibaba", tk:"QWEN", ticker:"QWEN",
+   blurb:"Strong open multilingual family that's easy on the wallet.",
+   price:"Open · low cost", ctx:"~128K ctx",
+   stats:{reasoning:82, coding:83, speed:84, cost:90, context:85},
+   nextConf:57, next:"Steady open-model progress; the multilingual edge probably widens with the next drop."}
+];
+
+var USE_CASES = [
+  {id:"coding",   t:"Coding",          s:"agents, refactors, debugging", w:{reasoning:.30,coding:.45,speed:.10,cost:.05,context:.10}, noun:"coding"},
+  {id:"writing",  t:"Docs & Writing",  s:"long-form, editing, tone",     w:{reasoning:.35,coding:.08,speed:.15,cost:.10,context:.32}, noun:"writing"},
+  {id:"research", t:"Research",         s:"analysis, big documents",      w:{reasoning:.40,coding:.05,speed:.05,cost:.20,context:.30}, noun:"research"},
+  {id:"chat",     t:"General Chat",     s:"quick, snappy back-and-forth", w:{reasoning:.25,coding:.10,speed:.30,cost:.20,context:.15}, noun:"general chat"},
+  {id:"budget",   t:"Budget",           s:"cheapest that's good enough",  w:{reasoning:.16,coding:.10,speed:.14,cost:.55,context:.05}, noun:"value"}
+];
+
+var STAT_KEYS = [["reasoning","Reasoning"],["coding","Coding"],["speed","Speed"],["cost","Value"],["context","Context"]];
+
+/* pricing feature matrix: minTier = lowest plan level that includes it */
+var FEATURES = [
+  {name:"Model directory & Buy/Skip verdicts", minTier:0},
+  {name:"Use-case recommendations", minTier:0},
+  {name:"Mark models as tried (saved)", minTier:0},
+  {name:"Next-model predictions", minTier:1},
+  {name:"Fake-money sim — Dumb mode", minTier:1},
+  {name:"Detailed activity log", minTier:1},
+  {name:"Professional bot mode", minTier:2},
+  {name:"Performance charts", minTier:2},
+  {name:"Adjustable starting balance", minTier:3},
+  {name:"Extended step cap", minTier:3}
+];
+
+/* ---------- helpers ---------- */
+function $(s,r){return (r||document).querySelector(s);}
+function el(t,c,txt){var e=document.createElement(t); if(c)e.className=c; if(txt!=null)e.textContent=txt; return e;}
+function money(n){return "$"+Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
+function scoreModel(m,uc){var w=uc.w,s=m.stats; return Math.round(s.reasoning*w.reasoning+s.coding*w.coding+s.speed*w.speed+s.cost*w.cost+s.context*w.context);}
+function initials(name){return (name||"?").trim().slice(0,2).toUpperCase();}
+
+/* ============================================================
+   GATING
+   ============================================================ */
+function applyGating(){
+  document.querySelectorAll(".gated").forEach(function(g){
+    var req = parseInt(g.getAttribute("data-req-tier")||"0",10);
+    var locked = state.plan < req;
+    g.classList.toggle("is-locked", locked);
+    var tierName = PLANS[req]||"a higher plan";
+    var msg = "Requires "+tierName+" — fictional demo plan, not a real purchase.";
+    g.querySelectorAll(".lb-text").forEach(function(t){ t.textContent = "Requires "+tierName; });
+    g.querySelectorAll(".lock-badge").forEach(function(b){ b.setAttribute("title", msg); });
+    // disable interactive controls inside the gated body
+    var body = g.querySelector(".gate-body") || g;
+    body.querySelectorAll("input,button,select").forEach(function(c){ c.disabled = locked; });
+    if(locked) g.setAttribute("aria-disabled","true"); else g.removeAttribute("aria-disabled");
+  });
+  // sim section header lock tag
+  var simTag = $("#simLockTag");
+  if(state.plan < 1){ simTag.style.display="inline-flex"; simTag.title="Requires Pro — fictional demo plan, not a real purchase."; }
+  else simTag.style.display="none";
+  // if pro mode is locked, force dumb
+  if(state.plan < 2 && state.lastMode==="pro"){ state.lastMode="dumb"; }
+  syncModeButtons();
+}
+function isLocked(reqTier){ return state.plan < reqTier; }
+
+/* ============================================================
+   AUTH (fake)
+   ============================================================ */
+function renderAuth(){
+  var slot = $("#authSlot"); slot.innerHTML="";
+  if(state.user){
+    var chip = el("div","user-chip");
+    var av = el("div","avatar mono",initials(state.user));
+    var btn = el("button","ghost-btn","Sign out");
+    btn.onclick = function(){ state.user=null; save(); renderAuth(); renderHero(); };
+    var nm = el("span",null,state.user); nm.style.fontSize="13px";
+    chip.appendChild(av); chip.appendChild(nm); chip.appendChild(btn);
+    slot.appendChild(chip);
+  } else {
+    var b = el("button","ghost-btn","👤 Sign in");
+    b.onclick = signIn;
+    slot.appendChild(b);
+  }
+}
+function signIn(){
+  var name = window.prompt("Pick a username (local only — no password, no real account):","");
+  if(name===null) return;
+  name = name.trim().slice(0,24);
+  if(!name) return;
+  state.user = name; save(); renderAuth(); renderHero();
+}
+function renderHero(){
+  var g = $("#heroGreeting");
+  if(state.user){
+    var triedN = state.tried.length;
+    var parts = ["Welcome back, <b style='color:var(--ink)'>"+escapeHtml(state.user)+"</b>."];
+    parts.push("You're on the <b style='color:var(--gold)'>"+PLANS[state.plan]+"</b> plan");
+    if(triedN) parts.push("and have marked <b style='color:var(--ink)'>"+triedN+"</b> model"+(triedN>1?"s":"")+" as tried");
+    var line = parts.join(" ")+".";
+    if(state.lastSim){ line += " Last "+state.lastSim.mode+"-mode run ended <b style='color:"+(state.lastSim.net>=0?"var(--gain)":"var(--loss)")+"'>"+(state.lastSim.net>=0?"+":"")+money(state.lastSim.net).replace("$","$")+"</b> ("+state.lastSim.endReason+")."; }
+    g.innerHTML = line;
+  } else {
+    g.innerHTML = "Sign in to save what you've tried, your fictional plan, and your last simulation across visits. Everything here is a toy — no real accounts, no real money.";
+  }
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];});}
+
+/* ============================================================
+   USE CASE BAR
+   ============================================================ */
+function renderUseCases(){
+  var bar = $("#ucBar"); bar.innerHTML="";
+  USE_CASES.forEach(function(uc){
+    var b = el("button","uc-btn");
+    b.setAttribute("aria-pressed", state.useCase===uc.id ? "true":"false");
+    b.innerHTML = "<span class='t'>"+uc.t+"</span><span class='s'>"+uc.s+"</span>";
+    b.onclick = function(){ state.useCase=uc.id; save(); renderUseCases(); renderModels(); };
+    bar.appendChild(b);
+  });
+}
+
+/* ============================================================
+   MODEL DIRECTORY
+   ============================================================ */
+function renderModels(){
+  var uc = USE_CASES.find(function(u){return u.id===state.useCase;});
+  var grid = $("#modelGrid"); grid.innerHTML="";
+  var ranked = MODELS.map(function(m){return {m:m, score:scoreModel(m,uc)};})
+                     .sort(function(a,b){return b.score-a.score;});
+  ranked.forEach(function(r,idx){
+    var m=r.m, score=r.score, isTop=idx===0;
+    var buy = decideVerdict(m,uc,score);
+    var card = el("div","card"+(isTop?" top":""));
+
+    if(isTop){ var rb=el("div","top-ribbon","★ Top pick for "+uc.t); card.appendChild(rb); }
+
+    // head
+    var head = el("div","card-head");
+    var tk = el("div","tk",m.tk);
+    var title = el("div","card-title");
+    var tried = state.tried.indexOf(m.id)>-1;
+    title.innerHTML = "<div class='nm'>"+m.name+(tried?" <span title='You marked this tried' style='color:var(--gain);font-size:12px'>✓</span>":"")+
+                      "</div><div class='pv'>"+m.provider+" · "+m.ticker+"</div><div class='bl'>"+m.blurb+"</div>";
+    var chip = el("div","score-chip");
+    chip.innerHTML = "<div class='v'>"+score+"</div><div class='l'>fit</div>";
+    head.appendChild(tk); head.appendChild(title); head.appendChild(chip);
+    card.appendChild(head);
+
+    // stats
+    var stats = el("div","stats");
+    STAT_KEYS.forEach(function(k){
+      var v=m.stats[k[0]];
+      var row=el("div","stat");
+      row.innerHTML = "<span class='k'>"+k[1]+"</span><span class='bar'><i style='width:"+v+"%'></i></span><span class='v'>"+v+"</span>";
+      stats.appendChild(row);
+    });
+    card.appendChild(stats);
+
+    // verdict
+    var v = el("div","verdict "+(buy.buy?"buy":"skip"));
+    v.innerHTML = "<span class='pill'>"+(buy.buy?"Buy":"Skip")+"</span><span class='why'>"+buy.why+"</span>";
+    card.appendChild(v);
+
+    // prediction (gated Pro)
+    var pred = el("div","predict gated");
+    pred.setAttribute("data-req-tier","1");
+    pred.innerHTML =
+      "<span class='lock-badge' tabindex='0'>🔒 <span class='lb-text'>Requires Pro</span></span>"+
+      "<div class='gate-body'>"+
+        "<div class='ph'><span class='lab'>Next "+m.name+" vs this one?</span><span class='spec'>SPECULATIVE OPINION</span></div>"+
+        "<div class='txt'>"+m.next+"</div>"+
+        "<div class='conf-row'>"+
+          "<span class='conf-cap'>CONFIDENCE</span>"+
+          "<span class='conf-track'><i style='width:"+m.nextConf+"%'></i></span>"+
+          "<span class='conf-val'>"+m.nextConf+"% likely</span>"+
+        "</div>"+
+      "</div>";
+    card.appendChild(pred);
+
+    // foot
+    var foot = el("div","card-foot");
+    var tb = el("button","tried-btn"+(tried?" on":""));
+    tb.innerHTML = tried ? "✓ Tried it" : "+ Mark as tried";
+    tb.onclick = function(){
+      var i=state.tried.indexOf(m.id);
+      if(i>-1) state.tried.splice(i,1); else state.tried.push(m.id);
+      save(); renderModels(); renderHero();
+    };
+    var ctx = el("span","ctx-tag",m.ctx+" · "+m.price);
+    foot.appendChild(tb); foot.appendChild(ctx);
+    card.appendChild(foot);
+
+    grid.appendChild(card);
+  });
+  applyGating();
+}
+
+function decideVerdict(m,uc,score){
+  var best = STAT_KEYS.map(function(k){return [k[1],m.stats[k[0]]];}).sort(function(a,b){return b[1]-a[1];})[0];
+  var cheap = m.stats.cost>=85;
+  if(score>=84){
+    return {buy:true, why:"Top-tier for "+uc.noun+" — leads on "+best[0].toLowerCase()+" and the price is fair for the quality."};
+  }
+  if(score>=78){
+    if(cheap) return {buy:true, why:"Not the ceiling for "+uc.noun+", but the value is hard to argue with at this price."};
+    return {buy:true, why:"Solid "+uc.noun+" pick with strong "+best[0].toLowerCase()+"; buy if it's already in your stack."};
+  }
+  if(cheap && uc.id==="budget"){
+    return {buy:true, why:"Cheap enough that it earns a spot for "+uc.noun+" despite a lower ceiling."};
+  }
+  if(score>=72){
+    return {buy:false, why:"Fine, but others rank higher for "+uc.noun+" right now — skip unless price or ecosystem wins it."};
+  }
+  return {buy:false, why:"Weak fit for "+uc.noun+" versus the top picks — skip for this use case."};
+}
+
+/* ============================================================
+   SIMULATION ENGINE  (cosmetic random walk — NOT real trading)
+   ============================================================ */
+var TICKERS = ["CLAWD","GPT","GMNI","LLMA","DPSK","GRQ","MSTL","QWEN"];
+function pick(a){return a[Math.floor(Math.random()*a.length)];}
+function runSimulation(mode, start){
+  var bal = start;
+  var target = start*2;
+  var maxSteps = state.plan>=3 ? 80 : 40;
+  // cosmetic presets only — same engine, different step sizes
+  var p = mode==="pro" ? {lo:-0.045, hi:0.11} : {lo:-0.42, hi:0.40};
+  var steps=[];
+  var t = Date.now();
+  var endReason="step cap";
+  for(var i=1;i<=maxSteps;i++){
+    var f = p.lo + Math.random()*(p.hi-p.lo);
+    var change = Math.round(bal*f*100)/100;
+    bal = Math.round((bal+change)*100)/100;
+    t += 1000*(18+Math.floor(Math.random()*46));
+    steps.push({i:i, time:t, action:actionFor(change,start), change:change, bal:bal, type:"trade"});
+    if(bal < start){ endReason="stop-loss"; steps.push({i:i, time:t+1000, action:"⛔ Stopped — hit stop-loss (balance fell below start)", change:0, bal:bal, type:"end", win:false}); break; }
+    if(bal >= target){ endReason="target reached"; steps.push({i:i, time:t+1000, action:"🎯 Target reached — balance hit 2× start", change:0, bal:bal, type:"end", win:true}); break; }
+    if(i===maxSteps){ endReason="step cap"; steps.push({i:i, time:t+1000, action:"⏹ Session ended — reached step cap", change:0, bal:bal, type:"end", win:bal>=start}); }
+  }
+  var trades = steps.filter(function(s){return s.type==="trade";});
+  var gained=0, lost=0, bigWin=0, bigLoss=0;
+  trades.forEach(function(s){
+    if(s.change>0){ gained+=s.change; if(s.change>bigWin) bigWin=s.change; }
+    else if(s.change<0){ lost+=-s.change; if(-s.change>bigLoss) bigLoss=-s.change; }
+  });
+  return {
+    mode:mode, start:start, steps:steps, series:[start].concat(trades.map(function(s){return s.bal;})),
+    changes:trades.map(function(s){return s.change;}),
+    final:bal, net:Math.round((bal-start)*100)/100, gained:Math.round(gained*100)/100, lost:Math.round(lost*100)/100,
+    bigWin:Math.round(bigWin*100)/100, bigLoss:Math.round(bigLoss*100)/100, count:trades.length, endReason:endReason
+  };
+}
+function actionFor(change,start){
+  var tk = pick(TICKERS);
+  if(Math.abs(change) < 0.006*start) return "Held "+tk+" — no clear signal";
+  if(change>0) return pick(["Bought","Longed","Scooped up","Aped into","Loaded up on"])+" "+tk;
+  return pick(["Sold","Dumped","Shorted","Bailed on","Panic-sold"])+" "+tk+" at a loss";
+}
+
+/* ---------- run + render ---------- */
+function doRun(){
+  if(isLocked(1)) return;
+  var mode = state.lastMode;
+  if(mode==="pro" && isLocked(2)) mode="dumb";
+  var start = state.startBal;
+  var sim = runSimulation(mode, start);
+  state.lastSim = {mode:sim.mode, net:sim.net, endReason:sim.endReason};
+  save();
+  currentSim = sim;
+  renderBalance(sim.final, sim.net>=0);
+  renderLog(sim);
+  renderSummary(sim);
+  renderChartTitle(sim);
+  if(chartOpen && !isLocked(2)) drawChart();
+  renderHero();
+}
+var currentSim = null;
+var chartOpen = false;
+var chartView = "line";
+
+function renderBalance(v, up){
+  var b=$("#balVal"); b.textContent=money(v);
+  b.style.color = up ? "var(--gain)" : "var(--loss)";
+}
+function renderLog(sim){
+  var body=$("#logBody"); body.innerHTML="";
+  var rows = sim.steps.slice().reverse();
+  rows.forEach(function(s){
+    var tr=el("tr", s.type==="end" ? ("end"+(s.win?" win":"")) : "");
+    var time = new Date(s.time).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"});
+    var chgCls = s.change>0?"up":(s.change<0?"dn":"");
+    var chgTxt = s.type==="end" ? "—" : (s.change>0?"+":"")+money(s.change);
+    tr.innerHTML = "<td class='t'>"+time+"</td><td class='act'>"+escapeHtml(s.action)+"</td>"+
+      "<td class='chg "+chgCls+"' style='text-align:right'>"+chgTxt+"</td>"+
+      "<td class='bal'>"+money(s.bal)+"</td>";
+    body.appendChild(tr);
+  });
+}
+function renderSummary(sim){
+  var s=$("#summary"); s.hidden=false; s.innerHTML="";
+  var modeLabel = sim.mode==="pro" ? "Professional" : "Dumb";
+  var tiles=[
+    ["Mode used", modeLabel, sim.mode==="pro"?"gain":"loss"],
+    ["Steps taken", sim.count, ""],
+    ["Total gained", "+"+money(sim.gained), "gain"],
+    ["Total lost", "-"+money(sim.lost), "loss"],
+    ["Net result", (sim.net>=0?"+":"")+money(sim.net), sim.net>=0?"gain":"loss"],
+    ["Biggest win", "+"+money(sim.bigWin), "gain"],
+    ["Biggest loss", "-"+money(sim.bigLoss), "loss"],
+    ["Ended on", sim.endReason, ""]
+  ];
+  tiles.forEach(function(t){
+    var d=el("div","tile");
+    d.innerHTML="<div class='l'>"+t[0]+"</div><div class='v "+t[2]+"'>"+t[1]+"</div>";
+    s.appendChild(d);
+  });
+}
+function renderChartTitle(sim){
+  var m = sim.mode==="pro"?"Professional":"Dumb";
+  $("#chartTitle").textContent = "Performance — "+m+" mode · "+sim.endReason+" (simulated $)";
+}
+
+/* ---------- chart (inline SVG) ---------- */
+function drawChart(){
+  if(!currentSim) return;
+  if(chartView==="line") drawLine(); else drawBars();
+}
+function drawLine(){
+  var sim=currentSim, host=$("#chartHost");
+  var W=1000, H=320, padL=56, padR=18, padT=18, padB=34;
+  var vals=sim.series, n=vals.length;
+  var lo=Math.min.apply(null, vals.concat([sim.start]));
+  var hi=Math.max.apply(null, vals.concat([sim.start]));
+  if(hi===lo){ hi=lo+1; }
+  var pad=(hi-lo)*0.12; lo-=pad; hi+=pad;
+  var x=function(i){return padL + (i/(n-1||1))*(W-padL-padR);};
+  var y=function(v){return padT + (1-(v-lo)/(hi-lo))*(H-padT-padB);};
+  var pts=vals.map(function(v,i){return [x(i),y(v)];});
+  var line = pts.map(function(p,i){return (i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1);}).join(" ");
+  var area = line+" L"+pts[pts.length-1][0].toFixed(1)+" "+y(lo).toFixed(1)+" L"+pts[0][0].toFixed(1)+" "+y(lo).toFixed(1)+" Z";
+  var endUp = sim.final>=sim.start;
+  var endColor = endUp ? "var(--gain)" : "var(--loss)";
+  // gridlines (4)
+  var grid="", ylabels="";
+  for(var g=0; g<=4; g++){
+    var gv = lo + (g/4)*(hi-lo);
+    var gy = y(gv);
+    grid += "<line x1='"+padL+"' y1='"+gy.toFixed(1)+"' x2='"+(W-padR)+"' y2='"+gy.toFixed(1)+"' stroke='var(--border)' stroke-width='1'/>";
+    ylabels += "<text x='"+(padL-8)+"' y='"+(gy+4).toFixed(1)+"' fill='var(--faint)' font-size='11' text-anchor='end' font-family='var(--mono)'>"+money(gv).replace(".00","")+"</text>";
+  }
+  var startY=y(sim.start);
+  var svg =
+    "<svg class='chart' viewBox='0 0 "+W+" "+H+"' role='img' aria-label='Simulated balance over time'>"+
+    "<defs><linearGradient id='ga' x1='0' y1='0' x2='0' y2='1'>"+
+      "<stop offset='0' stop-color='"+ (endUp?"rgba(70,208,127,.28)":"rgba(233,177,76,.26)") +"'/>"+
+      "<stop offset='1' stop-color='rgba(70,208,127,0)'/></linearGradient></defs>"+
+    grid+
+    "<line x1='"+padL+"' y1='"+startY.toFixed(1)+"' x2='"+(W-padR)+"' y2='"+startY.toFixed(1)+"' stroke='var(--gold-line)' stroke-width='1.5' stroke-dasharray='5 5'/>"+
+    "<text x='"+(W-padR)+"' y='"+(startY-7).toFixed(1)+"' fill='var(--gold)' font-size='10.5' text-anchor='end' font-family='var(--mono)'>start "+money(sim.start).replace(".00","")+" · stop-loss line</text>"+
+    "<path d='"+area+"' fill='url(#ga)'/>"+
+    "<path d='"+line+"' fill='none' stroke='"+endColor+"' stroke-width='2.4' stroke-linejoin='round' stroke-linecap='round'/>"+
+    "<circle cx='"+pts[pts.length-1][0].toFixed(1)+"' cy='"+pts[pts.length-1][1].toFixed(1)+"' r='5' fill='"+endColor+"' stroke='var(--surface)' stroke-width='2'/>"+
+    ylabels+
+    "<text x='"+padL+"' y='"+(H-8)+"' fill='var(--faint)' font-size='11' font-family='var(--mono)'>step 0</text>"+
+    "<text x='"+(W-padR)+"' y='"+(H-8)+"' fill='var(--faint)' font-size='11' text-anchor='end' font-family='var(--mono)'>step "+(n-1)+"</text>"+
+    "<rect id='hitLayer' x='"+padL+"' y='"+padT+"' width='"+(W-padL-padR)+"' height='"+(H-padT-padB)+"' fill='transparent'/>"+
+    "</svg>";
+  host.innerHTML=svg;
+  attachLineHover(host.querySelector("svg"), sim, {x:x,y:y,padL:padL,padR:padR,W:W,n:n});
+}
+function attachLineHover(svg, sim, geo){
+  var wrap=$("#chartWrap"), tip=$("#chartTip");
+  var hit = svg.querySelector("#hitLayer");
+  function toIdx(clientX){
+    var r=svg.getBoundingClientRect();
+    var sx=(clientX-r.left)/r.width*geo.W;
+    var i=Math.round((sx-geo.padL)/((geo.W-geo.padL-geo.padR))*(geo.n-1));
+    return Math.max(0,Math.min(geo.n-1,i));
+  }
+  function show(e){
+    var i=toIdx(e.clientX);
+    var bal=sim.series[i];
+    var chg = i===0?0:sim.changes[i-1];
+    var cx=geo.x(i), cy=geo.y(bal);
+    // guide
+    var old=svg.querySelector(".guide"); if(old) old.remove();
+    var g=document.createElementNS("http://www.w3.org/2000/svg","g"); g.setAttribute("class","guide");
+    g.innerHTML="<line x1='"+cx+"' y1='18' x2='"+cx+"' y2='286' stroke='var(--border-2)' stroke-width='1'/>"+
+      "<circle cx='"+cx+"' cy='"+cy+"' r='5' fill='var(--gold)' stroke='var(--surface)' stroke-width='2'/>";
+    svg.appendChild(g);
+    var rs=svg.getBoundingClientRect(), rw=wrap.getBoundingClientRect();
+    tip.style.left=(rs.left-rw.left + cx/geo.W*rs.width)+"px";
+    tip.style.top=(rs.top-rw.top + cy/320*rs.height)+"px";
+    tip.style.opacity="1";
+    tip.innerHTML="<div class='step'>STEP "+i+(i===0?" · start":"")+"</div>"+
+      "<div class='r'><span class='k'>Balance</span><span>"+money(bal)+"</span></div>"+
+      (i>0?"<div class='r'><span class='k'>Change</span><span style='color:"+(chg>=0?"var(--gain)":"var(--loss)")+"'>"+(chg>=0?"+":"")+money(chg)+"</span></div>":"");
+  }
+  function hide(){ tip.style.opacity="0"; var old=svg.querySelector(".guide"); if(old) old.remove(); }
+  hit.addEventListener("mousemove",show);
+  hit.addEventListener("mouseleave",hide);
+  svg.addEventListener("mouseleave",hide);
+}
+function drawBars(){
+  var sim=currentSim, host=$("#chartHost");
+  var W=1000,H=320,padL=56,padR=18,padT=24,padB=34;
+  var ch=sim.changes, n=ch.length;
+  if(n===0){ host.innerHTML="<div class='empty'>No steps to show.</div>"; return; }
+  var maxAbs=Math.max.apply(null, ch.map(function(c){return Math.abs(c);}).concat([0.01]));
+  var midY=padT+(H-padT-padB)/2;
+  var x=function(i){return padL + (i+0.5)/n*(W-padL-padR);};
+  var bw=Math.max(3,(W-padL-padR)/n*0.62);
+  var bars="";
+  ch.forEach(function(c,i){
+    var h=Math.abs(c)/maxAbs*((H-padT-padB)/2 - 4);
+    var col=c>=0?"var(--gain)":"var(--loss)";
+    var yTop=c>=0?midY-h:midY;
+    bars+="<rect x='"+(x(i)-bw/2).toFixed(1)+"' y='"+yTop.toFixed(1)+"' width='"+bw.toFixed(1)+"' height='"+Math.max(1,h).toFixed(1)+"' rx='2' fill='"+col+"' opacity='.9'>"+
+      "<title>Step "+(i+1)+": "+(c>=0?"+":"")+money(c)+"</title></rect>";
+  });
+  var svg="<svg class='chart' viewBox='0 0 "+W+" "+H+"' role='img' aria-label='Per-step gains and losses'>"+
+    "<line x1='"+padL+"' y1='"+midY+"' x2='"+(W-padR)+"' y2='"+midY+"' stroke='var(--border-2)' stroke-width='1.5'/>"+
+    "<text x='"+(padL-8)+"' y='"+(padT+6)+"' fill='var(--gain)' font-size='11' text-anchor='end' font-family='var(--mono)'>+"+money(maxAbs).replace(".00","")+"</text>"+
+    "<text x='"+(padL-8)+"' y='"+(H-padB)+"' fill='var(--loss)' font-size='11' text-anchor='end' font-family='var(--mono)'>-"+money(maxAbs).replace(".00","")+"</text>"+
+    "<text x='"+(padL-8)+"' y='"+(midY+4)+"' fill='var(--faint)' font-size='11' text-anchor='end' font-family='var(--mono)'>0</text>"+
+    bars+
+    "<text x='"+padL+"' y='"+(H-8)+"' fill='var(--faint)' font-size='11' font-family='var(--mono)'>step 1</text>"+
+    "<text x='"+(W-padR)+"' y='"+(H-8)+"' fill='var(--faint)' font-size='11' text-anchor='end' font-family='var(--mono)'>step "+n+"</text>"+
+    "</svg>";
+  host.innerHTML=svg;
+}
+
+/* ---------- sim control wiring ---------- */
+function syncModeButtons(){
+  $("#modeDumb").setAttribute("aria-pressed", state.lastMode==="dumb"?"true":"false");
+  $("#modeProWrap").setAttribute("aria-pressed", state.lastMode==="pro"?"true":"false");
+}
+function wireSim(){
+  $("#promptInput").value = state.lastPrompt;
+  $("#promptInput").addEventListener("input", function(){ state.lastPrompt=this.value; save(); });
+  $("#startBal").value = state.startBal;
+  $("#startBal").addEventListener("change", function(){
+    var v=Math.max(1,Math.min(100000, Math.round(parseFloat(this.value)||100)));
+    this.value=v; state.startBal=v; save(); renderBalance(v,true);
+  });
+  $("#modeDumb").onclick=function(){ if(isLocked(1))return; state.lastMode="dumb"; save(); syncModeButtons(); };
+  $("#modeProWrap").onclick=function(){ if(isLocked(2))return; state.lastMode="pro"; save(); syncModeButtons(); };
+  $("#runBtn").onclick=doRun;
+  $("#toggleChart").onclick=function(){
+    if(isLocked(2))return;
+    chartOpen=!chartOpen;
+    $("#chartWrap").hidden=!chartOpen;
+    this.textContent=chartOpen?"Hide performance":"View performance";
+    if(chartOpen){ if(!currentSim && state.lastSim){ /* only summary persisted; ask to run */ } drawChart(); }
+  };
+  $("#viewLine").onclick=function(){ chartView="line"; $("#viewLine").setAttribute("aria-pressed","true"); $("#viewBars").setAttribute("aria-pressed","false"); drawChart(); };
+  $("#viewBars").onclick=function(){ chartView="bars"; $("#viewBars").setAttribute("aria-pressed","true"); $("#viewLine").setAttribute("aria-pressed","false"); drawChart(); };
+  renderBalance(state.startBal,true);
+}
+
+/* ============================================================
+   PRICING TABLE
+   ============================================================ */
+function renderPricing(){
+  var t=$("#pricingTable");
+  var head="<thead><tr><th style='min-width:220px'><div class='tier'>Feature</div><div class='pr'>What you get</div></th>";
+  PLANS.forEach(function(p,i){
+    head+="<th class='"+(i===state.plan?"on":"")+"'><div class='tier'>"+p+"</div><div class='pr'>"+PLAN_PRICE[i]+"</div>"+(i===state.plan?"<span class='cur'>YOUR PLAN</span>":"")+"</th>";
+  });
+  head+="</tr></thead>";
+  var rows="<tbody>";
+  FEATURES.forEach(function(f){
+    rows+="<tr><td class='feat'>"+f.name+"</td>";
+    for(var i=0;i<PLANS.length;i++){
+      var has=i>=f.minTier;
+      rows+="<td class='c'>"+(has?"<span class='yes'>✓</span>":"<span class='no'>—</span>")+"</td>";
+    }
+    rows+="</tr>";
+  });
+  rows+="</tbody>";
+  t.innerHTML=head+rows;
+}
+
+/* ============================================================
+   DEV PANEL
+   ============================================================ */
+function renderDevBody(unlocked){
+  var body=$("#devBody");
+  if(!unlocked){
+    body.innerHTML="<p class='lede'>Enter the dev access code to open the plan switcher.</p>"+
+      "<div class='code-input'><input id='devCode' type='password' inputmode='numeric' maxlength='8' placeholder='••••' autocomplete='off'><button class='ghost-btn' id='devSubmit'>Unlock</button></div>"+
+      "<p id='devErr' style='color:var(--loss);font-size:12px;margin:8px 0 0;min-height:16px'></p>";
+    $("#devSubmit").onclick=trySubmit;
+    var inp=$("#devCode");
+    inp.addEventListener("keydown",function(e){ if(e.key==="Enter") trySubmit(); });
+    setTimeout(function(){inp.focus();},50);
+    function trySubmit(){
+      if($("#devCode").value.trim()==="4949"){ devUnlocked=true; renderDevBody(true); }
+      else { $("#devErr").textContent="Nope — try again. (Hint lives in the build spec.)"; $("#devCode").value=""; $("#devCode").focus(); }
+    }
+  } else {
+    var btns="";
+    PLANS.forEach(function(p,i){
+      btns+="<button data-plan='"+i+"' aria-pressed='"+(state.plan===i?"true":"false")+"'><span class='pn'>"+p+"</span><span class='pl'>"+PLAN_PRICE[i]+" · tier "+i+"</span></button>";
+    });
+    body.innerHTML="<p class='lede'>Live plan switch — flip between tiers any time to preview how the dashboard locks and unlocks. Your choice is saved locally.</p>"+
+      "<div class='dev-plans'>"+btns+"</div>"+
+      "<p class='dev-warn'>This dev panel is a client-side toggle for personal/demo use — <b>not real security</b>. It doesn't purchase anything and wouldn't actually gate features if others used this. The chosen plan persists in localStorage, just like sign-in.</p>";
+    body.querySelectorAll(".dev-plans button").forEach(function(b){
+      b.onclick=function(){
+        state.plan=parseInt(b.getAttribute("data-plan"),10); save();
+        body.querySelectorAll(".dev-plans button").forEach(function(x){x.setAttribute("aria-pressed", x===b?"true":"false");});
+        onPlanChange();
+      };
+    });
+  }
+}
+var devUnlocked=false;
+function openDev(){ $("#devModal").classList.add("open"); renderDevBody(devUnlocked); }
+function closeDev(){ $("#devModal").classList.remove("open"); }
+function onPlanChange(){
+  $("#planBadge").textContent="Plan · "+PLANS[state.plan];
+  applyGating(); renderPricing(); renderHero(); renderModels();
+  // if chart tier lost, hide chart
+  if(isLocked(2)){ chartOpen=false; $("#chartWrap").hidden=true; $("#toggleChart").textContent="View performance"; }
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+function init(){
+  renderAuth();
+  renderHero();
+  renderUseCases();
+  renderModels();
+  wireSim();
+  renderPricing();
+  $("#planBadge").textContent="Plan · "+PLANS[state.plan];
+  applyGating();
+
+  $("#devTrigger").onclick=openDev;
+  $("#devClose").onclick=closeDev;
+  $("#devModal").addEventListener("click",function(e){ if(e.target===this) closeDev(); });
+  document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeDev(); });
+
+  // restore last balance display
+  renderBalance(state.startBal,true);
+}
+init();
+})();
+</script>
