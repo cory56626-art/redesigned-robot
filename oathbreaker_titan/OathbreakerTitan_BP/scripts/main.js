@@ -117,7 +117,9 @@ function getState(titan) {
       grabId: null,
       holdTicks: 0,
       throwTargetId: null,
-      parryTargetId: null
+      parryTargetId: null,
+      mobFoeId: null,     // grudge memory: last mob he traded damage with
+      mobFoeTick: -9999
     };
     titans.set(titan.id, s);
   }
@@ -931,9 +933,12 @@ function backToIdle(titan, s, extraRecovery = 0) {
 // ---------------------------------------------------------------------
 // Target selection & main brain
 // ---------------------------------------------------------------------
+const FOE_MEMORY_TICKS = 600; // remember a mob opponent for 30s per hit
+
 function nearestTarget(titan) {
-  // whatever the vanilla AI is actually fighting (warden, iron golem,
-  // a brawl-stick opponent...) gets the full moveset, not just players
+  const s = getState(titan);
+
+  // 1) whatever the vanilla AI is actually fighting right now
   try {
     const t = titan.target;
     if (
@@ -947,10 +952,30 @@ function nearestTarget(titan) {
           return t;
         }
       } else if (canFight(t)) {
+        s.mobFoeId = t.id;
+        s.mobFoeTick = system.currentTick;
         return t;
       }
     }
   } catch { }
+
+  // 2) grudge memory: the mob he last traded damage with (works even
+  //    when the engine won't expose its combat target to scripts)
+  if (s.mobFoeId && system.currentTick - s.mobFoeTick <= FOE_MEMORY_TICKS) {
+    try {
+      const foe = world.getEntity(s.mobFoeId);
+      if (
+        foe &&
+        canFight(foe) &&
+        foe.dimension.id === titan.dimension.id &&
+        distance(foe.location, titan.location) <= 48
+      ) {
+        return foe;
+      }
+    } catch { }
+  }
+
+  // 3) nearest survival/adventure player
   const players = alivePlayersNear(titan.dimension, titan.location, 48);
   let best = null;
   let bestD = Infinity;
@@ -1106,8 +1131,19 @@ system.runInterval(() => {
 // stumble vulnerability
 // ---------------------------------------------------------------------
 world.afterEvents.entityHurt.subscribe((ev) => {
-  const titan = ev.hurtEntity;
-  if (titan.typeId !== TITAN_ID) return;
+  const hurt = ev.hurtEntity;
+  const src = ev.damageSource?.damagingEntity;
+
+  // the Titan dealt damage to a mob (vanilla melee or an ability):
+  // remember it as his foe so the moveset stays aimed at it
+  if (src?.typeId === TITAN_ID && hurt && !isPlayer(hurt) && canFight(hurt)) {
+    const ts = getState(src);
+    ts.mobFoeId = hurt.id;
+    ts.mobFoeTick = system.currentTick;
+  }
+
+  if (hurt.typeId !== TITAN_ID) return;
+  const titan = hurt;
   const s = getState(titan);
 
   const health = titan.getComponent("minecraft:health");
@@ -1115,7 +1151,12 @@ world.afterEvents.entityHurt.subscribe((ev) => {
     enterRage(titan, s);
   }
 
-  const attacker = ev.damageSource?.damagingEntity;
+  const attacker = src;
+  // a mob attacked the Titan: hold the grudge
+  if (attacker && !isPlayer(attacker) && canFight(attacker)) {
+    s.mobFoeId = attacker.id;
+    s.mobFoeTick = system.currentTick;
+  }
   if (!attacker || attacker.typeId !== "minecraft:player") return;
 
   // Final Judgment: only a frontal hit reaches the glowing chest core
