@@ -297,7 +297,17 @@ world.afterEvents.itemUse.subscribe((ev) => {
   }
 });
 
-// keep grudges hot: some mobs calm down, so re-poke them at each other
+// is this mob already fighting that one? (then leave it alone —
+// re-poking mobs that are still angry causes visible phantom hits)
+function isFighting(mob, foe) {
+  try {
+    return mob.target?.id === foe.id;
+  } catch {
+    return false;
+  }
+}
+
+// keep grudges hot: re-poke ONLY mobs that actually lost interest
 system.runInterval(() => {
   const now = system.currentTick;
   for (let i = fights.length - 1; i >= 0; i--) {
@@ -321,8 +331,8 @@ system.runInterval(() => {
         fights.splice(i, 1);
         continue;
       }
-      poke(a, b);
-      poke(b, a);
+      if (!isFighting(a, b)) poke(a, b);
+      if (!isFighting(b, a)) poke(b, a);
     } catch {
       fights.splice(i, 1);
     }
@@ -349,7 +359,7 @@ system.runInterval(() => {
       try {
         if (mob.dimension.id !== target.dimension.id ||
           distance(mob.location, target.location) > MAX_FIGHT_RANGE) continue;
-        poke(mob, target);
+        if (!isFighting(mob, target)) poke(mob, target);
         survivors.push(id);
       } catch { }
     }

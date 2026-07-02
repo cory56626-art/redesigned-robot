@@ -162,6 +162,49 @@ function alivePlayersNear(dimension, location, maxDistance) {
   }
 }
 
+const isPlayer = (e) => e?.typeId === "minecraft:player";
+
+// the Titan never hurts his own kind
+const FRIENDLY = new Set([TITAN_ID, MINI_ID, BOULDER_ID]);
+// things that can't be fought
+const NON_COMBAT = new Set([
+  "minecraft:item", "minecraft:xp_orb", "minecraft:arrow", "minecraft:snowball",
+  "minecraft:egg", "minecraft:ender_pearl", "minecraft:fishing_hook",
+  "minecraft:painting", "minecraft:leash_knot", "minecraft:boat",
+  "minecraft:chest_boat", "minecraft:minecart", "minecraft:chest_minecart",
+  "minecraft:hopper_minecart", "minecraft:tnt_minecart", "minecraft:armor_stand",
+  "minecraft:tnt", "minecraft:falling_block", "minecraft:ender_crystal",
+  "minecraft:evocation_fang", "minecraft:area_effect_cloud", "minecraft:llama_spit",
+  "minecraft:thrown_trident", "minecraft:fireball", "minecraft:small_fireball",
+  "minecraft:dragon_fireball", "minecraft:wither_skull", "minecraft:shulker_bullet",
+  "minecraft:fireworks_rocket", "minecraft:splash_potion", "minecraft:lingering_potion",
+  "minecraft:lightning_bolt", "minecraft:wind_charge_projectile",
+  "minecraft:breeze_wind_charge_projectile", "minecraft:agent", "minecraft:npc"
+]);
+
+function canFight(e) {
+  if (!e) return false;
+  try {
+    if (FRIENDLY.has(e.typeId) || NON_COMBAT.has(e.typeId)) return false;
+    return !!e.getComponent("minecraft:health");
+  } catch {
+    return false;
+  }
+}
+
+// everything an ability can hit: survival players AND mobs (wardens,
+// golems, brawl-stick opponents...) — but never his own minis/boulders
+function victimsNearDim(dimension, location, radius) {
+  const out = alivePlayersNear(dimension, location, radius);
+  try {
+    for (const e of dimension.getEntities({ location, maxDistance: radius })) {
+      if (isPlayer(e) || !canFight(e)) continue;
+      out.push(e);
+    }
+  } catch { }
+  return out;
+}
+
 function setAnimState(titan, value) {
   try {
     if (titan.getProperty(STATE_PROP) !== value) {
@@ -209,6 +252,7 @@ function groundY(dimension, x, yStart, z) {
 // as a block (that is how you raise a shield on Bedrock anyway).
 function isBlocking(player) {
   try {
+    if (!isPlayer(player)) return false;
     if (!player.isSneaking) return false;
     const equip = player.getComponent("minecraft:equippable");
     if (!equip) return false;
@@ -255,9 +299,15 @@ function titleNearby(titan, radius, title, subtitle) {
 }
 
 function shakeCamera(player, intensity, seconds) {
+  if (!isPlayer(player)) return;
   try {
     player.runCommandAsync(`camerashake add @s ${intensity} ${seconds} positional`);
   } catch { }
+}
+
+function tellVictim(victim, text) {
+  if (!isPlayer(victim)) return;
+  try { victim.onScreenDisplay.setActionBar(text); } catch { }
 }
 
 function countMinis(titan) {
@@ -303,7 +353,7 @@ function tickShockwaves() {
     particle(w.dimension, "minecraft:lava_particle", pos);
     if (w.stepsLeft % 4 === 0) playSoundAt(w.dimension, "dig.stone", pos, 1.5);
 
-    for (const p of alivePlayersNear(w.dimension, pos, 4)) {
+    for (const p of victimsNearDim(w.dimension, pos, 4)) {
       if (w.hit.has(p.id)) continue;
       const d = sub(p.location, pos);
       // narrow line: dodge sideways, or jump: the wave only clips grounded feet
@@ -460,7 +510,7 @@ function tickCleave(titan, s) {
       });
     }
     // wide 120-degree arc in front of the Titan
-    for (const p of alivePlayersNear(titan.dimension, titan.location, CLEAVE_RANGE)) {
+    for (const p of victimsNearDim(titan.dimension, titan.location, CLEAVE_RANGE)) {
       const to = norm2d(sub(p.location, titan.location));
       const dot = fwd.x * to.x + fwd.z * to.z;
       if (dot < 0.35) continue;
@@ -471,7 +521,7 @@ function tickCleave(titan, s) {
         hurtPlayer(titan, p, CLEAVE_BLOCKED_DAMAGE);
         knockPlayer(p, to, 1.6, 0.5);
         try { p.addEffect("slowness", 30, { amplifier: 1 }); } catch { }
-        try { p.onScreenDisplay.setActionBar("§7🛡 Blocked — but the blow staggers you!"); } catch { }
+        tellVictim(p, "§7🛡 Blocked — but the blow staggers you!");
         playSoundAt(titan.dimension, "item.shield.block", p.location, 1.5);
       } else {
         hurtPlayer(titan, p, CLEAVE_DAMAGE);
@@ -526,7 +576,7 @@ function tickLeap(titan, s) {
     particle(titan.dimension, "minecraft:knockback_roar_particle", { x: land.x, y: land.y + 0.5, z: land.z });
     playSoundAt(titan.dimension, "random.explode", land, 3);
 
-    for (const p of alivePlayersNear(titan.dimension, land, SLAM_RADIUS)) {
+    for (const p of victimsNearDim(titan.dimension, land, SLAM_RADIUS)) {
       hurtPlayer(titan, p, SLAM_DAMAGE);
       knockPlayer(p, norm2d(sub(p.location, land)), 1.4, 0.6);
       shakeCamera(p, 0.4, 0.4);
@@ -557,7 +607,7 @@ function tickDash(titan, s) {
     particle(titan.dimension, "minecraft:basic_flame_particle", { x: loc.x, y: loc.y + 0.5, z: loc.z });
     particle(titan.dimension, "minecraft:basic_flame_particle", { x: loc.x, y: loc.y + 1.3, z: loc.z });
     particle(titan.dimension, "minecraft:lava_particle", loc);
-    for (const p of alivePlayersNear(titan.dimension, loc, 2.2)) {
+    for (const p of victimsNearDim(titan.dimension, loc, 2.2)) {
       if (s.dashHit.has(p.id)) continue;
       s.dashHit.add(p.id);
       hurtPlayer(titan, p, DASH_DAMAGE);
@@ -584,10 +634,13 @@ function tickThrow(titan, s) {
   if (t === THROW_RELEASE_TICK) {
     let target = null;
     try {
-      target = titan.dimension
-        .getPlayers({ location: loc, maxDistance: 40 })
-        .find((p) => p.id === s.throwTargetId) ?? nearestTarget(titan);
+      const remembered = world.getEntity(s.throwTargetId);
+      if (remembered && remembered.dimension.id === titan.dimension.id &&
+        distance(remembered.location, loc) <= 40) {
+        target = remembered;
+      }
     } catch { }
+    if (!target) target = nearestTarget(titan);
     if (target) {
       faceTarget(titan, target);
       const chest = { x: loc.x, y: loc.y + CHEST_Y + 0.4, z: loc.z };
@@ -624,6 +677,10 @@ function tickSummon(titan, s) {
   }
   if (t === SUMMON_TICK) {
     const count = MINI_SPAWN_COUNT + (s.raged ? 1 : 0);
+    // if the Titan is fighting a mob, the minis join that fight too
+    let mobFoe = null;
+    const currentTarget = nearestTarget(titan);
+    if (currentTarget && !isPlayer(currentTarget)) mobFoe = currentTarget;
     for (let i = 0; i < count; i++) {
       const a = (Math.PI * 2 * i) / count + Math.random() * 0.5;
       const pos = {
@@ -632,7 +689,16 @@ function tickSummon(titan, s) {
         z: loc.z + Math.sin(a) * 2
       };
       try {
-        titan.dimension.spawnEntity(MINI_ID, pos);
+        const mini = titan.dimension.spawnEntity(MINI_ID, pos);
+        if (mobFoe) {
+          // make the mini believe the foe struck it, so it retaliates
+          try {
+            mini.applyDamage(1, {
+              cause: EntityDamageCause.entityAttack,
+              damagingEntity: mobFoe
+            });
+          } catch { }
+        }
         particle(titan.dimension, "minecraft:lava_particle", pos);
         particle(titan.dimension, "minecraft:basic_flame_particle", { x: pos.x, y: pos.y + 0.6, z: pos.z });
       } catch { }
@@ -659,7 +725,7 @@ function tickSmash(titan, s) {
     particle(titan.dimension, "minecraft:knockback_roar_particle", {
       x: loc.x + fwd.x * 1.5, y: loc.y + 0.3, z: loc.z + fwd.z * 1.5
     });
-    for (const p of alivePlayersNear(titan.dimension, loc, SMASH_RANGE)) {
+    for (const p of victimsNearDim(titan.dimension, loc, SMASH_RANGE)) {
       const to = norm2d(sub(p.location, loc));
       if (fwd.x * to.x + fwd.z * to.z < 0.45) continue;
       if (isBlocking(p)) {
@@ -670,7 +736,7 @@ function tickSmash(titan, s) {
         shakeCamera(p, 0.6, 0.8);
         knockPlayer(p, to, 0.4, 0.3);
         playSoundAt(titan.dimension, "random.break", p.location, 2);
-        try { p.onScreenDisplay.setActionBar("§4🛡 GUARD SHATTERED — you are stunned!"); } catch { }
+        tellVictim(p, "§4🛡 GUARD SHATTERED — you are stunned!");
       } else {
         hurtPlayer(titan, p, SMASH_DAMAGE);
         knockPlayer(p, to, 1.2, 0.45);
@@ -693,13 +759,13 @@ function tickGrapple(titan, s) {
     return;
   }
 
-  // holding a grabbed player
+  // holding a grabbed victim
   if (s.grabId) {
     s.holdTicks++;
-    const held = titan.dimension
-      .getPlayers({ location: titan.location, maxDistance: 12 })
-      .find((p) => p.id === s.grabId);
-    if (!held) {
+    let held = null;
+    try { held = world.getEntity(s.grabId); } catch { }
+    if (!held || held.dimension.id !== titan.dimension.id ||
+      distance(held.location, titan.location) > 12) {
       backToIdle(titan, s);
       return;
     }
@@ -727,7 +793,7 @@ function tickGrapple(titan, s) {
       shakeCamera(held, 0.7, 0.6);
       particle(titan.dimension, "minecraft:knockback_roar_particle", { x: gx, y: gy + 0.3, z: gz });
       playSoundAt(titan.dimension, "random.explode", { x: gx, y: gy, z: gz }, 2.5);
-      try { held.onScreenDisplay.setActionBar("§4✊ Slammed into the earth!"); } catch { }
+      tellVictim(held, "§4✊ Slammed into the earth!");
       backToIdle(titan, s, 10);
     }
     return;
@@ -740,7 +806,7 @@ function tickGrapple(titan, s) {
     if (t % 2 === 0) {
       particle(titan.dimension, "minecraft:basic_smoke_particle", { x: loc.x, y: loc.y + 0.8, z: loc.z });
     }
-    for (const p of alivePlayersNear(titan.dimension, loc, GRAPPLE_REACH)) {
+    for (const p of victimsNearDim(titan.dimension, loc, GRAPPLE_REACH)) {
       const to = norm2d(sub(p.location, loc));
       if (s.grappleDir.x * to.x + s.grappleDir.z * to.z < 0.2 && distance(p.location, loc) > 1) continue;
       // CONNECTED
@@ -748,7 +814,7 @@ function tickGrapple(titan, s) {
       s.holdTicks = 0;
       freeze(titan, GRAPPLE_HOLD_TICKS + 6);
       playSoundAt(titan.dimension, "mob.warden.attack", loc, 2.5);
-      try { p.onScreenDisplay.setActionBar("§4✊ GRABBED!"); } catch { }
+      tellVictim(p, "§4✊ GRABBED!");
       return;
     }
     return;
@@ -836,7 +902,7 @@ function tickJudgment(titan, s) {
         source: titan
       });
     } catch { }
-    for (const p of alivePlayersNear(titan.dimension, loc, 10)) {
+    for (const p of victimsNearDim(titan.dimension, loc, 10)) {
       const d = Math.max(1, distance(p.location, loc));
       hurtPlayer(titan, p, Math.round(JUDGMENT_BONUS_DAMAGE * Math.min(1, 3 / d)));
       knockPlayer(p, norm2d(sub(p.location, loc)), 2.5, 0.9);
@@ -866,6 +932,25 @@ function backToIdle(titan, s, extraRecovery = 0) {
 // Target selection & main brain
 // ---------------------------------------------------------------------
 function nearestTarget(titan) {
+  // whatever the vanilla AI is actually fighting (warden, iron golem,
+  // a brawl-stick opponent...) gets the full moveset, not just players
+  try {
+    const t = titan.target;
+    if (
+      t &&
+      t.dimension.id === titan.dimension.id &&
+      distance(t.location, titan.location) <= 48
+    ) {
+      if (isPlayer(t)) {
+        // only chase players who are actually fightable (not creative)
+        if (alivePlayersNear(titan.dimension, titan.location, 48).some((p) => p.id === t.id)) {
+          return t;
+        }
+      } else if (canFight(t)) {
+        return t;
+      }
+    }
+  } catch { }
   const players = alivePlayersNear(titan.dimension, titan.location, 48);
   let best = null;
   let bestD = Infinity;
