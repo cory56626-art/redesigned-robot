@@ -67,6 +67,19 @@ trails behind him as he moves. 200 hearts, second boss bar, darkened sky.
 | **Hellfire Clones** | Summons 3–4 sprinting magma duplicates that explode on contact (14 + fire, no block damage) | Kill them at range (30 HP) or kite them into each other |
 | **The Executioner's Chain** | Fires a burning chain; if it wraps you, you are **completely frozen** while he walks up for an unblockable 25-damage execution slash | Sidestep the chain — it flies dead straight |
 | **Cataclysmic Eruption** | Passive aura: the ground around him constantly fractures — smoke marks a spot, then a fire/magma pillar erupts (8 + ignite) | Watch your feet; approaching him is a minefield |
+| **Hellrush Abduction** | Once per Overlord: a **50-block charge**. Caught = pinned for **nine punches (75 damage)**, then **everyone within 30 blocks is dragged to the Nether** (safe arrival: slow fall + fire resistance) where he ascends: **3× damage and +335 HP** | Sidestep the charge — it flies dead straight and slams into walls |
+
+## 🛠 Debug commands (cheats on)
+
+```
+/scriptevent ob:help                  list commands
+/scriptevent ob:spawn titan           also: overlord | mini | clone
+/scriptevent ob:move meteor           force nearest boss's move (see ob:help)
+/scriptevent ob:hp 60                 set nearest boss HP
+/scriptevent ob:rage                  trigger Titan rage phase
+/scriptevent ob:buff                  apply Overlord hell ascension
+/scriptevent ob:kill                  remove every addon entity
+```
 
 - Human-sized (~2.1 blocks) and fast, like the Ghost of Sparta himself.
 - 300 hearts, boss bar, immune to fire/lava/fall/drowning, knockback-proof.

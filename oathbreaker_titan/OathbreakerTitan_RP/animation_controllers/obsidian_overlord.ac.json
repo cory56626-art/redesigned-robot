@@ -12,7 +12,9 @@
             { "gravity": "q.property('ob:attack_state') == 'gravity'" },
             { "chain": "q.property('ob:attack_state') == 'chain'" },
             { "execute": "q.property('ob:attack_state') == 'execute'" },
-            { "summon": "q.property('ob:attack_state') == 'summon'" }
+            { "summon": "q.property('ob:attack_state') == 'summon'" },
+            { "dash": "q.property('ob:attack_state') == 'dash'" },
+            { "pummel": "q.property('ob:attack_state') == 'pummel'" }
           ]
         },
         "cleave": {
@@ -55,6 +57,19 @@
           "animations": ["summon_anim"],
           "blend_transition": 0.15,
           "transitions": [{ "default": "q.property('ob:attack_state') != 'summon'" }]
+        },
+        "dash": {
+          "animations": ["dash_anim"],
+          "blend_transition": 0.08,
+          "transitions": [
+            { "pummel": "q.property('ob:attack_state') == 'pummel'" },
+            { "default": "q.property('ob:attack_state') != 'dash' && q.property('ob:attack_state') != 'pummel'" }
+          ]
+        },
+        "pummel": {
+          "animations": ["pummel_anim"],
+          "blend_transition": 0.1,
+          "transitions": [{ "default": "q.property('ob:attack_state') != 'pummel'" }]
         }
       }
     }

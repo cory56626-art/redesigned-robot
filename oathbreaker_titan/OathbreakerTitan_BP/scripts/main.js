@@ -327,6 +327,9 @@ function hurtPlayer(titan, player, amount) {
     // in rage, every ability hits harder
     const s = titans.get(titan.id);
     if (s?.raged) amount = Math.round(amount * RAGE_DAMAGE_MULT);
+    // hell-buffed Overlord hits three times as hard
+    const os = overlords.get(titan.id);
+    if (os?.hellBuff) amount = Math.round(amount * 3);
     player.applyDamage(amount, {
       cause: EntityDamageCause.entityAttack,
       damagingEntity: titan
@@ -2104,6 +2107,13 @@ function getOvState(ov) {
       chainTip: null,
       chainVictimId: null,
       chainAnchor: null,
+      cdHellrush: 400,
+      hellUsed: false,
+      hellBuff: false,
+      hellDir: null,
+      hellVictimId: null,
+      hellLastPos: null,
+      hellStall: 0,
       mobFoeId: null,
       mobFoeTick: -9999,
       lastHostileScan: -99
@@ -2491,6 +2501,7 @@ function tickOverlord(ov) {
   if (s.cdGravity > 0) s.cdGravity--;
   if (s.cdClones > 0) s.cdClones--;
   if (s.cdChain > 0) s.cdChain--;
+  if (s.cdHellrush > 0) s.cdHellrush--;
 
   // the greatsword drips liquid blue fire wherever he moves
   try {
@@ -2510,6 +2521,8 @@ function tickOverlord(ov) {
     case "summon": return ovTickSummon(ov, s);
     case "chain": return ovTickChain(ov, s);
     case "execute": return ovTickExecute(ov, s);
+    case "hellrush": return ovTickHellrush(ov, s);
+    case "hellpummel": return ovTickHellpummel(ov, s);
   }
 
   if (s.stateTicks < 0) return; // recovery window
@@ -2534,6 +2547,11 @@ function tickOverlord(ov) {
     }
   }
 
+  // Hellrush Abduction: once, when they think range means safety
+  if (!s.hellUsed && s.cdHellrush <= 0 && dist >= 10 && dist <= 48) {
+    ovStartHellrush(ov, s, target);
+    return;
+  }
   // World-Ender Meteor
   if (s.cdMeteor <= 0 && dist >= 4 && dist <= 34) {
     ovStartMeteor(ov, s, target);
@@ -2610,11 +2628,8 @@ function tickClone(clone) {
     return;
   }
 
-  // sprint at the nearest target
-  if (victim && now % 2 === 0) {
-    const dir = norm2d(sub(victim.location, loc));
-    try { clone.applyKnockback(dir.x, dir.z, 0.55, 0.03); } catch { }
-  }
+  // vanilla pathfinding does the chasing now (navigates around walls
+  // and obstacles); the script only handles the boom
 }
 
 // ---- extend the main loop to run the final form ----
@@ -2673,3 +2688,439 @@ system.runInterval(() => {
     if (now - born > CLONE_FUSE_TICKS + 200) cloneBirth.delete(id);
   }
 }, 600);
+
+// =====================================================================
+//  HELLRUSH ABDUCTION — 50-block dash; a caught victim eats nine
+//  punches (75 total), then everyone nearby is dragged to the Nether
+//  and the Overlord ascends: 3x damage and +335 HP. Once per Overlord.
+// =====================================================================
+const HELLRUSH_COOLDOWN = 900;
+const HELLRUSH_TELEGRAPH = 10;
+const HELLRUSH_MAX_TICKS = 26;   // x speed ~2.1 ≈ 50 blocks of charge
+const HELLRUSH_SPEED = 2.1;
+const HELLRUSH_REACH = 2.6;
+const HELLPUMMEL_PUNCHES = 9;
+const HELLPUMMEL_INTERVAL = 5;   // a punch every quarter second
+const HELLPUMMEL_DAMAGE = 8;     // 8x8 + 11 on the last = exactly 75
+const HELLPUMMEL_FINAL = 11;
+const ABDUCT_RADIUS = 30;
+const HELL_HP_BONUS = 335;
+
+function ovStartHellrush(ov, s, target) {
+  s.state = "hellrush";
+  s.stateTicks = 0;
+  s.cdHellrush = HELLRUSH_COOLDOWN;
+  s.hellUsed = true;
+  s.hellVictimId = null;
+  s.hellDir = norm2d(sub(target.location, ov.location));
+  s.hellStall = 0;
+  s.hellLastPos = { ...ov.location };
+  setAnimState(ov, "dash");
+  faceTarget(ov, target);
+  playSoundAt(ov.dimension, "mob.enderdragon.growl", ov.location, 4);
+  titleNearby(ov, 60, "§4HELLRUSH", "§cHe's coming. RUN.");
+}
+
+function ovTickHellrush(ov, s) {
+  const t = s.stateTicks;
+
+  if (t < HELLRUSH_TELEGRAPH) {
+    const target = nearestTarget(ov, s);
+    if (target) {
+      s.hellDir = norm2d(sub(target.location, ov.location));
+      faceTarget(ov, target);
+    }
+    const loc = ov.location;
+    particle(ov.dimension, "minecraft:blue_flame_particle", { x: loc.x, y: loc.y + 0.5, z: loc.z });
+    return;
+  }
+
+  if (t <= HELLRUSH_TELEGRAPH + HELLRUSH_MAX_TICKS) {
+    try { ov.applyKnockback(s.hellDir.x, s.hellDir.z, HELLRUSH_SPEED, 0.05); } catch { }
+    const loc = ov.location;
+    particle(ov.dimension, "minecraft:blue_flame_particle", { x: loc.x, y: loc.y + 0.6, z: loc.z });
+    particle(ov.dimension, "minecraft:basic_smoke_particle", { x: loc.x, y: loc.y + 1.4, z: loc.z });
+
+    // slammed into a wall: the charge ends
+    if (distance(loc, s.hellLastPos) < 0.25) {
+      s.hellStall++;
+      if (s.hellStall >= 5) {
+        ovBackToIdle(ov, s, 14);
+        return;
+      }
+    } else {
+      s.hellStall = 0;
+    }
+    s.hellLastPos = { ...loc };
+
+    for (const p of victimsNearDim(ov.dimension, loc, HELLRUSH_REACH)) {
+      const to = norm2d(sub(p.location, loc));
+      if (s.hellDir.x * to.x + s.hellDir.z * to.z < 0.2 && distance(p.location, loc) > 1) continue;
+      // CAUGHT — the beatdown begins
+      s.hellVictimId = p.id;
+      s.state = "hellpummel";
+      s.stateTicks = 0;
+      setAnimState(ov, "pummel");
+      freeze(ov, HELLPUMMEL_PUNCHES * HELLPUMMEL_INTERVAL + 40);
+      playSoundAt(ov.dimension, "mob.warden.attack", loc, 3);
+      tellVictim(p, "§4✊ CAUGHT — there is no mercy left.");
+      return;
+    }
+    return;
+  }
+
+  ovBackToIdle(ov, s, 14); // charged 50 blocks into nothing
+}
+
+function ovTickHellpummel(ov, s) {
+  const t = s.stateTicks;
+  let victim = null;
+  try { victim = world.getEntity(s.hellVictimId); } catch { }
+  if (!victim || victim.dimension.id !== ov.dimension.id) {
+    s.hellVictimId = null;
+    ovBackToIdle(ov, s, 12);
+    return;
+  }
+  const loc = ov.location;
+
+  // pinned in his fist
+  const hx = loc.x + s.hellDir.x * 1.3;
+  const hz = loc.z + s.hellDir.z * 1.3;
+  const hy = groundY(ov.dimension, hx, loc.y, hz);
+  try { victim.teleport({ x: hx, y: hy, z: hz }); } catch { }
+
+  // nine punches — exactly 75 damage, no multipliers, no mercy
+  if (t > 0 && t % HELLPUMMEL_INTERVAL === 0 && t <= HELLPUMMEL_PUNCHES * HELLPUMMEL_INTERVAL) {
+    const punchNo = t / HELLPUMMEL_INTERVAL;
+    const dmg = punchNo === HELLPUMMEL_PUNCHES ? HELLPUMMEL_FINAL : HELLPUMMEL_DAMAGE;
+    try {
+      victim.applyDamage(dmg, {
+        cause: EntityDamageCause.entityAttack,
+        damagingEntity: ov
+      });
+    } catch { }
+    shakeCamera(victim, 0.5, 0.25);
+    playSoundAt(ov.dimension, "mob.irongolem.attack", loc, 1.8);
+    particle(ov.dimension, "minecraft:critical_hit_emitter", { x: hx, y: hy + 1.2, z: hz });
+    if (punchNo === HELLPUMMEL_PUNCHES) {
+      particle(ov.dimension, "minecraft:knockback_roar_particle", { x: hx, y: hy + 0.5, z: hz });
+    }
+  }
+
+  // ...then the world burns away
+  if (t >= HELLPUMMEL_PUNCHES * HELLPUMMEL_INTERVAL + 12) {
+    abductToNether(ov, s);
+  }
+}
+
+function abductToNether(ov, s) {
+  const dimension = ov.dimension;
+  const loc = { ...ov.location };
+  const abducted = alivePlayersNear(dimension, loc, ABDUCT_RADIUS);
+  let victim = null;
+  try { victim = world.getEntity(s.hellVictimId); } catch { }
+  s.hellVictimId = null;
+
+  playSoundAt(dimension, "mob.endermen.portal", loc, 4);
+  playSoundAt(dimension, "mob.wither.spawn", loc, 3);
+  for (let i = 0; i < 20; i++) {
+    particle(dimension, "minecraft:blue_flame_particle", {
+      x: loc.x + (Math.random() - 0.5) * 6, y: loc.y + Math.random() * 4, z: loc.z + (Math.random() - 0.5) * 6
+    });
+    particle(dimension, "minecraft:basic_smoke_particle", {
+      x: loc.x + (Math.random() - 0.5) * 6, y: loc.y + Math.random() * 4, z: loc.z + (Math.random() - 0.5) * 6
+    });
+  }
+
+  // already fighting in hell? skip the trip, keep the ascension
+  if (dimension.id !== "minecraft:nether") {
+    let nether = null;
+    try { nether = world.getDimension("nether"); } catch { }
+    if (nether) {
+      const nx = Math.floor(loc.x / 8) + 0.5;
+      const nz = Math.floor(loc.z / 8) + 0.5;
+      const drop = { x: nx, y: 100, z: nz };
+      const travelers = [...abducted];
+      if (victim && !isPlayer(victim)) travelers.push(victim);
+      const travelerIds = [];
+      for (const p of travelers) {
+        try {
+          // shielded arrival: no suffocation while chunks load, no fall
+          // deaths, no instant lava melt
+          p.teleport(drop, { dimension: nether });
+          travelerIds.push(p.id);
+          p.addEffect("resistance", 120, { amplifier: 4, showParticles: false });
+          p.addEffect("slow_falling", 300, { showParticles: false });
+          if (isPlayer(p)) {
+            p.addEffect("fire_resistance", 900, { showParticles: false });
+            p.onScreenDisplay.setTitle("§4WELCOME TO HELL", {
+              subtitle: "§6The Overlord drags you into his domain...",
+              fadeInDuration: 5,
+              stayDuration: 70,
+              fadeOutDuration: 20
+            });
+          }
+        } catch { }
+      }
+      try {
+        ov.teleport(drop, { dimension: nether });
+        ov.addEffect("slow_falling", 300, { showParticles: false });
+        travelerIds.push(ov.id);
+      } catch { }
+
+      // once the player presence has loaded the chunks, find real ground
+      system.runTimeout(() => {
+        try {
+          const fx = Math.floor(nx);
+          const fz = Math.floor(nz);
+          let sy = null;
+          for (let y = 96; y >= 34; y--) {
+            try {
+              const b = nether.getBlock({ x: fx, y, z: fz });
+              const a1 = nether.getBlock({ x: fx, y: y + 1, z: fz });
+              const a2 = nether.getBlock({ x: fx, y: y + 2, z: fz });
+              if (b && !b.isAir && !b.isLiquid && a1?.isAir && a2?.isAir) {
+                sy = y + 1;
+                break;
+              }
+            } catch { }
+          }
+          if (sy === null) {
+            // no natural floor: carve a hellish arrival ledge
+            sy = 80;
+            for (let dx = -2; dx <= 2; dx++) {
+              for (let dz = -2; dz <= 2; dz++) {
+                try { nether.getBlock({ x: fx + dx, y: 79, z: fz + dz })?.setType("minecraft:netherrack"); } catch { }
+                for (let dy = 0; dy < 3; dy++) {
+                  try { nether.getBlock({ x: fx + dx, y: 80 + dy, z: fz + dz })?.setType("minecraft:air"); } catch { }
+                }
+              }
+            }
+          }
+          const landing = { x: nx, y: sy, z: nz };
+          for (const id of travelerIds) {
+            try {
+              const e = world.getEntity(id);
+              if (e && e.dimension.id === "minecraft:nether") e.teleport(landing);
+            } catch { }
+          }
+          playSoundAt(nether, "mob.wither.spawn", landing, 4);
+          particle(nether, "minecraft:huge_explosion_emitter", landing);
+          for (let i = 0; i < 12; i++) {
+            const a = (Math.PI * 2 * i) / 12;
+            particle(nether, "minecraft:blue_flame_particle", {
+              x: landing.x + Math.cos(a) * 2.5, y: landing.y + 0.5, z: landing.z + Math.sin(a) * 2.5
+            });
+          }
+        } catch { }
+      }, 15);
+    }
+  }
+
+  // THE ASCENSION: 3x damage and +335 HP
+  s.hellBuff = true;
+  try { ov.addEffect("health_boost", 20000000, { amplifier: 83, showParticles: false }); } catch { }
+  system.runTimeout(() => {
+    try {
+      const health = ov.getComponent("minecraft:health");
+      if (health) {
+        health.setCurrentValue(Math.min(health.effectiveMax, health.currentValue + HELL_HP_BONUS));
+      }
+    } catch { }
+  }, 2);
+  playSoundAt(ov.dimension, "mob.enderdragon.growl", ov.location, 4);
+  actionbarNearby(ov, 60, "§4👑 THE OVERLORD ASCENDS — 3x DAMAGE, RENEWED FLESH");
+  ovBackToIdle(ov, s, 20);
+}
+
+// keep the hell-buffed strength topped up (vanilla melee scales too)
+system.runInterval(() => {
+  for (const dimId of DIMENSIONS) {
+    try {
+      for (const ov of world.getDimension(dimId).getEntities({ type: OVERLORD_ID })) {
+        const s = overlords.get(ov.id);
+        if (s?.hellBuff) {
+          try { ov.addEffect("strength", 140, { amplifier: 3, showParticles: false }); } catch { }
+        }
+      }
+    } catch { }
+  }
+}, 100);
+
+// =====================================================================
+//  DEBUG COMMANDS — run with cheats on:
+//    /scriptevent ob:help
+//    /scriptevent ob:spawn titan|overlord|mini|clone
+//    /scriptevent ob:move <move name>       (forces the nearest boss)
+//    /scriptevent ob:hp <number>            (sets nearest boss HP)
+//    /scriptevent ob:rage                   (titan rage phase)
+//    /scriptevent ob:buff                   (overlord hell ascension)
+//    /scriptevent ob:kill                   (removes ALL addon entities)
+// =====================================================================
+const TITAN_DEBUG_MOVES = ["cleave", "leap", "skybreak", "dash", "throw", "summon", "smash", "grapple", "molten", "rush", "judgment"];
+const OVERLORD_DEBUG_MOVES = ["cleave", "meteor", "gravity", "chain", "clones", "hellrush"];
+
+function debugReply(src, text) {
+  if (!isPlayer(src)) return;
+  try { src.sendMessage(text); } catch { }
+}
+
+function nearestOfType(dimension, location, typeId) {
+  let best = null;
+  let bestD = Infinity;
+  try {
+    for (const e of dimension.getEntities({ type: typeId, location, maxDistance: 96 })) {
+      const d = distance(e.location, location);
+      if (d < bestD) {
+        bestD = d;
+        best = e;
+      }
+    }
+  } catch { }
+  return best;
+}
+
+try {
+  system.afterEvents.scriptEventReceive.subscribe((ev) => {
+    if (!ev.id.startsWith("ob:")) return;
+    const cmd = ev.id.slice(3).toLowerCase();
+    const msg = (ev.message ?? "").trim().toLowerCase();
+    const src = ev.sourceEntity;
+    if (!src) return;
+    const dimension = src.dimension;
+    const loc = src.location;
+    const titan = nearestOfType(dimension, loc, TITAN_ID);
+    const overlord = nearestOfType(dimension, loc, OVERLORD_ID);
+
+    switch (cmd) {
+      case "help": {
+        debugReply(src, "§6Oathbreaker debug: §f/scriptevent ob:<cmd>");
+        debugReply(src, "§7 spawn titan|overlord|mini|clone");
+        debugReply(src, "§7 move " + TITAN_DEBUG_MOVES.join("|") + " §8(titan)");
+        debugReply(src, "§7 move " + OVERLORD_DEBUG_MOVES.join("|") + " §8(overlord)");
+        debugReply(src, "§7 hp <number> · rage · buff · kill");
+        return;
+      }
+      case "spawn": {
+        const types = {
+          titan: TITAN_ID, overlord: OVERLORD_ID, mini: MINI_ID, clone: CLONE_ID
+        };
+        const typeId = types[msg];
+        if (!typeId) {
+          debugReply(src, "§cUsage: /scriptevent ob:spawn titan|overlord|mini|clone");
+          return;
+        }
+        try {
+          const v = src.getViewDirection();
+          const e = dimension.spawnEntity(typeId, {
+            x: loc.x + v.x * 5, y: loc.y, z: loc.z + v.z * 5
+          });
+          if (typeId === TITAN_ID) getState(e);
+          if (typeId === OVERLORD_ID) getOvState(e);
+          debugReply(src, `§aSpawned ${msg}.`);
+        } catch (err) {
+          debugReply(src, `§cSpawn failed: ${err}`);
+        }
+        return;
+      }
+      case "kill": {
+        let n = 0;
+        for (const typeId of [TITAN_ID, OVERLORD_ID, MINI_ID, CLONE_ID, BOULDER_ID, "ob:debris"]) {
+          try {
+            for (const e of dimension.getEntities({ type: typeId })) {
+              try { e.remove(); n++; } catch { }
+            }
+          } catch { }
+        }
+        titans.clear();
+        overlords.clear();
+        debugReply(src, `§aRemoved ${n} addon entities.`);
+        return;
+      }
+      case "hp": {
+        const boss = overlord ?? titan;
+        const value = parseInt(msg, 10);
+        if (!boss || isNaN(value)) {
+          debugReply(src, "§cNo boss nearby, or bad number. Usage: /scriptevent ob:hp 60");
+          return;
+        }
+        try {
+          const health = boss.getComponent("minecraft:health");
+          health.setCurrentValue(Math.max(1, Math.min(health.effectiveMax, value)));
+          debugReply(src, `§aSet ${boss.typeId} HP to ${Math.max(1, Math.min(health.effectiveMax, value))}.`);
+        } catch (err) {
+          debugReply(src, `§cFailed: ${err}`);
+        }
+        return;
+      }
+      case "rage": {
+        if (!titan) {
+          debugReply(src, "§cNo titan nearby.");
+          return;
+        }
+        const s = getState(titan);
+        if (!s.raged) enterRage(titan, s);
+        debugReply(src, "§aRage phase triggered.");
+        return;
+      }
+      case "buff": {
+        if (!overlord) {
+          debugReply(src, "§cNo overlord nearby.");
+          return;
+        }
+        const s = getOvState(overlord);
+        if (!s.hellBuff) {
+          s.hellBuff = true;
+          s.hellUsed = true;
+          try { overlord.addEffect("health_boost", 20000000, { amplifier: 83, showParticles: false }); } catch { }
+          try {
+            const health = overlord.getComponent("minecraft:health");
+            health.setCurrentValue(Math.min(health.effectiveMax, health.currentValue + HELL_HP_BONUS));
+          } catch { }
+        }
+        debugReply(src, "§aHell ascension applied (3x damage, +335 HP).");
+        return;
+      }
+      case "move": {
+        // overlord moves take priority if one is closer
+        const useOverlord = overlord && (!titan ||
+          distance(overlord.location, loc) <= distance(titan.location, loc));
+        if (useOverlord && OVERLORD_DEBUG_MOVES.includes(msg)) {
+          const s = getOvState(overlord);
+          ovBackToIdle(overlord, s);
+          const target = nearestTarget(overlord, s) ?? src;
+          if (msg === "cleave") ovStartCleave(overlord, s, target);
+          else if (msg === "meteor") ovStartMeteor(overlord, s, target);
+          else if (msg === "gravity") ovStartGravity(overlord, s);
+          else if (msg === "chain") ovStartChain(overlord, s, target);
+          else if (msg === "clones") ovStartClones(overlord, s);
+          else if (msg === "hellrush") ovStartHellrush(overlord, s, target);
+          debugReply(src, `§aOverlord: forced ${msg}.`);
+          return;
+        }
+        if (titan && TITAN_DEBUG_MOVES.includes(msg)) {
+          const s = getState(titan);
+          backToIdle(titan, s);
+          const target = nearestTarget(titan, s) ?? src;
+          if (msg === "cleave") startCleave(titan, s, target);
+          else if (msg === "leap") startLeap(titan, s, target);
+          else if (msg === "skybreak") startLeap(titan, s, target, true);
+          else if (msg === "dash") startDash(titan, s, target);
+          else if (msg === "throw") startThrow(titan, s, target);
+          else if (msg === "summon") startSummon(titan, s);
+          else if (msg === "smash") startSmash(titan, s, target);
+          else if (msg === "grapple") startGrapple(titan, s, target);
+          else if (msg === "molten") startMolten(titan, s);
+          else if (msg === "rush") startRush(titan, s, target);
+          else if (msg === "judgment") startJudgment(titan, s);
+          debugReply(src, `§aTitan: forced ${msg}.`);
+          return;
+        }
+        debugReply(src, "§cNo boss nearby or unknown move. Try /scriptevent ob:help");
+        return;
+      }
+      default:
+        debugReply(src, "§cUnknown command. Try /scriptevent ob:help");
+    }
+  });
+} catch { /* scriptevent unavailable — debug commands disabled */ }

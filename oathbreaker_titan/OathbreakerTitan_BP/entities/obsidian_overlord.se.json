@@ -8,7 +8,7 @@
       "properties": {
         "ob:attack_state": {
           "type": "enum",
-          "values": ["idle", "cleave", "meteor", "slam", "gravity", "chain", "execute", "summon"],
+          "values": ["idle", "cleave", "meteor", "slam", "gravity", "chain", "execute", "summon", "dash", "pummel"],
           "default": "idle",
           "client_sync": true
         }
@@ -18,7 +18,7 @@
       "minecraft:type_family": { "family": ["ob_overlord", "monster", "mob"] },
       "minecraft:scale": { "value": 0.8 },
       "minecraft:collision_box": { "width": 1.1, "height": 3.1 },
-      "minecraft:health": { "value": 400, "max": 400 },
+      "minecraft:health": { "value": 300, "max": 300 },
       "minecraft:movement": { "value": 0.4 },
       "minecraft:navigation.walk": { "can_walk": true, "avoid_water": true },
       "minecraft:movement.basic": {},

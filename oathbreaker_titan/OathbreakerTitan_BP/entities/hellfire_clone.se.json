@@ -17,7 +17,12 @@
       "minecraft:collision_box": { "width": 0.7, "height": 1.9 },
       "minecraft:health": { "value": 30, "max": 30 },
       "minecraft:movement": { "value": 0.55 },
-      "minecraft:navigation.walk": { "can_walk": true, "avoid_water": true },
+      "minecraft:navigation.walk": {
+        "can_walk": true,
+        "can_jump": true,
+        "avoid_water": true,
+        "can_path_over_water": false
+      },
       "minecraft:movement.basic": {},
       "minecraft:jump.static": {},
       "minecraft:physics": {},
@@ -44,6 +49,14 @@
           }
         ]
       },
+      "minecraft:behavior.melee_box_attack": {
+        "priority": 3,
+        "cooldown_time": 1.0,
+        "speed_multiplier": 1.35,
+        "horizontal_reach": 0.4
+      },
+      "minecraft:behavior.random_stroll": { "priority": 6, "speed_multiplier": 0.9 },
+      "minecraft:attack": { "damage": 2 },
       "minecraft:timer": {
         "time": 16,
         "looping": false,

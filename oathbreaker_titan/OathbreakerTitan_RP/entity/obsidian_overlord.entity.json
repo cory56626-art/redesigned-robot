@@ -16,6 +16,8 @@
         "leap_anim": "animation.ob_titan.leap",
         "slam_anim": "animation.ob_titan.slam",
         "summon_anim": "animation.ob_titan.summon",
+        "dash_anim": "animation.ob_titan.dash",
+        "pummel_anim": "animation.ob_titan.pummel",
         "gravity_anim": "animation.ob_overlord.gravity",
         "chain_anim": "animation.ob_overlord.chain",
         "execute_anim": "animation.ob_overlord.execute",
