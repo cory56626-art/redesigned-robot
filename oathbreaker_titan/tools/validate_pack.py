@@ -46,7 +46,15 @@ render_controllers.add("controller.render.default")
 
 # BP entity property enum values
 titan_bp = load(os.path.join(BP, "entities", "oathbreaker_titan.se.json"))["minecraft:entity"]
-enum_values = set(titan_bp["description"]["properties"]["ob:attack_state"]["values"])
+enum_list = titan_bp["description"]["properties"]["ob:attack_state"]["values"]
+enum_values = set(enum_list)
+# HARD ENGINE LIMIT: Bedrock enum properties allow at most 16 values.
+# Exceeding it invalidates the whole property and cascades into broken
+# animations, rendering and molang across the entity.
+if len(enum_list) > 16:
+    errors.append(f"ob:attack_state has {len(enum_list)} enum values — Bedrock max is 16")
+if len(enum_list) != len(enum_values):
+    errors.append("ob:attack_state has duplicate enum values")
 
 # ---- check client entities ----
 for fn in os.listdir(os.path.join(RP, "entity")):
@@ -101,9 +109,13 @@ with open(os.path.join(BP, "scripts", "main.js")) as f:
 for val in re.findall(r'setAnimState\([^,]+,\s*"(\w+)"\)', js):
     if val not in enum_values:
         errors.append(f"main.js: setAnimState uses unknown enum value '{val}'")
-for val in re.findall(r's\.state = "(\w+)"', js):
-    if val not in enum_values and val != "idle":
-        errors.append(f"main.js: state '{val}' not in enum")
+# internal script states (s.state) may be a superset of the visual enum,
+# but every internal state must be handled by the tick switch
+internal_states = set(re.findall(r's\.state = "(\w+)"', js)) | set(re.findall(r'state: "(\w+)"', js))
+switch_cases = set(re.findall(r'case "(\w+)":', js))
+for st in internal_states:
+    if st != "idle" and st not in switch_cases:
+        errors.append(f"main.js: internal state '{st}' has no tick handler")
 
 # ---- lang files ----
 for pack in (BP, RP):

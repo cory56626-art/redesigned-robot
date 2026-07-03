@@ -10,8 +10,7 @@
           "type": "enum",
           "values": [
             "idle", "cleave", "leap", "slam", "dash", "parry", "judgment", "stunned",
-            "throw", "summon", "smash", "grapple", "stumble", "drag", "pummel",
-            "molten", "rush", "skyhurl"
+            "throw", "summon", "smash", "grapple", "stumble", "drag", "pummel", "molten"
           ],
           "default": "idle",
           "client_sync": true

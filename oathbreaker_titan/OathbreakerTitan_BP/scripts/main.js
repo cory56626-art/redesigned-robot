@@ -744,7 +744,7 @@ function startRush(titan, s, target) {
   s.cdRush = RUSH_COOLDOWN;
   s.rushDir = norm2d(sub(target.location, titan.location));
   s.hurlVictimId = null;
-  setAnimState(titan, "rush");
+  setAnimState(titan, "dash"); // rush shares the dash lunge pose
   faceTarget(titan, target);
   playSoundAt(titan.dimension, "mob.ravager.roar", titan.location, 2);
   actionbarNearby(titan, 40, "§6⚠ The Titan charges!");
@@ -775,7 +775,7 @@ function tickRush(titan, s) {
       s.hurlVictimId = p.id;
       s.state = "skyhurl";
       s.stateTicks = 0;
-      setAnimState(titan, "skyhurl");
+      setAnimState(titan, "leap"); // skyhurl shares the arms-raised leap pose
       freeze(titan, HURL_HOLD + HURL_AIR_TICKS + 10);
       hurtPlayer(titan, p, HURL_GRAB_DAMAGE);
       playSoundAt(titan.dimension, "mob.warden.attack", loc, 2.5);
