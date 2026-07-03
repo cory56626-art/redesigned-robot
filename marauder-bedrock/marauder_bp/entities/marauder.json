@@ -185,6 +185,38 @@
           "hud_range": 55,
           "name": "The Marauder"
         }
+      },
+      "marauder:free_for_all": {
+        "minecraft:behavior.nearest_attackable_target": {
+          "priority": 2,
+          "must_see": false,
+          "must_reach": false,
+          "reselect_targets": true,
+          "within_radius": 40,
+          "entity_types": [
+            {
+              "filters": {
+                "test": "is_family",
+                "subject": "other",
+                "value": "player"
+              },
+              "max_dist": 64
+            },
+            {
+              "filters": {
+                "all_of": [
+                  { "test": "is_family", "subject": "other", "value": "mob" },
+                  { "test": "is_family", "subject": "other", "value": "marauder", "operator": "!=" }
+                ]
+              },
+              "max_dist": 40
+            }
+          ]
+        },
+        "minecraft:behavior.hurt_by_target": {
+          "priority": 1,
+          "hurt_owner": true
+        }
       }
     },
     "components": {
@@ -513,6 +545,20 @@
         "remove": {
           "component_groups": [
             "marauder:boss"
+          ]
+        }
+      },
+      "marauder:ffa_on": {
+        "add": {
+          "component_groups": [
+            "marauder:free_for_all"
+          ]
+        }
+      },
+      "marauder:ffa_off": {
+        "remove": {
+          "component_groups": [
+            "marauder:free_for_all"
           ]
         }
       }

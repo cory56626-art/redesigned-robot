@@ -73,5 +73,6 @@ The fixes below bring the Bedrock version in line with the Java entity’s inten
 | `/scriptevent marauder:reset` | Reset rivalry to stage 1 |
 | `/scriptevent marauder:rematch` | Arm the Ascendant rematch |
 | `/scriptevent marauder:clear` | Remove your active marauder(s) |
+| `/scriptevent marauder:freeforall on` | Testing: make marauders attack **any** mob (and fight back), not just players. `off` reverts; no argument flips it. Applies to active + future marauders. |
 
 Otherwise he appears on his own at night (survival/adventure, overworld).

@@ -141,6 +141,10 @@ function applyStage(ent, stage) {
   try { ent.setProperty("marauder:stage", stage); } catch (e) {}
   try { ent.triggerEvent("marauder:set_stage_" + stage); } catch (e) {}
   if (stage >= 7) { try { ent.triggerEvent("marauder:become_boss"); } catch (e) {} }
+  // Testing toggle: if free-for-all is armed world-wide, new marauders inherit it.
+  if (world.getDynamicProperty("marauder:ffa") === true) {
+    try { ent.triggerEvent("marauder:ffa_on"); } catch (e) {}
+  }
   try { ent.nameTag = stageTitle(stage); } catch (e) {}
 }
 
@@ -679,8 +683,33 @@ system.afterEvents.scriptEventReceive.subscribe(ev => {
     case "marauder:clear":
       player.sendMessage("§7Cleared " + clearActive(player) + " Marauder(s).");
       break;
+    case "marauder:freeforall":
+    case "marauder:ffa":
+      setFreeForAll(player, ev.message);
+      break;
   }
 });
+
+// Testing helper: toggle whether marauders attack any mob (and are hunted back),
+// not just the owning player. Usage: /scriptevent marauder:freeforall on|off
+// (bare "/scriptevent marauder:freeforall" flips the current state).
+function setFreeForAll(player, message) {
+  const msg = (message || "").trim().toLowerCase();
+  let on;
+  if (msg === "") on = !(world.getDynamicProperty("marauder:ffa") === true);
+  else on = /^(on|1|true|yes|enable|enabled)$/.test(msg);
+
+  world.setDynamicProperty("marauder:ffa", on);
+
+  let n = 0;
+  for (const e of world.getDimension(OVERWORLD).getEntities({ type: MARAUDER })) {
+    try { e.triggerEvent(on ? "marauder:ffa_on" : "marauder:ffa_off"); n++; } catch (err) {}
+  }
+  player.sendMessage(
+    "§dMarauder free-for-all " + (on ? "§aENABLED" : "§cDISABLED")
+    + " §7(" + n + " active updated). Marauders " + (on ? "now attack any mob and fight back." : "target only players again.")
+  );
+}
 
 function clearActive(player) {
   let n = 0;
