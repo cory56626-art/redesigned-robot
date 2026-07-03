@@ -65,7 +65,7 @@ trails behind him as he moves. 200 hearts, second boss bar, darkened sky.
 | **World-Ender Meteor** | Roars skyward and vanishes; smoke and a shrinking flame ring mark the impact | ~2s to sprint out of the ring before he crashes down like a tactical nuke (up to 30 damage, screen-shaking, block-safe) |
 | **The Gravity Well** | Slams the greatsword down and opens a vortex that drags everything within 12 blocks toward him, pinning whatever reaches the center | Sprint-jump against the pull at the rim; the trapped get detonated by the follow-up burst (18 + fire) |
 | **Hellfire Clones** | Summons 3–4 sprinting magma duplicates that explode on contact (14 + fire, no block damage) | Kill them at range (30 HP) or kite them into each other |
-| **The Executioner's Chain** | Fires a burning chain; if it wraps you, you are **completely frozen** while he walks up for an unblockable 25-damage execution slash | Sidestep the chain — it flies dead straight |
+| **The Executioner's Chain** | Fires a burning chain; if it wraps you, it **reels you toward him** (he stays fully mobile) for an unblockable 25-damage execution slash | Sidestep the chain — or once hooked, **spam jump 5 times** to shatter it and stagger him |
 | **Cataclysmic Eruption** | Passive aura: the ground around him constantly fractures — smoke marks a spot, then a fire/magma pillar erupts (8 + ignite) | Watch your feet; approaching him is a minefield |
 | **Hellrush Abduction** | Once per Overlord: a **50-block charge**. Caught = pinned for **nine punches (75 damage)**, then **everyone within 30 blocks is dragged to the Nether** (safe arrival: slow fall + fire resistance) where he ascends: **3× damage and +335 HP** | Sidestep the charge — it flies dead straight and slams into walls |
 

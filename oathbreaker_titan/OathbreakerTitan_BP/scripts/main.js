@@ -2078,7 +2078,9 @@ const CHAIN_COOLDOWN = 460;
 const CHAIN_FLY_TICKS = 16;
 const CHAIN_STEP = 2.2;
 const CHAIN_HOOK_RADIUS = 1.8;
-const CHAIN_WALK_TICKS = 70;
+const CHAIN_REEL_TIMEOUT = 100;  // hooked this long = reeled in regardless
+const CHAIN_PULL = 0.5;          // dragged toward him every other tick
+const CHAIN_ESCAPE_JUMPS = 5;    // SPAM JUMP to shatter the chain
 const EXECUTE_HIT_TICK = 9;
 const EXECUTE_DAMAGE = 25;       // unblockable
 
@@ -2106,14 +2108,13 @@ function getOvState(ov) {
       chainDir: null,
       chainTip: null,
       chainVictimId: null,
-      chainAnchor: null,
+      chainJumps: 0,
+      chainWasJumping: false,
       cdHellrush: 400,
       hellUsed: false,
       hellBuff: false,
       hellDir: null,
       hellVictimId: null,
-      hellLastPos: null,
-      hellStall: 0,
       mobFoeId: null,
       mobFoeTick: -9999,
       lastHostileScan: -99
@@ -2203,7 +2204,8 @@ function ovStartChain(ov, s, target) {
   s.stateTicks = 0;
   s.cdChain = CHAIN_COOLDOWN;
   s.chainVictimId = null;
-  s.chainAnchor = null;
+  s.chainJumps = 0;
+  s.chainWasJumping = false;
   const chest = { x: ov.location.x, y: ov.location.y + 1.6, z: ov.location.z };
   s.chainTip = { ...chest };
   s.chainDir = norm3d(sub(
@@ -2413,27 +2415,60 @@ function ovTickChain(ov, s) {
         distance({ x: v.location.x, y: v.location.y + 1, z: v.location.z }, s.chainTip) > CHAIN_HOOK_RADIUS) continue;
       // WRAPPED
       s.chainVictimId = v.id;
-      s.chainAnchor = { ...v.location };
+      s.chainJumps = 0;
+      s.chainWasJumping = false;
       s.stateTicks = 0;
       playSoundAt(ov.dimension, "random.anvil_use", v.location, 2.5);
-      tellVictim(v, "§8⛓ CHAINED — you cannot move!");
-      try { v.addEffect("slowness", CHAIN_WALK_TICKS + 30, { amplifier: 10, showParticles: false }); } catch { }
+      tellVictim(v, `§8⛓ CHAINED — §eSPAM JUMP §8(${CHAIN_ESCAPE_JUMPS}x) to break free!`);
       return;
     }
     return;
   }
 
-  // victim wrapped: pin them, walk up slowly, execute
+  // victim wrapped: reel them in while he keeps fighting
   let victim = null;
   try { victim = world.getEntity(s.chainVictimId); } catch { }
-  if (!victim || victim.dimension.id !== ov.dimension.id) {
+  if (!victim || victim.dimension.id !== ov.dimension.id ||
+    distance(victim.location, ov.location) > 40) {
+    s.chainVictimId = null;
     ovBackToIdle(ov, s, 8);
     return;
   }
 
-  // completely frozen in place
-  try { victim.teleport(s.chainAnchor); } catch { }
-  if (t % 4 === 0) {
+  // ESCAPE: mash jump to shatter the chain
+  if (isPlayer(victim)) {
+    try {
+      const jumping = victim.isJumping;
+      if (jumping && !s.chainWasJumping) {
+        s.chainJumps++;
+        if (s.chainJumps < CHAIN_ESCAPE_JUMPS) {
+          tellVictim(victim, `§e⛓ ${s.chainJumps}/${CHAIN_ESCAPE_JUMPS} — KEEP JUMPING!`);
+          playSoundAt(ov.dimension, "random.anvil_use", victim.location, 1);
+        }
+      }
+      s.chainWasJumping = jumping;
+    } catch { }
+    if (s.chainJumps >= CHAIN_ESCAPE_JUMPS) {
+      // CHAIN SHATTERED
+      tellVictim(victim, "§a⛓ CHAIN SHATTERED — RUN!");
+      playSoundAt(ov.dimension, "random.break", victim.location, 2);
+      particle(ov.dimension, "minecraft:critical_hit_emitter", victim.location);
+      try { victim.addEffect("speed", 60, { amplifier: 1, showParticles: false }); } catch { }
+      s.chainVictimId = null;
+      ovBackToIdle(ov, s, 24); // he staggers when it snaps
+      return;
+    }
+  }
+
+  // the reel: dragged toward him, tick by tick (he stays free to move)
+  if (t % 2 === 0) {
+    const pull = norm2d(sub(ov.location, victim.location));
+    knockPlayer(victim, pull, CHAIN_PULL, 0.1);
+  }
+  try { victim.addEffect("slowness", 8, { amplifier: 2, showParticles: false }); } catch { }
+  try { ov.teleport(ov.location, { facingLocation: victim.location }); } catch { }
+
+  if (t % 3 === 0) {
     // the burning chain between them
     const from = { x: ov.location.x, y: ov.location.y + 1.4, z: ov.location.z };
     const to = { x: victim.location.x, y: victim.location.y + 1, z: victim.location.z };
@@ -2448,15 +2483,9 @@ function ovTickChain(ov, s) {
   }
 
   const gap = distance(victim.location, ov.location);
-  if (gap > 3.2 && t < CHAIN_WALK_TICKS) {
-    // the slow, inevitable walk
-    const dir = norm2d(sub(victim.location, ov.location));
-    try { ov.applyKnockback(dir.x, dir.z, 0.45, 0); } catch { }
-    try { ov.teleport(ov.location, { facingLocation: victim.location }); } catch { }
-    return;
-  }
+  if (gap > 3.4 && t < CHAIN_REEL_TIMEOUT) return;
 
-  // in range (or time's up): THE EXECUTION
+  // reeled all the way in (or time's up): THE EXECUTION
   s.state = "execute";
   s.stateTicks = 0;
   setAnimState(ov, "execute");
@@ -2481,7 +2510,6 @@ function ovTickExecute(ov, s) {
   }
   if (t >= 22) {
     s.chainVictimId = null;
-    s.chainAnchor = null;
     ovBackToIdle(ov, s, 14);
   }
 }
@@ -2696,8 +2724,8 @@ system.runInterval(() => {
 // =====================================================================
 const HELLRUSH_COOLDOWN = 900;
 const HELLRUSH_TELEGRAPH = 10;
-const HELLRUSH_MAX_TICKS = 26;   // x speed ~2.1 ≈ 50 blocks of charge
-const HELLRUSH_SPEED = 2.1;
+const HELLRUSH_MAX_TICKS = 30;   // x 1.7 blocks/tick = a true 50-block charge
+const HELLRUSH_STEP = 1.7;       // teleport-stepped: physics can't shorten it
 const HELLRUSH_REACH = 2.6;
 const HELLPUMMEL_PUNCHES = 9;
 const HELLPUMMEL_INTERVAL = 5;   // a punch every quarter second
@@ -2713,8 +2741,6 @@ function ovStartHellrush(ov, s, target) {
   s.hellUsed = true;
   s.hellVictimId = null;
   s.hellDir = norm2d(sub(target.location, ov.location));
-  s.hellStall = 0;
-  s.hellLastPos = { ...ov.location };
   setAnimState(ov, "dash");
   faceTarget(ov, target);
   playSoundAt(ov.dimension, "mob.enderdragon.growl", ov.location, 4);
@@ -2736,33 +2762,51 @@ function ovTickHellrush(ov, s) {
   }
 
   if (t <= HELLRUSH_TELEGRAPH + HELLRUSH_MAX_TICKS) {
-    try { ov.applyKnockback(s.hellDir.x, s.hellDir.z, HELLRUSH_SPEED, 0.05); } catch { }
+    // teleport-stepped charge: 1.7 blocks per tick, guaranteed —
+    // knockback physics gets damped by the mob's own AI, this doesn't
     const loc = ov.location;
-    particle(ov.dimension, "minecraft:blue_flame_particle", { x: loc.x, y: loc.y + 0.6, z: loc.z });
-    particle(ov.dimension, "minecraft:basic_smoke_particle", { x: loc.x, y: loc.y + 1.4, z: loc.z });
+    const nx = loc.x + s.hellDir.x * HELLRUSH_STEP;
+    const nz = loc.z + s.hellDir.z * HELLRUSH_STEP;
+    const ny = groundY(ov.dimension, nx, loc.y + 1, nz);
 
-    // slammed into a wall: the charge ends
-    if (distance(loc, s.hellLastPos) < 0.25) {
-      s.hellStall++;
-      if (s.hellStall >= 5) {
-        ovBackToIdle(ov, s, 14);
-        return;
-      }
-    } else {
-      s.hellStall = 0;
+    // a wall taller than a climbable step ends the charge
+    if (ny - loc.y > 2.5) {
+      playSoundAt(ov.dimension, "random.explode", loc, 2);
+      particle(ov.dimension, "minecraft:large_explosion", { x: loc.x, y: loc.y + 1, z: loc.z });
+      ovBackToIdle(ov, s, 14);
+      return;
     }
-    s.hellLastPos = { ...loc };
+    // a cliff with no floor below ends it too (no charging into the void)
+    let footing = false;
+    try {
+      const below = ov.dimension.getBlock({ x: Math.floor(nx), y: Math.floor(ny) - 1, z: Math.floor(nz) });
+      footing = !!below && !below.isAir && !below.isLiquid;
+    } catch { }
+    if (!footing) {
+      ovBackToIdle(ov, s, 12);
+      return;
+    }
 
-    for (const p of victimsNearDim(ov.dimension, loc, HELLRUSH_REACH)) {
-      const to = norm2d(sub(p.location, loc));
-      if (s.hellDir.x * to.x + s.hellDir.z * to.z < 0.2 && distance(p.location, loc) > 1) continue;
+    try {
+      ov.teleport({ x: nx, y: ny, z: nz }, {
+        facingLocation: { x: nx + s.hellDir.x * 3, y: ny + 1, z: nz + s.hellDir.z * 3 }
+      });
+    } catch { }
+    particle(ov.dimension, "minecraft:blue_flame_particle", { x: nx, y: ny + 0.6, z: nz });
+    particle(ov.dimension, "minecraft:basic_smoke_particle", { x: nx, y: ny + 1.4, z: nz });
+    if (t % 4 === 0) playSoundAt(ov.dimension, "mob.ravager.step", { x: nx, y: ny, z: nz }, 1.5);
+
+    for (const p of victimsNearDim(ov.dimension, { x: nx, y: ny, z: nz }, HELLRUSH_REACH)) {
+      const to = norm2d(sub(p.location, { x: nx, y: ny, z: nz }));
+      if (s.hellDir.x * to.x + s.hellDir.z * to.z < 0.2 &&
+        distance(p.location, { x: nx, y: ny, z: nz }) > 1) continue;
       // CAUGHT — the beatdown begins
       s.hellVictimId = p.id;
       s.state = "hellpummel";
       s.stateTicks = 0;
       setAnimState(ov, "pummel");
       freeze(ov, HELLPUMMEL_PUNCHES * HELLPUMMEL_INTERVAL + 40);
-      playSoundAt(ov.dimension, "mob.warden.attack", loc, 3);
+      playSoundAt(ov.dimension, "mob.warden.attack", { x: nx, y: ny, z: nz }, 3);
       tellVictim(p, "§4✊ CAUGHT — there is no mercy left.");
       return;
     }
