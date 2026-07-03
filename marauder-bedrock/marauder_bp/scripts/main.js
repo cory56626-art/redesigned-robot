@@ -275,22 +275,35 @@ function isFFA() {
   return world.getDynamicProperty("marauder:ffa") === true;
 }
 
-// A player is always a valid mark; other mobs only when free-for-all is armed.
-function isValidVictim(e, ffa) {
+// Anything the marauder may legitimately fight: a live, non-creative player or
+// any non-marauder mob. Used for the *current* target, which the AI (or an
+// external mod like Brawl Stick, via hurt_by_target) may already have set to a
+// mob — his abilities should follow whatever he is actually fighting.
+function isEngageable(e) {
   if (!isValid(e) || e.typeId === MARAUDER) return false;
   if (e.typeId === "minecraft:player") {
     const gm = safeGameMode(e);
     return gm !== GameMode.creative && gm !== GameMode.spectator;
   }
-  return ffa;
+  return true;
+}
+
+// Whether the marauder is presently fighting a non-player mob.
+function currentTargetIsMob(ent) {
+  try {
+    const t = ent.target;
+    return !!t && t.typeId !== "minecraft:player" && t.typeId !== MARAUDER;
+  } catch (e) { return false; }
 }
 
 function pickTarget(ent, owner) {
   const ffa = isFFA();
-  // Aim abilities at whatever the entity's own AI is actually fighting.
+  // Aim abilities at whatever the entity's own AI is actually fighting — this
+  // is what makes Brawl Stick / any hurt_by_target-based mod work: once he has
+  // been goaded onto a mob, his abilities lock onto it too.
   let aiTarget = null;
   try { aiTarget = ent.target; } catch (e) {}
-  if (aiTarget && isValidVictim(aiTarget, ffa) && dist(ent.location, aiTarget.location) <= CHALLENGE_RANGE + 6) {
+  if (aiTarget && isEngageable(aiTarget) && dist(ent.location, aiTarget.location) <= CHALLENGE_RANGE + 6) {
     return aiTarget;
   }
   // In a normal duel, keep the pressure on the owning player.
@@ -501,22 +514,23 @@ function telegraphTick(ent, a) {
 // ------------------------------------------------------------- combat helpers
 
 // Everything an AoE ability may strike: players always, other mobs when
-// free-for-all is armed. Never the marauder itself or another marauder.
+// free-for-all is armed OR he is presently fighting a mob (e.g. a Brawl Stick
+// grudge). Never the marauder itself or another marauder.
 function victimsNear(ent, range) {
-  const ffa = isFFA();
+  const includeMobs = isFFA() || currentTargetIsMob(ent);
   const out = [];
   const seen = new Set();
   for (const p of ent.dimension.getEntities({ type: "minecraft:player", location: ent.location, maxDistance: range })) {
-    if (isValidVictim(p, ffa)) { out.push(p); seen.add(p.id); }
+    if (isEngageable(p)) { out.push(p); seen.add(p.id); }
   }
-  if (ffa) {
+  if (includeMobs) {
     let mobs = [];
     try {
       mobs = ent.dimension.getEntities({ location: ent.location, maxDistance: range, families: ["mob"], excludeFamilies: ["marauder"] });
     } catch (e) { mobs = []; }
     for (const m of mobs) {
       if (m.id === ent.id || seen.has(m.id) || m.typeId === "minecraft:player") continue;
-      if (isValidVictim(m, ffa)) { out.push(m); seen.add(m.id); }
+      if (isValid(m)) { out.push(m); seen.add(m.id); }
     }
   }
   return out;

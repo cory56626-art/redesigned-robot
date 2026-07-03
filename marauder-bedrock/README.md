@@ -76,3 +76,21 @@ The fixes below bring the Bedrock version in line with the Java entity’s inten
 | `/scriptevent marauder:freeforall on` | Testing: make marauders attack **any** mob — melee *and* abilities target whatever he's fighting, and he retaliates against anything. `off` reverts; no argument flips it. Applies to active + future marauders. |
 
 Otherwise he appears on his own at night (survival/adventure, overworld).
+
+## Fighting other mobs / mod compatibility (Brawl Stick etc.)
+
+By default the Marauder hunts **players**, but he now **retaliates against
+anything that damages him** (`hurt_by_target` with no family restriction). That
+makes him work with mods built on the standard "attribute a hit to the
+aggressor" trick — including **Brawl Stick**, whose `poke()` does exactly
+`victim.applyDamage(1, { damagingEntity: aggressor })`:
+
+* Tag the Marauder and another mob with the Brawl Stick → the poke lands, his
+  retaliation AI turns on, and he fights that mob. His **abilities follow the
+  mob too**, because ability targeting reads his actual AI target
+  (`entity.target`) rather than assuming a player.
+* This is why he previously *couldn't* be goaded onto mobs: his retaliation was
+  restricted to players, so a mob's poke was ignored. That restriction is gone.
+
+For proactive mob-hunting (no external mod needed), use
+`/scriptevent marauder:freeforall on`.
