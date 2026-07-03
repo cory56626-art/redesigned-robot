@@ -95,6 +95,27 @@ const DEFLECT_WINDOW = 70;       // 3.5s of batting projectiles back
 const REFLECT_SPEED_MULT = 5;
 const REFLECT_MAX_SPEED = 4.2;   // faster than this and arrows tunnel through targets
 
+const RAGE_DAMAGE_MULT = 1.3;    // rage: EVERYTHING hits 30% harder
+
+const MOLTEN_COOLDOWN = 500;     // Molten Explosion
+const MOLTEN_BURST_TICK = 14;    // ~0.7s charge, then boom
+const MOLTEN_LENGTH = 30;
+const MOLTEN_RADIUS = 6;
+const MOLTEN_DAMAGE = 15;
+const MOLTEN_FIRE_SECONDS = 6;
+const MOLTEN_DEBRIS = 10;        // chunks of the arena hurled skyward
+
+const RUSH_COOLDOWN = 400;       // Skyhurl Rush
+const RUSH_TELEGRAPH = 6;
+const RUSH_TICKS = 12;
+const RUSH_SPEED = 2.0;
+const RUSH_REACH = 2.4;
+const HURL_GRAB_DAMAGE = 4;
+const HURL_HOLD = 6;             // held aloft before the throw
+const HURL_UP_STRENGTH = 3.6;    // launched VERY high
+const HURL_AIR_TICKS = 26;       // hang time before the spike
+const HURL_IMPACT_DAMAGE = 14;   // driven into the ground
+
 const JUDGMENT_CHARGE_TICKS = 120;
 const JUDGMENT_COOLDOWN = 900;
 const JUDGMENT_EXPLOSION_RADIUS = 7;
@@ -144,6 +165,10 @@ function getState(titan) {
       dragDir: null,
       dragStall: 0,
       dragLastPos: null,
+      cdMolten: 200,
+      cdRush: 300,
+      rushDir: null,
+      hurlVictimId: null,
       projHits: [],       // recent projectile hit ticks
       cdProjParry: 0,
       deflectUntil: 0,    // while now < this, projectiles get returned
@@ -196,7 +221,7 @@ function alivePlayersNear(dimension, location, maxDistance) {
 const isPlayer = (e) => e?.typeId === "minecraft:player";
 
 // the Titan never hurts his own kind
-const FRIENDLY = new Set([TITAN_ID, MINI_ID, BOULDER_ID]);
+const FRIENDLY = new Set([TITAN_ID, MINI_ID, BOULDER_ID, "ob:debris"]);
 // things that can't be fought
 const NON_COMBAT = new Set([
   "minecraft:item", "minecraft:xp_orb", "minecraft:arrow", "minecraft:snowball",
@@ -297,6 +322,9 @@ function isBlocking(player) {
 
 function hurtPlayer(titan, player, amount) {
   try {
+    // in rage, every ability hits harder
+    const s = titans.get(titan.id);
+    if (s?.raged) amount = Math.round(amount * RAGE_DAMAGE_MULT);
     player.applyDamage(amount, {
       cause: EntityDamageCause.entityAttack,
       damagingEntity: titan
@@ -504,12 +532,14 @@ function deflectProjectiles(titan, s) {
 const shockwaves = [];
 
 function spawnShockwave(titan, origin, dir) {
+  const s = titans.get(titan.id);
   shockwaves.push({
     dimension: titan.dimension,
     x: origin.x,
     y: origin.y,
     z: origin.z,
     dir,
+    damage: s?.raged ? Math.round(SHOCKWAVE_DAMAGE * RAGE_DAMAGE_MULT) : SHOCKWAVE_DAMAGE,
     stepsLeft: SHOCKWAVE_LENGTH,
     hit: new Set()
   });
@@ -536,7 +566,7 @@ function tickShockwaves() {
       if (len2d(d) <= SHOCKWAVE_WIDTH && p.location.y - w.y < SHOCKWAVE_MAX_RISE && p.isOnGround) {
         w.hit.add(p.id);
         try {
-          p.applyDamage(SHOCKWAVE_DAMAGE, { cause: EntityDamageCause.entityAttack });
+          p.applyDamage(w.damage, { cause: EntityDamageCause.entityAttack });
         } catch { }
         knockPlayer(p, w.dir, 1.2, 0.55);
       }
@@ -629,6 +659,188 @@ function startGrapple(titan, s, target) {
   setAnimState(titan, "grapple");
   faceTarget(titan, target);
   playSoundAt(titan.dimension, "mob.warden.attack", titan.location, 2);
+}
+
+function startMolten(titan, s) {
+  s.state = "molten";
+  s.stateTicks = 0;
+  s.cdMolten = MOLTEN_COOLDOWN;
+  setAnimState(titan, "molten");
+  freeze(titan, MOLTEN_LENGTH);
+  playSoundAt(titan.dimension, "random.fuse", titan.location, 3);
+  actionbarNearby(titan, 40, "§c⚠ MOLTEN ERUPTION — GET AWAY!");
+}
+
+function tickMolten(titan, s) {
+  const t = s.stateTicks;
+  const loc = titan.location;
+
+  if (t < MOLTEN_BURST_TICK) {
+    // heat building: flames spiral inward toward the core
+    if (t % 2 === 0) {
+      const a = t * 0.9;
+      const r = 3 - (t / MOLTEN_BURST_TICK) * 2.2;
+      particle(titan.dimension, "minecraft:basic_flame_particle", {
+        x: loc.x + Math.cos(a) * r, y: loc.y + 0.3 + t * 0.08, z: loc.z + Math.sin(a) * r
+      });
+      particle(titan.dimension, "minecraft:lava_particle", {
+        x: loc.x - Math.cos(a) * r, y: loc.y + 0.3, z: loc.z - Math.sin(a) * r
+      });
+    }
+    return;
+  }
+
+  if (t === MOLTEN_BURST_TICK) {
+    // ERUPTION
+    playSoundAt(titan.dimension, "random.explode", loc, 4);
+    playSoundAt(titan.dimension, "mob.ghast.fireball", loc, 3);
+    particle(titan.dimension, "minecraft:huge_explosion_emitter", { x: loc.x, y: loc.y + 1, z: loc.z });
+    particle(titan.dimension, "minecraft:knockback_roar_particle", { x: loc.x, y: loc.y + 0.4, z: loc.z });
+    for (let ring = 0; ring < 2; ring++) {
+      const rr = ring === 0 ? 3 : MOLTEN_RADIUS;
+      for (let i = 0; i < 14; i++) {
+        const a = (Math.PI * 2 * i) / 14;
+        const px = loc.x + Math.cos(a) * rr;
+        const pz = loc.z + Math.sin(a) * rr;
+        const py = groundY(titan.dimension, px, loc.y, pz);
+        particle(titan.dimension, "minecraft:lava_particle", { x: px, y: py + 0.2, z: pz });
+        particle(titan.dimension, "minecraft:basic_flame_particle", { x: px, y: py + 0.5, z: pz });
+      }
+    }
+
+    // everything nearby burns
+    for (const p of victimsNearDim(titan.dimension, loc, MOLTEN_RADIUS)) {
+      hurtPlayer(titan, p, MOLTEN_DAMAGE);
+      try { p.setOnFire(MOLTEN_FIRE_SECONDS, true); } catch { }
+      knockPlayer(p, norm2d(sub(p.location, loc)), 1.8, 0.8);
+      shakeCamera(p, 0.6, 0.7);
+      tellVictim(p, "§6🔥 Seared by the eruption!");
+    }
+
+    // chunks of the arena thrown into the sky
+    for (let i = 0; i < MOLTEN_DEBRIS; i++) {
+      const a = Math.random() * Math.PI * 2;
+      try {
+        const chunk = titan.dimension.spawnEntity("ob:debris", {
+          x: loc.x + Math.cos(a) * 1.2, y: loc.y + 1, z: loc.z + Math.sin(a) * 1.2
+        });
+        chunk.applyImpulse({
+          x: Math.cos(a) * (0.25 + Math.random() * 0.45),
+          y: 0.8 + Math.random() * 0.6,
+          z: Math.sin(a) * (0.25 + Math.random() * 0.45)
+        });
+      } catch { }
+    }
+    playSoundAt(titan.dimension, "dig.stone", loc, 2);
+    return;
+  }
+
+  if (t >= MOLTEN_LENGTH) backToIdle(titan, s, 10);
+}
+
+function startRush(titan, s, target) {
+  s.state = "rush";
+  s.stateTicks = 0;
+  s.cdRush = RUSH_COOLDOWN;
+  s.rushDir = norm2d(sub(target.location, titan.location));
+  s.hurlVictimId = null;
+  setAnimState(titan, "rush");
+  faceTarget(titan, target);
+  playSoundAt(titan.dimension, "mob.ravager.roar", titan.location, 2);
+  actionbarNearby(titan, 40, "§6⚠ The Titan charges!");
+}
+
+function tickRush(titan, s) {
+  const t = s.stateTicks;
+
+  // telegraph: keep tracking while he coils
+  if (t < RUSH_TELEGRAPH) {
+    const target = nearestTarget(titan);
+    if (target) {
+      s.rushDir = norm2d(sub(target.location, titan.location));
+      faceTarget(titan, target);
+    }
+    return;
+  }
+
+  if (t <= RUSH_TELEGRAPH + RUSH_TICKS) {
+    try { titan.applyKnockback(s.rushDir.x, s.rushDir.z, RUSH_SPEED, 0.05); } catch { }
+    const loc = titan.location;
+    particle(titan.dimension, "minecraft:basic_flame_particle", { x: loc.x, y: loc.y + 0.6, z: loc.z });
+    particle(titan.dimension, "minecraft:basic_smoke_particle", { x: loc.x, y: loc.y + 1.2, z: loc.z });
+    for (const p of victimsNearDim(titan.dimension, loc, RUSH_REACH)) {
+      const to = norm2d(sub(p.location, loc));
+      if (s.rushDir.x * to.x + s.rushDir.z * to.z < 0.2 && distance(p.location, loc) > 1) continue;
+      // CAUGHT
+      s.hurlVictimId = p.id;
+      s.state = "skyhurl";
+      s.stateTicks = 0;
+      setAnimState(titan, "skyhurl");
+      freeze(titan, HURL_HOLD + HURL_AIR_TICKS + 10);
+      hurtPlayer(titan, p, HURL_GRAB_DAMAGE);
+      playSoundAt(titan.dimension, "mob.warden.attack", loc, 2.5);
+      tellVictim(p, "§4✊ CAUGHT — going UP!");
+      return;
+    }
+    return;
+  }
+
+  // charged past everyone: skid to a stop
+  backToIdle(titan, s, 12);
+}
+
+function tickSkyhurl(titan, s) {
+  const t = s.stateTicks;
+  let victim = null;
+  try { victim = world.getEntity(s.hurlVictimId); } catch { }
+  if (!victim || victim.dimension.id !== titan.dimension.id) {
+    s.hurlVictimId = null;
+    backToIdle(titan, s, 10);
+    return;
+  }
+  const loc = titan.location;
+
+  if (t < HURL_HOLD) {
+    // hoisted overhead
+    try {
+      victim.teleport({
+        x: loc.x + s.rushDir.x * 0.8,
+        y: loc.y + 2.2,
+        z: loc.z + s.rushDir.z * 0.8
+      });
+    } catch { }
+    return;
+  }
+
+  if (t === HURL_HOLD) {
+    // THROWN SKYWARD
+    try { victim.applyKnockback(0, 0, 0, HURL_UP_STRENGTH); } catch { }
+    playSoundAt(titan.dimension, "mob.irongolem.throw", loc, 2.5);
+    particle(titan.dimension, "minecraft:knockback_roar_particle", { x: loc.x, y: loc.y + 2, z: loc.z });
+    tellVictim(victim, "§6⬆ HURLED INTO THE SKY!");
+    return;
+  }
+
+  if (t < HURL_HOLD + HURL_AIR_TICKS) {
+    // rising... flame trail marks them
+    if (t % 3 === 0) {
+      particle(titan.dimension, "minecraft:basic_flame_particle", victim.location);
+    }
+    return;
+  }
+
+  // SPIKED back down into the earth
+  const vloc = victim.location;
+  const gy = groundY(titan.dimension, vloc.x, loc.y, vloc.z);
+  try { victim.teleport({ x: vloc.x, y: gy, z: vloc.z }); } catch { }
+  hurtPlayer(titan, victim, HURL_IMPACT_DAMAGE);
+  try { victim.addEffect("slowness", 30, { amplifier: 2 }); } catch { }
+  shakeCamera(victim, 0.7, 0.7);
+  particle(titan.dimension, "minecraft:knockback_roar_particle", { x: vloc.x, y: gy + 0.3, z: vloc.z });
+  playSoundAt(titan.dimension, "random.explode", { x: vloc.x, y: gy, z: vloc.z }, 3);
+  tellVictim(victim, "§4⬇ SPIKED INTO THE EARTH!");
+  s.hurlVictimId = null;
+  backToIdle(titan, s, 15);
 }
 
 function startParry(titan, s, attacker) {
@@ -1343,6 +1555,8 @@ function tickTitan(titan) {
   if (s.cdGrapple > 0) s.cdGrapple--;
   if (s.cdJudgment > 0) s.cdJudgment--;
   if (s.cdProjParry > 0) s.cdProjParry--;
+  if (s.cdMolten > 0) s.cdMolten--;
+  if (s.cdRush > 0) s.cdRush--;
 
   // Aegis Return: while the window is open, bat projectiles back
   if (system.currentTick < s.deflectUntil) deflectProjectiles(titan, s);
@@ -1365,6 +1579,9 @@ function tickTitan(titan) {
     case "stumble": return tickStumble(titan, s);
     case "drag": return tickDrag(titan, s);
     case "pummel": return tickPummel(titan, s);
+    case "molten": return tickMolten(titan, s);
+    case "rush": return tickRush(titan, s);
+    case "skyhurl": return tickSkyhurl(titan, s);
     case "parry": return tickParry(titan, s);
     case "judgment": return tickJudgment(titan, s);
     case "stunned": return tickStunned(titan, s);
@@ -1417,6 +1634,11 @@ function tickTitan(titan) {
     startSmash(titan, s, target);
     return;
   }
+  // Molten Explosion: close-range eruption
+  if (s.cdMolten <= 0 && dist <= 5.5) {
+    startMolten(titan, s);
+    return;
+  }
   // Titan Grapple
   if (s.cdGrapple <= 0 && dist >= 3 && dist <= 9) {
     startGrapple(titan, s, target);
@@ -1436,6 +1658,11 @@ function tickTitan(titan) {
   // Fiery dash (rage only)
   if (s.raged && s.cdDash <= 0 && dist >= 5 && dist <= 16) {
     startDash(titan, s, target);
+    return;
+  }
+  // Skyhurl Rush: charge, snatch, throw them into the sky
+  if (s.cdRush <= 0 && dist >= 6 && dist <= 16) {
+    startRush(titan, s, target);
     return;
   }
   // Groundbreaker Throw: rip up the floor at range

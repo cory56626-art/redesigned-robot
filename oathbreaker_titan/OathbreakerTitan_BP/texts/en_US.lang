@@ -4,3 +4,4 @@ entity.ob:titan_boulder.name=Titan Boulder
 item.spawn_egg.entity.ob:oathbreaker_titan.name=Oathbreaker Titan Spawn Egg
 item.spawn_egg.entity.ob:core_mini.name=Core Mini Spawn Egg
 tile.ob:molten_heart.name=Molten Heart
+entity.ob:debris.name=Molten Debris

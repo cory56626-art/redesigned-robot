@@ -1,0 +1,36 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "ob:debris",
+      "is_spawnable": false,
+      "is_summonable": true
+    },
+    "component_groups": {
+      "ob:despawn": {
+        "minecraft:instant_despawn": {}
+      }
+    },
+    "components": {
+      "minecraft:type_family": { "family": ["ob_debris"] },
+      "minecraft:scale": { "value": 0.5 },
+      "minecraft:collision_box": { "width": 0.4, "height": 0.4 },
+      "minecraft:health": { "value": 5, "max": 5 },
+      "minecraft:physics": {},
+      "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": false },
+      "minecraft:damage_sensor": {
+        "triggers": [{ "cause": "all", "deals_damage": false }]
+      },
+      "minecraft:timer": {
+        "time": 3,
+        "looping": false,
+        "time_down_event": { "event": "ob:expire" }
+      }
+    },
+    "events": {
+      "ob:expire": {
+        "add": { "component_groups": ["ob:despawn"] }
+      }
+    }
+  }
+}

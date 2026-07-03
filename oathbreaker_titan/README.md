@@ -40,7 +40,9 @@ You can also spawn him from the creative spawn egg for testing.
 | **Core Minis** | Every ~28s | He splinters his core into small grounded ember-titans (vex-like, can't fly, expire after 45s, die with him) — cut them down fast |
 | **Oathcrusher Smash** | Turtling behind a shield near him | He raises the greatsword and slams it down — **2× damage and a stun if your shield is up**. Drop guard and dodge instead |
 | **Titan Grapple** | Mid-close range | He lunges to grab you: connect = hoisted and slammed into the ground (ignores shields). If he **misses, he stumbles** — free punish window, and your hits land 50% harder |
-| **Rage Phase** | 50% HP | He speeds up, hits harder, gains a **fiery dash**, and the arena cracks with flame |
+| **Molten Explosion** | You linger in his face | ~0.7s charge (flames spiral into his core), then an eruption: **15 damage in 6 blocks, sets everything on fire**, hurls chunks of the arena into the sky. Sprint out when you hear the fuse |
+| **Skyhurl Rush** | Mid range | He charges forward; if he catches you he hoists you overhead, **throws you sky-high, then spikes you back into the earth** (~18 damage + grab). Sidestep the charge — he skids past |
+| **Rage Phase** | 50% HP | He speeds up, gains the **fiery dash**, the arena cracks with flame, and **every ability hits 30% harder** (Molten Explosion ~20, Titan Cleave ~16...) |
 | **Final Judgment** | 10% HP | 6-second charge — **strike the glowing chest core (from the front!)** to interrupt and stun him. Fail, and a massive blast follows |
 
 - Human-sized (~2.1 blocks) and fast, like the Ghost of Sparta himself.
