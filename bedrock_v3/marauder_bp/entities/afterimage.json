@@ -1,0 +1,41 @@
+{
+  "format_version": "1.20.60",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "marauder:afterimage",
+      "is_spawnable": false,
+      "is_summonable": true,
+      "is_experimental": false,
+      "properties": {
+        "marauder:stage": {
+          "type": "int",
+          "range": [1, 10],
+          "default": 1,
+          "client_sync": true
+        }
+      }
+    },
+    "components": {
+      "minecraft:type_family": { "family": ["marauder_illusion"] },
+      "minecraft:health": { "value": 1, "max": 1 },
+      "minecraft:collision_box": { "width": 0.6, "height": 1.95 },
+      "minecraft:physics": {},
+      "minecraft:knockback_resistance": { "value": 1.0 },
+      "minecraft:movement": { "value": 0.0 },
+      "minecraft:persistent": {},
+      "minecraft:fire_immune": true,
+      "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": false },
+      "minecraft:damage_sensor": {
+        "triggers": [
+          { "cause": "fire", "deals_damage": false },
+          { "cause": "fire_tick", "deals_damage": false },
+          { "cause": "lava", "deals_damage": false },
+          { "cause": "fall", "deals_damage": false },
+          { "cause": "drowning", "deals_damage": false }
+        ]
+      },
+      "minecraft:behavior.float": { "priority": 0 },
+      "minecraft:behavior.look_at_player": { "priority": 1, "look_distance": 24 }
+    }
+  }
+}

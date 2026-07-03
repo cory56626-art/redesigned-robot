@@ -1,0 +1,20 @@
+{
+  "format_version": "1.20.60",
+  "minecraft:item": {
+    "description": {
+      "identifier": "marauder:rune_fragment",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:icon": {
+        "texture": "rune_fragment"
+      },
+      "minecraft:max_stack_size": 64,
+      "minecraft:display_name": {
+        "value": "Spellscar Rune Fragment"
+      }
+    }
+  }
+}

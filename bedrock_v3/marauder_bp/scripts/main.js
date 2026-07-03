@@ -1,0 +1,878 @@
+import { world, system, GameMode, EntityDamageCause, EquipmentSlot, ItemStack } from "@minecraft/server";
+
+// The Marauder — Bedrock Script API port (v3, reworked combat).
+//
+// The entity's *physical* AI (pathing, target acquisition, melee) lives in the
+// behavior JSON. This script layers on what Bedrock behaviors cannot do alone:
+// per-player staged progression, a night manager, telegraphed abilities, the
+// afterimage/mirage set-piece, and defeat/reward handling.
+//
+// Combat targeting no longer relies on the flaky Entity.target getter — instead
+// it tracks aggro from the entityHurt event, so the marauder uses his abilities
+// against whatever he is actually fighting (players, or mobs via Brawl Stick).
+//
+// Server-authoritative. Test hooks are exposed via /scriptevent.
+
+const OVERWORLD = "minecraft:overworld";
+const MARAUDER = "marauder:marauder";
+const AFTERIMAGE = "marauder:afterimage";
+const STAGE_MAX = 10;
+
+const CHECK_INTERVAL = 40;   // night manager cadence (ticks)
+const COMBAT_INTERVAL = 2;   // combat/ability driver cadence (ticks)
+const SPAWN_CHANCE = 0.12;   // per-check chance once eligible
+const CHALLENGE_RANGE = 16;  // engagement radius
+const LEASH_RANGE = 96;      // beyond this from its owner the marauder gives up
+const AGGRO_TICKS = 120;     // how long a mob/player that hit him stays his mark
+
+const SWING_TICKS = 13;      // how long the melee "attacking" flag stays raised
+
+// Per-stage attack damage, matching the Java MarauderStages table.
+const STAGE_DAMAGE = [0, 4, 5, 6, 7, 8, 9, 10, 11, 12.5, 14];
+
+// ------------------------------------------------------------- small helpers
+
+function isValid(e) {
+  if (!e) return false;
+  try {
+    return typeof e.isValid === "function" ? e.isValid() : e.isValid !== false;
+  } catch (err) {
+    return false;
+  }
+}
+function sub(a, b) { return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z }; }
+function norm(v) { const l = Math.hypot(v.x, v.y, v.z) || 1; return { x: v.x / l, y: v.y / l, z: v.z / l }; }
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z); }
+
+function stageDamage(stage) { return STAGE_DAMAGE[clampStage(stage)] || 4; }
+
+function isMobId(e) {
+  if (!e) return false;
+  const t = e.typeId;
+  return t && t !== "minecraft:player" && t !== MARAUDER && t !== AFTERIMAGE;
+}
+
+// ------------------------------------------------------------- progress
+
+function clampStage(s) {
+  s = Math.floor(Number(s));
+  if (isNaN(s) || s < 1) return 1;
+  if (s > STAGE_MAX) return STAGE_MAX;
+  return s;
+}
+function getStage(player) {
+  const v = player.getDynamicProperty("marauder:stage");
+  return v === undefined ? 1 : clampStage(v);
+}
+function setStage(player, s) { player.setDynamicProperty("marauder:stage", clampStage(s)); }
+function getFlag(player, key) { return player.getDynamicProperty(key) === true; }
+function resetProgress(player) {
+  setStage(player, 1);
+  player.setDynamicProperty("marauder:finalComplete", false);
+  player.setDynamicProperty("marauder:rematchArmed", false);
+  player.setDynamicProperty("marauder:lastAttemptDay", -1);
+}
+
+// ------------------------------------------------------------- time
+
+function isNight() {
+  const t = world.getTimeOfDay() % 24000;
+  return t >= 13000 && t < 23000;
+}
+function currentDay() {
+  try { return world.getDay(); } catch (e) { return Math.floor(world.getAbsoluteTime() / 24000); }
+}
+function safeGameMode(player) {
+  try { return player.getGameMode?.(); } catch (e) { return undefined; }
+}
+
+// ------------------------------------------------------------- night manager
+
+system.runInterval(() => {
+  if (!isNight()) return;
+  const day = currentDay();
+  for (const player of world.getAllPlayers()) {
+    try { tryEncounter(player, day); } catch (e) { /* keep the loop alive */ }
+  }
+}, CHECK_INTERVAL);
+
+function tryEncounter(player, day) {
+  if (player.dimension.id !== OVERWORLD) return;
+  const gm = safeGameMode(player);
+  if (gm === GameMode.creative || gm === GameMode.spectator) return;
+
+  const finalDone = getFlag(player, "marauder:finalComplete");
+  const rematch = getFlag(player, "marauder:rematchArmed");
+  if (finalDone && !rematch) return;
+  if (player.getDynamicProperty("marauder:lastAttemptDay") === day) return;
+  if (hasActive(player)) return;
+  const guaranteed = clampStage(getStage(player)) >= STAGE_MAX;
+  if (!guaranteed && Math.random() > SPAWN_CHANCE) return;
+
+  if (spawnMarauder(player, getStage(player), false)) {
+    player.setDynamicProperty("marauder:lastAttemptDay", day);
+  }
+}
+
+function hasActive(player) {
+  return player.dimension.getEntities({ type: MARAUDER })
+    .some(e => e.getDynamicProperty("marauder:owner") === player.id);
+}
+
+// ------------------------------------------------------------- spawning
+
+function spawnMarauder(player, stage, immediate) {
+  stage = clampStage(stage);
+  const loc = findSafeNear(player.dimension, player.location, immediate ? 5 : 12);
+  let ent;
+  try {
+    ent = player.dimension.spawnEntity(MARAUDER, loc);
+  } catch (e) {
+    return false;
+  }
+  ent.setDynamicProperty("marauder:owner", player.id);
+  applyStage(ent, stage);
+  challengeCue(player, stage);
+  return true;
+}
+
+function applyStage(ent, stage) {
+  stage = clampStage(stage);
+  ent.setDynamicProperty("marauder:stageNum", stage);
+  try { ent.setProperty("marauder:stage", stage); } catch (e) {}
+  try { ent.triggerEvent("marauder:set_stage_" + stage); } catch (e) {}
+  if (stage >= 7) { try { ent.triggerEvent("marauder:become_boss"); } catch (e) {} }
+  if (world.getDynamicProperty("marauder:ffa") === true) {
+    try { ent.triggerEvent("marauder:ffa_on"); } catch (e) {}
+  }
+  try { ent.nameTag = stageTitle(stage); } catch (e) {}
+}
+
+function findSafeNear(dim, base, distNear) {
+  for (let i = 0; i < 16; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = distNear * (0.6 + Math.random() * 0.6);
+    const x = Math.floor(base.x + Math.cos(a) * r);
+    const z = Math.floor(base.z + Math.sin(a) * r);
+    for (let dy = 3; dy >= -4; dy--) {
+      const y = Math.floor(base.y) + dy;
+      try {
+        const feet = dim.getBlock({ x, y, z });
+        const head = dim.getBlock({ x, y: y + 1, z });
+        const ground = dim.getBlock({ x, y: y - 1, z });
+        if (feet && head && ground && feet.isAir && head.isAir && !ground.isAir) {
+          return { x: x + 0.5, y, z: z + 0.5 };
+        }
+      } catch (e) { /* unloaded chunk */ }
+    }
+  }
+  return { x: base.x + distNear * 0.5, y: base.y, z: base.z };
+}
+
+function challengeCue(player, stage) {
+  try {
+    player.onScreenDisplay.setTitle("§4The Marauder has found you.", {
+      fadeInDuration: 8, stayDuration: 40, fadeOutDuration: 16, subtitle: stageTitle(stage)
+    });
+  } catch (e) {}
+  try { player.playSound("mob.wither.spawn"); } catch (e) {}
+  try { player.dimension.playSound("mob.enderdragon.growl", player.location); } catch (e) {}
+}
+
+// ------------------------------------------------------------- combat driver
+
+const ABILITIES = [
+  { id: "shock",  minStage: 1, min: 0.0, max: 5.0,  windup: 10, recover: 8,  cd: 55,  weight: 10 },
+  { id: "guard",  minStage: 2, min: 0.0, max: 4.5,  windup: 8,  recover: 6,  cd: 70,  weight: 8  },
+  { id: "lunge",  minStage: 1, min: 3.5, max: 10.0, windup: 6,  recover: 6,  cd: 45,  weight: 11 },
+  { id: "cinder", minStage: 3, min: 0.0, max: 6.0,  windup: 12, recover: 8,  cd: 80,  weight: 8  },
+  { id: "mirage", minStage: 4, min: 0.0, max: 12.0, windup: 22, recover: 10, cd: 280, weight: 6  },
+  { id: "brand",  minStage: 4, min: 3.0, max: 16.0, windup: 14, recover: 6,  cd: 130, weight: 5  },
+  { id: "flash",  minStage: 5, min: 5.0, max: 20.0, windup: 8,  recover: 6,  cd: 85,  weight: 9  },
+  { id: "beam",   minStage: 6, min: 4.0, max: 22.0, windup: 16, recover: 10, cd: 80,  weight: 9  },
+];
+
+// entityId -> { cooldowns, globalCd, current, swingUntil, aggroId, aggroTick, illusion }
+const combat = new Map();
+
+function stateFor(ent) {
+  let s = combat.get(ent.id);
+  if (!s) {
+    s = { cooldowns: {}, globalCd: 20, current: null, swingUntil: 0, aggroId: null, aggroTick: -9999, illusion: null };
+    combat.set(ent.id, s);
+  }
+  return s;
+}
+
+system.runInterval(() => {
+  const dim = world.getDimension(OVERWORLD);
+  let marauders;
+  try { marauders = dim.getEntities({ type: MARAUDER }); } catch (e) { return; }
+  const now = system.currentTick;
+  const alive = new Set();
+  const illusionIds = new Set();
+  for (const ent of marauders) {
+    if (!isValid(ent)) continue;
+    alive.add(ent.id);
+    try { tickCombat(ent, now); } catch (e) { /* keep loop alive */ }
+    const s = combat.get(ent.id);
+    if (s && s.illusion && s.illusion.active) illusionIds.add(ent.id);
+  }
+  // Drop combat state for marauders that no longer exist.
+  for (const id of combat.keys()) if (!alive.has(id)) combat.delete(id);
+  // Prune orphaned afterimages (their real marauder is gone or no longer casting).
+  try {
+    for (const c of dim.getEntities({ type: AFTERIMAGE })) {
+      const rid = c.getDynamicProperty("marauder:realId");
+      if (!rid || !illusionIds.has(rid)) { try { c.remove(); } catch (e) {} }
+    }
+  } catch (e) {}
+}, COMBAT_INTERVAL);
+
+function ownerOf(ent) {
+  const id = ent.getDynamicProperty("marauder:owner");
+  if (!id) return null;
+  return world.getAllPlayers().find(p => p.id === id) || null;
+}
+
+function tickCombat(ent, now) {
+  const s = stateFor(ent);
+
+  // Clear a finished melee swing.
+  if (s.swingUntil && now >= s.swingUntil) { s.swingUntil = 0; setAttacking(ent, false); }
+
+  // While an afterimage set-piece runs, the real marauder holds still.
+  if (s.illusion && s.illusion.active) {
+    if (now >= s.illusion.endTick) endIllusion(ent, s);
+    return;
+  }
+
+  const owner = ownerOf(ent);
+  if (owner) {
+    if (owner.dimension.id !== ent.dimension.id || dist(owner.location, ent.location) > LEASH_RANGE) {
+      retreat(ent);
+      return;
+    }
+  }
+
+  if (s.globalCd > 0) s.globalCd -= COMBAT_INTERVAL;
+  for (const k of Object.keys(s.cooldowns)) {
+    s.cooldowns[k] -= COMBAT_INTERVAL;
+    if (s.cooldowns[k] <= 0) delete s.cooldowns[k];
+  }
+
+  if (s.current) { advanceAbility(ent, s, now); return; }
+
+  const target = pickTarget(ent, s, owner, now);
+  if (!target) return;
+
+  if (s.globalCd > 0) return;
+  const d = dist(ent.location, target.location);
+  const choice = chooseAbility(ent, d);
+  if (choice) beginAbility(ent, s, choice, target, now);
+}
+
+// Robust target selection that does NOT depend on Entity.target: prefer whoever
+// recently hit him (aggro — this is what makes Brawl Stick / mob fights use
+// abilities), then the owning player, then the nearest valid mark.
+function pickTarget(ent, s, owner, now) {
+  const loc = ent.location;
+
+  // 1) Recent attacker (mob or player) still nearby.
+  if (s.aggroId && now - s.aggroTick <= AGGRO_TICKS) {
+    const a = entityById(ent.dimension, s.aggroId);
+    if (a && isEngageable(a) && dist(loc, a.location) <= CHALLENGE_RANGE + 4) return a;
+  }
+  // 2) The owning player, in a normal duel.
+  if (owner && !isFFA()) {
+    const gm = safeGameMode(owner);
+    if (gm !== GameMode.creative && gm !== GameMode.spectator && dist(owner.location, loc) <= CHALLENGE_RANGE + 6) {
+      return owner;
+    }
+  }
+  // 3) Nearest valid mark within engagement range.
+  let best = null, bestD = Infinity;
+  for (const v of victimsNear(ent, CHALLENGE_RANGE, null, isFFA())) {
+    const d = dist(loc, v.location);
+    if (d < bestD) { best = v; bestD = d; }
+  }
+  return best;
+}
+
+function entityById(dim, id) {
+  try {
+    for (const e of dim.getEntities({})) if (e.id === id) return isValid(e) ? e : null;
+  } catch (e) {}
+  return null;
+}
+
+function isEngageable(e) {
+  if (!isValid(e) || e.typeId === MARAUDER || e.typeId === AFTERIMAGE) return false;
+  if (e.typeId === "minecraft:player") {
+    const gm = safeGameMode(e);
+    return gm !== GameMode.creative && gm !== GameMode.spectator;
+  }
+  return true;
+}
+
+function chooseAbility(ent, d) {
+  const stage = ent.getDynamicProperty("marauder:stageNum") ?? 1;
+  const s = stateFor(ent);
+  const pool = [];
+  let total = 0;
+  for (const a of ABILITIES) {
+    if (a.minStage > stage) continue;
+    if (s.cooldowns[a.id] > 0) continue;
+    if (d < a.min || d > a.max) continue;
+    pool.push(a);
+    total += a.weight;
+  }
+  if (pool.length === 0) return null;
+  let roll = Math.random() * total;
+  for (const a of pool) { roll -= a.weight; if (roll < 0) return a; }
+  return pool[pool.length - 1];
+}
+
+function beginAbility(ent, s, ability, target, now) {
+  s.current = { ability, tick: 0, targetId: target.id, fired: false };
+  setCasting(ent, true);
+  faceTarget(ent, target);
+  if (ability.id === "mirage") { try { ent.triggerEvent("marauder:stun_on"); } catch (e) {} }
+  telegraphStart(ent, ability);
+}
+
+function advanceAbility(ent, s, now) {
+  const cur = s.current;
+  cur.tick += COMBAT_INTERVAL;
+  const a = cur.ability;
+  const target = resolveTargetId(ent, cur.targetId);
+
+  if (cur.tick < a.windup) {
+    if (target) faceTarget(ent, target);
+    telegraphTick(ent, a);
+    return;
+  }
+
+  if (!cur.fired) {
+    cur.fired = true;
+    if (target) { faceTarget(ent, target); try { fireAbility(ent, a, target); } catch (e) {} }
+    return;
+  }
+
+  if (cur.tick >= a.windup + a.recover) {
+    s.current = null;
+    s.cooldowns[a.id] = a.cd;
+    s.globalCd = 14 + Math.floor(Math.random() * 16);
+    setCasting(ent, false);
+    // Safety: if a mirage fizzled without starting an illusion, unfreeze.
+    if (a.id === "mirage" && !(s.illusion && s.illusion.active)) {
+      try { ent.triggerEvent("marauder:stun_off"); } catch (e) {}
+    }
+  }
+}
+
+function resolveTargetId(ent, id) {
+  try {
+    const near = ent.dimension.getEntities({ location: ent.location, maxDistance: CHALLENGE_RANGE + 12 });
+    return near.find(e => e.id === id && isValid(e)) || null;
+  } catch (e) { return null; }
+}
+
+// ------------------------------------------------------------- ability effects
+
+function fireAbility(ent, a, target) {
+  const stage = ent.getDynamicProperty("marauder:stageNum") ?? 1;
+  const base = stageDamage(stage);
+  switch (a.id) {
+    case "shock":  effectShock(ent, target, base); break;
+    case "guard":  effectGuard(ent, target, base); break;
+    case "lunge":  effectLunge(ent, target, base); break;
+    case "cinder": effectCinder(ent, target, base); break;
+    case "mirage": effectMirage(ent, target); break;
+    case "brand":  effectBrand(ent, target); break;
+    case "flash":  effectFlash(ent, target, base); break;
+    case "beam":   effectBeam(ent, target, base, a.max); break;
+  }
+}
+
+function effectShock(ent, target, base) {
+  const loc = ent.location;
+  spawnRing(ent.dimension, loc, "minecraft:basic_flame_particle", 2.0, 18);
+  try { ent.dimension.playSound("random.explode", loc); } catch (e) {}
+  for (const p of victimsNear(ent, 4.0, target)) { hurt(p, ent, base + 2); knockFrom(p, loc, 1.0, 0.45); }
+}
+
+function effectGuard(ent, target, base) {
+  if (dist(ent.location, target.location) > 4.5) return;
+  hurt(target, ent, base * 1.4);
+  knockFrom(target, ent.location, 1.1, 0.5);
+  try { ent.dimension.playSound("item.shield.block", target.location); } catch (e) {}
+}
+
+function effectLunge(ent, target, base) {
+  const dir = norm(sub(target.location, ent.location));
+  try { ent.applyKnockback(dir.x, dir.z, 1.3, 0.25); } catch (e) {}
+  system.runTimeout(() => {
+    if (!isValid(ent) || !isValid(target)) return;
+    if (dist(ent.location, target.location) < 3.4) { hurt(target, ent, base); knockFrom(target, ent.location, 0.5, 0.35); }
+  }, 6);
+}
+
+function effectCinder(ent, target, base) {
+  const fwd = norm(sub(target.location, ent.location));
+  for (let i = 1; i <= 5; i++) {
+    const p = { x: ent.location.x + fwd.x * i, y: ent.location.y + 0.4, z: ent.location.z + fwd.z * i };
+    trySpawnParticle(ent.dimension, "minecraft:basic_flame_particle", p);
+  }
+  for (const p of victimsNear(ent, 5.0, target)) {
+    const to = norm(sub(p.location, ent.location));
+    if (fwd.x * to.x + fwd.z * to.z > 0.55) { hurt(p, ent, base * 0.9); try { p.setOnFire(3, true); } catch (e) {} }
+  }
+  try { ent.dimension.playSound("mob.blaze.shoot", ent.location); } catch (e) {}
+}
+
+function effectBrand(ent, target) {
+  try { target.addEffect("slowness", 120, { amplifier: 1 }); } catch (e) {}
+  try { target.addEffect("weakness", 120, { amplifier: 0 }); } catch (e) {}
+  try { ent.addEffect("speed", 120, { amplifier: 1 }); } catch (e) {}
+  trySpawnParticle(ent.dimension, "minecraft:soul_particle", { x: target.location.x, y: target.location.y + 1, z: target.location.z });
+  try { ent.dimension.playSound("mob.wither.shoot", target.location); } catch (e) {}
+}
+
+function effectFlash(ent, target, base) {
+  const look = norm(sub(target.location, ent.location));
+  const dest = { x: target.location.x - look.x * 2.2, y: target.location.y, z: target.location.z - look.z * 2.2 };
+  const safe = findSafeNear(ent.dimension, dest, 1.5);
+  spawnRing(ent.dimension, ent.location, "minecraft:endrod", 1.2, 16);
+  try { ent.teleport(safe); } catch (e) {}
+  spawnRing(ent.dimension, safe, "minecraft:endrod", 1.2, 16);
+  try { ent.dimension.playSound("mob.endermen.portal", safe); } catch (e) {}
+  system.runTimeout(() => {
+    if (!isValid(ent) || !isValid(target)) return;
+    if (dist(ent.location, target.location) < 3.5) { hurt(target, ent, base); knockFrom(target, ent.location, 0.5, 0.4); }
+  }, 6);
+}
+
+function effectBeam(ent, target, base, range) {
+  const start = { x: ent.location.x, y: ent.location.y + 1.2, z: ent.location.z };
+  const dir = norm(sub({ x: target.location.x, y: target.location.y + 1, z: target.location.z }, start));
+  for (let i = 1; i <= range; i++) {
+    const p = { x: start.x + dir.x * i, y: start.y + dir.y * i, z: start.z + dir.z * i };
+    trySpawnParticle(ent.dimension, "minecraft:endrod", p);
+  }
+  try { ent.dimension.playSound("mob.evocation_illager.cast_spell", start); } catch (e) {}
+  for (const p of victimsNear(ent, range, target)) {
+    const to = sub({ x: p.location.x, y: p.location.y + 1, z: p.location.z }, start);
+    const proj = to.x * dir.x + to.y * dir.y + to.z * dir.z;
+    if (proj <= 0) continue;
+    const closest = { x: start.x + dir.x * proj, y: start.y + dir.y * proj, z: start.z + dir.z * proj };
+    if (dist(closest, { x: p.location.x, y: p.location.y + 1, z: p.location.z }) < 1.6) hurt(p, ent, base * 1.2);
+  }
+}
+
+// ---- afterimage / mirage -----------------------------------------------
+
+// He stands still, performs the cast, then splits into three identical figures
+// spread around the mark — two illusions and himself. Strike the true Marauder
+// and the images fade as he answers with a heavy area blow; strike an image and
+// it merely dissolves.
+function effectMirage(ent, target) {
+  const s = stateFor(ent);
+  const now = system.currentTick;
+  const stage = clampStage(ent.getDynamicProperty("marauder:stageNum") ?? 1);
+  const center = target ? target.location : ent.location;
+  const pts = ringPositions(ent.dimension, center, 3.6, 3);
+  const realIdx = Math.floor(Math.random() * 3);
+
+  const wasBoss = stage >= 7;
+  if (wasBoss) { try { ent.triggerEvent("marauder:clear_boss"); } catch (e) {} }
+  const title = safeName(ent);
+
+  try { ent.triggerEvent("marauder:stun_on"); } catch (e) {}
+  try { ent.teleport(pts[realIdx]); } catch (e) {}
+  poof(ent.dimension, pts[realIdx]);
+
+  const cloneIds = [];
+  for (let i = 0; i < 3; i++) {
+    if (i === realIdx) continue;
+    let c;
+    try { c = ent.dimension.spawnEntity(AFTERIMAGE, pts[i]); } catch (e) { continue; }
+    try { c.setProperty("marauder:stage", stage); } catch (e) {}
+    try { c.setDynamicProperty("marauder:realId", ent.id); } catch (e) {}
+    try { if (title) c.nameTag = title; } catch (e) {}
+    poof(ent.dimension, pts[i]);
+    cloneIds.push(c.id);
+  }
+
+  s.illusion = { active: true, endTick: now + 170, cloneIds, wasBoss };
+  // Return the real one to an idle pose so it is indistinguishable from the images.
+  setCasting(ent, false);
+  try { ent.dimension.playSound("mob.endermen.portal", ent.location); } catch (e) {}
+}
+
+function retaliate(ent, s) {
+  if (!(s.illusion && s.illusion.active)) return;
+  endIllusion(ent, s);
+
+  setAttacking(ent, true);
+  s.swingUntil = system.currentTick + SWING_TICKS;
+  const stage = clampStage(ent.getDynamicProperty("marauder:stageNum") ?? 1);
+  const base = stageDamage(stage);
+  const loc = ent.location;
+  spawnRing(ent.dimension, loc, "minecraft:basic_flame_particle", 3.0, 30);
+  try { ent.dimension.playSound("random.explode", loc, { pitch: 0.7, volume: 1.0 }); } catch (e) {}
+  for (const v of victimsNear(ent, 5.5, null, true)) { hurt(v, ent, base * 2.2 + 4); knockFrom(v, loc, 1.5, 0.6); }
+  // Brief cooldown so he doesn't instantly chain another cast.
+  s.globalCd = 30;
+  s.cooldowns["mirage"] = 280;
+}
+
+function endIllusion(ent, s) {
+  if (!s.illusion) return;
+  const info = s.illusion;
+  s.illusion = null;
+  removeClonesOf(ent.dimension, ent.id);
+  try { ent.triggerEvent("marauder:stun_off"); } catch (e) {}
+  if (info.wasBoss) { try { ent.triggerEvent("marauder:become_boss"); } catch (e) {} }
+  setCasting(ent, false);
+  // Clear a lingering mirage cast so normal combat resumes cleanly.
+  if (s.current && s.current.ability && s.current.ability.id === "mirage") {
+    s.current = null;
+    s.cooldowns["mirage"] = 280;
+    s.globalCd = Math.max(s.globalCd, 20);
+  }
+}
+
+function removeClonesOf(dim, realId) {
+  let list;
+  try { list = dim.getEntities({ type: AFTERIMAGE }); } catch (e) { return; }
+  for (const c of list) {
+    if (c.getDynamicProperty("marauder:realId") === realId) {
+      poof(dim, c.location);
+      try { c.remove(); } catch (e) {}
+    }
+  }
+}
+
+function ringPositions(dim, center, radius, count) {
+  const out = [];
+  const base = Math.random() * Math.PI * 2;
+  for (let i = 0; i < count; i++) {
+    const a = base + (Math.PI * 2 * i) / count;
+    const raw = { x: center.x + Math.cos(a) * radius, y: center.y, z: center.z + Math.sin(a) * radius };
+    out.push(findSafeNear(dim, raw, 1.2));
+  }
+  return out;
+}
+
+function poof(dim, loc) {
+  spawnRing(dim, loc, "minecraft:soul_particle", 0.8, 10);
+  trySpawnParticle(dim, "minecraft:basic_smoke_particle", { x: loc.x, y: loc.y + 0.9, z: loc.z });
+}
+
+// ------------------------------------------------------------- telegraphs
+
+function telegraphStart(ent, a) {
+  try {
+    const pitch = a.id === "beam" || a.id === "brand" ? 1.4 : a.id === "mirage" ? 0.5 : 0.6;
+    ent.dimension.playSound("mob.wither.ambient", ent.location, { pitch, volume: 0.7 });
+  } catch (e) {}
+}
+
+function telegraphTick(ent, a) {
+  if (system.currentTick % 2 !== 0) return;
+  const head = { x: ent.location.x, y: ent.location.y + 1.6, z: ent.location.z };
+  const particle = a.id === "cinder" ? "minecraft:basic_flame_particle"
+    : a.id === "beam" ? "minecraft:endrod"
+    : "minecraft:soul_particle";
+  trySpawnParticle(ent.dimension, particle, head);
+}
+
+// ------------------------------------------------------------- combat helpers
+
+// Everything an AoE ability may strike: players always; other mobs when free-for-all
+// is armed, when forceMobs is set, or when the primary mark itself is a mob (a Brawl
+// Stick grudge). Never the marauder itself, another marauder, or an afterimage.
+function victimsNear(ent, range, primary, forceMobs) {
+  const includeMobs = forceMobs === true || isFFA() || isMobId(primary);
+  const out = [];
+  const seen = new Set();
+  for (const p of ent.dimension.getEntities({ type: "minecraft:player", location: ent.location, maxDistance: range })) {
+    if (isEngageable(p)) { out.push(p); seen.add(p.id); }
+  }
+  if (includeMobs) {
+    let mobs = [];
+    try {
+      mobs = ent.dimension.getEntities({ location: ent.location, maxDistance: range, families: ["mob"], excludeFamilies: ["marauder", "marauder_illusion"] });
+    } catch (e) { mobs = []; }
+    for (const m of mobs) {
+      if (m.id === ent.id || seen.has(m.id) || m.typeId === "minecraft:player" || m.typeId === MARAUDER || m.typeId === AFTERIMAGE) continue;
+      if (isValid(m)) { out.push(m); seen.add(m.id); }
+    }
+  }
+  // Always include the explicit mark if it is close enough.
+  if (primary && isValid(primary) && !seen.has(primary.id) && dist(ent.location, primary.location) <= range + 0.5) {
+    out.push(primary);
+  }
+  return out;
+}
+
+function hurt(entity, source, amount) {
+  try { entity.applyDamage(Math.max(1, Math.round(amount)), { cause: EntityDamageCause.entityAttack, damagingEntity: source }); } catch (e) {}
+}
+
+function knockFrom(entity, from, horizontal, vertical) {
+  const dx = entity.location.x - from.x;
+  const dz = entity.location.z - from.z;
+  const l = Math.hypot(dx, dz) || 1;
+  try { entity.applyKnockback(dx / l, dz / l, horizontal, vertical); } catch (e) {}
+}
+
+function faceTarget(ent, target) {
+  try {
+    ent.teleport(ent.location, { facingLocation: { x: target.location.x, y: target.location.y + 1, z: target.location.z } });
+  } catch (e) {}
+}
+
+function setAttacking(ent, v) { try { if (isValid(ent)) ent.setProperty("marauder:attacking", v); } catch (e) {} }
+function setCasting(ent, v) { try { if (isValid(ent)) ent.setProperty("marauder:casting", v); } catch (e) {} }
+function safeName(ent) { try { return ent.nameTag; } catch (e) { return ""; } }
+
+function retreat(ent) {
+  const loc = ent.location;
+  removeClonesOf(ent.dimension, ent.id);
+  spawnRing(ent.dimension, loc, "minecraft:soul_particle", 1.2, 24);
+  try { ent.dimension.playSound("mob.endermen.portal", loc); } catch (e) {}
+  combat.delete(ent.id);
+  try { ent.remove(); } catch (e) {}
+}
+
+function spawnRing(dim, loc, particle, radius, count) {
+  for (let i = 0; i < count; i++) {
+    const a = (Math.PI * 2 * i) / count;
+    const p = { x: loc.x + Math.cos(a) * radius, y: loc.y + 0.2, z: loc.z + Math.sin(a) * radius };
+    trySpawnParticle(dim, particle, p);
+  }
+}
+function trySpawnParticle(dim, particle, loc) { try { dim.spawnParticle(particle, loc); } catch (e) {} }
+function isFFA() { return world.getDynamicProperty("marauder:ffa") === true; }
+
+// ------------------------------------------------------------- events: hits
+
+// Landed melee hit BY the marauder -> play the swing animation.
+world.afterEvents.entityHitEntity?.subscribe(ev => {
+  const attacker = ev.damagingEntity;
+  if (!attacker) return;
+
+  if (attacker.typeId === MARAUDER) {
+    const s = stateFor(attacker);
+    if (!s.current && !(s.illusion && s.illusion.active)) {
+      setAttacking(attacker, true);
+      s.swingUntil = system.currentTick + SWING_TICKS;
+    }
+    return;
+  }
+
+  // Blacksteel Blade: a night-time cut carries the curse (glow + lifesteal).
+  if (attacker.typeId === "minecraft:player") {
+    const hit = ev.hitEntity;
+    if (!hit || !isNight()) return;
+    let held;
+    try { held = attacker.getComponent("minecraft:equippable")?.getEquipment?.(EquipmentSlot.Mainhand); } catch (e) {}
+    if (held && held.typeId === "marauder:blacksteel_blade") {
+      try { hit.addEffect("glowing", 60, { amplifier: 0 }); } catch (e) {}
+      try { attacker.addEffect("regeneration", 40, { amplifier: 1 }); } catch (e) {}
+    }
+  }
+});
+
+// Damage TAKEN by the marauder -> record aggro, and resolve the afterimage duel.
+world.afterEvents.entityHurt?.subscribe(ev => {
+  const victim = ev.hurtEntity;
+  if (!victim) return;
+
+  if (victim.typeId === AFTERIMAGE) { poof(victim.dimension, victim.location); return; }
+  if (victim.typeId !== MARAUDER) return;
+
+  const attacker = ev.damageSource?.damagingEntity;
+  const s = stateFor(victim);
+
+  if (attacker && attacker.typeId !== MARAUDER && attacker.typeId !== AFTERIMAGE) {
+    s.aggroId = attacker.id;
+    s.aggroTick = system.currentTick;
+  }
+  // Struck the true Marauder during a mirage -> heavy retaliation.
+  if (s.illusion && s.illusion.active && attacker && attacker.typeId === "minecraft:player") {
+    retaliate(victim, s);
+  }
+});
+
+// Afterimage destroyed -> dissolve.
+world.afterEvents.entityDie?.subscribe(ev => {
+  const dead = ev.deadEntity;
+  if (dead && dead.typeId === AFTERIMAGE) { try { poof(dead.dimension, dead.location); } catch (e) {} }
+});
+
+// ------------------------------------------------------------- ashen remnant
+
+world.afterEvents.itemUse?.subscribe(ev => {
+  const player = ev.source;
+  const item = ev.itemStack;
+  if (!player || !item || item.typeId !== "marauder:ashen_remnant") return;
+  if (!getFlag(player, "marauder:finalComplete")) {
+    try { player.onScreenDisplay.setActionBar("§8The remnant is cold. The rivalry is not yet finished."); }
+    catch (e) { try { player.sendMessage("§8The remnant is cold. The rivalry is not yet finished."); } catch (e2) {} }
+    return;
+  }
+  player.setDynamicProperty("marauder:rematchArmed", true);
+  setStage(player, STAGE_MAX);
+  try { player.dimension.playSound("mob.wither.spawn", player.location, { pitch: 0.5 }); } catch (e) {}
+  try { player.sendMessage("§7The ash stirs. The Marauder will answer on the next night."); } catch (e) {}
+});
+
+// ------------------------------------------------------------- defeat
+
+world.afterEvents.entityDie.subscribe(ev => {
+  const dead = ev.deadEntity;
+  if (!dead || dead.typeId !== MARAUDER) return;
+  removeClonesOf(dead.dimension, dead.id);
+  combat.delete(dead.id);
+  try { handleDefeat(dead, ev.damageSource); } catch (e) {}
+});
+
+function handleDefeat(dead, source) {
+  const stage = clampStage(dead.getDynamicProperty("marauder:stageNum") ?? 1);
+  const ownerId = dead.getDynamicProperty("marauder:owner");
+  const dim = dead.dimension;
+  const loc = dead.location;
+
+  dropRewards(dim, loc, stage);
+  try { dim.spawnParticle("minecraft:soul_particle", { x: loc.x, y: loc.y + 0.8, z: loc.z }); } catch (e) {}
+
+  let owner = ownerId ? world.getAllPlayers().find(p => p.id === ownerId) : null;
+  const killer = source && source.damagingEntity;
+  if (!owner && killer && killer.typeId === "minecraft:player") owner = killer;
+  if (!owner) return;
+
+  if (!killer || killer.typeId !== "minecraft:player") {
+    owner.sendMessage("§7The Marauder was slain by another hand. Your rivalry is unchanged.");
+    return;
+  }
+
+  if (stage >= STAGE_MAX) {
+    owner.setDynamicProperty("marauder:finalComplete", true);
+    owner.setDynamicProperty("marauder:rematchArmed", false);
+    owner.sendMessage("§6The Marauder Ascendant falls. The ten-night rivalry is over.");
+    owner.sendMessage("§8An Ashen Remnant remains — should you ever wish to face him again.");
+  } else {
+    setStage(owner, Math.max(getStage(owner), stage + 1));
+    owner.sendMessage("§cThe Marauder falls — but he will return, stronger.");
+  }
+}
+
+function dropRewards(dim, loc, stage) {
+  const drop = (id, n) => { try { dim.spawnItem(new ItemStack(id, n), loc); } catch (e) {} };
+  drop("marauder:dark_scrap", 1 + Math.floor(Math.random() * 2));
+  if (stage >= 3) drop("marauder:blacksteel_fragment", 1 + Math.floor(Math.random() * 2));
+  if (stage >= 5) drop("marauder:ashen_shard", 1);
+  if (stage >= 6) drop("marauder:moon_shard", 1);
+  if (stage >= 7) drop("marauder:rune_fragment", 1);
+  if (stage >= 8) drop("marauder:abyss_fragment", 1);
+  if (stage >= 9) drop("marauder:unbroken_core", 1);
+  if (stage >= STAGE_MAX) {
+    drop("marauder:blacksteel_blade", 1);
+    drop("marauder:marauder_trophy", 1);
+    drop("marauder:ashen_remnant", 1);
+  }
+}
+
+// ------------------------------------------------------------- test commands
+
+system.afterEvents.scriptEventReceive.subscribe(ev => {
+  if (!ev.id.startsWith("marauder:")) return;
+  const src = ev.sourceEntity;
+  const player = (src && src.typeId === "minecraft:player") ? src : world.getAllPlayers()[0];
+  if (!player) return;
+  const arg = parseInt(ev.message);
+
+  switch (ev.id) {
+    case "marauder:spawn":
+      clearActive(player);
+      spawnMarauder(player, isNaN(arg) ? getStage(player) : arg, false);
+      break;
+    case "marauder:duel":
+      clearActive(player);
+      spawnMarauder(player, isNaN(arg) ? getStage(player) : arg, true);
+      break;
+    case "marauder:setstage":
+      setStage(player, isNaN(arg) ? 1 : arg);
+      player.sendMessage("§eMarauder stage set to " + getStage(player) + ".");
+      break;
+    case "marauder:stage":
+      player.sendMessage("§7Stage " + getStage(player) + ", finalComplete=" + getFlag(player, "marauder:finalComplete"));
+      break;
+    case "marauder:reset":
+      resetProgress(player);
+      clearActive(player);
+      player.sendMessage("§eMarauder rivalry reset to Stage 1.");
+      break;
+    case "marauder:rematch":
+      player.setDynamicProperty("marauder:finalComplete", true);
+      player.setDynamicProperty("marauder:rematchArmed", true);
+      setStage(player, 10);
+      player.sendMessage("§5Rematch armed. The Marauder Ascendant returns next night.");
+      break;
+    case "marauder:clear":
+      player.sendMessage("§7Cleared " + clearActive(player) + " Marauder(s).");
+      break;
+    case "marauder:freeforall":
+    case "marauder:ffa":
+      setFreeForAll(player, ev.message);
+      break;
+  }
+});
+
+function setFreeForAll(player, message) {
+  const msg = (message || "").trim().toLowerCase();
+  let on;
+  if (msg === "") on = !(world.getDynamicProperty("marauder:ffa") === true);
+  else on = /^(on|1|true|yes|enable|enabled)$/.test(msg);
+
+  world.setDynamicProperty("marauder:ffa", on);
+
+  let n = 0;
+  for (const e of world.getDimension(OVERWORLD).getEntities({ type: MARAUDER })) {
+    try { e.triggerEvent(on ? "marauder:ffa_on" : "marauder:ffa_off"); n++; } catch (err) {}
+  }
+  player.sendMessage(
+    "§dMarauder free-for-all " + (on ? "§aENABLED" : "§cDISABLED")
+    + " §7(" + n + " active updated). Marauders " + (on ? "now attack any mob and fight back." : "target only players again.")
+  );
+}
+
+function clearActive(player) {
+  let n = 0;
+  for (const e of player.dimension.getEntities({ type: MARAUDER })) {
+    if (e.getDynamicProperty("marauder:owner") === player.id) {
+      removeClonesOf(e.dimension, e.id);
+      combat.delete(e.id);
+      try { e.remove(); n++; } catch (err) {}
+    }
+  }
+  return n;
+}
+
+// ------------------------------------------------------------- misc
+
+function stageTitle(stage) {
+  const names = [
+    "", "Rusted Challenger", "Scarred Pursuer", "Oathbound Duelist", "Blacksteel Marauder",
+    "Ashen Knight", "Moonlit Executioner", "Spellscarred Knight", "Abyss-Touched Marauder",
+    "The Unbroken", "The Marauder Ascendant"
+  ];
+  return "The Marauder — " + (names[clampStage(stage)] || "");
+}
+
+system.run(() => {
+  console.warn("[Marauder] Bedrock addon (v3 reworked combat) loaded. The hunt begins at dusk.");
+});

@@ -12,6 +12,8 @@ scratchpad/
 # Bedrock build artifacts
 bedrock/staging/
 bedrock/*.mcaddon
+bedrock_v3/staging/
+bedrock_v3/*.mcaddon
 
 # IDE
 .idea/

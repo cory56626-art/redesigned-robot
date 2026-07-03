@@ -1,0 +1,23 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "The Marauder (Resources)",
+    "description": "Flame-knight model, staged textures and animations for The Marauder.",
+    "uuid": "8b13644e-8a8d-4b84-890b-f92cf2696393",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 20, 60]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "10794ee2-a1b1-4fec-b665-c59c9321c2e0",
+      "version": [1, 0, 0]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "fcbeb691-b4af-4f59-80d9-977fe821b16c",
+      "version": [1, 0, 0]
+    }
+  ]
+}
