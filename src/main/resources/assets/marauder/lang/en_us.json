@@ -1,0 +1,18 @@
+{
+  "entity.marauder.marauder": "The Marauder",
+
+  "item.marauder.dark_scrap": "Dark Armor Scrap",
+  "item.marauder.blacksteel_fragment": "Blacksteel Fragment",
+  "item.marauder.ashen_shard": "Ashen Shard",
+  "item.marauder.moon_shard": "Moon-Scarred Shard",
+  "item.marauder.rune_fragment": "Spellscar Rune Fragment",
+  "item.marauder.abyss_fragment": "Abyss-Touched Fragment",
+  "item.marauder.unbroken_core": "Unbroken Blacksteel Core",
+  "item.marauder.marauder_trophy": "Marauder's Trophy Banner",
+  "item.marauder.ashen_remnant": "Ashen Remnant",
+  "item.marauder.blacksteel_blade": "Marauder's Blacksteel Blade",
+
+  "item.marauder.ashen_remnant.tip": "Right-click at night to summon the completed Marauder for a rematch.",
+  "item.marauder.blacksteel_blade.tip1": "Forged from ten nights of ruin.",
+  "item.marauder.blacksteel_blade.tip2": "Under the open night sky, its cut carries the curse."
+}
