@@ -18,7 +18,7 @@
       "minecraft:type_family": { "family": ["ob_overlord", "monster", "mob"] },
       "minecraft:scale": { "value": 0.8 },
       "minecraft:collision_box": { "width": 1.1, "height": 3.1 },
-      "minecraft:health": { "value": 300, "max": 300 },
+      "minecraft:health": { "value": 700, "max": 700 },
       "minecraft:movement": { "value": 0.4 },
       "minecraft:navigation.walk": { "can_walk": true, "avoid_water": true },
       "minecraft:movement.basic": {},
@@ -36,6 +36,12 @@
       "minecraft:breathable": { "breathes_water": true, "breathes_lava": true },
       "minecraft:damage_sensor": {
         "triggers": [
+          {
+            "on_damage": {
+              "filters": { "test": "is_family", "subject": "damager", "value": "ob_clone" }
+            },
+            "deals_damage": false
+          },
           { "cause": "fall", "deals_damage": false },
           { "cause": "fire", "deals_damage": false },
           { "cause": "fire_tick", "deals_damage": false },

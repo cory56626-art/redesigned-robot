@@ -57,7 +57,8 @@ Killing the Titan doesn't end the fight — **he refuses death**. The corpse
 vanishes in ash and thunder, and the **Obsidian Overlord** rises: jagged
 black obsidian armor veined with pulsing blue lava, two wings of ash and
 blue fire, and a single fused greatsword dripping liquid blue flame that
-trails behind him as he moves. 200 hearts, second boss bar, darkened sky.
+trails behind him as he moves. 350 hearts, second boss bar, darkened sky,
+and **immune to his own Hellfire Clone explosions**.
 **All drops and the big XP come from killing the final form.**
 
 | Mythic Ability | What it does | Counterplay |
@@ -67,7 +68,7 @@ trails behind him as he moves. 200 hearts, second boss bar, darkened sky.
 | **Hellfire Clones** | Summons 3–4 sprinting magma duplicates that explode on contact (14 + fire, no block damage) | Kill them at range (30 HP) or kite them into each other |
 | **The Executioner's Chain** | Fires a burning chain; if it wraps you, it **reels you toward him** (he stays fully mobile) for an unblockable 25-damage execution slash | Sidestep the chain — or once hooked, **spam jump 5 times** to shatter it and stagger him |
 | **Cataclysmic Eruption** | Passive aura: the ground around him constantly fractures — smoke marks a spot, then a fire/magma pillar erupts (8 + ignite) | Watch your feet; approaching him is a minefield |
-| **Hellrush Abduction** | Once per Overlord: a **50-block charge**. Caught = pinned for **nine punches (75 damage)**, then **everyone within 30 blocks is dragged to the Nether** (safe arrival: slow fall + fire resistance) where he ascends: **3× damage and +335 HP** | Sidestep the charge — it flies dead straight and slams into walls |
+| **Hellrush Abduction** | Once per Overlord: a **50-block charge**. Caught = pinned for **nine punches (75 damage)**, then **everyone within 30 blocks is dragged to the Nether** (safe arrival: slow fall + fire resistance) where he ascends: **3× damage, restored to 750 HP** | Sidestep the charge — it flies dead straight and slams into walls |
 
 ## 🛠 Debug commands (cheats on)
 

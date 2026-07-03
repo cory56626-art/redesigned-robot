@@ -2732,7 +2732,8 @@ const HELLPUMMEL_INTERVAL = 5;   // a punch every quarter second
 const HELLPUMMEL_DAMAGE = 8;     // 8x8 + 11 on the last = exactly 75
 const HELLPUMMEL_FINAL = 11;
 const ABDUCT_RADIUS = 30;
-const HELL_HP_BONUS = 335;
+const HELL_ASCEND_HP = 750;      // full vigor restored on ascension
+const HELL_BOOST_AMP = 12;       // health_boost XIII: +52 max HP (700 -> 752 cap)
 
 function ovStartHellrush(ov, s, target) {
   s.state = "hellrush";
@@ -2961,19 +2962,19 @@ function abductToNether(ov, s) {
     }
   }
 
-  // THE ASCENSION: 3x damage and +335 HP
+  // THE ASCENSION: 3x damage, restored to 750 HP
   s.hellBuff = true;
-  try { ov.addEffect("health_boost", 20000000, { amplifier: 83, showParticles: false }); } catch { }
+  try { ov.addEffect("health_boost", 20000000, { amplifier: HELL_BOOST_AMP, showParticles: false }); } catch { }
   system.runTimeout(() => {
     try {
       const health = ov.getComponent("minecraft:health");
       if (health) {
-        health.setCurrentValue(Math.min(health.effectiveMax, health.currentValue + HELL_HP_BONUS));
+        health.setCurrentValue(Math.min(health.effectiveMax, HELL_ASCEND_HP));
       }
     } catch { }
   }, 2);
   playSoundAt(ov.dimension, "mob.enderdragon.growl", ov.location, 4);
-  actionbarNearby(ov, 60, "§4👑 THE OVERLORD ASCENDS — 3x DAMAGE, RENEWED FLESH");
+  actionbarNearby(ov, 60, "§4👑 THE OVERLORD ASCENDS — 3x DAMAGE, 750 HP");
   ovBackToIdle(ov, s, 20);
 }
 
@@ -3116,13 +3117,13 @@ try {
         if (!s.hellBuff) {
           s.hellBuff = true;
           s.hellUsed = true;
-          try { overlord.addEffect("health_boost", 20000000, { amplifier: 83, showParticles: false }); } catch { }
+          try { overlord.addEffect("health_boost", 20000000, { amplifier: HELL_BOOST_AMP, showParticles: false }); } catch { }
           try {
             const health = overlord.getComponent("minecraft:health");
-            health.setCurrentValue(Math.min(health.effectiveMax, health.currentValue + HELL_HP_BONUS));
+            health.setCurrentValue(Math.min(health.effectiveMax, HELL_ASCEND_HP));
           } catch { }
         }
-        debugReply(src, "§aHell ascension applied (3x damage, +335 HP).");
+        debugReply(src, "§aHell ascension applied (3x damage, 750 HP).");
         return;
       }
       case "move": {
