@@ -8,11 +8,17 @@ interrupt by striking his glowing chest core.
 
 ## Install
 
+**If you had an older version installed, clean it out first** — stale pack
+copies cause broken animations/missing textures: in Minecraft go to
+*Settings → Storage → Cached Data / Resource Packs / Behavior Packs* and
+delete every old "Oathbreaker Titan" entry, and remove them from the world's
+pack lists. Then:
+
 Open `Oathbreaker_Titan.mcaddon` with Minecraft (double-tap/click it), then
 enable **both** packs on your world:
 
-- `Oathbreaker Titan [BP]` (behavior pack — requires **Beta APIs OFF**, uses stable Script API)
-- `Oathbreaker Titan [RP]` (resource pack)
+- `Oathbreaker Titan v2 [BP]` (behavior pack — requires **Beta APIs OFF**, uses stable Script API)
+- `Oathbreaker Titan v2 [RP]` (resource pack)
 
 ## Summoning the Titan
 
