@@ -271,17 +271,38 @@ function tickCombat(ent, now) {
   if (choice) beginAbility(ent, s, choice, target, now);
 }
 
+function isFFA() {
+  return world.getDynamicProperty("marauder:ffa") === true;
+}
+
+// A player is always a valid mark; other mobs only when free-for-all is armed.
+function isValidVictim(e, ffa) {
+  if (!isValid(e) || e.typeId === MARAUDER) return false;
+  if (e.typeId === "minecraft:player") {
+    const gm = safeGameMode(e);
+    return gm !== GameMode.creative && gm !== GameMode.spectator;
+  }
+  return ffa;
+}
+
 function pickTarget(ent, owner) {
-  if (owner && dist(owner.location, ent.location) <= CHALLENGE_RANGE + 6 && safeGameMode(owner) !== GameMode.creative && safeGameMode(owner) !== GameMode.spectator) {
+  const ffa = isFFA();
+  // Aim abilities at whatever the entity's own AI is actually fighting.
+  let aiTarget = null;
+  try { aiTarget = ent.target; } catch (e) {}
+  if (aiTarget && isValidVictim(aiTarget, ffa) && dist(ent.location, aiTarget.location) <= CHALLENGE_RANGE + 6) {
+    return aiTarget;
+  }
+  // In a normal duel, keep the pressure on the owning player.
+  if (!ffa && owner && safeGameMode(owner) !== GameMode.creative && safeGameMode(owner) !== GameMode.spectator
+      && dist(owner.location, ent.location) <= CHALLENGE_RANGE + 6) {
     return owner;
   }
+  // Otherwise fall back to the nearest valid mark.
   let best = null, bestD = Infinity;
-  const players = ent.dimension.getEntities({ type: "minecraft:player", location: ent.location, maxDistance: CHALLENGE_RANGE });
-  for (const p of players) {
-    const gm = safeGameMode(p);
-    if (gm === GameMode.creative || gm === GameMode.spectator) continue;
-    const d = dist(ent.location, p.location);
-    if (d < bestD) { best = p; bestD = d; }
+  for (const v of victimsNear(ent, CHALLENGE_RANGE)) {
+    const d = dist(ent.location, v.location);
+    if (d < bestD) { best = v; bestD = d; }
   }
   return best;
 }
@@ -345,8 +366,10 @@ function advanceAbility(ent, s, now) {
 }
 
 function resolveTargetId(ent, id) {
-  const players = ent.dimension.getEntities({ type: "minecraft:player", location: ent.location, maxDistance: CHALLENGE_RANGE + 12 });
-  return players.find(p => p.id === id) || null;
+  try {
+    const near = ent.dimension.getEntities({ location: ent.location, maxDistance: CHALLENGE_RANGE + 12 });
+    return near.find(e => e.id === id && isValid(e)) || null;
+  } catch (e) { return null; }
 }
 
 // ------------------------------------------------------------- ability effects
@@ -369,7 +392,7 @@ function effectShock(ent, target, base) {
   const loc = ent.location;
   spawnRing(ent.dimension, loc, "minecraft:basic_flame_particle", 2.0, 18);
   try { ent.dimension.playSound("random.explode", loc); } catch (e) {}
-  for (const p of playersNear(ent, 4.0)) {
+  for (const p of victimsNear(ent, 4.0)) {
     hurt(p, ent, base + 2);
     knockFrom(p, loc, 1.0, 0.45);
   }
@@ -401,7 +424,7 @@ function effectCinder(ent, target, base) {
     const p = { x: ent.location.x + fwd.x * i, y: ent.location.y + 0.4, z: ent.location.z + fwd.z * i };
     trySpawnParticle(ent.dimension, "minecraft:basic_flame_particle", p);
   }
-  for (const p of playersNear(ent, 5.0)) {
+  for (const p of victimsNear(ent, 5.0)) {
     const to = norm(sub(p.location, ent.location));
     if (fwd.x * to.x + fwd.z * to.z > 0.55) {
       hurt(p, ent, base * 0.9);
@@ -446,7 +469,7 @@ function effectBeam(ent, target, base, range) {
   }
   try { ent.dimension.playSound("mob.evocation_illager.cast_spell", start); } catch (e) {}
   // Damage anything roughly along the beam line.
-  for (const p of playersNear(ent, range)) {
+  for (const p of victimsNear(ent, range)) {
     const to = sub({ x: p.location.x, y: p.location.y + 1, z: p.location.z }, start);
     const proj = to.x * dir.x + to.y * dir.y + to.z * dir.z;
     if (proj <= 0) continue;
@@ -477,12 +500,24 @@ function telegraphTick(ent, a) {
 
 // ------------------------------------------------------------- combat helpers
 
-function playersNear(ent, range) {
+// Everything an AoE ability may strike: players always, other mobs when
+// free-for-all is armed. Never the marauder itself or another marauder.
+function victimsNear(ent, range) {
+  const ffa = isFFA();
   const out = [];
+  const seen = new Set();
   for (const p of ent.dimension.getEntities({ type: "minecraft:player", location: ent.location, maxDistance: range })) {
-    const gm = safeGameMode(p);
-    if (gm === GameMode.creative || gm === GameMode.spectator) continue;
-    out.push(p);
+    if (isValidVictim(p, ffa)) { out.push(p); seen.add(p.id); }
+  }
+  if (ffa) {
+    let mobs = [];
+    try {
+      mobs = ent.dimension.getEntities({ location: ent.location, maxDistance: range, families: ["mob"], excludeFamilies: ["marauder"] });
+    } catch (e) { mobs = []; }
+    for (const m of mobs) {
+      if (m.id === ent.id || seen.has(m.id) || m.typeId === "minecraft:player") continue;
+      if (isValidVictim(m, ffa)) { out.push(m); seen.add(m.id); }
+    }
   }
   return out;
 }
