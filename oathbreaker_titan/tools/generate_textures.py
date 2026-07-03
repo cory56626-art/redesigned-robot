@@ -49,8 +49,8 @@ def noisy_fill(px, rect, base, jitter=12):
             px[x, y] = (clamp(base[0] + j), clamp(base[1] + j), clamp(base[2] + j), 255)
 
 
-def crack_veins(px, rect, count, hot=False):
-    """Molten crack veins: random walks in ember orange."""
+def crack_veins(px, rect, count, hot=False, palette="orange"):
+    """Molten crack veins: random walks in ember orange or eerie blue."""
     x0, y0, x1, y1 = rect
     for _ in range(count):
         x = random.randint(x0, x1 - 1)
@@ -58,10 +58,16 @@ def crack_veins(px, rect, count, hot=False):
         length = random.randint(4, 12)
         for _ in range(length):
             heat = random.random()
-            if hot or heat > 0.55:
-                c = (255, random.randint(150, 220), random.randint(20, 60), 255)
+            if palette == "blue":
+                if hot or heat > 0.55:
+                    c = (random.randint(90, 150), random.randint(190, 235), 255, 255)
+                else:
+                    c = (40, random.randint(110, 160), 240, 255)
             else:
-                c = (220, random.randint(70, 110), 15, 255)
+                if hot or heat > 0.55:
+                    c = (255, random.randint(150, 220), random.randint(20, 60), 255)
+                else:
+                    c = (220, random.randint(70, 110), 15, 255)
             if x0 <= x < x1 and y0 <= y < y1:
                 px[x, y] = c
             x += random.choice((-1, 0, 1))
@@ -265,6 +271,76 @@ def tex_molten_heart():
     return img
 
 
+def overlord_texture():
+    """Obsidian Overlord: jagged black obsidian, pulsing blue lava cracks,
+    ash wings, one massive blue-dripping greatsword."""
+    img = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
+    px = img.load()
+
+    obsidian = (24, 19, 32)
+    ash = (38, 38, 46)
+    dark_steel = (30, 28, 42)
+
+    body_regions = ["head", "body", "arm_r", "arm_l", "pauldron_r",
+                    "pauldron_l", "leg_r", "leg_l"]
+    for name in body_regions:
+        r = region_rect(name)
+        noisy_fill(px, r, obsidian, jitter=7)
+        area = (r[2] - r[0]) * (r[3] - r[1])
+        crack_veins(px, r, max(2, area // 60), hot=False, palette="blue")
+
+    # horns: charred black
+    for name in ("horn_r", "horn_l"):
+        noisy_fill(px, region_rect(name), (16, 14, 20), jitter=5)
+
+    # hilt / guard: blackened
+    noisy_fill(px, region_rect("hilt"), (28, 22, 34), jitter=6)
+    noisy_fill(px, region_rect("guard"), (52, 48, 70), jitter=8)
+
+    # the fused obsidian greatsword: both blade strips, blue drip edges
+    for rect in (region_rect("blade"), (116, 0, 128, 36)):
+        noisy_fill(px, rect, dark_steel, jitter=7)
+        crack_veins(px, rect, 4, hot=True, palette="blue")
+        x0, y0, x1, y1 = rect
+        for y in range(y0, y1):
+            if random.random() > 0.35:
+                px[x0 + 2, y] = (120, 210, 255, 255)  # liquid blue fire edge
+            if random.random() > 0.6 and x1 - 3 >= x0:
+                px[x1 - 3, y] = (70, 150, 250, 255)
+
+    # chest core: blinding blue-white
+    cr = region_rect("core")
+    cx = (cr[0] + cr[2]) / 2
+    cy = (cr[1] + cr[3]) / 2
+    for x in range(cr[0], cr[2]):
+        for y in range(cr[1], cr[3]):
+            dist = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
+            t = min(1.0, dist / 6.0)
+            px[x, y] = (clamp(200 - t * 140), clamp(235 - t * 90), 255, 255)
+
+    # ash-and-blue-fire wings (three plates per wing, shared UVs)
+    wings = [(90, 100, 128, 106), (90, 108, 122, 113), (90, 114, 116, 118)]
+    for x0, y0, x1, y1 in wings:
+        noisy_fill(px, (x0, y0, x1, y1), ash, jitter=9)
+        for x in range(x0, x1):
+            # blue fire licking the trailing edge
+            if random.random() > 0.45:
+                px[x, y1 - 1] = (90, 190, 255, 255)
+            if random.random() > 0.75:
+                px[x, y0] = (60, 130, 245, 255)
+
+    # burning blue eyes
+    u, v, w, h, d = REGIONS["head"]
+    fu, fv = u + d, v + d
+    for ex in (fu + 2, fu + 3, fu + 6, fu + 7):
+        for ey in (fv + 4, fv + 5):
+            px[ex, ey] = (130, 225, 255, 255)
+    for x in range(fu + 2, fu + 8):
+        px[x, fv + 8] = (10, 8, 14, 255)
+
+    return img
+
+
 def tex_boulder():
     img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
     px = img.load()
@@ -312,6 +388,7 @@ def save(img, *path):
 
 save(titan_texture(False), RP, "textures/entity/oathbreaker_titan.png")
 save(titan_texture(True), RP, "textures/entity/oathbreaker_titan_rage.png")
+save(overlord_texture(), RP, "textures/entity/obsidian_overlord.png")
 save(tex_titan_core(), RP, "textures/items/titan_core.png")
 save(tex_forged_oath(), RP, "textures/items/forged_oath.png")
 save(tex_titan_crest(), RP, "textures/items/titan_crest.png")

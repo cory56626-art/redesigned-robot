@@ -51,6 +51,23 @@ You can also spawn him from the creative spawn egg for testing.
 | **Rage Phase** | 50% HP | He speeds up, gains the **fiery dash**, the arena cracks with flame, and **every ability hits 30% harder** (Molten Explosion ~20, Titan Cleave ~16...) |
 | **Final Judgment** | 10% HP | 6-second charge — **strike the glowing chest core (from the front!)** to interrupt and stun him. Fail, and a massive blast follows |
 
+## 👑 The Final Form: The Obsidian Overlord
+
+Killing the Titan doesn't end the fight — **he refuses death**. The corpse
+vanishes in ash and thunder, and the **Obsidian Overlord** rises: jagged
+black obsidian armor veined with pulsing blue lava, two wings of ash and
+blue fire, and a single fused greatsword dripping liquid blue flame that
+trails behind him as he moves. 200 hearts, second boss bar, darkened sky.
+**All drops and the big XP come from killing the final form.**
+
+| Mythic Ability | What it does | Counterplay |
+|---|---|---|
+| **World-Ender Meteor** | Roars skyward and vanishes; smoke and a shrinking flame ring mark the impact | ~2s to sprint out of the ring before he crashes down like a tactical nuke (up to 30 damage, screen-shaking, block-safe) |
+| **The Gravity Well** | Slams the greatsword down and opens a vortex that drags everything within 12 blocks toward him, pinning whatever reaches the center | Sprint-jump against the pull at the rim; the trapped get detonated by the follow-up burst (18 + fire) |
+| **Hellfire Clones** | Summons 3–4 sprinting magma duplicates that explode on contact (14 + fire, no block damage) | Kill them at range (30 HP) or kite them into each other |
+| **The Executioner's Chain** | Fires a burning chain; if it wraps you, you are **completely frozen** while he walks up for an unblockable 25-damage execution slash | Sidestep the chain — it flies dead straight |
+| **Cataclysmic Eruption** | Passive aura: the ground around him constantly fractures — smoke marks a spot, then a fire/magma pillar erupts (8 + ignite) | Watch your feet; approaching him is a minefield |
+
 - Human-sized (~2.1 blocks) and fast, like the Ghost of Sparta himself.
 - 300 hearts, boss bar, immune to fire/lava/fall/drowning, knockback-proof.
 - Shockwave and Final Judgment explosion do **not** break blocks (arena-safe).

@@ -15,6 +15,8 @@ import {
 const TITAN_ID = "ob:oathbreaker_titan";
 const MINI_ID = "ob:core_mini";
 const BOULDER_ID = "ob:titan_boulder";
+const OVERLORD_ID = "ob:obsidian_overlord";
+const CLONE_ID = "ob:hellfire_clone";
 const STATE_PROP = "ob:attack_state";
 
 // ---------------------------------------------------------------------
@@ -221,7 +223,7 @@ function alivePlayersNear(dimension, location, maxDistance) {
 const isPlayer = (e) => e?.typeId === "minecraft:player";
 
 // the Titan never hurts his own kind
-const FRIENDLY = new Set([TITAN_ID, MINI_ID, BOULDER_ID, "ob:debris"]);
+const FRIENDLY = new Set([TITAN_ID, MINI_ID, BOULDER_ID, "ob:debris", OVERLORD_ID, CLONE_ID]);
 // things that can't be fought
 const NON_COMBAT = new Set([
   "minecraft:item", "minecraft:xp_orb", "minecraft:arrow", "minecraft:snowball",
@@ -755,7 +757,7 @@ function tickRush(titan, s) {
 
   // telegraph: keep tracking while he coils
   if (t < RUSH_TELEGRAPH) {
-    const target = nearestTarget(titan);
+    const target = nearestTarget(titan, s);
     if (target) {
       s.rushDir = norm2d(sub(target.location, titan.location));
       faceTarget(titan, target);
@@ -936,7 +938,7 @@ function tickLeap(titan, s) {
 
   // track the target until the landing point locks
   if (t < LEAP_LOCK_TICK) {
-    const target = nearestTarget(titan);
+    const target = nearestTarget(titan, s);
     if (target) s.leapLock = { ...target.location };
   }
 
@@ -1026,7 +1028,7 @@ function tickLeap(titan, s) {
 
     // straight shockwave line: sidestep it or jump it
     let dir;
-    const target = nearestTarget(titan);
+    const target = nearestTarget(titan, s);
     if (target && distance(target.location, land) > 1.5) {
       dir = norm2d(sub(target.location, land));
     } else {
@@ -1082,7 +1084,7 @@ function tickThrow(titan, s) {
         target = remembered;
       }
     } catch { }
-    if (!target) target = nearestTarget(titan);
+    if (!target) target = nearestTarget(titan, s);
     if (target) {
       faceTarget(titan, target);
       const chest = { x: loc.x, y: loc.y + CHEST_Y + 0.4, z: loc.z };
@@ -1121,7 +1123,7 @@ function tickSummon(titan, s) {
     const count = MINI_SPAWN_COUNT + (s.raged ? 1 : 0);
     // if the Titan is fighting a mob, the minis join that fight too
     let mobFoe = null;
-    const currentTarget = nearestTarget(titan);
+    const currentTarget = nearestTarget(titan, s);
     if (currentTarget && !isPlayer(currentTarget)) mobFoe = currentTarget;
     for (let i = 0; i < count; i++) {
       const a = (Math.PI * 2 * i) / count + Math.random() * 0.5;
@@ -1193,7 +1195,7 @@ function tickGrapple(titan, s) {
 
   // telegraph: keep tracking the target while he coils
   if (t < GRAPPLE_TELEGRAPH) {
-    const target = nearestTarget(titan);
+    const target = nearestTarget(titan, s);
     if (target) {
       s.grappleDir = norm2d(sub(target.location, titan.location));
       faceTarget(titan, target);
@@ -1467,20 +1469,20 @@ function backToIdle(titan, s, extraRecovery = 0) {
 // ---------------------------------------------------------------------
 const FOE_MEMORY_TICKS = 600; // remember a mob opponent for 30s per hit
 
-function nearestTarget(titan) {
-  const s = getState(titan);
-
+// shared boss targeting: engine target -> grudge memory -> hostile scan
+// -> nearest player. `s` is the boss's script state (titan or overlord).
+function nearestTarget(boss, s) {
   // 1) whatever the vanilla AI is actually fighting right now
   try {
-    const t = titan.target;
+    const t = boss.target;
     if (
       t &&
-      t.dimension.id === titan.dimension.id &&
-      distance(t.location, titan.location) <= 48
+      t.dimension.id === boss.dimension.id &&
+      distance(t.location, boss.location) <= 48
     ) {
       if (isPlayer(t)) {
         // only chase players who are actually fightable (not creative)
-        if (alivePlayersNear(titan.dimension, titan.location, 48).some((p) => p.id === t.id)) {
+        if (alivePlayersNear(boss.dimension, boss.location, 48).some((p) => p.id === t.id)) {
           return t;
         }
       } else if (canFight(t)) {
@@ -1499,8 +1501,8 @@ function nearestTarget(titan) {
       if (
         foe &&
         canFight(foe) &&
-        foe.dimension.id === titan.dimension.id &&
-        distance(foe.location, titan.location) <= 48
+        foe.dimension.id === boss.dimension.id &&
+        distance(foe.location, boss.location) <= 48
       ) {
         return foe;
       }
@@ -1512,13 +1514,13 @@ function nearestTarget(titan) {
   if (system.currentTick - (s.lastHostileScan ?? -99) >= 10) {
     s.lastHostileScan = system.currentTick;
     try {
-      for (const e of titan.dimension.getEntities({
-        location: titan.location,
+      for (const e of boss.dimension.getEntities({
+        location: boss.location,
         maxDistance: 24
       })) {
         if (isPlayer(e) || !canFight(e)) continue;
         try {
-          if (e.target?.id === titan.id) {
+          if (e.target?.id === boss.id) {
             s.mobFoeId = e.id;
             s.mobFoeTick = system.currentTick;
             return e;
@@ -1529,11 +1531,11 @@ function nearestTarget(titan) {
   }
 
   // 4) nearest survival/adventure player
-  const players = alivePlayersNear(titan.dimension, titan.location, 48);
+  const players = alivePlayersNear(boss.dimension, boss.location, 48);
   let best = null;
   let bestD = Infinity;
   for (const p of players) {
-    const d = distance(p.location, titan.location);
+    const d = distance(p.location, boss.location);
     if (d < bestD) {
       bestD = d;
       best = p;
@@ -1604,7 +1606,7 @@ function tickTitan(titan) {
 
   if (s.stateTicks < 0) return; // recovery window
 
-  const target = nearestTarget(titan);
+  const target = nearestTarget(titan, s);
   if (!target) return;
   const dist = distance(target.location, titan.location);
 
@@ -1830,34 +1832,97 @@ world.afterEvents.entityHurt.subscribe((ev) => {
 });
 
 world.afterEvents.entityDie.subscribe((ev) => {
-  const titan = ev.deadEntity;
-  if (titan.typeId !== TITAN_ID) return;
-  titans.delete(titan.id);
-  try {
-    const loc = titan.location;
-    playSoundAt(titan.dimension, "mob.wither.death", loc, 3);
-    particle(titan.dimension, "minecraft:huge_explosion_emitter", { x: loc.x, y: loc.y + 1, z: loc.z });
-    for (let i = 0; i < 16; i++) {
-      particle(titan.dimension, "minecraft:basic_smoke_particle", {
-        x: loc.x + (Math.random() - 0.5) * 3, y: loc.y + Math.random() * 2.5, z: loc.z + (Math.random() - 0.5) * 3
-      });
-    }
-    // his embers die with him
-    for (const mini of titan.dimension.getEntities({ type: MINI_ID, location: loc, maxDistance: 60 })) {
+  const dead = ev.deadEntity;
+
+  // ============ PHASE 1 DEATH: HE REFUSES ============
+  if (dead.typeId === TITAN_ID) {
+    titans.delete(dead.id);
+    const dimension = dead.dimension;
+    const loc = { ...dead.location };
+    try {
+      playSoundAt(dimension, "mob.wither.death", loc, 3);
+      playSoundAt(dimension, "ambient.weather.thunder", loc, 3);
+      particle(dimension, "minecraft:huge_explosion_emitter", { x: loc.x, y: loc.y + 1, z: loc.z });
+      // a column of ash swallows the corpse
+      for (let i = 0; i < 24; i++) {
+        particle(dimension, "minecraft:basic_smoke_particle", {
+          x: loc.x + (Math.random() - 0.5) * 4, y: loc.y + Math.random() * 5, z: loc.z + (Math.random() - 0.5) * 4
+        });
+      }
+      for (const p of alivePlayersNear(dimension, loc, 70)) {
+        p.onScreenDisplay.setTitle("§5THE OATH REFUSES DEATH", {
+          subtitle: "§bSomething colder than fire takes shape...",
+          fadeInDuration: 5,
+          stayDuration: 60,
+          fadeOutDuration: 20
+        });
+      }
+    } catch { }
+    // the Obsidian Overlord rises from the ash
+    system.runTimeout(() => {
       try {
-        particle(titan.dimension, "minecraft:basic_smoke_particle", mini.location);
-        mini.kill();
+        const gy = groundY(dimension, loc.x, loc.y + 1, loc.z);
+        const overlord = dimension.spawnEntity(OVERLORD_ID, { x: loc.x, y: gy, z: loc.z });
+        getOvState(overlord);
+        playSoundAt(dimension, "mob.wither.spawn", loc, 4);
+        playSoundAt(dimension, "mob.enderdragon.growl", loc, 3);
+        particle(dimension, "minecraft:knockback_roar_particle", { x: loc.x, y: gy + 0.5, z: loc.z });
+        for (let i = 0; i < 16; i++) {
+          const a = (Math.PI * 2 * i) / 16;
+          particle(dimension, "minecraft:blue_flame_particle", {
+            x: loc.x + Math.cos(a) * 2.5, y: gy + 0.4 + (i % 4) * 0.7, z: loc.z + Math.sin(a) * 2.5
+          });
+        }
+        for (const p of alivePlayersNear(dimension, loc, 70)) {
+          p.onScreenDisplay.setTitle("§0THE OBSIDIAN OVERLORD", {
+            subtitle: "§b\"Death was merely an interruption.\"",
+            fadeInDuration: 10,
+            stayDuration: 70,
+            fadeOutDuration: 20
+          });
+          shakeCamera(p, 0.5, 1.0);
+        }
       } catch { }
-    }
-    for (const p of alivePlayersNear(titan.dimension, loc, 60)) {
-      p.onScreenDisplay.setTitle("§6THE OATH IS BROKEN", {
-        subtitle: "§7The Titan has fallen.",
-        fadeInDuration: 10,
-        stayDuration: 60,
-        fadeOutDuration: 20
-      });
-    }
-  } catch { }
+    }, 24);
+    return;
+  }
+
+  // ============ FINAL DEATH: THE OATH BREAKS AT LAST ============
+  if (dead.typeId === OVERLORD_ID) {
+    overlords.delete(dead.id);
+    try {
+      const loc = dead.location;
+      const dimension = dead.dimension;
+      playSoundAt(dimension, "mob.enderdragon.death", loc, 4);
+      particle(dimension, "minecraft:huge_explosion_emitter", { x: loc.x, y: loc.y + 1.5, z: loc.z });
+      for (let i = 0; i < 24; i++) {
+        particle(dimension, "minecraft:blue_flame_particle", {
+          x: loc.x + (Math.random() - 0.5) * 4, y: loc.y + Math.random() * 4, z: loc.z + (Math.random() - 0.5) * 4
+        });
+        particle(dimension, "minecraft:basic_smoke_particle", {
+          x: loc.x + (Math.random() - 0.5) * 4, y: loc.y + Math.random() * 4, z: loc.z + (Math.random() - 0.5) * 4
+        });
+      }
+      // everything he conjured dies with him
+      for (const t of [MINI_ID, CLONE_ID]) {
+        for (const e of dimension.getEntities({ type: t, location: loc, maxDistance: 80 })) {
+          try {
+            particle(dimension, "minecraft:basic_smoke_particle", e.location);
+            e.kill();
+          } catch { }
+        }
+      }
+      for (const p of alivePlayersNear(dimension, loc, 80)) {
+        p.onScreenDisplay.setTitle("§6THE OATH IS BROKEN", {
+          subtitle: "§7Nothing rises this time.",
+          fadeInDuration: 10,
+          stayDuration: 80,
+          fadeOutDuration: 30
+        });
+      }
+    } catch { }
+    return;
+  }
 });
 
 // ---------------------------------------------------------------------
@@ -1977,3 +2042,634 @@ world.afterEvents.itemUseOn.subscribe((ev) => {
     } catch { }
   }
 });
+
+// =====================================================================
+//  THE FINAL FORM — OBSIDIAN OVERLORD
+//  World-Ender Meteor, Gravity Well, Hellfire Clones,
+//  Executioner's Chain, Cataclysmic Eruption aura
+// =====================================================================
+const OV_CLEAVE_COOLDOWN = 50;
+const OV_CLEAVE_DAMAGE = 16;
+const OV_CLEAVE_RANGE = 5.5;
+
+const METEOR_COOLDOWN = 620;
+const METEOR_RISE_TICKS = 10;
+const METEOR_LOCK_TICK = 30;     // shadow locks here — sprint OUT of the ring
+const METEOR_CRASH_TICK = 52;
+const METEOR_DAMAGE = 30;
+const METEOR_RADIUS = 11;
+
+const GRAVITY_COOLDOWN = 520;
+const GRAVITY_PULL_TICKS = 70;
+const GRAVITY_RADIUS = 12;
+const GRAVITY_BURST_DAMAGE = 18;
+const GRAVITY_BURST_RADIUS = 7;
+
+const CLONES_COOLDOWN = 700;
+const CLONE_COUNT = 3;           // +1 sometimes
+const CLONE_EXPLODE_RANGE = 2.3;
+const CLONE_EXPLODE_DAMAGE = 14;
+const CLONE_FUSE_TICKS = 280;    // detonate even if they never reach anyone
+
+const CHAIN_COOLDOWN = 460;
+const CHAIN_FLY_TICKS = 16;
+const CHAIN_STEP = 2.2;
+const CHAIN_HOOK_RADIUS = 1.8;
+const CHAIN_WALK_TICKS = 70;
+const EXECUTE_HIT_TICK = 9;
+const EXECUTE_DAMAGE = 25;       // unblockable
+
+const AURA_INTERVAL = 25;        // ground fractures under him constantly
+const AURA_TELEGRAPH = 15;
+const AURA_DAMAGE = 8;
+const AURA_RADIUS_MIN = 3;
+const AURA_RADIUS_MAX = 9;
+
+const overlords = new Map();
+
+function getOvState(ov) {
+  let s = overlords.get(ov.id);
+  if (!s) {
+    s = {
+      state: "idle",
+      stateTicks: 0,
+      cdCleave: 30,
+      cdMeteor: 160,
+      cdGravity: 300,
+      cdClones: 420,
+      cdChain: 220,
+      cleaveHit: false,
+      meteorLock: null,
+      chainDir: null,
+      chainTip: null,
+      chainVictimId: null,
+      chainAnchor: null,
+      mobFoeId: null,
+      mobFoeTick: -9999,
+      lastHostileScan: -99
+    };
+    overlords.set(ov.id, s);
+  }
+  return s;
+}
+
+// ---- Cataclysmic Eruption aura: the arena itself turns hostile ----
+const eruptions = []; // { dimension, x, y, z, born }
+
+function tickEruptions() {
+  const now = system.currentTick;
+  for (let i = eruptions.length - 1; i >= 0; i--) {
+    const e = eruptions[i];
+    const age = now - e.born;
+    if (age < AURA_TELEGRAPH) {
+      if (age % 3 === 0) {
+        particle(e.dimension, "minecraft:basic_smoke_particle", { x: e.x, y: e.y + 0.2, z: e.z });
+        particle(e.dimension, "minecraft:basic_flame_particle", { x: e.x, y: e.y + 0.1, z: e.z });
+      }
+      continue;
+    }
+    // the ground bursts: a pillar of fire and magma
+    playSoundAt(e.dimension, "random.explode", e, 1.2);
+    for (let h = 0; h < 4; h++) {
+      particle(e.dimension, "minecraft:lava_particle", { x: e.x, y: e.y + h * 0.8, z: e.z });
+      particle(e.dimension, "minecraft:basic_flame_particle", { x: e.x, y: e.y + 0.3 + h * 0.8, z: e.z });
+    }
+    particle(e.dimension, "minecraft:large_explosion", { x: e.x, y: e.y + 0.5, z: e.z });
+    for (const v of victimsNearDim(e.dimension, { x: e.x, y: e.y, z: e.z }, 2.4)) {
+      try {
+        v.applyDamage(AURA_DAMAGE, { cause: EntityDamageCause.entityAttack });
+        v.setOnFire(3, true);
+        v.applyKnockback(0, 0, 0, 0.9);
+      } catch { }
+    }
+    eruptions.splice(i, 1);
+  }
+}
+
+// ---- move starters ----
+function ovStartCleave(ov, s, target) {
+  s.state = "cleave";
+  s.stateTicks = 0;
+  s.cleaveHit = false;
+  s.cdCleave = OV_CLEAVE_COOLDOWN;
+  setAnimState(ov, "cleave");
+  freeze(ov, CLEAVE_LENGTH);
+  faceTarget(ov, target);
+  playSoundAt(ov.dimension, "mob.ravager.bite", ov.location, 2);
+}
+
+function ovStartMeteor(ov, s, target) {
+  s.state = "meteor";
+  s.stateTicks = 0;
+  s.cdMeteor = METEOR_COOLDOWN;
+  s.meteorLock = { ...target.location };
+  setAnimState(ov, "meteor");
+  playSoundAt(ov.dimension, "mob.enderdragon.growl", ov.location, 4);
+  titleNearby(ov, 60, "§0WORLD-ENDER", "§cRun from the shadow!");
+}
+
+function ovStartGravity(ov, s) {
+  s.state = "gravity";
+  s.stateTicks = 0;
+  s.cdGravity = GRAVITY_COOLDOWN;
+  setAnimState(ov, "gravity");
+  freeze(ov, GRAVITY_PULL_TICKS + 20);
+  playSoundAt(ov.dimension, "mob.enderdragon.flap", ov.location, 3);
+  actionbarNearby(ov, 40, "§5🌀 GRAVITY WELL — fight the pull!");
+}
+
+function ovStartClones(ov, s) {
+  s.state = "summon";
+  s.stateTicks = 0;
+  s.cdClones = CLONES_COOLDOWN;
+  setAnimState(ov, "summon");
+  freeze(ov, 26);
+  playSoundAt(ov.dimension, "mob.evocation_illager.prepare_summon", ov.location, 3);
+  actionbarNearby(ov, 40, "§c⚠ HELLFIRE CLONES — they explode on contact!");
+}
+
+function ovStartChain(ov, s, target) {
+  s.state = "chain";
+  s.stateTicks = 0;
+  s.cdChain = CHAIN_COOLDOWN;
+  s.chainVictimId = null;
+  s.chainAnchor = null;
+  const chest = { x: ov.location.x, y: ov.location.y + 1.6, z: ov.location.z };
+  s.chainTip = { ...chest };
+  s.chainDir = norm3d(sub(
+    { x: target.location.x, y: target.location.y + 1, z: target.location.z }, chest));
+  setAnimState(ov, "chain");
+  freeze(ov, CHAIN_FLY_TICKS + 4);
+  faceTarget(ov, target);
+  playSoundAt(ov.dimension, "random.anvil_land", ov.location, 2);
+  actionbarNearby(ov, 40, "§8⛓ THE EXECUTIONER'S CHAIN!");
+}
+
+// ---- move ticks ----
+function ovTickCleave(ov, s) {
+  if (s.stateTicks === CLEAVE_HIT_TICK && !s.cleaveHit) {
+    s.cleaveHit = true;
+    const fwd = ov.getViewDirection();
+    playSoundAt(ov.dimension, "mob.irongolem.throw", ov.location, 2);
+    for (const p of victimsNearDim(ov.dimension, ov.location, OV_CLEAVE_RANGE)) {
+      const to = norm2d(sub(p.location, ov.location));
+      if (fwd.x * to.x + fwd.z * to.z < 0.35) continue;
+      hurtPlayer(ov, p, isBlocking(p) ? Math.ceil(OV_CLEAVE_DAMAGE / 2) : OV_CLEAVE_DAMAGE);
+      knockPlayer(p, to, 1.3, 0.4);
+    }
+  }
+  if (s.stateTicks >= CLEAVE_LENGTH) ovBackToIdle(ov, s);
+}
+
+function ovTickMeteor(ov, s) {
+  const t = s.stateTicks;
+
+  if (t <= METEOR_RISE_TICKS) {
+    // roars skyward, trailing blue fire
+    const loc = ov.location;
+    try { ov.teleport({ x: loc.x, y: loc.y + 7, z: loc.z }); } catch { }
+    particle(ov.dimension, "minecraft:blue_flame_particle", loc);
+    return;
+  }
+
+  // gone from the arena — only the shadow and the smoke remain
+  if (t < METEOR_LOCK_TICK) {
+    const target = nearestTarget(ov, s);
+    if (target) s.meteorLock = { ...target.location };
+  }
+  const lock = s.meteorLock;
+  const gy = groundY(ov.dimension, lock.x, lock.y, lock.z);
+
+  if (t < METEOR_CRASH_TICK) {
+    // thick smoke blankets the impact zone; the ring marks the blast
+    if (t % 2 === 0) {
+      particle(ov.dimension, "minecraft:basic_smoke_particle", {
+        x: lock.x + (Math.random() - 0.5) * 8, y: gy + 0.3 + Math.random() * 2, z: lock.z + (Math.random() - 0.5) * 8
+      });
+    }
+    if (t % 4 === 0) {
+      const shrink = Math.max(2, 9 - (t - METEOR_LOCK_TICK) * 0.3);
+      for (let i = 0; i < 10; i++) {
+        const a = (Math.PI * 2 * i) / 10 + t * 0.1;
+        particle(ov.dimension, "minecraft:basic_flame_particle", {
+          x: lock.x + Math.cos(a) * shrink, y: gy + 0.2, z: lock.z + Math.sin(a) * shrink
+        });
+      }
+      playSoundAt(ov.dimension, "mob.ghast.moan", { x: lock.x, y: gy, z: lock.z }, 1.5);
+    }
+    return;
+  }
+
+  if (t === METEOR_CRASH_TICK) {
+    // THE SKY FALLS
+    const land = { x: lock.x, y: gy, z: lock.z };
+    try { ov.teleport(land); } catch { }
+    setAnimState(ov, "slam");
+    playSoundAt(ov.dimension, "random.explode", land, 5);
+    playSoundAt(ov.dimension, "ambient.weather.thunder", land, 4);
+    particle(ov.dimension, "minecraft:huge_explosion_emitter", { x: land.x, y: land.y + 1, z: land.z });
+    particle(ov.dimension, "minecraft:knockback_roar_particle", { x: land.x, y: land.y + 0.5, z: land.z });
+    try {
+      ov.dimension.createExplosion({ x: land.x, y: land.y + 1, z: land.z }, 8, {
+        breaksBlocks: false,
+        causesFire: false,
+        source: ov
+      });
+    } catch { }
+    for (const p of victimsNearDim(ov.dimension, land, METEOR_RADIUS)) {
+      const d = Math.max(1, distance(p.location, land));
+      hurtPlayer(ov, p, Math.round(METEOR_DAMAGE * Math.min(1, 4.5 / d)));
+      knockPlayer(p, norm2d(sub(p.location, land)), 2.6, 1.0);
+    }
+    for (const p of alivePlayersNear(ov.dimension, land, 30)) shakeCamera(p, 1.0, 1.2);
+    for (let i = 0; i < 14; i++) {
+      const a = Math.random() * Math.PI * 2;
+      try {
+        const chunk = ov.dimension.spawnEntity("ob:debris", {
+          x: land.x + Math.cos(a) * 1.5, y: land.y + 1, z: land.z + Math.sin(a) * 1.5
+        });
+        chunk.applyImpulse({
+          x: Math.cos(a) * (0.3 + Math.random() * 0.5),
+          y: 0.9 + Math.random() * 0.7,
+          z: Math.sin(a) * (0.3 + Math.random() * 0.5)
+        });
+      } catch { }
+    }
+    return;
+  }
+
+  if (t >= METEOR_CRASH_TICK + 16) ovBackToIdle(ov, s, 14);
+}
+
+function ovTickGravity(ov, s) {
+  const t = s.stateTicks;
+  const loc = ov.location;
+  freeze(ov, 5);
+
+  if (t <= GRAVITY_PULL_TICKS) {
+    // the swirling vortex: three arms of blue fire spiraling inward
+    const a0 = t * 0.35;
+    for (let arm = 0; arm < 3; arm++) {
+      const a = a0 + (Math.PI * 2 * arm) / 3;
+      const r = 7 - (t % 20) * 0.25;
+      particle(ov.dimension, "minecraft:blue_flame_particle", {
+        x: loc.x + Math.cos(a) * r, y: loc.y + 0.4, z: loc.z + Math.sin(a) * r
+      });
+      particle(ov.dimension, "minecraft:lava_particle", {
+        x: loc.x + Math.cos(a) * (r * 0.55), y: loc.y + 0.7, z: loc.z + Math.sin(a) * (r * 0.55)
+      });
+    }
+    if (t % 20 === 0) playSoundAt(ov.dimension, "mob.enderdragon.flap", loc, 2);
+
+    // drag everything in — and pin whatever reaches the center
+    if (t % 2 === 0) {
+      for (const v of victimsNearDim(ov.dimension, loc, GRAVITY_RADIUS)) {
+        const d = distance(v.location, loc);
+        if (d > 2.5) {
+          const pull = norm2d(sub(loc, v.location));
+          knockPlayer(v, pull, Math.min(0.6, d * 0.07), 0.06);
+        } else {
+          try { v.addEffect("slowness", 15, { amplifier: 5, showParticles: false }); } catch { }
+        }
+      }
+    }
+    return;
+  }
+
+  if (t === GRAVITY_PULL_TICKS + 1) {
+    // the follow-up: everything held close gets detonated
+    playSoundAt(ov.dimension, "random.explode", loc, 4);
+    particle(ov.dimension, "minecraft:huge_explosion_emitter", { x: loc.x, y: loc.y + 1, z: loc.z });
+    for (const v of victimsNearDim(ov.dimension, loc, GRAVITY_BURST_RADIUS)) {
+      hurtPlayer(ov, v, GRAVITY_BURST_DAMAGE);
+      try { v.setOnFire(4, true); } catch { }
+      knockPlayer(v, norm2d(sub(v.location, loc)), 2.0, 0.9);
+      shakeCamera(v, 0.6, 0.6);
+    }
+    return;
+  }
+
+  if (t >= GRAVITY_PULL_TICKS + 14) ovBackToIdle(ov, s, 12);
+}
+
+function ovTickSummon(ov, s) {
+  const t = s.stateTicks;
+  if (t === 12) {
+    const count = CLONE_COUNT + (Math.random() < 0.5 ? 1 : 0);
+    const target = nearestTarget(ov, s);
+    for (let i = 0; i < count; i++) {
+      const a = (Math.PI * 2 * i) / count;
+      const pos = {
+        x: ov.location.x + Math.cos(a) * 2.5,
+        y: ov.location.y + 0.1,
+        z: ov.location.z + Math.sin(a) * 2.5
+      };
+      try {
+        const clone = ov.dimension.spawnEntity(CLONE_ID, pos);
+        cloneBirth.set(clone.id, system.currentTick);
+        if (target && !isPlayer(target)) {
+          try {
+            clone.applyDamage(1, {
+              cause: EntityDamageCause.entityAttack,
+              damagingEntity: target
+            });
+          } catch { }
+        }
+        particle(ov.dimension, "minecraft:lava_particle", pos);
+        particle(ov.dimension, "minecraft:basic_flame_particle", { x: pos.x, y: pos.y + 1, z: pos.z });
+      } catch { }
+    }
+    playSoundAt(ov.dimension, "mob.evocation_illager.cast_spell", ov.location, 3);
+  }
+  if (t >= 26) ovBackToIdle(ov, s);
+}
+
+function ovTickChain(ov, s) {
+  const t = s.stateTicks;
+
+  // chain in flight
+  if (!s.chainVictimId) {
+    if (t > CHAIN_FLY_TICKS) {
+      ovBackToIdle(ov, s, 10); // whiffed into the dark
+      return;
+    }
+    s.chainTip.x += s.chainDir.x * CHAIN_STEP;
+    s.chainTip.y += s.chainDir.y * CHAIN_STEP;
+    s.chainTip.z += s.chainDir.z * CHAIN_STEP;
+    particle(ov.dimension, "minecraft:critical_hit_emitter", s.chainTip);
+    particle(ov.dimension, "minecraft:basic_flame_particle", s.chainTip);
+    for (const v of victimsNearDim(ov.dimension, s.chainTip, CHAIN_HOOK_RADIUS + 1)) {
+      if (distance(v.location, s.chainTip) > CHAIN_HOOK_RADIUS &&
+        distance({ x: v.location.x, y: v.location.y + 1, z: v.location.z }, s.chainTip) > CHAIN_HOOK_RADIUS) continue;
+      // WRAPPED
+      s.chainVictimId = v.id;
+      s.chainAnchor = { ...v.location };
+      s.stateTicks = 0;
+      playSoundAt(ov.dimension, "random.anvil_use", v.location, 2.5);
+      tellVictim(v, "§8⛓ CHAINED — you cannot move!");
+      try { v.addEffect("slowness", CHAIN_WALK_TICKS + 30, { amplifier: 10, showParticles: false }); } catch { }
+      return;
+    }
+    return;
+  }
+
+  // victim wrapped: pin them, walk up slowly, execute
+  let victim = null;
+  try { victim = world.getEntity(s.chainVictimId); } catch { }
+  if (!victim || victim.dimension.id !== ov.dimension.id) {
+    ovBackToIdle(ov, s, 8);
+    return;
+  }
+
+  // completely frozen in place
+  try { victim.teleport(s.chainAnchor); } catch { }
+  if (t % 4 === 0) {
+    // the burning chain between them
+    const from = { x: ov.location.x, y: ov.location.y + 1.4, z: ov.location.z };
+    const to = { x: victim.location.x, y: victim.location.y + 1, z: victim.location.z };
+    for (let i = 1; i <= 7; i++) {
+      const f = i / 8;
+      particle(ov.dimension, "minecraft:basic_flame_particle", {
+        x: from.x + (to.x - from.x) * f,
+        y: from.y + (to.y - from.y) * f,
+        z: from.z + (to.z - from.z) * f
+      });
+    }
+  }
+
+  const gap = distance(victim.location, ov.location);
+  if (gap > 3.2 && t < CHAIN_WALK_TICKS) {
+    // the slow, inevitable walk
+    const dir = norm2d(sub(victim.location, ov.location));
+    try { ov.applyKnockback(dir.x, dir.z, 0.45, 0); } catch { }
+    try { ov.teleport(ov.location, { facingLocation: victim.location }); } catch { }
+    return;
+  }
+
+  // in range (or time's up): THE EXECUTION
+  s.state = "execute";
+  s.stateTicks = 0;
+  setAnimState(ov, "execute");
+  freeze(ov, 24);
+}
+
+function ovTickExecute(ov, s) {
+  const t = s.stateTicks;
+  if (t === EXECUTE_HIT_TICK) {
+    let victim = null;
+    try { victim = world.getEntity(s.chainVictimId); } catch { }
+    if (victim && victim.dimension.id === ov.dimension.id &&
+      distance(victim.location, ov.location) <= 6) {
+      // unblockable, and it doesn't care about your shield
+      hurtPlayer(ov, victim, EXECUTE_DAMAGE);
+      knockPlayer(victim, norm2d(sub(victim.location, ov.location)), 2.2, 0.7);
+      shakeCamera(victim, 0.8, 0.6);
+      playSoundAt(ov.dimension, "mob.irongolem.attack", ov.location, 3);
+      particle(ov.dimension, "minecraft:knockback_roar_particle", victim.location);
+      tellVictim(victim, "§4⚔ EXECUTED.");
+    }
+  }
+  if (t >= 22) {
+    s.chainVictimId = null;
+    s.chainAnchor = null;
+    ovBackToIdle(ov, s, 14);
+  }
+}
+
+function ovBackToIdle(ov, s, extraRecovery = 0) {
+  s.state = "idle";
+  s.stateTicks = -extraRecovery;
+  setAnimState(ov, "idle");
+}
+
+// ---- overlord brain ----
+function tickOverlord(ov) {
+  const s = getOvState(ov);
+  s.stateTicks++;
+  if (s.cdCleave > 0) s.cdCleave--;
+  if (s.cdMeteor > 0) s.cdMeteor--;
+  if (s.cdGravity > 0) s.cdGravity--;
+  if (s.cdClones > 0) s.cdClones--;
+  if (s.cdChain > 0) s.cdChain--;
+
+  // the greatsword drips liquid blue fire wherever he moves
+  try {
+    const v = ov.getVelocity();
+    if (Math.abs(v.x) + Math.abs(v.z) > 0.05 && s.stateTicks % 2 === 0) {
+      const loc = ov.location;
+      particle(ov.dimension, "minecraft:blue_flame_particle", {
+        x: loc.x - v.x * 3, y: loc.y + 1.6, z: loc.z - v.z * 3
+      });
+    }
+  } catch { }
+
+  switch (s.state) {
+    case "cleave": return ovTickCleave(ov, s);
+    case "meteor": return ovTickMeteor(ov, s);
+    case "gravity": return ovTickGravity(ov, s);
+    case "summon": return ovTickSummon(ov, s);
+    case "chain": return ovTickChain(ov, s);
+    case "execute": return ovTickExecute(ov, s);
+  }
+
+  if (s.stateTicks < 0) return; // recovery window
+
+  const target = nearestTarget(ov, s);
+  if (!target) return;
+  const dist = distance(target.location, ov.location);
+
+  // Cataclysmic Eruption: the earth fractures around him while he fights
+  if (s.stateTicks % AURA_INTERVAL === 0) {
+    const n = 1 + (Math.random() < 0.4 ? 1 : 0);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = AURA_RADIUS_MIN + Math.random() * (AURA_RADIUS_MAX - AURA_RADIUS_MIN);
+      const x = ov.location.x + Math.cos(a) * r;
+      const z = ov.location.z + Math.sin(a) * r;
+      eruptions.push({
+        dimension: ov.dimension,
+        x, y: groundY(ov.dimension, x, ov.location.y, z), z,
+        born: system.currentTick
+      });
+    }
+  }
+
+  // World-Ender Meteor
+  if (s.cdMeteor <= 0 && dist >= 4 && dist <= 34) {
+    ovStartMeteor(ov, s, target);
+    return;
+  }
+  // Gravity Well
+  if (s.cdGravity <= 0 && dist <= 11) {
+    ovStartGravity(ov, s);
+    return;
+  }
+  // Executioner's Chain
+  if (s.cdChain <= 0 && dist >= 6 && dist <= 20) {
+    ovStartChain(ov, s, target);
+    return;
+  }
+  // Hellfire Clones
+  if (s.cdClones <= 0 && dist <= 30) {
+    ovStartClones(ov, s);
+    return;
+  }
+  // basic obsidian cleave
+  if (s.cdCleave <= 0 && dist <= OV_CLEAVE_RANGE - 0.5) {
+    ovStartCleave(ov, s, target);
+    return;
+  }
+}
+
+// ---- hellfire clones: sprint and detonate ----
+const cloneBirth = new Map(); // cloneId -> spawn tick
+
+function tickClone(clone) {
+  const now = system.currentTick;
+  if (!cloneBirth.has(clone.id)) cloneBirth.set(clone.id, now);
+  const age = now - cloneBirth.get(clone.id);
+  const loc = clone.location;
+
+  // burning from the inside
+  if (now % 3 === 0) {
+    particle(clone.dimension, "minecraft:basic_flame_particle", { x: loc.x, y: loc.y + 1, z: loc.z });
+  }
+
+  // find something to die for
+  let victim = null;
+  let bestD = Infinity;
+  for (const v of victimsNearDim(clone.dimension, loc, 24)) {
+    const d = distance(v.location, loc);
+    if (d < bestD) {
+      bestD = d;
+      victim = v;
+    }
+  }
+
+  const boom = (victim && bestD <= CLONE_EXPLODE_RANGE) || age >= CLONE_FUSE_TICKS;
+  if (boom) {
+    cloneBirth.delete(clone.id);
+    playSoundAt(clone.dimension, "random.explode", loc, 2.5);
+    particle(clone.dimension, "minecraft:huge_explosion_emitter", { x: loc.x, y: loc.y + 1, z: loc.z });
+    try {
+      clone.dimension.createExplosion({ x: loc.x, y: loc.y + 1, z: loc.z }, 3.5, {
+        breaksBlocks: false,
+        causesFire: false,
+        source: clone
+      });
+    } catch { }
+    for (const v of victimsNearDim(clone.dimension, loc, 4.5)) {
+      try {
+        v.applyDamage(CLONE_EXPLODE_DAMAGE, { cause: EntityDamageCause.entityAttack });
+        v.setOnFire(4, true);
+        v.applyKnockback(
+          v.location.x - loc.x, v.location.z - loc.z, 1.4, 0.5);
+      } catch { }
+    }
+    try { clone.remove(); } catch { try { clone.kill(); } catch { } }
+    return;
+  }
+
+  // sprint at the nearest target
+  if (victim && now % 2 === 0) {
+    const dir = norm2d(sub(victim.location, loc));
+    try { clone.applyKnockback(dir.x, dir.z, 0.55, 0.03); } catch { }
+  }
+}
+
+// ---- extend the main loop to run the final form ----
+system.runInterval(() => {
+  tickEruptions();
+  for (const dimId of DIMENSIONS) {
+    let dimension;
+    try {
+      dimension = world.getDimension(dimId);
+    } catch {
+      continue;
+    }
+    try {
+      for (const ov of dimension.getEntities({ type: OVERLORD_ID })) {
+        try { tickOverlord(ov); } catch { }
+      }
+    } catch { }
+    try {
+      for (const clone of dimension.getEntities({ type: CLONE_ID })) {
+        try { tickClone(clone); } catch { }
+      }
+    } catch { }
+  }
+}, 1);
+
+// overlord grudge memory: he remembers whoever wounds him
+world.afterEvents.entityHurt.subscribe((ev) => {
+  const hurt = ev.hurtEntity;
+  const src = ev.damageSource?.damagingEntity;
+  if (src?.typeId === OVERLORD_ID && hurt && !isPlayer(hurt) && canFight(hurt)) {
+    const s = getOvState(src);
+    s.mobFoeId = hurt.id;
+    s.mobFoeTick = system.currentTick;
+  }
+  if (hurt.typeId !== OVERLORD_ID) return;
+  const s = getOvState(hurt);
+  if (src && !isPlayer(src) && canFight(src)) {
+    s.mobFoeId = src.id;
+    s.mobFoeTick = system.currentTick;
+  }
+});
+
+// housekeeping for the final form
+system.runInterval(() => {
+  const liveIds = new Set();
+  for (const dimId of DIMENSIONS) {
+    try {
+      for (const e of world.getDimension(dimId).getEntities({ type: OVERLORD_ID })) liveIds.add(e.id);
+    } catch { }
+  }
+  for (const id of overlords.keys()) {
+    if (!liveIds.has(id)) overlords.delete(id);
+  }
+  const now = system.currentTick;
+  for (const [id, born] of cloneBirth) {
+    if (now - born > CLONE_FUSE_TICKS + 200) cloneBirth.delete(id);
+  }
+}, 600);

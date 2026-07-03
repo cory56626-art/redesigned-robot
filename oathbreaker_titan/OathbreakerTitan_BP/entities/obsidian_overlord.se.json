@@ -2,38 +2,24 @@
   "format_version": "1.21.0",
   "minecraft:entity": {
     "description": {
-      "identifier": "ob:oathbreaker_titan",
+      "identifier": "ob:obsidian_overlord",
       "is_spawnable": true,
       "is_summonable": true,
       "properties": {
         "ob:attack_state": {
           "type": "enum",
-          "values": [
-            "idle", "cleave", "leap", "slam", "dash", "parry", "judgment", "stunned",
-            "throw", "summon", "smash", "grapple", "stumble", "drag", "pummel", "molten"
-          ],
+          "values": ["idle", "cleave", "meteor", "slam", "gravity", "chain", "execute", "summon"],
           "default": "idle",
-          "client_sync": true
-        },
-        "ob:rage": {
-          "type": "bool",
-          "default": false,
           "client_sync": true
         }
       }
     },
-    "component_groups": {
-      "ob:rage_group": {
-        "minecraft:movement": { "value": 0.46 },
-        "minecraft:attack": { "damage": 12 }
-      }
-    },
     "components": {
-      "minecraft:type_family": { "family": ["ob_titan", "monster", "mob"] },
-      "minecraft:scale": { "value": 0.55 },
-      "minecraft:collision_box": { "width": 0.9, "height": 2.2 },
-      "minecraft:health": { "value": 600, "max": 600 },
-      "minecraft:movement": { "value": 0.35 },
+      "minecraft:type_family": { "family": ["ob_overlord", "monster", "mob"] },
+      "minecraft:scale": { "value": 0.8 },
+      "minecraft:collision_box": { "width": 1.1, "height": 3.1 },
+      "minecraft:health": { "value": 400, "max": 400 },
+      "minecraft:movement": { "value": 0.4 },
       "minecraft:navigation.walk": { "can_walk": true, "avoid_water": true },
       "minecraft:movement.basic": {},
       "minecraft:jump.static": {},
@@ -42,10 +28,11 @@
       "minecraft:knockback_resistance": { "value": 1.0 },
       "minecraft:fire_immune": {},
       "minecraft:persistent": {},
-      "minecraft:attack": { "damage": 8 },
-      "minecraft:boss": { "should_darken_sky": false, "hud_range": 60 },
-      "minecraft:follow_range": { "value": 48, "max": 48 },
-      "minecraft:experience_reward": { "on_death": "100" },
+      "minecraft:attack": { "damage": 14 },
+      "minecraft:boss": { "should_darken_sky": true, "hud_range": 70 },
+      "minecraft:follow_range": { "value": 56, "max": 56 },
+      "minecraft:loot": { "table": "loot_tables/entities/oathbreaker_titan.json" },
+      "minecraft:experience_reward": { "on_death": "700" },
       "minecraft:breathable": { "breathes_water": true, "breathes_lava": true },
       "minecraft:damage_sensor": {
         "triggers": [
@@ -62,28 +49,22 @@
         "priority": 2,
         "must_see": false,
         "reselect_targets": true,
-        "within_radius": 48,
+        "within_radius": 56,
         "entity_types": [
           {
             "filters": { "test": "is_family", "subject": "other", "value": "player" },
-            "max_dist": 48
+            "max_dist": 56
           }
         ]
       },
       "minecraft:behavior.melee_box_attack": {
         "priority": 3,
-        "cooldown_time": 0.8,
-        "speed_multiplier": 1.25,
-        "horizontal_reach": 0.9
+        "cooldown_time": 0.9,
+        "speed_multiplier": 1.2,
+        "horizontal_reach": 1.1
       },
-      "minecraft:behavior.look_at_player": { "priority": 7, "look_distance": 14 },
+      "minecraft:behavior.look_at_player": { "priority": 7, "look_distance": 16 },
       "minecraft:behavior.random_look_around": { "priority": 8 }
-    },
-    "events": {
-      "ob:enter_rage": {
-        "add": { "component_groups": ["ob:rage_group"] },
-        "set_property": { "ob:rage": true }
-      }
     }
   }
 }

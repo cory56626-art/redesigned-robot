@@ -1,0 +1,62 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.ob_overlord.attack": {
+      "initial_state": "default",
+      "states": {
+        "default": {
+          "transitions": [
+            { "cleave": "q.property('ob:attack_state') == 'cleave'" },
+            { "meteor": "q.property('ob:attack_state') == 'meteor'" },
+            { "slam": "q.property('ob:attack_state') == 'slam'" },
+            { "gravity": "q.property('ob:attack_state') == 'gravity'" },
+            { "chain": "q.property('ob:attack_state') == 'chain'" },
+            { "execute": "q.property('ob:attack_state') == 'execute'" },
+            { "summon": "q.property('ob:attack_state') == 'summon'" }
+          ]
+        },
+        "cleave": {
+          "animations": ["cleave_anim"],
+          "blend_transition": 0.1,
+          "transitions": [{ "default": "q.property('ob:attack_state') != 'cleave'" }]
+        },
+        "meteor": {
+          "animations": ["leap_anim"],
+          "blend_transition": 0.1,
+          "transitions": [
+            { "slam": "q.property('ob:attack_state') == 'slam'" },
+            { "default": "q.property('ob:attack_state') != 'meteor' && q.property('ob:attack_state') != 'slam'" }
+          ]
+        },
+        "slam": {
+          "animations": ["slam_anim"],
+          "blend_transition": 0.05,
+          "transitions": [{ "default": "q.property('ob:attack_state') != 'slam'" }]
+        },
+        "gravity": {
+          "animations": ["gravity_anim"],
+          "blend_transition": 0.15,
+          "transitions": [{ "default": "q.property('ob:attack_state') != 'gravity'" }]
+        },
+        "chain": {
+          "animations": ["chain_anim"],
+          "blend_transition": 0.08,
+          "transitions": [
+            { "execute": "q.property('ob:attack_state') == 'execute'" },
+            { "default": "q.property('ob:attack_state') != 'chain' && q.property('ob:attack_state') != 'execute'" }
+          ]
+        },
+        "execute": {
+          "animations": ["execute_anim"],
+          "blend_transition": 0.08,
+          "transitions": [{ "default": "q.property('ob:attack_state') != 'execute'" }]
+        },
+        "summon": {
+          "animations": ["summon_anim"],
+          "blend_transition": 0.15,
+          "transitions": [{ "default": "q.property('ob:attack_state') != 'summon'" }]
+        }
+      }
+    }
+  }
+}

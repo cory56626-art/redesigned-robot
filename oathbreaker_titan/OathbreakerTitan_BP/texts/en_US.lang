@@ -5,3 +5,6 @@ item.spawn_egg.entity.ob:oathbreaker_titan.name=Oathbreaker Titan Spawn Egg
 item.spawn_egg.entity.ob:core_mini.name=Core Mini Spawn Egg
 tile.ob:molten_heart.name=Molten Heart
 entity.ob:debris.name=Molten Debris
+entity.ob:obsidian_overlord.name=Obsidian Overlord
+entity.ob:hellfire_clone.name=Hellfire Clone
+item.spawn_egg.entity.ob:obsidian_overlord.name=Obsidian Overlord Spawn Egg

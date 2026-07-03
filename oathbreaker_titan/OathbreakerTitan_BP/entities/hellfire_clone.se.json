@@ -1,0 +1,59 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "ob:hellfire_clone",
+      "is_spawnable": false,
+      "is_summonable": true
+    },
+    "component_groups": {
+      "ob:despawn": {
+        "minecraft:instant_despawn": {}
+      }
+    },
+    "components": {
+      "minecraft:type_family": { "family": ["ob_clone", "monster", "mob"] },
+      "minecraft:scale": { "value": 0.5 },
+      "minecraft:collision_box": { "width": 0.7, "height": 1.9 },
+      "minecraft:health": { "value": 30, "max": 30 },
+      "minecraft:movement": { "value": 0.55 },
+      "minecraft:navigation.walk": { "can_walk": true, "avoid_water": true },
+      "minecraft:movement.basic": {},
+      "minecraft:jump.static": {},
+      "minecraft:physics": {},
+      "minecraft:fire_immune": {},
+      "minecraft:follow_range": { "value": 40, "max": 40 },
+      "minecraft:damage_sensor": {
+        "triggers": [
+          { "cause": "fall", "deals_damage": false },
+          { "cause": "fire", "deals_damage": false },
+          { "cause": "fire_tick", "deals_damage": false },
+          { "cause": "lava", "deals_damage": false }
+        ]
+      },
+      "minecraft:behavior.hurt_by_target": { "priority": 1 },
+      "minecraft:behavior.nearest_attackable_target": {
+        "priority": 2,
+        "must_see": false,
+        "reselect_targets": true,
+        "within_radius": 40,
+        "entity_types": [
+          {
+            "filters": { "test": "is_family", "subject": "other", "value": "player" },
+            "max_dist": 40
+          }
+        ]
+      },
+      "minecraft:timer": {
+        "time": 16,
+        "looping": false,
+        "time_down_event": { "event": "ob:expire" }
+      }
+    },
+    "events": {
+      "ob:expire": {
+        "add": { "component_groups": ["ob:despawn"] }
+      }
+    }
+  }
+}

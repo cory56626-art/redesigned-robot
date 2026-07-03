@@ -44,17 +44,22 @@ for fn in os.listdir(os.path.join(RP, "render_controllers")):
     render_controllers.update(load(os.path.join(RP, "render_controllers", fn)).get("render_controllers", {}).keys())
 render_controllers.add("controller.render.default")
 
-# BP entity property enum values
-titan_bp = load(os.path.join(BP, "entities", "oathbreaker_titan.se.json"))["minecraft:entity"]
-enum_list = titan_bp["description"]["properties"]["ob:attack_state"]["values"]
-enum_values = set(enum_list)
+# BP entity property enum values (all entities), each capped at 16.
 # HARD ENGINE LIMIT: Bedrock enum properties allow at most 16 values.
 # Exceeding it invalidates the whole property and cascades into broken
 # animations, rendering and molang across the entity.
-if len(enum_list) > 16:
-    errors.append(f"ob:attack_state has {len(enum_list)} enum values — Bedrock max is 16")
-if len(enum_list) != len(enum_values):
-    errors.append("ob:attack_state has duplicate enum values")
+enum_values = set()
+for fn in os.listdir(os.path.join(BP, "entities")):
+    ent = load(os.path.join(BP, "entities", fn))["minecraft:entity"]
+    ident = ent["description"]["identifier"]
+    for pname, pdef in ent["description"].get("properties", {}).items():
+        if pdef.get("type") == "enum":
+            vals = pdef["values"]
+            if len(vals) > 16:
+                errors.append(f"{ident}: {pname} has {len(vals)} enum values — Bedrock max is 16")
+            if len(vals) != len(set(vals)):
+                errors.append(f"{ident}: {pname} has duplicate enum values")
+            enum_values.update(vals)
 
 # ---- check client entities ----
 for fn in os.listdir(os.path.join(RP, "entity")):
@@ -84,14 +89,21 @@ for fn in os.listdir(os.path.join(RP, "entity")):
                     if bone not in geos[geo]:
                         errors.append(f"{ident}: animation '{target}' uses unknown bone '{bone}'")
 
-# ---- check controllers ----
-titan_aliases = load(os.path.join(RP, "entity", "oathbreaker_titan.entity.json"))[
-    "minecraft:client_entity"]["description"]["animations"]
+# ---- check controllers against the aliases of entities that use them ----
+ctrl_aliases = {}  # controller name -> union of alias names from its users
+for fn in os.listdir(os.path.join(RP, "entity")):
+    ce = load(os.path.join(RP, "entity", fn))["minecraft:client_entity"]["description"]
+    for alias, target in ce.get("animations", {}).items():
+        if target.startswith("controller."):
+            ctrl_aliases.setdefault(target, set()).update(ce["animations"].keys())
 for cname, ctrl in controllers.items():
+    aliases = ctrl_aliases.get(cname, set())
+    if not aliases:
+        errors.append(f"{cname}: not referenced by any client entity")
     states = ctrl.get("states", {})
     for sname, state in states.items():
         for a in state.get("animations", []):
-            if a not in titan_aliases:
+            if a not in aliases:
                 errors.append(f"{cname}/{sname}: references undefined alias '{a}'")
         for tr in state.get("transitions", []):
             target = next(iter(tr))
