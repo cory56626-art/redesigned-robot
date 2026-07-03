@@ -28,6 +28,38 @@ Signature moves:
 > a cancellable damage event that only exists as an experimental API, so they
 > never fired — they now run via damage heal-back + an HP monitor instead.
 
+The **boss bar is a live phase readout**: it mirrors his name tag, which the
+script updates in real time — *Enraged / Frenzied / Berserk*, *HALO SHATTERED*,
+*LAST STAND*, and the Fractured variant's meter. The divine-strike crater only
+consumes **natural terrain** (stone, dirt, sand, ores, leaves…) — player builds
+are never destroyed.
+
+## The Fractured Marauder (challenge sub-project)
+
+A separate, harder variant (`marauder:fractured_marauder`) with a **low chance
+(~12%) of replacing the normal final boss** on any stage-10 night (including
+rematches). More HP (340), more damage (17 melee, +25% on abilities), full
+knockback immunity — and his own mechanics:
+
+- **Fracture meter** — every successful hit he lands (on players *or* mobs — he
+  works with free-for-all and Brawl Stick sandboxing) cracks his facade. As the
+  meter climbs his skin **bleaches toward a holy, angelic pallor** in three
+  visible steps, shown live on his boss bar.
+- **SERAPHIM** — at 100% he transforms: larger, faster, harder-hitting, wreathed
+  in light. While transformed the meter **drains**; at 0 he reverts to normal
+  and the cycle can begin again.
+- **Unrivaled Grit** *(sealed while Seraphim)* — a feint. What looks like an
+  ordinary sword swing suddenly becomes a stance-switch and a heavy blow to the
+  jaw that **stuns** — the only warnings are the swing itself and a quiet
+  stance-shift sound.
+- **Might & Skyfall** *(sealed while Seraphim)* — he hurls everyone near him
+  back with sheer might, then a **holy beam slams down from the sky** onto the
+  shoved target after a short telegraph.
+- He does *not* use the normal boss's mirage, omni-flurry, or halo-shatter —
+  the two variants are deliberately their own fights.
+- Defeating him counts as completing the ten-night rivalry and drops a richer
+  core haul (extra unbroken cores + shards).
+
 ```
 marauder_bp/   behavior pack  (entity AI, items, script)
 marauder_rp/   resource pack  (model, textures, animations, controllers)
@@ -98,6 +130,10 @@ The fixes below bring the Bedrock version in line with the Java entity’s inten
 | `/scriptevent marauder:halo` | Force the Halo Shatter phase |
 | `/scriptevent marauder:revive` | Set him to 1 HP + clear the flag (hit him once more to see the revive) |
 | `/scriptevent marauder:enrage` | Print HP / tier / dmg-reduction / speed / dodge |
+| `/scriptevent marauder:fractured` | Spawn the Fractured Marauder right now |
+| `/scriptevent marauder:fracture 90` | Report or set his Fracture meter (0–100) |
+| `/scriptevent marauder:grit` | Force Unrivaled Grit (the feint) |
+| `/scriptevent marauder:skyfall` | Force the Might Shove + Sky Beam |
 | `/scriptevent marauder:ping` | Confirm the script loaded (lists registered subscriptions) |
 | `/scriptevent marauder:help` | List every command |
 | `/scriptevent marauder:freeforall on` | Testing: make marauders attack **any** mob — melee *and* abilities target whatever he's fighting, and he retaliates against anything. `off` reverts; no argument flips it. Applies to active + future marauders. |

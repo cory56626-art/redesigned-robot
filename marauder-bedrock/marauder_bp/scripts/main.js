@@ -16,7 +16,15 @@ import { world, system, GameMode, EntityDamageCause, EquipmentSlot, ItemStack, B
 const OVERWORLD = "minecraft:overworld";
 const MARAUDER = "marauder:marauder";
 const AFTERIMAGE = "marauder:afterimage";
+const FRACTURED = "marauder:fractured_marauder";
 const STAGE_MAX = 10;
+
+// --- The Fractured Marauder (challenge variant) ---
+const FRACTURED_CHANCE = 0.12;      // chance the stage-10 encounter is Fractured
+const FRACTURE_GAIN_MELEE = 8;      // meter gain per landed melee hit
+const FRACTURE_GAIN_ABILITY = 5;    // meter gain per scripted-ability hit
+const FRACTURE_DECAY = 0.4;         // meter lost per combat tick while Seraphim
+const FRACTURED_ABILITY_MULT = 1.25;// his abilities hit harder than stage 10's
 
 const CHECK_INTERVAL = 40;   // night manager cadence (ticks)
 const COMBAT_INTERVAL = 2;   // combat/ability driver cadence (ticks)
@@ -49,7 +57,16 @@ function stageDamage(stage) { return STAGE_DAMAGE[clampStage(stage)] || 4; }
 function isMobId(e) {
   if (!e) return false;
   const t = e.typeId;
-  return t && t !== "minecraft:player" && t !== MARAUDER && t !== AFTERIMAGE;
+  return t && t !== "minecraft:player" && !isMarauderKind(t);
+}
+
+// Both boss variants share the combat driver; the afterimage is a prop, not a boss.
+function isMarauderKind(typeId) {
+  return typeId === MARAUDER || typeId === FRACTURED || typeId === AFTERIMAGE;
+}
+function isFractured(ent) { return ent?.typeId === FRACTURED; }
+function isSeraph(ent) {
+  try { return ent.getDynamicProperty("marauder:seraph") === true; } catch (e) { return false; }
 }
 
 // ------------------------------------------------------------- progress
@@ -141,24 +158,28 @@ function tryEncounter(player, day) {
 }
 
 function hasActive(player) {
-  return player.dimension.getEntities({ type: MARAUDER })
-    .some(e => e.getDynamicProperty("marauder:owner") === player.id);
+  const mine = e => e.getDynamicProperty("marauder:owner") === player.id;
+  return player.dimension.getEntities({ type: MARAUDER }).some(mine)
+    || player.dimension.getEntities({ type: FRACTURED }).some(mine);
 }
 
 // ------------------------------------------------------------- spawning
 
-function spawnMarauder(player, stage, immediate) {
+function spawnMarauder(player, stage, immediate, forceFractured) {
   stage = clampStage(stage);
+  // The final night has a low chance of sending the Fractured Marauder instead.
+  const fractured = forceFractured === true
+    || (forceFractured !== false && stage >= STAGE_MAX && Math.random() < FRACTURED_CHANCE);
   const loc = findSafeNear(player.dimension, player.location, immediate ? 5 : 12);
   let ent;
   try {
-    ent = player.dimension.spawnEntity(MARAUDER, loc);
+    ent = player.dimension.spawnEntity(fractured ? FRACTURED : MARAUDER, loc);
   } catch (e) {
     return false;
   }
   ent.setDynamicProperty("marauder:owner", player.id);
-  applyStage(ent, stage);
-  challengeCue(player, stage);
+  if (fractured) initFractured(ent); else applyStage(ent, stage);
+  challengeCue(player, stage, fractured);
   return true;
 }
 
@@ -182,7 +203,27 @@ function applyStage(ent, stage) {
   if (world.getDynamicProperty("marauder:ffa") === true) {
     try { ent.triggerEvent("marauder:ffa_on"); } catch (e) {}
   }
-  try { ent.nameTag = stageTitle(stage); } catch (e) {}
+  updateTitle(ent);
+}
+
+// The Fractured Marauder is its own thing: stage-10-equivalent stats live in his
+// entity JSON; the script only tracks his Fracture meter and encounter flags.
+function initFractured(ent) {
+  ent.setDynamicProperty("marauder:stageNum", STAGE_MAX); // ability damage baseline
+  ent.setDynamicProperty("marauder:fracture", 0);
+  ent.setDynamicProperty("marauder:seraph", false);
+  ent.setDynamicProperty("marauder:haloShattered", true); // halo shatter is the normal boss's set-piece
+  ent.setDynamicProperty("marauder:lastStandUsed", false);
+  ent.setDynamicProperty("marauder:enrageTier", 1);
+  try { ent.setProperty("marauder:fracture_stage", 0); } catch (e) {}
+  try { ent.setProperty("marauder:kneeling", false); } catch (e) {}
+  try { ent.setProperty("marauder:omni", false); } catch (e) {}
+  try { ent.setProperty("marauder:last_stand", false); } catch (e) {}
+  try { ent.triggerEvent("marauder:become_boss"); } catch (e) {}
+  if (world.getDynamicProperty("marauder:ffa") === true) {
+    try { ent.triggerEvent("marauder:ffa_on"); } catch (e) {}
+  }
+  updateTitle(ent);
 }
 
 function findSafeNear(dim, base, distNear) {
@@ -209,36 +250,74 @@ function findSafeNear(dim, base, distNear) {
 // Two-beat cinematic arrival. A soft action-bar pre-warn, then a SHORT centered
 // title a beat later so it never clips off-screen / TV overscan, with a single
 // low cue instead of two loud sounds stacked. The subtitle carries the stage name.
-function challengeCue(player, stage) {
+function challengeCue(player, stage, fractured) {
   // Beat 1 — subtle warning near the hotbar (always visible, never clipped).
-  try { player.onScreenDisplay.setActionBar("§8. . . §7a dread presence draws near §8. . ."); } catch (e) {}
+  const warn = fractured ? "§8. . . §fthe air splinters with light §8. . ."
+                         : "§8. . . §7a dread presence draws near §8. . .";
+  try { player.onScreenDisplay.setActionBar(warn); } catch (e) {}
   try { player.playSound("mob.wither.ambient", { pitch: 0.6, volume: 0.5 }); } catch (e) {}
 
   // Beat 2 — a short, smooth title a beat later. Long fades = no jarring pop.
   system.runTimeout(() => {
     if (!isValid(player)) return;
     try {
-      player.onScreenDisplay.setTitle("§4⚔ §cThe Marauder", {
+      player.onScreenDisplay.setTitle(fractured ? "§e⚔ §fThe Fractured Marauder" : "§4⚔ §cThe Marauder", {
         fadeInDuration: 12, stayDuration: 50, fadeOutDuration: 20,
-        subtitle: "§7" + stageName(stage)
+        subtitle: fractured ? "§6Something is wrong with him." : "§7" + stageName(stage)
       });
     } catch (e) {}
-    try { player.playSound("mob.wither.spawn", { pitch: 0.8, volume: 0.7 }); } catch (e) {}
+    try { player.playSound("mob.wither.spawn", { pitch: fractured ? 1.1 : 0.8, volume: 0.7 }); } catch (e) {}
   }, 18);
+}
+
+// ------------------------------------------------------------- boss-bar readout
+//
+// The boss bar mirrors the entity nameTag (the JSON boss component no longer
+// pins a fixed name), so this doubles as a live phase readout: enrage tier,
+// halo shatter, last stand — and for the Fractured Marauder, his Fracture meter.
+function updateTitle(ent) {
+  try {
+    if (ent.typeId === FRACTURED) {
+      const m = Math.round(ent.getDynamicProperty("marauder:fracture") ?? 0);
+      const bars = Math.round(m / 10);
+      const meter = "§e" + "|".repeat(bars) + "§8" + "|".repeat(10 - bars);
+      ent.nameTag = isSeraph(ent)
+        ? `§6✧ SERAPHIM ✧ §f${meter} §6✧`
+        : `§fThe Fractured Marauder §7— ${meter} §7${m}%`;
+      return;
+    }
+    const stage = clampStage(ent.getDynamicProperty("marauder:stageNum") ?? 1);
+    let suffix = "";
+    const s = combat.get(ent.id);
+    if (s && s.phaseLock) suffix = " §7— §eHALO SHATTERED";
+    else if (ent.getDynamicProperty("marauder:lastStandUsed") === true) suffix = " §7— §4LAST STAND";
+    else {
+      const tier = ent.getDynamicProperty("marauder:enrageTier") ?? 1;
+      if (tier === 4) suffix = " §7— §cBerserk";
+      else if (tier === 3) suffix = " §7— §6Frenzied";
+      else if (tier === 2) suffix = " §7— §eEnraged";
+    }
+    ent.nameTag = "§c" + stageTitle(stage) + suffix;
+  } catch (e) {}
 }
 
 // ------------------------------------------------------------- combat driver
 
+// `only` restricts an ability to one variant ("marauder" | "fractured");
+// `noSeraph` marks Fractured moves that are sealed while he is transformed.
 const ABILITIES = [
   { id: "shock",  minStage: 1, min: 0.0, max: 5.0,  windup: 10, recover: 8,  cd: 55,  weight: 10 },
   { id: "guard",  minStage: 2, min: 0.0, max: 4.5,  windup: 8,  recover: 6,  cd: 70,  weight: 8  },
   { id: "lunge",  minStage: 1, min: 3.5, max: 10.0, windup: 6,  recover: 6,  cd: 45,  weight: 11 },
   { id: "cinder", minStage: 3, min: 0.0, max: 6.0,  windup: 12, recover: 8,  cd: 80,  weight: 8  },
-  { id: "mirage", minStage: 4, min: 0.0, max: 12.0, windup: 14, recover: 6,  cd: 280, weight: 6  },
+  { id: "mirage", minStage: 4, min: 0.0, max: 12.0, windup: 14, recover: 6,  cd: 280, weight: 6,  only: "marauder" },
   { id: "brand",  minStage: 4, min: 3.0, max: 16.0, windup: 14, recover: 6,  cd: 130, weight: 5  },
   { id: "flash",  minStage: 5, min: 5.0, max: 20.0, windup: 8,  recover: 6,  cd: 85,  weight: 9  },
   { id: "beam",   minStage: 6, min: 4.0, max: 22.0, windup: 16, recover: 10, cd: 80,  weight: 9  },
-  { id: "omni",   minStage: 5, min: 0.0, max: 4.5,  windup: 8,  recover: 20, cd: 280, weight: 4  },
+  { id: "omni",   minStage: 5, min: 0.0, max: 4.5,  windup: 8,  recover: 20, cd: 280, weight: 4,  only: "marauder" },
+  // --- Fractured Marauder exclusives (sealed while Seraphim) ---
+  { id: "grit",    minStage: 1, min: 0.0, max: 4.5,  windup: 9,  recover: 12, cd: 170, weight: 9, only: "fractured", noSeraph: true },
+  { id: "skyfall", minStage: 1, min: 0.0, max: 7.0,  windup: 8,  recover: 24, cd: 220, weight: 8, only: "fractured", noSeraph: true },
 ];
 
 // entityId -> { cooldowns, globalCd, current, swingUntil, aggroId, aggroTick, illusion, phaseLock }
@@ -257,7 +336,10 @@ try {
   system.runInterval(() => {
     const dim = world.getDimension(OVERWORLD);
     let marauders;
-    try { marauders = dim.getEntities({ type: MARAUDER }); } catch (e) { return; }
+    try {
+      marauders = dim.getEntities({ type: MARAUDER });
+      try { marauders = marauders.concat(dim.getEntities({ type: FRACTURED })); } catch (e2) {}
+    } catch (e) { return; }
     const now = system.currentTick;
     const alive = new Set();
     const illusionIds = new Set();
@@ -297,6 +379,9 @@ function tickCombat(ent, now) {
 
   // Clear a finished melee swing.
   if (s.swingUntil && now >= s.swingUntil) { s.swingUntil = 0; setAttacking(ent, false); }
+
+  // Fractured Marauder: Seraphim decay + radiant aura.
+  tickFracture(ent, s);
 
   // Unbroken-Core Revive — primary monitor. Catch him just above death and revive
   // BEFORE a killing blow lands (the stable API can't cancel the lethal hit itself).
@@ -377,7 +462,7 @@ function entityById(dim, id) {
 }
 
 function isEngageable(e) {
-  if (!isValid(e) || e.typeId === MARAUDER || e.typeId === AFTERIMAGE) return false;
+  if (!isValid(e) || isMarauderKind(e.typeId)) return false;
   if (e.typeId === "minecraft:player") {
     const gm = safeGameMode(e);
     return gm !== GameMode.creative && gm !== GameMode.spectator;
@@ -390,7 +475,11 @@ function chooseAbility(ent, d) {
   const s = stateFor(ent);
   const pool = [];
   let total = 0;
+  const kind = isFractured(ent) ? "fractured" : "marauder";
+  const seraph = kind === "fractured" && isSeraph(ent);
   for (const a of ABILITIES) {
+    if (a.only && a.only !== kind) continue;
+    if (a.noSeraph && seraph) continue;
     if (a.minStage > stage) continue;
     if (s.cooldowns[a.id] > 0) continue;
     if (d < a.min || d > a.max) continue;
@@ -414,6 +503,13 @@ function beginAbility(ent, s, ability, target, now) {
     try { ent.triggerEvent("marauder:stun_on"); } catch (e) {}
     try { ent.setProperty("marauder:omni", true); } catch (e) {}
     setCasting(ent, false);  // omni has its own animation, not the generic cast pose
+  }
+  // Unrivaled Grit is a FEINT: it must look like a normal sword swing, so the
+  // only tells are the swing pose + a faint stance-shift sound (in telegraphStart).
+  if (ability.id === "grit") {
+    setCasting(ent, false);
+    setAttacking(ent, true);
+    s.swingUntil = now + ability.windup + 4;
   }
   telegraphStart(ent, ability);
 }
@@ -460,7 +556,8 @@ function resolveTargetId(ent, id) {
 
 function fireAbility(ent, a, target) {
   const stage = ent.getDynamicProperty("marauder:stageNum") ?? 1;
-  const base = stageDamage(stage) * enrageTier(ent).damageMult;
+  let base = stageDamage(stage) * enrageTier(ent).damageMult;
+  if (isFractured(ent)) base *= FRACTURED_ABILITY_MULT;
   switch (a.id) {
     case "shock":  effectShock(ent, target, base); break;
     case "guard":  effectGuard(ent, target, base); break;
@@ -471,7 +568,77 @@ function fireAbility(ent, a, target) {
     case "flash":  effectFlash(ent, target, base); break;
     case "beam":   effectBeam(ent, target, base, a.max); break;
     case "omni":   effectOmni(ent, target); break;
+    case "grit":    effectGrit(ent, target, base); break;
+    case "skyfall": effectSkyfall(ent, target, base); break;
   }
+}
+
+// ============================================================= FRACTURED: UNRIVALED GRIT
+// A feint. The wind-up looked like an ordinary sword swing (see beginAbility) —
+// then he switches stances and drives a heavy blow into the jaw, stunning the
+// victim. The only warnings were the stance-shift sound and the swing itself.
+function effectGrit(ent, target, base) {
+  const dim = ent.dimension;
+  if (!isValid(target) || dist(ent.location, target.location) > 5.0) return;
+  faceTarget(ent, target);
+  // The stance switch: uppercut sound + crack, heavy damage, brief stun.
+  try { dim.playSound("game.player.attack.strong", target.location, { pitch: 0.6, volume: 1.4 }); } catch (e) {}
+  try { dim.playSound("random.anvil_land", target.location, { pitch: 1.6, volume: 0.6 }); } catch (e) {}
+  const head = { x: target.location.x, y: target.location.y + 1.6, z: target.location.z };
+  trySpawnParticle(dim, "minecraft:critical_hit_emitter", head);
+  hurt(target, ent, base * 1.5);
+  // "Stunned for a moment": rooted, weakened, vision swimming; a short pop upward.
+  try { target.addEffect("slowness", 45, { amplifier: 4, showParticles: true }); } catch (e) {}
+  try { target.addEffect("weakness", 60, { amplifier: 1, showParticles: false }); } catch (e) {}
+  try { target.addEffect("nausea", 80, { amplifier: 0, showParticles: false }); } catch (e) {}
+  try { target.applyKnockback(0, 0, 0, 0.45); } catch (e) {}
+}
+
+// ============================================================= FRACTURED: MIGHT & SKYFALL
+// He hurls everything near him away with sheer might to buy distance, then a
+// holy beam slams down from the sky onto the shoved target after a short
+// telegraph — punishing anyone who just holds W back toward him.
+function effectSkyfall(ent, target, base) {
+  const dim = ent.dimension;
+  const origin = ent.location;
+
+  // 1. The mighty shove — everyone nearby is blasted back.
+  spawnRing(dim, origin, "minecraft:knockback_roar_particle", 2.0, 16);
+  try { dim.playSound("mob.irongolem.attack", origin, { pitch: 0.6, volume: 1.6 }); } catch (e) {}
+  try { dim.playSound("random.explode", origin, { pitch: 1.3, volume: 0.8 }); } catch (e) {}
+  for (const v of victimsNear(ent, 5.0, target, true)) {
+    const away = norm({ x: v.location.x - origin.x, y: 0, z: v.location.z - origin.z });
+    try { v.applyKnockback(away.x, away.z, 2.6, 0.5); } catch (e) {}
+  }
+
+  // 2. Lock the beam onto where the shoved target lands (sampled after the shove).
+  const targetId = target?.id;
+  system.runTimeout(() => {
+    if (!isValid(ent)) return;
+    const t = targetId ? entityById(ent.dimension, targetId) : null;
+    const pos = t && isValid(t)
+      ? { x: t.location.x, y: t.location.y, z: t.location.z }
+      : { x: origin.x, y: origin.y, z: origin.z };
+    // Telegraph: a column of light from the sky.
+    for (let k = 0; k < 16; k++) {
+      trySpawnParticle(dim, "minecraft:endrod", { x: pos.x, y: pos.y + k * 0.8, z: pos.z });
+    }
+    try { dim.playSound("beacon.activate", pos, { pitch: 1.4 }); } catch (e) {}
+
+    // 3. The holy beam slams down after a short dodge window.
+    system.runTimeout(() => {
+      if (!isValid(ent)) return;
+      spawnRing(dim, pos, "minecraft:endrod", 2.5, 24);
+      spawnRing(dim, pos, "minecraft:basic_flame_particle", 1.5, 16);
+      try { dim.playSound("mob.wither.death", pos, { pitch: 1.2, volume: 1.2 }); } catch (e) {}
+      try { dim.playSound("random.explode", pos, { pitch: 0.6, volume: 1.6 }); } catch (e) {}
+      for (const v of victimsAt(dim, pos, 3.0)) {
+        try { v.applyDamage(Math.round(base * 1.2), { cause: EntityDamageCause.fire, damagingEntity: ent }); } catch (e) {}
+        try { v.setOnFire(5, true); } catch (e) {}
+        if (dist(v.location, pos) <= 1.6) trueDamage(v, 5); // dead-center pierces armor
+      }
+    }, 10);
+  }, 8);
 }
 
 function effectShock(ent, target, base) {
@@ -604,6 +771,7 @@ function updateEnrage(ent) {
   } else {
     try { ent.addEffect("speed", 600, { amplifier: tier - 2, showParticles: false }); } catch (e) {}
   }
+  updateTitle(ent); // boss bar mirrors the new phase
 }
 
 // ============================================================= FEATURE 1b: AFTERIMAGE DODGE
@@ -738,6 +906,7 @@ function haloShatter(ent, target) {
   const s = stateFor(ent);
   s.phaseLock = true;
   ent.setDynamicProperty("marauder:haloShattered", true);
+  updateTitle(ent); // boss bar: "HALO SHATTERED"
 
   // Invulnerable kneel + halo-shatter VFX at head height.
   try { ent.triggerEvent("marauder:invulnerable_on"); } catch (e) {}
@@ -779,10 +948,35 @@ function haloShatter(ent, target) {
           try { ent.triggerEvent("marauder:invulnerable_off"); } catch (e) {}
           s.phaseLock = false;
           updateEnrage(ent); // reflect the current (low) HP berserk tier
+          updateTitle(ent);  // boss bar back to the live tier readout
         }
       }, TELEGRAPH);
     }, FIRST + i * GAP);
   }
+}
+
+// The crater only consumes NATURAL terrain — player builds (planks, concrete,
+// glass, etc.) are spared. Explicit whitelist plus a few suffix families.
+const NATURAL_BLOCKS = new Set([
+  "minecraft:stone", "minecraft:cobblestone", "minecraft:mossy_cobblestone",
+  "minecraft:granite", "minecraft:diorite", "minecraft:andesite",
+  "minecraft:deepslate", "minecraft:cobbled_deepslate", "minecraft:tuff", "minecraft:calcite",
+  "minecraft:dirt", "minecraft:grass_block", "minecraft:grass_path", "minecraft:podzol",
+  "minecraft:mycelium", "minecraft:coarse_dirt", "minecraft:rooted_dirt", "minecraft:farmland",
+  "minecraft:sand", "minecraft:red_sand", "minecraft:gravel", "minecraft:clay",
+  "minecraft:sandstone", "minecraft:red_sandstone", "minecraft:mud", "minecraft:packed_mud",
+  "minecraft:snow", "minecraft:snow_layer", "minecraft:ice", "minecraft:packed_ice",
+  "minecraft:moss_block", "minecraft:moss_carpet", "minecraft:netherrack", "minecraft:soul_sand",
+  "minecraft:soul_soil", "minecraft:basalt", "minecraft:blackstone", "minecraft:end_stone",
+  "minecraft:magma", "minecraft:dripstone_block", "minecraft:pointed_dripstone",
+  "minecraft:tallgrass", "minecraft:short_grass", "minecraft:tall_grass", "minecraft:fern",
+  "minecraft:large_fern", "minecraft:double_plant", "minecraft:deadbush", "minecraft:vine",
+  "minecraft:web", "minecraft:brown_mushroom", "minecraft:red_mushroom",
+]);
+function isNaturalBlock(typeId) {
+  if (NATURAL_BLOCKS.has(typeId)) return true;
+  // Ore veins and foliage are terrain too.
+  return typeId.endsWith("_ore") || typeId.endsWith("_leaves") || typeId.endsWith("_sapling");
 }
 
 // A single divine strike at `loc`. Fire damage + ignite across a 4-block radius,
@@ -804,7 +998,7 @@ function divineStrike(ent, loc, isFinal) {
     }
   }
 
-  // Crater: destroy non-obsidian / non-bedrock terrain in a 3-block radius.
+  // Crater: consume NATURAL terrain in a 3-block radius — player builds survive.
   const cx = Math.floor(loc.x), cy = Math.floor(loc.y), cz = Math.floor(loc.z);
   for (let dx = -3; dx <= 3; dx++) {
     for (let dy = -1; dy <= 2; dy++) {
@@ -812,7 +1006,7 @@ function divineStrike(ent, loc, isFinal) {
         try {
           const block = dim.getBlock({ x: cx + dx, y: cy + dy, z: cz + dz });
           if (!block || block.isAir) continue;
-          if (block.typeId === "minecraft:obsidian" || block.typeId === "minecraft:bedrock") continue;
+          if (!isNaturalBlock(block.typeId)) continue;
           block.setPermutation(BlockPermutation.resolve("minecraft:air"));
         } catch (e) {}
       }
@@ -864,6 +1058,101 @@ function lastStandRevive(ent) {
 
   // Re-evaluate enrage tier (HP just jumped to 30%, which is tier 4).
   updateEnrage(ent);
+  updateTitle(ent);
+}
+
+// ============================================================= FRACTURED: FRACTURE METER & SERAPHIM
+// Every successful attack — on players OR mobs — cracks the Fractured Marauder's
+// facade a little more. His skin bleaches toward the holy as the meter climbs
+// (fracture_stage 0-2 -> texture swap), and at 100% he transforms: SERAPHIM.
+// Seraphim mode buffs him hard but DRAINS the meter; at 0 he reverts to normal.
+
+function getFracture(ent) {
+  const v = ent.getDynamicProperty("marauder:fracture");
+  return typeof v === "number" ? v : 0;
+}
+
+function fractureStageFor(meter, seraph) {
+  if (seraph) return 3;
+  if (meter >= 66) return 2;
+  if (meter >= 33) return 1;
+  return 0;
+}
+
+function addFracture(ent, amount) {
+  if (!isFractured(ent) || !isValid(ent)) return;
+  if (isSeraph(ent)) return; // the meter only decays while transformed
+  const meter = Math.min(100, getFracture(ent) + amount);
+  ent.setDynamicProperty("marauder:fracture", meter);
+  applyFractureVisual(ent, meter);
+  if (meter >= 100) seraphOn(ent);
+  else updateTitle(ent);
+}
+
+function applyFractureVisual(ent, meter) {
+  const stage = fractureStageFor(meter, isSeraph(ent));
+  try {
+    if (ent.getProperty("marauder:fracture_stage") !== stage) {
+      ent.setProperty("marauder:fracture_stage", stage);
+      // A soft chime + light burst whenever his body visibly lightens.
+      trySpawnParticle(ent.dimension, "minecraft:endrod",
+        { x: ent.location.x, y: ent.location.y + 1.6, z: ent.location.z });
+      try { ent.dimension.playSound("random.orb", ent.location, { pitch: 0.8 + stage * 0.2, volume: 0.8 }); } catch (e) {}
+    }
+  } catch (e) {}
+}
+
+function seraphOn(ent) {
+  ent.setDynamicProperty("marauder:seraph", true);
+  try { ent.setProperty("marauder:fracture_stage", 3); } catch (e) {}
+  try { ent.triggerEvent("marauder:seraph_on"); } catch (e) {}
+  // Transformation flourish: light nova + ascending chime.
+  const loc = ent.location;
+  spawnRing(ent.dimension, loc, "minecraft:endrod", 1.5, 24);
+  spawnRing(ent.dimension, loc, "minecraft:endrod", 3.0, 32);
+  for (let k = 0; k < 10; k++) {
+    trySpawnParticle(ent.dimension, "minecraft:endrod", { x: loc.x, y: loc.y + k * 0.5, z: loc.z });
+  }
+  try { ent.dimension.playSound("beacon.activate", loc, { pitch: 0.8, volume: 1.5 }); } catch (e) {}
+  try { ent.dimension.playSound("mob.enderdragon.growl", loc, { pitch: 1.6, volume: 0.8 }); } catch (e) {}
+  try { ent.addEffect("speed", 1200, { amplifier: 1, showParticles: false }); } catch (e) {}
+  try { ent.addEffect("strength", 1200, { amplifier: 1, showParticles: false }); } catch (e) {}
+  try { ent.addEffect("regeneration", 100, { amplifier: 1, showParticles: false }); } catch (e) {}
+  updateTitle(ent);
+}
+
+function seraphOff(ent) {
+  ent.setDynamicProperty("marauder:seraph", false);
+  ent.setDynamicProperty("marauder:fracture", 0);
+  try { ent.setProperty("marauder:fracture_stage", 0); } catch (e) {}
+  try { ent.triggerEvent("marauder:seraph_off"); } catch (e) {}
+  try { ent.removeEffect("speed"); } catch (e) {}
+  try { ent.removeEffect("strength"); } catch (e) {}
+  const loc = ent.location;
+  spawnRing(ent.dimension, loc, "minecraft:soul_particle", 1.5, 18);
+  try { ent.dimension.playSound("beacon.deactivate", loc, { pitch: 0.9, volume: 1.2 }); } catch (e) {}
+  updateTitle(ent);
+}
+
+// Called from tickCombat: Seraphim slowly burns the meter down; ambient radiance.
+function tickFracture(ent, s) {
+  if (!isFractured(ent)) return;
+  if (isSeraph(ent)) {
+    const meter = Math.max(0, getFracture(ent) - FRACTURE_DECAY);
+    ent.setDynamicProperty("marauder:fracture", meter);
+    // Radiant aura while transformed.
+    if (system.currentTick % 8 === 0) {
+      const a = Math.random() * Math.PI * 2;
+      trySpawnParticle(ent.dimension, "minecraft:endrod", {
+        x: ent.location.x + Math.cos(a) * 0.9,
+        y: ent.location.y + 0.6 + Math.random() * 1.6,
+        z: ent.location.z + Math.sin(a) * 0.9
+      });
+    }
+    if (meter <= 0) { seraphOff(ent); return; }
+    // Throttled meter readout on the boss bar.
+    if (system.currentTick % 20 === 0) updateTitle(ent);
+  }
 }
 
 // ---- afterimage / mirage -----------------------------------------------
@@ -971,12 +1260,18 @@ function poof(dim, loc) {
 
 function telegraphStart(ent, a) {
   try {
+    // Unrivaled Grit is a feint — the ONLY audio tell is a quiet stance-shift.
+    if (a.id === "grit") {
+      ent.dimension.playSound("armor.equip_netherite", ent.location, { pitch: 0.7, volume: 0.9 });
+      return;
+    }
     const pitch = a.id === "beam" || a.id === "brand" ? 1.4 : a.id === "mirage" ? 0.5 : 0.6;
     ent.dimension.playSound("mob.wither.ambient", ent.location, { pitch, volume: 0.7 });
   } catch (e) {}
 }
 
 function telegraphTick(ent, a) {
+  if (a.id === "grit") return; // no particle tell — it must read as a normal swing
   if (system.currentTick % 2 !== 0) return;
   const head = { x: ent.location.x, y: ent.location.y + 1.6, z: ent.location.z };
   const particle = a.id === "cinder" ? "minecraft:basic_flame_particle"
@@ -1003,7 +1298,7 @@ function victimsNear(ent, range, primary, forceMobs) {
       mobs = ent.dimension.getEntities({ location: ent.location, maxDistance: range, families: ["mob"], excludeFamilies: ["marauder", "marauder_illusion"] });
     } catch (e) { mobs = []; }
     for (const m of mobs) {
-      if (m.id === ent.id || seen.has(m.id) || m.typeId === "minecraft:player" || m.typeId === MARAUDER || m.typeId === AFTERIMAGE) continue;
+      if (m.id === ent.id || seen.has(m.id) || m.typeId === "minecraft:player" || isMarauderKind(m.typeId)) continue;
       if (isValid(m)) { out.push(m); seen.add(m.id); }
     }
   }
@@ -1026,7 +1321,7 @@ function victimsAt(dim, loc, range) {
   } catch (e) {}
   try {
     for (const m of dim.getEntities({ location: loc, maxDistance: range, families: ["mob"], excludeFamilies: ["marauder", "marauder_illusion"] })) {
-      if (seen.has(m.id) || m.typeId === "minecraft:player" || m.typeId === MARAUDER || m.typeId === AFTERIMAGE) continue;
+      if (seen.has(m.id) || m.typeId === "minecraft:player" || isMarauderKind(m.typeId)) continue;
       if (isValid(m)) { out.push(m); seen.add(m.id); }
     }
   } catch (e) {}
@@ -1034,7 +1329,11 @@ function victimsAt(dim, loc, range) {
 }
 
 function hurt(entity, source, amount) {
-  try { entity.applyDamage(Math.max(1, Math.round(amount)), { cause: EntityDamageCause.entityAttack, damagingEntity: source }); } catch (e) {}
+  try {
+    entity.applyDamage(Math.max(1, Math.round(amount)), { cause: EntityDamageCause.entityAttack, damagingEntity: source });
+    // Every successful hit — on players or mobs — feeds the Fracture meter.
+    if (source && source.typeId === FRACTURED) addFracture(source, FRACTURE_GAIN_ABILITY);
+  } catch (e) {}
 }
 
 function knockFrom(entity, from, horizontal, vertical) {
@@ -1080,7 +1379,7 @@ safeSub("entityHitEntity", world.afterEvents?.entityHitEntity, ev => {
   const attacker = ev.damagingEntity;
   if (!attacker) return;
 
-  if (attacker.typeId === MARAUDER) {
+  if (attacker.typeId === MARAUDER || attacker.typeId === FRACTURED) {
     const s = stateFor(attacker);
     // Allow the swing animation during the illusion — he fights alongside his
     // clones. Suppress only while another ability cast is mid-windup.
@@ -1096,8 +1395,13 @@ safeSub("entityHitEntity", world.afterEvents?.entityHitEntity, ev => {
       const stage = clampStage(attacker.getDynamicProperty("marauder:stageNum") ?? 1);
       const mult = enrageTier(attacker).damageMult;
       const bonus = Math.max(0, Math.round(STAGE_DAMAGE[stage] * (mult - 1)));
-      if (bonus > 0) hurt(hit, attacker, bonus);
+      // Raw applyDamage (not hurt()) so the bonus doesn't double-feed the meter.
+      if (bonus > 0) {
+        try { hit.applyDamage(bonus, { cause: EntityDamageCause.entityAttack, damagingEntity: attacker }); } catch (e) {}
+      }
     }
+    // Every landed melee blow — on a player or a mob — cracks the Fracture meter.
+    if (attacker.typeId === FRACTURED) addFracture(attacker, FRACTURE_GAIN_MELEE);
     return;
   }
 
@@ -1156,14 +1460,14 @@ safeSub("entityHurt", world.afterEvents?.entityHurt, ev => {
   if (!victim) return;
 
   if (victim.typeId === AFTERIMAGE) { poof(victim.dimension, victim.location); return; }
-  if (victim.typeId !== MARAUDER) return;
+  if (victim.typeId !== MARAUDER && victim.typeId !== FRACTURED) return;
 
   const s = stateFor(victim);
   const now = system.currentTick;
   const attacker = ev.damageSource?.damagingEntity;
   const dmg = ev.damage || 0;
 
-  if (attacker && attacker.typeId !== MARAUDER && attacker.typeId !== AFTERIMAGE) {
+  if (attacker && !isMarauderKind(attacker.typeId)) {
     s.aggroId = attacker.id;
     s.aggroTick = now;
   }
@@ -1192,9 +1496,10 @@ safeSub("entityHurt", world.afterEvents?.entityHurt, ev => {
 
   const postPct = health.currentValue / (max || 1);
 
-  // (C) Halo Shatter — first time he drops to <=25% HP.
+  // (C) Halo Shatter — first time he drops to <=25% HP. The NORMAL Marauder's
+  // set-piece only; the Fractured variant spawns with haloShattered=true.
   const haloShattered = victim.getDynamicProperty("marauder:haloShattered") === true;
-  if (!haloShattered && !s.phaseLock && postPct <= 0.25) {
+  if (victim.typeId === MARAUDER && !haloShattered && !s.phaseLock && postPct <= 0.25) {
     const target = attacker && attacker.typeId === "minecraft:player" ? attacker : ownerOf(victim);
     haloShatter(victim, target);
     return;
@@ -1204,7 +1509,7 @@ safeSub("entityHurt", world.afterEvents?.entityHurt, ev => {
   if (!s.phaseLock && postPct <= 0.12 && tryLastStand(victim)) return;
 
   // (E) Struck the true Marauder during a mirage -> heavy retaliation.
-  if (s.illusion && s.illusion.active && attacker && attacker.typeId !== MARAUDER && attacker.typeId !== AFTERIMAGE) {
+  if (s.illusion && s.illusion.active && attacker && !isMarauderKind(attacker.typeId)) {
     retaliate(victim, s);
   }
 });
@@ -1236,20 +1541,26 @@ safeSub("itemUse", world.afterEvents?.itemUse, ev => {
 
 safeSub("entityDie_marauder", world.afterEvents?.entityDie, ev => {
   const dead = ev.deadEntity;
-  if (!dead || dead.typeId !== MARAUDER) return;
+  if (!dead || (dead.typeId !== MARAUDER && dead.typeId !== FRACTURED)) return;
   removeClonesOf(dead.dimension, dead.id);
   combat.delete(dead.id);
   try { handleDefeat(dead, ev.damageSource); } catch (e) {}
 });
 
 function handleDefeat(dead, source) {
-  const stage = clampStage(dead.getDynamicProperty("marauder:stageNum") ?? 1);
+  const fractured = dead.typeId === FRACTURED;
+  const stage = fractured ? STAGE_MAX : clampStage(dead.getDynamicProperty("marauder:stageNum") ?? 1);
   const ownerId = dead.getDynamicProperty("marauder:owner");
   const dim = dead.dimension;
   const loc = dead.location;
 
-  dropRewards(dim, loc, stage);
+  dropRewards(dim, loc, stage, fractured);
   try { dim.spawnParticle("minecraft:soul_particle", { x: loc.x, y: loc.y + 0.8, z: loc.z }); } catch (e) {}
+  if (fractured) {
+    // He dies the way he fought: in a burst of light.
+    spawnRing(dim, loc, "minecraft:endrod", 2.0, 24);
+    try { dim.playSound("beacon.deactivate", loc, { pitch: 0.6, volume: 1.4 }); } catch (e) {}
+  }
 
   let owner = ownerId ? world.getAllPlayers().find(p => p.id === ownerId) : null;
   const killer = source && source.damagingEntity;
@@ -1264,15 +1575,20 @@ function handleDefeat(dead, source) {
   if (stage >= STAGE_MAX) {
     owner.setDynamicProperty("marauder:finalComplete", true);
     owner.setDynamicProperty("marauder:rematchArmed", false);
-    owner.sendMessage("§6The Marauder Ascendant falls. The ten-night rivalry is over.");
-    owner.sendMessage("§8An Ashen Remnant remains — should you ever wish to face him again.");
+    if (fractured) {
+      owner.sendMessage("§eThe Fractured Marauder shatters into motes of light. The rivalry ends in radiance.");
+      owner.sendMessage("§8An Ashen Remnant remains — should you ever wish to face him again.");
+    } else {
+      owner.sendMessage("§6The Marauder Ascendant falls. The ten-night rivalry is over.");
+      owner.sendMessage("§8An Ashen Remnant remains — should you ever wish to face him again.");
+    }
   } else {
     setStage(owner, Math.max(getStage(owner), stage + 1));
     owner.sendMessage("§cThe Marauder falls — but he will return, stronger.");
   }
 }
 
-function dropRewards(dim, loc, stage) {
+function dropRewards(dim, loc, stage, fractured) {
   const drop = (id, n) => { try { dim.spawnItem(new ItemStack(id, n), loc); } catch (e) {} };
   drop("marauder:dark_scrap", 1 + Math.floor(Math.random() * 2));
   if (stage >= 3) drop("marauder:blacksteel_fragment", 1 + Math.floor(Math.random() * 2));
@@ -1285,6 +1601,12 @@ function dropRewards(dim, loc, stage) {
     drop("marauder:blacksteel_blade", 1);
     drop("marauder:marauder_trophy", 1);
     drop("marauder:ashen_remnant", 1);
+  }
+  // The Fractured Marauder yields a richer core haul — he hit harder, after all.
+  if (fractured) {
+    drop("marauder:unbroken_core", 2);
+    drop("marauder:moon_shard", 2);
+    drop("marauder:abyss_fragment", 1);
   }
 }
 
@@ -1375,6 +1697,35 @@ safeSub("scriptEventReceive", system.afterEvents?.scriptEventReceive, ev => {
       tryTell(player, "marauder:enrage", () => reportEnrage(player));
       break;
 
+    // ---- Fractured Marauder (challenge variant) ----
+    case "marauder:fractured":
+      tryTell(player, "marauder:fractured", () => {
+        clearActive(player);
+        spawnMarauder(player, STAGE_MAX, true, true);
+      });
+      break;
+    case "marauder:fracture":
+      tryTell(player, "marauder:fracture", () => {
+        const ent = nearestOwnedMarauder(player);
+        if (!ent || !isFractured(ent)) { player.sendMessage("§cNo active Fractured Marauder found."); return; }
+        if (!isNaN(arg)) {
+          const v = Math.max(0, Math.min(100, arg));
+          ent.setDynamicProperty("marauder:fracture", v);
+          if (v >= 100 && !isSeraph(ent)) seraphOn(ent);
+          else { applyFractureVisual(ent, v); updateTitle(ent); }
+          player.sendMessage("§eFracture meter set to " + v + "%.");
+        } else {
+          player.sendMessage(`§7Fracture ${Math.round(getFracture(ent))}% | Seraphim: ${isSeraph(ent)}`);
+        }
+      });
+      break;
+    case "marauder:grit":
+      tryTell(player, "marauder:grit", () => forceAbilityOnNearest(player, "grit"));
+      break;
+    case "marauder:skyfall":
+      tryTell(player, "marauder:skyfall", () => forceAbilityOnNearest(player, "skyfall"));
+      break;
+
     // ---- diagnostic events (added in v5 so users can confirm the script loaded) ----
     case "marauder:ping":
       tryTell(player, "marauder:ping", () => {
@@ -1402,6 +1753,10 @@ safeSub("scriptEventReceive", system.afterEvents?.scriptEventReceive, ev => {
         player.sendMessage("§7marauder:halo           §8- force Halo Shatter");
         player.sendMessage("§7marauder:revive         §8- force Last-Stand Revive trigger");
         player.sendMessage("§7marauder:enrage         §8- report current enrage tier");
+        player.sendMessage("§7marauder:fractured      §8- spawn the Fractured Marauder variant");
+        player.sendMessage("§7marauder:fracture [n]   §8- report or set his Fracture meter");
+        player.sendMessage("§7marauder:grit           §8- force Unrivaled Grit (feint)");
+        player.sendMessage("§7marauder:skyfall        §8- force Might Shove + Sky Beam");
         player.sendMessage("§7marauder:ping           §8- check script is alive");
       });
       break;
@@ -1410,11 +1765,13 @@ safeSub("scriptEventReceive", system.afterEvents?.scriptEventReceive, ev => {
 
 function nearestOwnedMarauder(player) {
   let best = null, bestD = Infinity;
-  for (const e of player.dimension.getEntities({ type: MARAUDER })) {
-    if (e.getDynamicProperty("marauder:owner") !== player.id) continue;
-    if (!isValid(e)) continue;
-    const d = dist(e.location, player.location);
-    if (d < bestD) { best = e; bestD = d; }
+  for (const t of [MARAUDER, FRACTURED]) {
+    for (const e of player.dimension.getEntities({ type: t })) {
+      if (e.getDynamicProperty("marauder:owner") !== player.id) continue;
+      if (!isValid(e)) continue;
+      const d = dist(e.location, player.location);
+      if (d < bestD) { best = e; bestD = d; }
+    }
   }
   return best;
 }
@@ -1427,6 +1784,12 @@ function forceAbilityOnNearest(player, abilityId) {
   if (s.current) { player.sendMessage("§cMarauder is already mid-ability."); return; }
   const a = ABILITIES.find(x => x.id === abilityId);
   if (!a) { player.sendMessage("§cUnknown ability."); return; }
+  const kind = isFractured(ent) ? "fractured" : "marauder";
+  if (a.only && a.only !== kind) {
+    player.sendMessage(`§cThat ability belongs to the ${a.only === "fractured" ? "Fractured Marauder" : "normal Marauder"}.`);
+    return;
+  }
+  if (a.noSeraph && isSeraph(ent)) { player.sendMessage("§cThat move is sealed while he is Seraphim."); return; }
   s.cooldowns[a.id] = 0;
   s.globalCd = 0;
   beginAbility(ent, s, a, player, system.currentTick);
@@ -1471,8 +1834,11 @@ function setFreeForAll(player, message) {
   world.setDynamicProperty("marauder:ffa", on);
 
   let n = 0;
-  for (const e of world.getDimension(OVERWORLD).getEntities({ type: MARAUDER })) {
-    try { e.triggerEvent(on ? "marauder:ffa_on" : "marauder:ffa_off"); n++; } catch (err) {}
+  const dim = world.getDimension(OVERWORLD);
+  for (const t of [MARAUDER, FRACTURED]) {
+    for (const e of dim.getEntities({ type: t })) {
+      try { e.triggerEvent(on ? "marauder:ffa_on" : "marauder:ffa_off"); n++; } catch (err) {}
+    }
   }
   player.sendMessage(
     "§dMarauder free-for-all " + (on ? "§aENABLED" : "§cDISABLED")
@@ -1482,11 +1848,13 @@ function setFreeForAll(player, message) {
 
 function clearActive(player) {
   let n = 0;
-  for (const e of player.dimension.getEntities({ type: MARAUDER })) {
-    if (e.getDynamicProperty("marauder:owner") === player.id) {
-      removeClonesOf(e.dimension, e.id);
-      combat.delete(e.id);
-      try { e.remove(); n++; } catch (err) {}
+  for (const t of [MARAUDER, FRACTURED]) {
+    for (const e of player.dimension.getEntities({ type: t })) {
+      if (e.getDynamicProperty("marauder:owner") === player.id) {
+        removeClonesOf(e.dimension, e.id);
+        combat.delete(e.id);
+        try { e.remove(); n++; } catch (err) {}
+      }
     }
   }
   return n;

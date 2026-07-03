@@ -1,6 +1,8 @@
 entity.marauder:marauder.name=The Marauder
 entity.marauder:afterimage.name=The Marauder
+entity.marauder:fractured_marauder.name=The Fractured Marauder
 item.spawn_egg.entity.marauder:marauder.name=Spawn Marauder
+item.spawn_egg.entity.marauder:fractured_marauder.name=Spawn Fractured Marauder
 item.marauder:blacksteel_blade=Marauder's Blacksteel Blade
 item.marauder:dark_scrap=Dark Armor Scrap
 item.marauder:blacksteel_fragment=Blacksteel Fragment

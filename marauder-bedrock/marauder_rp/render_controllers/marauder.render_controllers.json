@@ -22,6 +22,21 @@
         { "arm_right_3": "query.property('marauder:stage') >= 8" },
         { "arm_left_3": "query.property('marauder:stage') >= 8" }
       ]
+    },
+    "controller.render.fractured_marauder": {
+      "geometry": "Geometry.default",
+      "materials": [ { "*": "Material.default" } ],
+      "arrays": {
+        "textures": {
+          "Array.fracture": [
+            "Texture.f0", "Texture.f1", "Texture.f2", "Texture.f3"
+          ]
+        }
+      },
+      "textures": [ "Array.fracture[math.clamp(query.property('marauder:fracture_stage'), 0, 3)]" ],
+      "part_visibility": [
+        { "*": true }
+      ]
     }
   }
 }

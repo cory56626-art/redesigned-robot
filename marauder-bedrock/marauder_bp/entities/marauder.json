@@ -197,8 +197,7 @@
       "marauder:boss": {
         "minecraft:boss": {
           "should_darken_sky": false,
-          "hud_range": 55,
-          "name": "The Marauder"
+          "hud_range": 55
         }
       },
       "marauder:free_for_all": {
