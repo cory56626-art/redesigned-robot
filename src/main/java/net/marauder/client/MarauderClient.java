@@ -8,6 +8,6 @@ public class MarauderClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        EntityRendererRegistry.register(ModEntities.MARAUDER, MarauderEntityRenderer::new);
+        EntityRendererRegistry.register(ModEntities.MARAUDER, MarauderGeoRenderer::new);
     }
 }

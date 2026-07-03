@@ -6,6 +6,7 @@ import net.marauder.item.AshenRemnantItem;
 import net.marauder.item.BlacksteelBladeItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroups;
+import net.minecraft.item.SpawnEggItem;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.util.Identifier;
@@ -28,6 +29,7 @@ public final class ModItems {
     // Special items.
     public static BlacksteelBladeItem BLACKSTEEL_BLADE;
     public static AshenRemnantItem ASHEN_REMNANT;
+    public static SpawnEggItem MARAUDER_SPAWN_EGG;
 
     private ModItems() {
     }
@@ -52,9 +54,18 @@ public final class ModItems {
                 new Identifier(Marauder.MOD_ID, "ashen_remnant"),
                 new AshenRemnantItem(new Item.Settings().maxCount(1).rarity(net.minecraft.util.Rarity.EPIC)));
 
+        // Creative spawn egg (charred black with molten-orange spots).
+        MARAUDER_SPAWN_EGG = Registry.register(
+                Registries.ITEM,
+                new Identifier(Marauder.MOD_ID, "marauder_spawn_egg"),
+                new SpawnEggItem(net.marauder.registry.ModEntities.MARAUDER, 0x14141A, 0xE0662B, new Item.Settings()));
+
         // Surface everything in the creative combat/ingredients tabs for testing and crafting.
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.COMBAT).register(entries -> {
             entries.add(BLACKSTEEL_BLADE);
+        });
+        ItemGroupEvents.modifyEntriesEvent(ItemGroups.SPAWN_EGGS).register(entries -> {
+            entries.add(MARAUDER_SPAWN_EGG);
         });
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.INGREDIENTS).register(entries -> {
             entries.add(DARK_SCRAP);

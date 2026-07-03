@@ -28,8 +28,6 @@ public final class NightManager {
 
     /** How often (in ticks) to evaluate the world. */
     private static final int CHECK_INTERVAL = 40;
-    /** Per-check probability of beginning an ambush once a player is eligible. */
-    private static final float SPAWN_CHANCE = 0.06f;
 
     private static final Random RANDOM = new Random();
 
@@ -38,6 +36,9 @@ public final class NightManager {
 
     public static void tick(MinecraftServer server) {
         if (server.getTicks() % CHECK_INTERVAL != 0) {
+            return;
+        }
+        if (!net.marauder.config.MarauderConfig.get().enabled) {
             return;
         }
         ServerWorld overworld = server.getOverworld();
@@ -72,12 +73,17 @@ public final class NightManager {
         if (progress.finalComplete && !progress.rematchArmed) {
             return;
         }
-        // One attempt per eligible night.
+        net.marauder.config.MarauderConfig cfg = net.marauder.config.MarauderConfig.get();
+
+        // One attempt per eligible night, plus an optional minimum gap between nights.
         if (progress.lastAttemptDay == day) {
             return;
         }
+        if (progress.lastAttemptDay >= 0 && day - progress.lastAttemptDay <= cfg.minNightsBetween) {
+            return;
+        }
         // Avoid two overlapping Marauders in a small area.
-        if (marauderNearby(overworld, player.getBlockPos(), 40)) {
+        if (marauderNearby(overworld, player.getBlockPos(), cfg.maxConcurrentRadius)) {
             return;
         }
 
@@ -88,7 +94,7 @@ public final class NightManager {
             return;
         }
 
-        if (RANDOM.nextFloat() > SPAWN_CHANCE) {
+        if (RANDOM.nextFloat() > cfg.spawnChance) {
             return;
         }
         BlockPos ambush = findAmbush(overworld, player);
@@ -210,11 +216,13 @@ public final class NightManager {
     }
 
     private static BlockPos resolveHomeAnchor(ServerPlayerEntity player, ServerWorld world) {
-        BlockPos spawn = player.getSpawnPointPosition();
-        if (spawn != null && player.getSpawnPointDimension() == World.OVERWORLD) {
-            BlockPos near = findStandNear(world, spawn, 6);
-            if (near != null) {
-                return near;
+        if (net.marauder.config.MarauderConfig.get().arenaNearBase) {
+            BlockPos spawn = player.getSpawnPointPosition();
+            if (spawn != null && player.getSpawnPointDimension() == World.OVERWORLD) {
+                BlockPos near = findStandNear(world, spawn, 6);
+                if (near != null) {
+                    return near;
+                }
             }
         }
         // Fall back to a safe outdoor spot a short distance from the player.

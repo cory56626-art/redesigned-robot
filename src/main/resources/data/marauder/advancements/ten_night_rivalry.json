@@ -1,0 +1,22 @@
+{
+  "display": {
+    "icon": {
+      "item": "marauder:blacksteel_blade"
+    },
+    "title": "The Ten-Night Rivalry",
+    "description": "Defeat the Marauder Ascendant and end the cursed knight's hunt.",
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false,
+    "background": "minecraft:textures/gui/advancements/backgrounds/nether.png"
+  },
+  "criteria": {
+    "defeated_ascendant": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    ["defeated_ascendant"]
+  ]
+}

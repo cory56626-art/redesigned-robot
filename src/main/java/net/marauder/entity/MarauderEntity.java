@@ -28,6 +28,9 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.network.packet.s2c.play.SubtitleS2CPacket;
+import net.minecraft.network.packet.s2c.play.TitleFadeS2CPacket;
+import net.minecraft.network.packet.s2c.play.TitleS2CPacket;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
@@ -40,6 +43,13 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
+import software.bernie.geckolib.animatable.GeoEntity;
+import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
+import software.bernie.geckolib.core.animation.AnimatableManager;
+import software.bernie.geckolib.core.animation.AnimationController;
+import software.bernie.geckolib.core.animation.RawAnimation;
+import software.bernie.geckolib.core.object.PlayState;
+import software.bernie.geckolib.util.GeckoLibUtil;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -55,7 +65,14 @@ import java.util.UUID;
  * deterministic state machine over {@link Behavior}. Every damaging ability runs a
  * telegraph → active → recovery cycle so nothing is instant or unavoidable.</p>
  */
-public class MarauderEntity extends HostileEntity {
+public class MarauderEntity extends HostileEntity implements GeoEntity {
+
+    private static final RawAnimation IDLE_ANIM = RawAnimation.begin().thenLoop("idle");
+    private static final RawAnimation WALK_ANIM = RawAnimation.begin().thenLoop("walk");
+    private static final RawAnimation ATTACK_ANIM = RawAnimation.begin().thenPlay("attack");
+    private static final RawAnimation CAST_ANIM = RawAnimation.begin().thenPlay("cast");
+
+    private final AnimatableInstanceCache geoCache = GeckoLibUtil.createInstanceCache(this);
 
     private static final TrackedData<Integer> STAGE =
             DataTracker.registerData(MarauderEntity.class, TrackedDataHandlerRegistry.INTEGER);
@@ -65,8 +82,6 @@ public class MarauderEntity extends HostileEntity {
             DataTracker.registerData(MarauderEntity.class, TrackedDataHandlerRegistry.INTEGER);
 
     // Trigger and escape distances (blocks).
-    private static final double CHALLENGE_RADIUS = 11.0;
-    private static final double STALK_STANDOFF = 13.0;
     private static final double REPOSITION_DISTANCE = 48.0;
     private static final double END_DISTANCE = 80.0;
 
@@ -87,6 +102,8 @@ public class MarauderEntity extends HostileEntity {
     private int finalPhase = 1;
     private boolean arenaCreated;
     private boolean defeatHandled;
+    /** Test/egg spawns keep hunting regardless of the day/night clock. */
+    private boolean ignoreDayNight;
 
     // Adaptive biases loaded from the previous defeat profile (0 = neutral).
     private int biasShield;
@@ -148,16 +165,21 @@ public class MarauderEntity extends HostileEntity {
         return this.dataTracker.get(TELEGRAPH) > 0;
     }
 
+    private boolean initialized;
+
+    /** Full initialization with a known target player (night manager, commands). */
     public void initFromStage(int stage, ServerPlayerEntity target) {
         stage = MarauderStages.clamp(stage);
         this.dataTracker.set(STAGE, stage);
-        this.targetPlayerUuid = target.getUuid();
-
+        if (target != null) {
+            this.targetPlayerUuid = target.getUuid();
+            loadAdaptiveProfile(target);
+        }
         applyStageAttributes(stage);
         applyStageEquipment(stage);
-        loadAdaptiveProfile(target);
-
         this.setHealth(this.getMaxHealth());
+        this.initialized = true;
+
         if (MarauderStages.isFinal(stage)) {
             setState(Behavior.FINAL_WAIT);
         } else {
@@ -165,10 +187,32 @@ public class MarauderEntity extends HostileEntity {
         }
     }
 
+    /** Spawn without an owner (creative egg) — the nearest player is acquired on tick. */
+    public void initUntargeted(int stage) {
+        stage = MarauderStages.clamp(stage);
+        this.dataTracker.set(STAGE, stage);
+        applyStageAttributes(stage);
+        applyStageEquipment(stage);
+        this.setHealth(this.getMaxHealth());
+        this.initialized = true;
+        setState(Behavior.IDLE_DORMANT);
+    }
+
+    /** Skip stalking and open the duel immediately (test command). */
+    public void skipToChallenge() {
+        setState(Behavior.CHALLENGE);
+    }
+
+    /** Test spawns keep hunting regardless of the clock. */
+    public void setIgnoreDayNight(boolean value) {
+        this.ignoreDayNight = value;
+    }
+
     private void applyStageAttributes(int stage) {
-        setAttr(EntityAttributes.GENERIC_MAX_HEALTH, MarauderStages.health(stage));
+        net.marauder.config.MarauderConfig cfg = net.marauder.config.MarauderConfig.get();
+        setAttr(EntityAttributes.GENERIC_MAX_HEALTH, MarauderStages.health(stage) * cfg.healthMultiplier);
         setAttr(EntityAttributes.GENERIC_ARMOR, MarauderStages.armor(stage));
-        setAttr(EntityAttributes.GENERIC_ATTACK_DAMAGE, MarauderStages.damage(stage));
+        setAttr(EntityAttributes.GENERIC_ATTACK_DAMAGE, MarauderStages.damage(stage) * cfg.damageMultiplier);
         setAttr(EntityAttributes.GENERIC_MOVEMENT_SPEED, MarauderStages.speed(stage));
         setAttr(EntityAttributes.GENERIC_KNOCKBACK_RESISTANCE, MarauderStages.knockbackResistance(stage));
         this.experiencePoints = MarauderStages.experience(stage);
@@ -248,6 +292,23 @@ public class MarauderEntity extends HostileEntity {
 
         ServerPlayerEntity target = resolveTarget();
 
+        // Ownerless spawns (creative egg) latch onto the nearest player and hunt.
+        if (targetPlayerUuid == null && behavior == Behavior.IDLE_DORMANT) {
+            ServerPlayerEntity near = acquireNearestPlayer();
+            if (near != null) {
+                if (!initialized) {
+                    // Creative spawn-egg path: adopt the player's current stage and hunt anytime.
+                    initFromStage(progressStageFor(near), near);
+                    this.ignoreDayNight = true;
+                } else {
+                    targetPlayerUuid = near.getUuid();
+                    DuelManager.register(near.getUuid(), this);
+                    setState(MarauderStages.isFinal(getStage()) ? Behavior.FINAL_WAIT : Behavior.STALKING);
+                }
+                target = near;
+            }
+        }
+
         switch (behavior) {
             case STALKING -> tickStalking(target);
             case CHALLENGE -> tickChallenge(target);
@@ -273,6 +334,31 @@ public class MarauderEntity extends HostileEntity {
         return (p instanceof ServerPlayerEntity sp) ? sp : null;
     }
 
+    private ServerPlayerEntity acquireNearestPlayer() {
+        double range = this.getAttributeValue(EntityAttributes.GENERIC_FOLLOW_RANGE);
+        ServerPlayerEntity best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (PlayerEntity p : this.getWorld().getPlayers()) {
+            if (!(p instanceof ServerPlayerEntity sp) || !sp.isAlive() || sp.isCreative() || sp.isSpectator()) {
+                continue;
+            }
+            double d = this.squaredDistanceTo(sp);
+            if (d < bestDist && d <= range * range) {
+                best = sp;
+                bestDist = d;
+            }
+        }
+        return best;
+    }
+
+    private int progressStageFor(ServerPlayerEntity player) {
+        if (this.getServer() == null) {
+            return 1;
+        }
+        PlayerProgress p = MarauderState.get(this.getServer()).getOrCreate(player.getUuid());
+        return MarauderStages.clamp(p.stage);
+    }
+
     private boolean isNightNow() {
         long t = this.getWorld().getTimeOfDay() % 24000L;
         return t >= 13000L && t < 23000L;
@@ -286,7 +372,8 @@ public class MarauderEntity extends HostileEntity {
             beginRetreat();
             return;
         }
-        if (!isNightNow()) {
+        // Natural spawns retreat at dawn; test spawns keep hunting so debugging is easy.
+        if (!isNightNow() && !ignoreDayNight) {
             beginRetreat();
             return;
         }
@@ -294,16 +381,39 @@ public class MarauderEntity extends HostileEntity {
         this.getLookControl().lookAt(target, 30f, 30f);
 
         double dist = this.distanceTo(target);
+        double challengeRadius = net.marauder.config.MarauderConfig.get().challengeRadius;
+        int observeTicks = net.marauder.config.MarauderConfig.get().stalkObserveSeconds * 20;
 
-        // Hold near the ambush point; drift toward the player's vicinity but keep a standoff gap.
-        BlockPos anchor = ambushPos != null ? ambushPos : target.getBlockPos();
-        if (this.squaredDistanceTo(Vec3d.ofCenter(anchor)) > 4.0 && dist > STALK_STANDOFF) {
-            this.getNavigation().startMovingTo(anchor.getX() + 0.5, anchor.getY(), anchor.getZ() + 0.5, 0.9);
-        } else if (dist < STALK_STANDOFF - 3) {
-            this.getNavigation().stop();
+        if (ticksInState < observeTicks && dist > challengeRadius) {
+            // Observe phase: hold near the ambush anchor and build dread.
+            BlockPos anchor = ambushPos != null ? ambushPos : target.getBlockPos();
+            if (this.squaredDistanceTo(Vec3d.ofCenter(anchor)) > 6.0) {
+                this.getNavigation().startMovingTo(anchor.getX() + 0.5, anchor.getY(), anchor.getZ() + 0.5, 0.8);
+            } else {
+                this.getNavigation().stop();
+            }
+            if (this.age % 15 == 0 && this.getWorld() instanceof ServerWorld sw) {
+                sw.spawnParticles(ParticleTypes.SMOKE, this.getX(), this.getBodyY(1.2), this.getZ(),
+                        3, 0.2, 0.3, 0.2, 0.01);
+            }
+        } else {
+            // Close-in phase: actively hunt the target down.
+            this.getNavigation().startMovingTo(target, 1.05);
+            if (this.age % 8 == 0 && this.getWorld() instanceof ServerWorld sw) {
+                sw.spawnParticles(ParticleTypes.SOUL_FIRE_FLAME, this.getX(), this.getBodyY(0.4), this.getZ(),
+                        2, 0.2, 0.1, 0.2, 0.01);
+            }
         }
 
-        if (dist <= CHALLENGE_RADIUS) {
+        if (dist <= challengeRadius) {
+            setState(Behavior.CHALLENGE);
+            return;
+        }
+
+        // Hard fallback: if we can't close within 30s, flash-step in and challenge anyway.
+        if (ticksInState > 600) {
+            Vec3d near = target.getPos().subtract(target.getRotationVec(1f).multiply(5));
+            tryTeleportNear(near);
             setState(Behavior.CHALLENGE);
         }
     }
@@ -322,7 +432,7 @@ public class MarauderEntity extends HostileEntity {
                     SoundEvents.ENTITY_ENDER_DRAGON_GROWL, SoundCategory.HOSTILE, 0.8f, 0.5f);
             w.playSound(null, this.getX(), this.getY(), this.getZ(),
                     SoundEvents.ENTITY_ELDER_GUARDIAN_CURSE, SoundCategory.HOSTILE, 0.7f, 0.7f);
-            target.sendMessage(Text.literal("The Marauder has found you.").formatted(Formatting.DARK_RED), false);
+            sendChallengeTitle(target);
             spawnRing(this.getPos(), 1.6, ParticleTypes.LARGE_SMOKE, 40);
             repelBystanderMobs();
         }
@@ -334,13 +444,21 @@ public class MarauderEntity extends HostileEntity {
         }
     }
 
+    private void sendChallengeTitle(ServerPlayerEntity target) {
+        target.networkHandler.sendPacket(new TitleFadeS2CPacket(8, 40, 16));
+        target.networkHandler.sendPacket(new TitleS2CPacket(
+                Text.literal("The Marauder has found you.").formatted(Formatting.DARK_RED, Formatting.BOLD)));
+        target.networkHandler.sendPacket(new SubtitleS2CPacket(
+                Text.literal(MarauderStages.title(getStage())).formatted(Formatting.GRAY)));
+    }
+
     private void startDuel(ServerPlayerEntity target) {
         int stage = getStage();
         setState(MarauderStages.isFinal(stage) ? Behavior.FINAL_DUEL : Behavior.DUELING);
         this.setTarget(target);
         globalAbilityCooldown = 40;
 
-        if (MarauderStages.hasBossBar(stage)) {
+        if (stage >= net.marauder.config.MarauderConfig.get().bossBarMinStage) {
             bossBar = new ServerBossBar(
                     Text.literal(MarauderStages.title(stage)).formatted(Formatting.DARK_RED),
                     stage >= 9 ? BossBar.Color.PURPLE : BossBar.Color.RED,
@@ -460,6 +578,7 @@ public class MarauderEntity extends HostileEntity {
         this.dataTracker.set(TELEGRAPH, a.windup);
         this.getLookControl().lookAt(target, 30f, 30f);
         playTelegraphStart(a);
+        this.triggerAnim("action", "cast");
     }
 
     private void runActiveAbility(ServerPlayerEntity target) {
@@ -514,7 +633,7 @@ public class MarauderEntity extends HostileEntity {
     }
 
     private void tickFinalWait(ServerPlayerEntity target) {
-        if (!isNightNow()) {
+        if (!isNightNow() && !ignoreDayNight) {
             // The challenge is a night ritual; withdraw cleanly at dawn and return next night.
             beginRetreat();
             return;
@@ -529,7 +648,7 @@ public class MarauderEntity extends HostileEntity {
         if (this.age % 40 == 0) {
             spawnRing(this.getPos(), 1.0, ParticleTypes.SOUL_FIRE_FLAME, 6);
         }
-        if (this.distanceTo(target) <= CHALLENGE_RADIUS) {
+        if (this.distanceTo(target) <= net.marauder.config.MarauderConfig.get().challengeRadius) {
             setState(Behavior.CHALLENGE);
         }
     }
@@ -649,6 +768,17 @@ public class MarauderEntity extends HostileEntity {
         }
     }
 
+    private void grantRivalryAdvancement(ServerPlayerEntity player) {
+        if (this.getServer() == null) {
+            return;
+        }
+        net.minecraft.advancement.Advancement adv = this.getServer().getAdvancementLoader()
+                .get(new net.minecraft.util.Identifier("marauder", "ten_night_rivalry"));
+        if (adv != null) {
+            player.getAdvancementTracker().grantCriterion(adv, "defeated_ascendant");
+        }
+    }
+
     @Override
     public boolean isPushable() {
         // Resist being shoved into cages / off ledges during the duel.
@@ -711,6 +841,7 @@ public class MarauderEntity extends HostileEntity {
             if (MarauderStages.isFinal(stage)) {
                 p.finalComplete = true;
                 p.rematchArmed = false;
+                grantRivalryAdvancement(target);
                 target.sendMessage(Text.literal("The Marauder Ascendant falls. The ten-night rivalry is over.")
                         .formatted(Formatting.GOLD), false);
                 target.sendMessage(Text.literal("An Ashen Remnant remains — should you ever wish to face him again.")
@@ -1206,5 +1337,35 @@ public class MarauderEntity extends HostileEntity {
     @Override
     protected net.minecraft.sound.SoundEvent getDeathSound() {
         return SoundEvents.ENTITY_RAVAGER_DEATH;
+    }
+
+    // ----------------------------------------------------------------- GeckoLib
+
+    @Override
+    public boolean tryAttack(net.minecraft.entity.Entity target) {
+        boolean result = super.tryAttack(target);
+        if (result && !this.getWorld().isClient) {
+            this.triggerAnim("action", "attack");
+        }
+        return result;
+    }
+
+    @Override
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        controllers.add(new AnimationController<>(this, "move", 5, state -> {
+            if (state.isMoving()) {
+                return state.setAndContinue(WALK_ANIM);
+            }
+            return state.setAndContinue(IDLE_ANIM);
+        }));
+        controllers.add(new AnimationController<>(this, "action", 5, state -> PlayState.STOP)
+                .triggerableAnim("attack", ATTACK_ANIM)
+                .triggerableAnim("cast", CAST_ANIM)
+                .receiveTriggeredAnimations());
+    }
+
+    @Override
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return geoCache;
     }
 }

@@ -15,6 +15,9 @@ duel resolves the rivalry.
 - **Fabric API** (required) — [download](https://modrinth.com/mod/fabric-api)
 - Java **17+**
 
+**GeckoLib** (the animation library used for the custom flame-knight model) is
+**bundled inside the jar** — you do not need to install it separately.
+
 ## Install
 
 1. Install the Fabric loader for 1.20.1.
@@ -22,6 +25,50 @@ duel resolves the rivalry.
 3. Launch. The hunt begins at dusk.
 
 The prebuilt jar is `build/libs/marauder-1.0.0.jar` after building (see below).
+
+## The knight
+
+The Marauder is a charred **flame-knight** (GeckoLib-animated): blackened plate
+laced with molten cracks, a spiked burning crown, a fiery halo, and a tattered
+skirt. The curse *consumes him across the nights* — extra arms, the crown, and
+the halo emerge as he ascends, culminating in the full **six-armed crowned form**
+at Night 10, with the molten glow intensifying each stage.
+
+## Testing commands
+
+Operator (`/op`, permission level 2) commands under `/marauder`:
+
+| Command | Effect |
+| --- | --- |
+| `/marauder spawn <1-10> [player]` | Spawn a stalking Marauder of that stage hunting the player |
+| `/marauder duel <1-10> [player]` | Spawn one that opens the duel immediately (skips the stalk) |
+| `/marauder finalwait [player]` | Spawn the Night-10 form that waits to be challenged |
+| `/marauder setstage <1-10> [player]` | Set the player's persistent stage |
+| `/marauder stage [player]` | Print the player's progress |
+| `/marauder reset [player]` | Reset the rivalry to Stage 1 |
+| `/marauder rematch [player]` | Arm a Night-10 rematch |
+| `/marauder clear [player]` | Remove the player's active Marauder |
+
+Test spawns ignore the day/night clock so you can debug in broad daylight. There
+is also a **creative spawn egg** (Spawn Eggs tab) — it adopts the nearest player's
+current stage and starts hunting immediately.
+
+## Configuration
+
+A config file is written to `config/marauder.json` on first run:
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `true` | Master switch for nightly ambushes |
+| `spawnChance` | `0.10` | Per-check (every 2s) chance to begin an ambush when eligible |
+| `minNightsBetween` | `0` | Minimum whole nights between encounters |
+| `maxConcurrentRadius` | `40` | Skip spawning if another Marauder is this close |
+| `healthMultiplier` / `damageMultiplier` | `1.0` | Global combat scaling |
+| `stalkObserveSeconds` | `4` | Seconds it watches before closing in |
+| `challengeRadius` | `14.0` | Distance at which the stalk becomes a duel |
+| `bossBarMinStage` | `7` | Lowest stage that shows a boss bar |
+| `rematchesEnabled` | `true` | Allow the Ashen Remnant rematch path |
+| `arenaNearBase` | `true` | Allow the final duel to set up near your respawn |
 
 ## How it plays
 

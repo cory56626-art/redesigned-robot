@@ -46,53 +46,80 @@ public class GenAssets {
         System.out.println("Assets generated under " + ASSETS);
     }
 
-    // ---- entity skins (64x64) ------------------------------------------
+    // ---- entity skins (128x128, charred/molten flame knight) -----------
 
     static void genSkin(int stage) throws IOException {
-        BufferedImage img = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
-        // transparent by default
+        int S = 128;
+        BufferedImage img = new BufferedImage(S, S, BufferedImage.TYPE_INT_ARGB);
+        java.util.Random rng = new java.util.Random(1000L + stage);
 
-        int[] accents = {
-                0, 0xC0392B, 0xE67E22, 0x7F8C8D, 0x2C3E50, 0xE74C3C,
-                0x9BB7D4, 0x8E44AD, 0x2C0E3A, 0xBFA14A, 0xF2E9C9
-        };
-        int accent = accents[stage];
-        int shade = Math.min(20, stage * 2);
-        int bodyBase = brighten(0x1C1E24, shade);
-        int limbBase = brighten(0x24262E, shade);
-        int headBase = brighten(0x181A20, shade);
+        // Molten intensity climbs across the ten nights: dark rusted knight -> radiant.
+        double heat = 0.10 + (stage - 1) * 0.085; // 0.10 .. 0.87
+        int moltenColor = mix(0x7A1E0A, 0xE0662B, Math.min(1.0, heat + 0.1));
+        int hotColor = mix(0xE0662B, 0xFFE39A, Math.min(1.0, heat));
 
-        // Base-layer rectangles only (overlays left transparent to avoid z-fighting).
-        fill(img, 0, 0, 32, 16, headBase);   // head
-        fill(img, 16, 16, 24, 16, bodyBase);  // body
-        fill(img, 40, 16, 16, 16, limbBase);  // right arm
-        fill(img, 32, 48, 16, 16, limbBase);  // left arm
-        fill(img, 0, 16, 16, 16, limbBase);   // right leg
-        fill(img, 16, 48, 16, 16, limbBase);  // left leg
-
-        // Glowing eye slits on the head front face (x8..15, y8..15).
-        img.setRGB(9, 11, 0xFF000000 | accent);
-        img.setRGB(10, 11, 0xFF000000 | accent);
-        img.setRGB(13, 11, 0xFF000000 | accent);
-        img.setRGB(14, 11, 0xFF000000 | accent);
-
-        // Chest emblem grows brighter with stage (body front x20..27, y20..31).
-        int emblemRows = Math.min(6, stage);
-        for (int i = 0; i < emblemRows; i++) {
-            img.setRGB(23, 22 + i, 0xFF000000 | accent);
-            img.setRGB(24, 22 + i, 0xFF000000 | mix(accent, 0xFFFFFF, 0.3));
-        }
-
-        // Cracks of light in later stages (front torso speckles).
-        if (stage >= 6) {
-            for (int i = 0; i < stage * 2; i++) {
-                int x = 20 + (i * 7) % 8;
-                int y = 20 + (i * 5) % 12;
-                img.setRGB(x, y, 0xFF000000 | mix(accent, 0xFFFFFF, 0.5));
+        for (int y = 0; y < S; y++) {
+            for (int x = 0; x < S; x++) {
+                // Charred blackened plate base with subtle plate banding and noise.
+                int n = rng.nextInt(14);
+                int band = ((y / 6) % 2 == 0) ? 4 : 0;
+                int base = 0x121319;
+                int v = 0x12 + n + band;
+                int c = (v << 16) | ((v + 1) << 8) | (v + 4);
+                // A little cool blue-steel sheen on some plates.
+                if (rng.nextInt(9) == 0) c = mix(c, 0x2A3340, 0.5);
+                img.setRGB(x, y, 0xFF000000 | (c & 0xFFFFFF));
             }
         }
 
+        // Molten cracks: short branching bright veins, denser and hotter with stage.
+        int veins = 20 + stage * 10;
+        for (int i = 0; i < veins; i++) {
+            int x = rng.nextInt(S);
+            int y = rng.nextInt(S);
+            int len = 3 + rng.nextInt(8);
+            int dx = rng.nextInt(3) - 1;
+            int dy = rng.nextInt(3) - 1;
+            if (dx == 0 && dy == 0) dy = 1;
+            for (int s = 0; s < len; s++) {
+                if (x < 0 || y < 0 || x >= S || y >= S) break;
+                boolean hot = rng.nextDouble() < heat;
+                img.setRGB(x, y, 0xFF000000 | ((hot ? hotColor : moltenColor) & 0xFFFFFF));
+                // occasional glow halo pixel
+                if (rng.nextInt(4) == 0 && x + 1 < S) {
+                    img.setRGB(x + 1, y, 0xFF000000 | mix(moltenColor, base(), 0.4));
+                }
+                x += dx + (rng.nextInt(3) - 1);
+                y += dy;
+            }
+        }
+
+        // Ember pool along the lower body (skirt/legs region of the atlas).
+        for (int i = 0; i < 30 + stage * 6; i++) {
+            int x = rng.nextInt(S);
+            int y = 60 + rng.nextInt(60);
+            if (y >= S) continue;
+            img.setRGB(x, y, 0xFF000000 | mix(moltenColor, 0x140805, rng.nextDouble()));
+        }
+
+        // Glowing eye slits region (head atlas around uv 32..64, 0..24).
+        int eye = mix(0xE0662B, 0xFFF0C0, heat);
+        for (int x = 40; x < 46; x++) img.setRGB(x, 12, 0xFF000000 | eye);
+        for (int x = 52; x < 58; x++) img.setRGB(x, 12, 0xFF000000 | eye);
+
+        // Crown/halo glow accents baked near their atlas rows for stages that show them.
+        if (stage >= 4) {
+            for (int x = 0; x < 30; x++) img.setRGB(x, 41, 0xFF000000 | mix(0xE0662B, 0xFFE39A, heat));
+        }
+        if (stage >= 6) {
+            for (int x = 40; x < 104; x++) img.setRGB(x, 41, 0xFF000000 | mix(0xFFC24B, 0xFFF6D8, heat));
+        }
+
         ImageIO.write(img, "PNG", new File(ASSETS + "/textures/entity/marauder_" + stage + ".png"));
+    }
+
+    static int base() {
+        return 0x121319;
     }
 
     // ---- item textures (16x16) -----------------------------------------
