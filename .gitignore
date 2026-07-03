@@ -1,0 +1,3 @@
+# Java decompile / build scratch
+*.class
+node_modules/

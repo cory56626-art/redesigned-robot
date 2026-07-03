@@ -1,0 +1,50 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.marauder.move": {
+      "initial_state": "idle",
+      "states": {
+        "idle": {
+          "animations": [ "idle" ],
+          "blend_transition": 0.15,
+          "transitions": [
+            { "walk": "query.modified_move_speed > 0.1" }
+          ]
+        },
+        "walk": {
+          "animations": [ "walk" ],
+          "blend_transition": 0.15,
+          "transitions": [
+            { "idle": "query.modified_move_speed <= 0.1" }
+          ]
+        }
+      }
+    },
+    "controller.animation.marauder.action": {
+      "initial_state": "idle",
+      "states": {
+        "idle": {
+          "transitions": [
+            { "cast": "query.property('marauder:casting')" },
+            { "swing": "query.property('marauder:attacking')" }
+          ]
+        },
+        "swing": {
+          "animations": [ "attack" ],
+          "blend_transition": 0.1,
+          "transitions": [
+            { "cast": "query.property('marauder:casting')" },
+            { "idle": "!query.property('marauder:attacking')" }
+          ]
+        },
+        "cast": {
+          "animations": [ "cast" ],
+          "blend_transition": 0.15,
+          "transitions": [
+            { "idle": "!query.property('marauder:casting')" }
+          ]
+        }
+      }
+    }
+  }
+}

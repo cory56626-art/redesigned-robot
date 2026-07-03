@@ -1,0 +1,20 @@
+{
+  "format_version": "1.20.60",
+  "minecraft:item": {
+    "description": {
+      "identifier": "marauder:marauder_trophy",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:icon": {
+        "texture": "marauder_trophy"
+      },
+      "minecraft:max_stack_size": 16,
+      "minecraft:display_name": {
+        "value": "Marauder's Trophy Banner"
+      }
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "format_version": "1.10.0",
+  "render_controllers": {
+    "controller.render.marauder": {
+      "geometry": "Geometry.default",
+      "materials": [ { "*": "Material.default" } ],
+      "arrays": {
+        "textures": {
+          "Array.skins": [
+            "Texture.s1", "Texture.s2", "Texture.s3", "Texture.s4", "Texture.s5",
+            "Texture.s6", "Texture.s7", "Texture.s8", "Texture.s9", "Texture.s10"
+          ]
+        }
+      },
+      "textures": [ "Array.skins[math.clamp(query.property('marauder:stage') - 1, 0, 9)]" ],
+      "part_visibility": [
+        { "*": true },
+        { "crown": "query.property('marauder:stage') >= 4" },
+        { "halo": "query.property('marauder:stage') >= 6" },
+        { "arm_right_2": "query.property('marauder:stage') >= 6" },
+        { "arm_left_2": "query.property('marauder:stage') >= 6" },
+        { "arm_right_3": "query.property('marauder:stage') >= 8" },
+        { "arm_left_3": "query.property('marauder:stage') >= 8" }
+      ]
+    }
+  }
+}
