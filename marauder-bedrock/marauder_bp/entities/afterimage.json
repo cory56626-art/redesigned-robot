@@ -1,0 +1,133 @@
+{
+  "format_version": "1.20.60",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "marauder:afterimage",
+      "is_spawnable": false,
+      "is_summonable": true,
+      "is_experimental": false,
+      "properties": {
+        "marauder:stage": {
+          "type": "int",
+          "range": [1, 10],
+          "default": 1,
+          "client_sync": true
+        },
+        "marauder:attacking": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        }
+      }
+    },
+    "component_groups": {
+      "marauder:illusion_armed": {
+        "minecraft:attack": { "damage": 3 },
+        "minecraft:movement": { "value": 0.32 },
+        "minecraft:follow_range": { "value": 32, "max": 32 },
+        "minecraft:behavior.melee_attack": {
+          "priority": 3,
+          "speed_multiplier": 1.4,
+          "track_target": true,
+          "require_complete_path": false,
+          "reach_multiplier": 1.8,
+          "melee_fov": 200,
+          "cooldown_time": 0.5
+        },
+        "minecraft:behavior.nearest_attackable_target": {
+          "priority": 2,
+          "must_see": false,
+          "must_reach": false,
+          "reselect_targets": true,
+          "within_radius": 32,
+          "entity_types": [
+            {
+              "filters": {
+                "all_of": [
+                  { "test": "is_family", "subject": "other", "value": "mob" },
+                  { "test": "is_family", "subject": "other", "value": "marauder", "operator": "!=" }
+                ]
+              },
+              "max_dist": 32
+            },
+            {
+              "filters": { "test": "is_family", "subject": "other", "value": "player" },
+              "max_dist": 32
+            }
+          ]
+        },
+        "minecraft:behavior.hurt_by_target": {
+          "priority": 1,
+          "hurt_owner": true
+        }
+      },
+      "marauder:dodge_phantom": {
+        "minecraft:damage_sensor": {
+          "triggers": [
+            { "cause": "entity_attack", "deals_damage": false },
+            { "cause": "projectile", "deals_damage": false },
+            { "cause": "fire", "deals_damage": false },
+            { "cause": "fire_tick", "deals_damage": false },
+            { "cause": "lava", "deals_damage": false },
+            { "cause": "fall", "deals_damage": false },
+            { "cause": "drowning", "deals_damage": false },
+            { "cause": "magic", "deals_damage": false },
+            { "cause": "wither", "deals_damage": false },
+            { "cause": "entity_explosion", "deals_damage": false },
+            { "cause": "block_explosion", "deals_damage": false },
+            { "cause": "lightning", "deals_damage": false },
+            { "cause": "thorns", "deals_damage": false },
+            { "cause": "freezing", "deals_damage": false },
+            { "cause": "sonic_boom", "deals_damage": false },
+            { "cause": "void", "deals_damage": false }
+          ]
+        }
+      }
+    },
+    "components": {
+      "minecraft:type_family": { "family": ["marauder_illusion", "marauder", "mob"] },
+      "minecraft:health": { "value": 1, "max": 1 },
+      "minecraft:collision_box": { "width": 0.6, "height": 1.95 },
+      "minecraft:physics": {},
+      "minecraft:knockback_resistance": { "value": 1.0 },
+      "minecraft:movement": { "value": 0.0 },
+      "minecraft:persistent": {},
+      "minecraft:fire_immune": true,
+      "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": false },
+      "minecraft:damage_sensor": {
+        "triggers": [
+          { "cause": "fire", "deals_damage": false },
+          { "cause": "fire_tick", "deals_damage": false },
+          { "cause": "lava", "deals_damage": false },
+          { "cause": "fall", "deals_damage": false },
+          { "cause": "drowning", "deals_damage": false }
+        ]
+      },
+      "minecraft:behavior.float": { "priority": 0 },
+      "minecraft:behavior.look_at_player": { "priority": 7, "look_distance": 24 },
+      "minecraft:behavior.random_look_around": { "priority": 8 },
+      "minecraft:navigation.walk": {
+        "can_path_over_water": true,
+        "avoid_water": false,
+        "can_pass_doors": true,
+        "can_open_doors": false
+      },
+      "minecraft:movement.basic": {},
+      "minecraft:jump.static": {}
+    },
+    "events": {
+      "marauder:arm": {
+        "add": { "component_groups": ["marauder:illusion_armed"] }
+      },
+      "marauder:disarm": {
+        "remove": { "component_groups": ["marauder:illusion_armed"] }
+      },
+      "marauder:dodge_phantom_on": {
+        "add": { "component_groups": ["marauder:dodge_phantom"] }
+      },
+      "marauder:dodge_phantom_off": {
+        "remove": { "component_groups": ["marauder:dodge_phantom"] }
+      }
+    }
+  }
+}

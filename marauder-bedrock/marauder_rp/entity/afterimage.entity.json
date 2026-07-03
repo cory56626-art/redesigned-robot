@@ -2,7 +2,7 @@
   "format_version": "1.10.0",
   "minecraft:client_entity": {
     "description": {
-      "identifier": "marauder:marauder",
+      "identifier": "marauder:afterimage",
       "materials": { "default": "entity_alphatest" },
       "textures": {
         "s1": "textures/entity/marauder_1",
@@ -21,20 +21,13 @@
         "idle": "animation.marauder.idle",
         "walk": "animation.marauder.walk",
         "attack": "animation.marauder.attack",
-        "cast": "animation.marauder.cast",
-        "omni_punch": "animation.marauder.omni_punch",
-        "take_knee": "animation.marauder.take_knee",
         "move_ctrl": "controller.animation.marauder.move",
-        "action_ctrl": "controller.animation.marauder.action"
+        "action_ctrl": "controller.animation.marauder.afterimage_action"
       },
       "scripts": {
         "animate": [ "move_ctrl", "action_ctrl" ]
       },
-      "render_controllers": [ "controller.render.marauder" ],
-      "spawn_egg": {
-        "base_color": "#141018",
-        "overlay_color": "#E0662B"
-      }
+      "render_controllers": [ "controller.render.marauder" ]
     }
   }
 }

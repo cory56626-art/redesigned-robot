@@ -25,14 +25,18 @@
       "states": {
         "idle": {
           "transitions": [
+            { "kneeling": "query.property('marauder:kneeling')" },
+            { "omni": "query.property('marauder:omni')" },
             { "cast": "query.property('marauder:casting')" },
             { "swing": "query.property('marauder:attacking')" }
           ]
         },
         "swing": {
           "animations": [ "attack" ],
-          "blend_transition": 0.1,
+          "blend_transition": 0.15,
           "transitions": [
+            { "kneeling": "query.property('marauder:kneeling')" },
+            { "omni": "query.property('marauder:omni')" },
             { "cast": "query.property('marauder:casting')" },
             { "idle": "!query.property('marauder:attacking')" }
           ]
@@ -41,7 +45,41 @@
           "animations": [ "cast" ],
           "blend_transition": 0.15,
           "transitions": [
+            { "kneeling": "query.property('marauder:kneeling')" },
+            { "omni": "query.property('marauder:omni')" },
             { "idle": "!query.property('marauder:casting')" }
+          ]
+        },
+        "omni": {
+          "animations": [ "omni_punch" ],
+          "blend_transition": 0.2,
+          "transitions": [
+            { "kneeling": "query.property('marauder:kneeling')" },
+            { "idle": "!query.property('marauder:omni')" }
+          ]
+        },
+        "kneeling": {
+          "animations": [ "take_knee" ],
+          "blend_transition": 0.3,
+          "transitions": [
+            { "idle": "!query.property('marauder:kneeling')" }
+          ]
+        }
+      }
+    },
+    "controller.animation.marauder.afterimage_action": {
+      "initial_state": "idle",
+      "states": {
+        "idle": {
+          "transitions": [
+            { "swing": "query.property('marauder:attacking')" }
+          ]
+        },
+        "swing": {
+          "animations": [ "attack" ],
+          "blend_transition": 0.15,
+          "transitions": [
+            { "idle": "!query.property('marauder:attacking')" }
           ]
         }
       }

@@ -25,6 +25,21 @@
           "type": "bool",
           "default": false,
           "client_sync": true
+        },
+        "marauder:omni": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        },
+        "marauder:kneeling": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        },
+        "marauder:last_stand": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
         }
       }
     },
@@ -217,6 +232,45 @@
           "priority": 1,
           "hurt_owner": true
         }
+      },
+      "marauder:stunned": {
+        "minecraft:movement": { "value": 0.0 },
+        "minecraft:knockback_resistance": { "value": 1.0 },
+        "minecraft:attack": { "damage": 0 }
+      },
+      "marauder:invulnerable": {
+        "minecraft:damage_sensor": {
+          "triggers": [
+            { "cause": "entity_attack", "deals_damage": false },
+            { "cause": "projectile", "deals_damage": false },
+            { "cause": "fire", "deals_damage": false },
+            { "cause": "fire_tick", "deals_damage": false },
+            { "cause": "lava", "deals_damage": false },
+            { "cause": "drowning", "deals_damage": false },
+            { "cause": "fall", "deals_damage": false },
+            { "cause": "magic", "deals_damage": false },
+            { "cause": "wither", "deals_damage": false },
+            { "cause": "anvil", "deals_damage": false },
+            { "cause": "block_explosion", "deals_damage": false },
+            { "cause": "entity_explosion", "deals_damage": false },
+            { "cause": "contact", "deals_damage": false },
+            { "cause": "lightning", "deals_damage": false },
+            { "cause": "thorns", "deals_damage": false },
+            { "cause": "fly_into_wall", "deals_damage": false },
+            { "cause": "freezing", "deals_damage": false },
+            { "cause": "stalactite", "deals_damage": false },
+            { "cause": "stalagmite", "deals_damage": false },
+            { "cause": "campfire", "deals_damage": false },
+            { "cause": "soul_campfire", "deals_damage": false },
+            { "cause": "magma", "deals_damage": false },
+            { "cause": "firework", "deals_damage": false },
+            { "cause": "sonic_boom", "deals_damage": false },
+            { "cause": "void", "deals_damage": false },
+            { "cause": "suicide", "deals_damage": false },
+            { "cause": "ram_attack", "deals_damage": false },
+            { "cause": "temperature", "deals_damage": false }
+          ]
+        }
       }
     },
     "components": {
@@ -296,16 +350,12 @@
       },
       "minecraft:behavior.melee_attack": {
         "priority": 3,
-        "speed_multiplier": 1.15,
+        "speed_multiplier": 1.4,
         "track_target": true,
         "require_complete_path": false,
-        "reach_multiplier": 1.6,
-        "melee_fov": 180
-      },
-      "minecraft:behavior.random_stroll": {
-        "priority": 6,
-        "speed_multiplier": 0.6,
-        "interval": 120
+        "reach_multiplier": 1.8,
+        "melee_fov": 200,
+        "cooldown_time": 0.4
       },
       "minecraft:behavior.look_at_player": {
         "priority": 7,
@@ -553,6 +603,26 @@
             "marauder:free_for_all"
           ]
         }
+      },
+      "marauder:stun_on": {
+        "add": {
+          "component_groups": [
+            "marauder:stunned"
+          ]
+        }
+      },
+      "marauder:stun_off": {
+        "remove": {
+          "component_groups": [
+            "marauder:stunned"
+          ]
+        }
+      },
+      "marauder:invulnerable_on": {
+        "add": { "component_groups": ["marauder:invulnerable"] }
+      },
+      "marauder:invulnerable_off": {
+        "remove": { "component_groups": ["marauder:invulnerable"] }
       }
     }
   }

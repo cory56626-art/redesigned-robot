@@ -7,6 +7,27 @@ stronger every time he is defeated until the final *Marauder Ascendant* duel.
 This folder is the editable source for the add‑on. A ready‑to‑install package is
 built to `../dist/marauderbedrock.mcaddon`.
 
+## v5 Souls-like phase (latest)
+
+The Marauder is now a proper phased boss. As his HP drops he **enrages** — armor
+(damage reduction) breaks away while his speed, damage, and **dodge** climb.
+Signature moves:
+
+- **Six-Arm Omni-Flurry** — pulls you in, then a synchronized six-strike barrage
+  of **true damage** (bypasses armor); near one-combo if you eat the whole thing.
+- **Afterimage Dodge** — at low HP he can phase out of a hit, dash away, and leave
+  a phantom that sweeps where he stood.
+- **Halo Shatter** — at ≤25% HP he kneels, turns invulnerable, and rains **three
+  tracking divine strikes** that re-lock onto your current position (moving = chip,
+  standing still = death), each igniting + cratering the ground.
+- **Unbroken-Core Revive** — the first killing blow is refused; he restores to 30%
+  HP for a final berserk stand. The second death is real.
+
+> These four mechanics are all driven from the **stable** `@minecraft/server` API
+> (no experiments required). The earlier GLM build wired Dodge and Revive through
+> a cancellable damage event that only exists as an experimental API, so they
+> never fired — they now run via damage heal-back + an HP monitor instead.
+
 ```
 marauder_bp/   behavior pack  (entity AI, items, script)
 marauder_rp/   resource pack  (model, textures, animations, controllers)
@@ -73,6 +94,12 @@ The fixes below bring the Bedrock version in line with the Java entity’s inten
 | `/scriptevent marauder:reset` | Reset rivalry to stage 1 |
 | `/scriptevent marauder:rematch` | Arm the Ascendant rematch |
 | `/scriptevent marauder:clear` | Remove your active marauder(s) |
+| `/scriptevent marauder:omni` | Force the Six-Arm Omni-Flurry |
+| `/scriptevent marauder:halo` | Force the Halo Shatter phase |
+| `/scriptevent marauder:revive` | Set him to 1 HP + clear the flag (hit him once more to see the revive) |
+| `/scriptevent marauder:enrage` | Print HP / tier / dmg-reduction / speed / dodge |
+| `/scriptevent marauder:ping` | Confirm the script loaded (lists registered subscriptions) |
+| `/scriptevent marauder:help` | List every command |
 | `/scriptevent marauder:freeforall on` | Testing: make marauders attack **any** mob — melee *and* abilities target whatever he's fighting, and he retaliates against anything. `off` reverts; no argument flips it. Applies to active + future marauders. |
 
 Otherwise he appears on his own at night (survival/adventure, overworld).
