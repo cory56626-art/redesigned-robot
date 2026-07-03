@@ -1,0 +1,9 @@
+{
+  "resource_pack_name": "marauder",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "blacksteel_blade": {
+      "textures": "textures/item/blacksteel_blade"
+    }
+  }
+}

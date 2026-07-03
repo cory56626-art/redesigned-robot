@@ -9,6 +9,10 @@ run/
 # Scratch / local
 scratchpad/
 
+# Bedrock build artifacts
+bedrock/staging/
+bedrock/*.mcaddon
+
 # IDE
 .idea/
 *.iml

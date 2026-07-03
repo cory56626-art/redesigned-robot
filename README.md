@@ -158,6 +158,13 @@ animation, boss bars, and titles.
 - `DuelManager` — one active Marauder per player; unambiguous duel ownership.
 - `Ability` — declarative telegraph/active/recovery/cooldown/range table.
 
+## Bedrock Edition
+
+A Bedrock `.mcaddon` port lives in [`bedrock/`](bedrock/) — same ten-night
+flame-knight rivalry rebuilt with Bedrock behavior/resource packs and the
+`@minecraft/server` Script API, reusing this repo's model and textures. See
+[`bedrock/README.md`](bedrock/README.md).
+
 ## License
 
 MIT.
