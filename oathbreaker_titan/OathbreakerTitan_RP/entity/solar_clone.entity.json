@@ -1,0 +1,20 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "ob:solar_clone",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/entity/molten_god" },
+      "geometry": { "default": "geometry.ob_god" },
+      "animations": {
+        "idle": "animation.ob_god.idle",
+        "beams": "animation.ob_god.beams"
+      },
+      "scripts": {
+        "animate": ["beams"]
+      },
+      "render_controllers": ["controller.render.default"],
+      "spawn_egg": { "base_color": "#fff3a0", "overlay_color": "#ffffff" }
+    }
+  }
+}

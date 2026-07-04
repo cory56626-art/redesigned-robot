@@ -1,0 +1,30 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.ob_crystal.spin": {
+      "loop": true,
+      "bones": {
+        "crystal": {
+          "rotation": [0, "q.life_time * 160", 0],
+          "position": [0, "math.sin(q.life_time * 120) * 0.6", 0]
+        }
+      }
+    },
+    "animation.ob_pillar.pulse": {
+      "loop": true,
+      "bones": {
+        "cap": { "rotation": [0, "q.life_time * 90", 0] },
+        "pillar": { "scale": ["1", "1 + 0.02 * math.sin(q.life_time * 200)", "1"] }
+      }
+    },
+    "animation.ob_blade.hover": {
+      "loop": true,
+      "bones": {
+        "blade": {
+          "rotation": ["math.sin(q.life_time * 100) * 4", 0, "q.life_time * 30"],
+          "position": [0, "math.sin(q.life_time * 90) * 1.5", 0]
+        }
+      }
+    }
+  }
+}

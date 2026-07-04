@@ -2,24 +2,24 @@
   "format_version": "1.21.0",
   "minecraft:entity": {
     "description": {
-      "identifier": "ob:obsidian_overlord",
+      "identifier": "ob:molten_god",
       "is_spawnable": true,
       "is_summonable": true,
       "properties": {
         "ob:attack_state": {
           "type": "enum",
-          "values": ["idle", "cleave", "meteor", "slam", "gravity", "chain", "execute", "summon", "dash", "pummel", "absorb"],
+          "values": ["idle", "punch", "fusion", "beams", "suffer", "pillars", "starfire", "blades", "chain"],
           "default": "idle",
           "client_sync": true
         }
       }
     },
     "components": {
-      "minecraft:type_family": { "family": ["ob_overlord", "monster", "mob"] },
-      "minecraft:scale": { "value": 0.8 },
-      "minecraft:collision_box": { "width": 1.1, "height": 3.1 },
-      "minecraft:health": { "value": 700, "max": 700 },
-      "minecraft:movement": { "value": 0.4 },
+      "minecraft:type_family": { "family": ["ob_god", "monster", "mob"] },
+      "minecraft:scale": { "value": 0.85 },
+      "minecraft:collision_box": { "width": 1.1, "height": 3.2 },
+      "minecraft:health": { "value": 800, "max": 800 },
+      "minecraft:movement": { "value": 0.42 },
       "minecraft:navigation.walk": { "can_walk": true, "avoid_water": true },
       "minecraft:movement.basic": {},
       "minecraft:jump.static": {},
@@ -28,16 +28,17 @@
       "minecraft:knockback_resistance": { "value": 1.0 },
       "minecraft:fire_immune": {},
       "minecraft:persistent": {},
-      "minecraft:attack": { "damage": 14 },
-      "minecraft:boss": { "should_darken_sky": true, "hud_range": 70 },
-      "minecraft:follow_range": { "value": 56, "max": 56 },
-      "minecraft:experience_reward": { "on_death": "100" },
+      "minecraft:attack": { "damage": 16 },
+      "minecraft:boss": { "should_darken_sky": true, "hud_range": 80 },
+      "minecraft:follow_range": { "value": 64, "max": 64 },
+      "minecraft:loot": { "table": "loot_tables/entities/oathbreaker_titan.json" },
+      "minecraft:experience_reward": { "on_death": "1200" },
       "minecraft:breathable": { "breathes_water": true, "breathes_lava": true },
       "minecraft:damage_sensor": {
         "triggers": [
           {
             "on_damage": {
-              "filters": { "test": "is_family", "subject": "damager", "value": "ob_clone" }
+              "filters": { "test": "is_family", "subject": "damager", "value": "ob_crystal" }
             },
             "deals_damage": false
           },
@@ -54,21 +55,21 @@
         "priority": 2,
         "must_see": false,
         "reselect_targets": true,
-        "within_radius": 56,
+        "within_radius": 64,
         "entity_types": [
           {
             "filters": { "test": "is_family", "subject": "other", "value": "player" },
-            "max_dist": 56
+            "max_dist": 64
           }
         ]
       },
       "minecraft:behavior.melee_box_attack": {
         "priority": 3,
-        "cooldown_time": 0.9,
-        "speed_multiplier": 1.2,
+        "cooldown_time": 0.5,
+        "speed_multiplier": 1.4,
         "horizontal_reach": 1.1
       },
-      "minecraft:behavior.look_at_player": { "priority": 7, "look_distance": 16 },
+      "minecraft:behavior.look_at_player": { "priority": 7, "look_distance": 18 },
       "minecraft:behavior.random_look_around": { "priority": 8 }
     }
   }

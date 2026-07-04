@@ -70,15 +70,37 @@ and **immune to his own Hellfire Clone explosions**.
 | **Cataclysmic Eruption** | Passive aura: the ground around him constantly fractures — smoke marks a spot, then a fire/magma pillar erupts (8 + ignite) | Watch your feet; approaching him is a minefield |
 | **Hellrush Abduction** | Once per Overlord: a **50-block charge**. Caught = pinned for **nine punches (75 damage)**, then **everyone within 30 blocks is dragged to the Nether** (safe arrival: slow fall + fire resistance) where he ascends: **3× damage, restored to 750 HP** | Sidestep the charge — it flies dead straight and slams into walls |
 
+## 🌋 Phase 3: The Volcanic Awakening & The Molten God
+
+**The Overlord cannot die either.** Right as he takes fatal damage the
+**volcano erupts**, the arena shatters, and he channels the volcanic energy —
+becoming **invulnerable** while the **Blue Leviathan** (a huge blue molten
+sea-beast, ~225 hearts) rises from the magma. Slay the Leviathan before he
+finishes absorbing, or fight both at once. When it falls, the Titan sheds
+his blade entirely and emerges as **THE MOLTEN GOD** — blinding white molten
+energy, hyper-fast bare fists, 400 hearts, darkened sky. **This is the true
+final boss; all loot and 1200 XP drop here.**
+
+| Divine Ability | What it does | Counterplay |
+|---|---|---|
+| **Internal Fusion Grab** | Teleports *behind* you, punches clean inside — injects white molten energy: a **slow-burn death** (damage over ~10s) plus massive **Weakness** | Don't get cornered; heal/milk off the burn |
+| **Solar Beam Clones** | 4 clones manifest and each fire concentrated white beams **4 times, then vanish** (no explosion) | Break line-of-sight and keep moving between beams |
+| **Suffer** (2 variants) | *Homing:* 20 white crystals home in and explode on impact. *Sentinels:* 10–15 stationary crystals live 60s, charging then firing beams at the nearest enemy | Strafe the homing swarm; **destroy the sentinels** (6 HP) before they charge |
+| **White Pillars** | 4 towering pillars rise that continuously spawn homing crystals **and heal the God** | **Tear the pillars down** (60 HP) fast — they out-heal your DPS otherwise |
+| **Starfire Rain** (special) | Fire falls from the heavens, igniting the **entire battlefield except him** | No shelter — keep HP topped and ride it out near cover |
+| **Divine Chaos Blades** (ultimate, 75% HP) | Two heaven-blades orbit him; he switches from fists to **high-speed long-range chain slashes** with heavy AoE | Respect his reach (22 blocks) — the safe zone is gone |
+
 ## 🛠 Debug commands (cheats on)
 
 ```
 /scriptevent ob:help                  list commands
-/scriptevent ob:spawn titan           also: overlord | mini | clone
-/scriptevent ob:move meteor           force nearest boss's move (see ob:help)
+/scriptevent ob:spawn god             also: titan|overlord|leviathan|mini|clone|crystal|pillar
+/scriptevent ob:move starfire         force nearest boss's move (see ob:help)
 /scriptevent ob:hp 60                 set nearest boss HP
 /scriptevent ob:rage                  trigger Titan rage phase
 /scriptevent ob:buff                  apply Overlord hell ascension
+/scriptevent ob:catalyst              trigger the Volcanic Awakening (phase 3)
+/scriptevent ob:ultimate              summon the God's Divine Chaos Blades
 /scriptevent ob:kill                  remove every addon entity
 ```
 

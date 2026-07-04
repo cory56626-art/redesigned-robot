@@ -17,6 +17,13 @@ const MINI_ID = "ob:core_mini";
 const BOULDER_ID = "ob:titan_boulder";
 const OVERLORD_ID = "ob:obsidian_overlord";
 const CLONE_ID = "ob:hellfire_clone";
+// Phase 3
+const LEVIATHAN_ID = "ob:blue_leviathan";
+const MOLTEN_GOD_ID = "ob:molten_god";
+const SOLAR_ID = "ob:solar_clone";
+const CRYSTAL_ID = "ob:suffer_crystal";
+const PILLAR_ID = "ob:white_pillar";
+const BLADE_ID = "ob:divine_blade";
 const STATE_PROP = "ob:attack_state";
 
 // ---------------------------------------------------------------------
@@ -223,7 +230,10 @@ function alivePlayersNear(dimension, location, maxDistance) {
 const isPlayer = (e) => e?.typeId === "minecraft:player";
 
 // the Titan never hurts his own kind
-const FRIENDLY = new Set([TITAN_ID, MINI_ID, BOULDER_ID, "ob:debris", OVERLORD_ID, CLONE_ID]);
+const FRIENDLY = new Set([
+  TITAN_ID, MINI_ID, BOULDER_ID, "ob:debris", OVERLORD_ID, CLONE_ID,
+  LEVIATHAN_ID, MOLTEN_GOD_ID, SOLAR_ID, CRYSTAL_ID, PILLAR_ID, BLADE_ID
+]);
 // things that can't be fought
 const NON_COMBAT = new Set([
   "minecraft:item", "minecraft:xp_orb", "minecraft:arrow", "minecraft:snowball",
@@ -1890,7 +1900,7 @@ world.afterEvents.entityDie.subscribe((ev) => {
     return;
   }
 
-  // ============ FINAL DEATH: THE OATH BREAKS AT LAST ============
+  // ============ OVERLORD DIES (debug/edge only — normal play transitions) ============
   if (dead.typeId === OVERLORD_ID) {
     overlords.delete(dead.id);
     try {
@@ -1898,28 +1908,40 @@ world.afterEvents.entityDie.subscribe((ev) => {
       const dimension = dead.dimension;
       playSoundAt(dimension, "mob.enderdragon.death", loc, 4);
       particle(dimension, "minecraft:huge_explosion_emitter", { x: loc.x, y: loc.y + 1.5, z: loc.z });
-      for (let i = 0; i < 24; i++) {
-        particle(dimension, "minecraft:blue_flame_particle", {
-          x: loc.x + (Math.random() - 0.5) * 4, y: loc.y + Math.random() * 4, z: loc.z + (Math.random() - 0.5) * 4
-        });
-        particle(dimension, "minecraft:basic_smoke_particle", {
-          x: loc.x + (Math.random() - 0.5) * 4, y: loc.y + Math.random() * 4, z: loc.z + (Math.random() - 0.5) * 4
-        });
-      }
-      // everything he conjured dies with him
       for (const t of [MINI_ID, CLONE_ID]) {
         for (const e of dimension.getEntities({ type: t, location: loc, maxDistance: 80 })) {
-          try {
-            particle(dimension, "minecraft:basic_smoke_particle", e.location);
-            e.kill();
-          } catch { }
+          try { e.kill(); } catch { }
         }
       }
-      for (const p of alivePlayersNear(dimension, loc, 80)) {
-        p.onScreenDisplay.setTitle("§6THE OATH IS BROKEN", {
-          subtitle: "§7Nothing rises this time.",
+    } catch { }
+    return;
+  }
+
+  // ============ TRUE FINAL DEATH: THE MOLTEN GOD FALLS ============
+  if (dead.typeId === MOLTEN_GOD_ID) {
+    gods.delete(dead.id);
+    try {
+      const loc = dead.location;
+      const dimension = dead.dimension;
+      playSoundAt(dimension, "mob.enderdragon.death", loc, 4);
+      playSoundAt(dimension, "random.levelup", loc, 3);
+      particle(dimension, "minecraft:huge_explosion_emitter", { x: loc.x, y: loc.y + 1.5, z: loc.z });
+      for (let i = 0; i < 30; i++) {
+        particle(dimension, "minecraft:basic_flame_particle", {
+          x: loc.x + (Math.random() - 0.5) * 5, y: loc.y + Math.random() * 5, z: loc.z + (Math.random() - 0.5) * 5
+        });
+      }
+      // every conjuration dies with the god
+      for (const t of [MINI_ID, CLONE_ID, SOLAR_ID, CRYSTAL_ID, PILLAR_ID, BLADE_ID, LEVIATHAN_ID]) {
+        for (const e of dimension.getEntities({ type: t, location: loc, maxDistance: 100 })) {
+          try { e.kill(); } catch { }
+        }
+      }
+      for (const p of alivePlayersNear(dimension, loc, 100)) {
+        p.onScreenDisplay.setTitle("§eTHE OATH IS BROKEN", {
+          subtitle: "§7Even a god can fall. Nothing rises this time.",
           fadeInDuration: 10,
-          stayDuration: 80,
+          stayDuration: 90,
           fadeOutDuration: 30
         });
       }
@@ -2115,6 +2137,10 @@ function getOvState(ov) {
       hellBuff: false,
       hellDir: null,
       hellVictimId: null,
+      catalyzed: false,
+      absorbing: false,
+      leviathanId: null,
+      absorbTicks: 0,
       mobFoeId: null,
       mobFoeTick: -9999,
       lastHostileScan: -99
@@ -2524,6 +2550,17 @@ function ovBackToIdle(ov, s, extraRecovery = 0) {
 function tickOverlord(ov) {
   const s = getOvState(ov);
   s.stateTicks++;
+
+  // ===== PHASE 3 CATALYST: at the brink, the volcano awakens =====
+  if (!s.catalyzed) {
+    const h = ov.getComponent("minecraft:health");
+    if (h && h.currentValue / h.effectiveMax <= 0.12) {
+      enterCatalyst(ov, s);
+      return;
+    }
+  }
+  if (s.absorbing) { tickAbsorb(ov, s); return; }
+
   if (s.cdCleave > 0) s.cdCleave--;
   if (s.cdMeteor > 0) s.cdMeteor--;
   if (s.cdGravity > 0) s.cdGravity--;
@@ -2697,6 +2734,13 @@ world.afterEvents.entityHurt.subscribe((ev) => {
   if (src && !isPlayer(src) && canFight(src)) {
     s.mobFoeId = src.id;
     s.mobFoeTick = system.currentTick;
+  }
+  // catch a fatal burst before it kills him: the volcano awakens
+  if (!s.catalyzed) {
+    try {
+      const h = hurt.getComponent("minecraft:health");
+      if (h && h.currentValue / h.effectiveMax <= 0.12) enterCatalyst(hurt, s);
+    } catch { }
   }
 });
 
@@ -3004,6 +3048,7 @@ system.runInterval(() => {
 // =====================================================================
 const TITAN_DEBUG_MOVES = ["cleave", "leap", "skybreak", "dash", "throw", "summon", "smash", "grapple", "molten", "rush", "judgment"];
 const OVERLORD_DEBUG_MOVES = ["cleave", "meteor", "gravity", "chain", "clones", "hellrush"];
+const GOD_DEBUG_MOVES = ["fusion", "solar", "suffer", "pillars", "starfire", "blades", "chain"];
 
 function debugReply(src, text) {
   if (!isPlayer(src)) return;
@@ -3036,23 +3081,27 @@ try {
     const loc = src.location;
     const titan = nearestOfType(dimension, loc, TITAN_ID);
     const overlord = nearestOfType(dimension, loc, OVERLORD_ID);
+    const god = nearestOfType(dimension, loc, MOLTEN_GOD_ID);
 
     switch (cmd) {
       case "help": {
         debugReply(src, "§6Oathbreaker debug: §f/scriptevent ob:<cmd>");
-        debugReply(src, "§7 spawn titan|overlord|mini|clone");
+        debugReply(src, "§7 spawn titan|overlord|god|leviathan|mini|clone|crystal|pillar");
         debugReply(src, "§7 move " + TITAN_DEBUG_MOVES.join("|") + " §8(titan)");
         debugReply(src, "§7 move " + OVERLORD_DEBUG_MOVES.join("|") + " §8(overlord)");
-        debugReply(src, "§7 hp <number> · rage · buff · kill");
+        debugReply(src, "§7 move " + GOD_DEBUG_MOVES.join("|") + " §8(god)");
+        debugReply(src, "§7 hp <number> · rage · buff · catalyst · ultimate · kill");
         return;
       }
       case "spawn": {
         const types = {
-          titan: TITAN_ID, overlord: OVERLORD_ID, mini: MINI_ID, clone: CLONE_ID
+          titan: TITAN_ID, overlord: OVERLORD_ID, god: MOLTEN_GOD_ID,
+          leviathan: LEVIATHAN_ID, mini: MINI_ID, clone: CLONE_ID,
+          crystal: CRYSTAL_ID, pillar: PILLAR_ID
         };
         const typeId = types[msg];
         if (!typeId) {
-          debugReply(src, "§cUsage: /scriptevent ob:spawn titan|overlord|mini|clone");
+          debugReply(src, "§cUsage: /scriptevent ob:spawn titan|overlord|god|leviathan|mini|clone|crystal|pillar");
           return;
         }
         try {
@@ -3062,6 +3111,7 @@ try {
           });
           if (typeId === TITAN_ID) getState(e);
           if (typeId === OVERLORD_ID) getOvState(e);
+          if (typeId === MOLTEN_GOD_ID) getGodState(e);
           debugReply(src, `§aSpawned ${msg}.`);
         } catch (err) {
           debugReply(src, `§cSpawn failed: ${err}`);
@@ -3070,7 +3120,8 @@ try {
       }
       case "kill": {
         let n = 0;
-        for (const typeId of [TITAN_ID, OVERLORD_ID, MINI_ID, CLONE_ID, BOULDER_ID, "ob:debris"]) {
+        for (const typeId of [TITAN_ID, OVERLORD_ID, MOLTEN_GOD_ID, LEVIATHAN_ID,
+          MINI_ID, CLONE_ID, SOLAR_ID, CRYSTAL_ID, PILLAR_ID, BLADE_ID, BOULDER_ID, "ob:debris"]) {
           try {
             for (const e of dimension.getEntities({ type: typeId })) {
               try { e.remove(); n++; } catch { }
@@ -3079,11 +3130,26 @@ try {
         }
         titans.clear();
         overlords.clear();
+        gods.clear();
         debugReply(src, `§aRemoved ${n} addon entities.`);
         return;
       }
+      case "catalyst": {
+        if (!overlord) { debugReply(src, "§cNo overlord nearby."); return; }
+        const s = getOvState(overlord);
+        if (!s.catalyzed) enterCatalyst(overlord, s);
+        debugReply(src, "§aVolcanic Awakening triggered.");
+        return;
+      }
+      case "ultimate": {
+        if (!god) { debugReply(src, "§cNo Molten God nearby."); return; }
+        const s = getGodState(god);
+        godStartBlades(god, s);
+        debugReply(src, "§aDivine Chaos Blades summoned.");
+        return;
+      }
       case "hp": {
-        const boss = overlord ?? titan;
+        const boss = god ?? overlord ?? titan;
         const value = parseInt(msg, 10);
         if (!boss || isNaN(value)) {
           debugReply(src, "§cNo boss nearby, or bad number. Usage: /scriptevent ob:hp 60");
@@ -3127,6 +3193,21 @@ try {
         return;
       }
       case "move": {
+        // the Molten God takes priority when present
+        if (god && GOD_DEBUG_MOVES.includes(msg)) {
+          const s = getGodState(god);
+          godBackToIdle(god, s);
+          const target = nearestTarget(god, s) ?? src;
+          if (msg === "fusion") godStartFusion(god, s, target);
+          else if (msg === "solar") godStartSolar(god, s);
+          else if (msg === "suffer") godStartSuffer(god, s);
+          else if (msg === "pillars") godStartPillars(god, s);
+          else if (msg === "starfire") godStartStarfire(god, s);
+          else if (msg === "blades") godStartBlades(god, s);
+          else if (msg === "chain") godStartChain(god, s, target);
+          debugReply(src, `§aGod: forced ${msg}.`);
+          return;
+        }
         // overlord moves take priority if one is closer
         const useOverlord = overlord && (!titan ||
           distance(overlord.location, loc) <= distance(titan.location, loc));
@@ -3169,3 +3250,841 @@ try {
     }
   });
 } catch { /* scriptevent unavailable — debug commands disabled */ }
+
+// =====================================================================
+//  PHASE 3 — THE VOLCANIC AWAKENING & THE MOLTEN GOD
+// =====================================================================
+
+// ---- generic white-energy damage from a phase-3 source ----
+function godHurt(source, victim, amount) {
+  try {
+    victim.applyDamage(amount, {
+      cause: EntityDamageCause.entityAttack,
+      damagingEntity: source
+    });
+  } catch {
+    try { victim.applyDamage(amount, { cause: EntityDamageCause.entityAttack }); } catch { }
+  }
+}
+
+// =========================== THE CATALYST ============================
+function enterCatalyst(ov, s) {
+  s.catalyzed = true;
+  s.absorbing = true;
+  s.absorbTicks = 0;
+  const dimension = ov.dimension;
+  const loc = { ...ov.location };
+  setAnimState(ov, "absorb");
+
+  // the volcano erupts — the arena shatters (visuals only, no grief)
+  playSoundAt(dimension, "mob.wither.spawn", loc, 4);
+  playSoundAt(dimension, "ambient.weather.thunder", loc, 4);
+  particle(dimension, "minecraft:huge_explosion_emitter", { x: loc.x, y: loc.y + 2, z: loc.z });
+  for (const p of alivePlayersNear(dimension, loc, 80)) {
+    try {
+      p.onScreenDisplay.setTitle("§4THE VOLCANO AWAKENS", {
+        subtitle: "§6Something ancient stirs in the magma...",
+        fadeInDuration: 8, stayDuration: 70, fadeOutDuration: 20
+      });
+      shakeCamera(p, 1.0, 2.0);
+    } catch { }
+  }
+  // a ring of erupting magma pillars tears the ground open
+  for (let i = 0; i < 20; i++) {
+    const a = (Math.PI * 2 * i) / 20;
+    const r = 6 + Math.random() * 6;
+    const x = loc.x + Math.cos(a) * r;
+    const z = loc.z + Math.sin(a) * r;
+    const y = groundY(dimension, x, loc.y, z);
+    eruptions.push({ dimension, x, y, z, born: system.currentTick + i * 2 });
+  }
+
+  // heal to full and become an invulnerable channel of volcanic energy
+  try {
+    const h = ov.getComponent("minecraft:health");
+    if (h) h.setCurrentValue(h.effectiveMax);
+  } catch { }
+  try { ov.addEffect("resistance", 20000000, { amplifier: 255, showParticles: false }); } catch { }
+
+  // THE VANGUARD rises from the magma to buy him time
+  system.runTimeout(() => {
+    try {
+      const a = Math.random() * Math.PI * 2;
+      const lx = loc.x + Math.cos(a) * 6;
+      const lz = loc.z + Math.sin(a) * 6;
+      const ly = groundY(dimension, lx, loc.y, lz);
+      const lev = dimension.spawnEntity(LEVIATHAN_ID, { x: lx, y: ly, z: lz });
+      s.leviathanId = lev.id;
+      leviathans.set(lev.id, { cdSpew: 60, cdBite: 30 });
+      playSoundAt(dimension, "mob.enderdragon.growl", { x: lx, y: ly, z: lz }, 4);
+      particle(dimension, "minecraft:huge_explosion_emitter", { x: lx, y: ly + 1, z: lz });
+      for (const p of alivePlayersNear(dimension, loc, 80)) {
+        p.onScreenDisplay.setTitle("§1THE BLUE LEVIATHAN", {
+          subtitle: "§bSlay it — before he finishes absorbing the volcano!",
+          fadeInDuration: 8, stayDuration: 70, fadeOutDuration: 20
+        });
+      }
+    } catch { }
+  }, 30);
+}
+
+function tickAbsorb(ov, s) {
+  s.absorbTicks++;
+  const dimension = ov.dimension;
+  const loc = ov.location;
+  // pin health — he cannot die while channeling
+  if (s.absorbTicks % 5 === 0) {
+    try {
+      const h = ov.getComponent("minecraft:health");
+      if (h) h.setCurrentValue(h.effectiveMax);
+    } catch { }
+  }
+  // rivers of volcanic energy pour into him
+  if (s.absorbTicks % 2 === 0) {
+    const a = s.absorbTicks * 0.4;
+    for (let k = 0; k < 2; k++) {
+      const aa = a + k * Math.PI;
+      particle(dimension, "minecraft:basic_flame_particle", {
+        x: loc.x + Math.cos(aa) * 3, y: loc.y + 0.3 + (s.absorbTicks % 40) * 0.06, z: loc.z + Math.sin(aa) * 3
+      });
+      particle(dimension, "minecraft:lava_particle", {
+        x: loc.x + Math.cos(aa) * 2, y: loc.y + 1, z: loc.z + Math.sin(aa) * 2
+      });
+    }
+  }
+  if (s.absorbTicks % 60 === 0) {
+    playSoundAt(dimension, "mob.warden.heartbeat", loc, 3);
+    // the volcano keeps erupting around the arena during the fight
+    for (let i = 0; i < 3; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 4 + Math.random() * 10;
+      const x = loc.x + Math.cos(a) * r;
+      const z = loc.z + Math.sin(a) * r;
+      eruptions.push({ dimension, x, y: groundY(dimension, x, loc.y, z), z, born: system.currentTick });
+    }
+  }
+
+  // is the Vanguard slain? then THE TRUE FORM emerges
+  let levAlive = false;
+  if (s.leviathanId) {
+    try {
+      const lev = world.getEntity(s.leviathanId);
+      levAlive = !!lev && lev.isValid;
+    } catch { }
+  } else if (s.absorbTicks < 40) {
+    levAlive = true; // grace period before it spawns
+  }
+  if (!levAlive || s.absorbTicks > 3600) {
+    transformToGod(ov, s);
+  }
+}
+
+function transformToGod(ov, s) {
+  const dimension = ov.dimension;
+  const loc = { ...ov.location };
+  try { ov.remove(); } catch { }
+  overlords.delete(ov.id);
+
+  playSoundAt(dimension, "mob.wither.spawn", loc, 5);
+  playSoundAt(dimension, "random.levelup", loc, 4);
+  particle(dimension, "minecraft:huge_explosion_emitter", { x: loc.x, y: loc.y + 2, z: loc.z });
+  for (let i = 0; i < 30; i++) {
+    const a = (Math.PI * 2 * i) / 30;
+    particle(dimension, "minecraft:basic_flame_particle", {
+      x: loc.x + Math.cos(a) * 3, y: loc.y + 0.5 + (i % 6), z: loc.z + Math.sin(a) * 3
+    });
+  }
+  try {
+    const gy = groundY(dimension, loc.x, loc.y + 1, loc.z);
+    const god = dimension.spawnEntity(MOLTEN_GOD_ID, { x: loc.x, y: gy, z: loc.z });
+    getGodState(god);
+    for (const p of alivePlayersNear(dimension, loc, 90)) {
+      p.onScreenDisplay.setTitle("§eTHE MOLTEN GOD", {
+        subtitle: "§f\"You should not have made me shed my blade.\"",
+        fadeInDuration: 10, stayDuration: 80, fadeOutDuration: 25
+      });
+      shakeCamera(p, 0.8, 1.5);
+    }
+  } catch { }
+}
+
+// ===================== THE BLUE LEVIATHAN ===========================
+const leviathans = new Map();
+
+function tickLeviathan(lev) {
+  let ls = leviathans.get(lev.id);
+  if (!ls) { ls = { cdSpew: 80, cdBite: 40 }; leviathans.set(lev.id, ls); }
+  if (ls.cdSpew > 0) ls.cdSpew--;
+  if (ls.busy) {
+    ls.atk--;
+    if (ls.atk <= 0) { ls.busy = false; setAnimState(lev, "idle"); }
+    return;
+  }
+  const target = nearestTarget(lev, ls);
+  if (!target) return;
+  const dist = distance(target.location, lev.location);
+
+  // molten spew: a cone of magma globs at range
+  if (ls.cdSpew <= 0 && dist >= 5 && dist <= 22) {
+    ls.cdSpew = 140;
+    ls.busy = true;
+    ls.atk = 20;
+    setAnimState(lev, "spew");
+    try { lev.teleport(lev.location, { facingLocation: target.location }); } catch { }
+    playSoundAt(lev.dimension, "mob.ghast.fireball", lev.location, 3);
+    const chest = { x: lev.location.x, y: lev.location.y + 2.4, z: lev.location.z };
+    const dir = norm3d(sub({ x: target.location.x, y: target.location.y + 1, z: target.location.z }, chest));
+    for (let i = 0; i < 5; i++) {
+      system.runTimeout(() => {
+        try {
+          const spread = { x: dir.x + (Math.random() - 0.5) * 0.25, y: dir.y + (Math.random() - 0.5) * 0.15, z: dir.z + (Math.random() - 0.5) * 0.25 };
+          const glob = lev.dimension.spawnEntity(BOULDER_ID, {
+            x: chest.x + spread.x * 1.5, y: chest.y + spread.y * 1.5, z: chest.z + spread.z * 1.5
+          });
+          glob.applyImpulse({ x: spread.x * 1.6, y: spread.y * 1.6 + 0.2, z: spread.z * 1.6 });
+          particle(lev.dimension, "minecraft:basic_flame_particle", chest);
+        } catch { }
+      }, i * 3);
+    }
+    return;
+  }
+  if (dist <= 3.5 && ls.cdSpew > 40) {
+    setAnimState(lev, "bite");
+    ls.busy = true;
+    ls.atk = 12;
+  }
+}
+
+// ===================== THE MOLTEN GOD ================================
+const GOD_ULTIMATE_FRAC = 0.75;
+
+const FUSION_COOLDOWN = 240;
+const FUSION_DAMAGE = 12;
+const FUSION_BURN_TICKS = 200;   // slow-burn death over ~10s
+const FUSION_BURN_INTERVAL = 12;
+const FUSION_BURN_DMG = 3;
+
+const SOLAR_COOLDOWN = 420;
+const SOLAR_CLONES = 4;
+const SOLAR_SHOTS = 4;
+const SOLAR_SHOT_INTERVAL = 14;
+const SOLAR_BEAM_DAMAGE = 7;
+
+const SUFFER_COOLDOWN = 380;
+const SUFFER_HOMING_COUNT = 20;
+const SUFFER_SENTINEL_MIN = 10;
+const SUFFER_SENTINEL_MAX = 15;
+const CRYSTAL_HOMING_SPEED = 0.42;
+const CRYSTAL_EXPLODE_DMG = 8;
+const CRYSTAL_BEAM_DAMAGE = 6;
+const SENTINEL_CHARGE = 50;
+
+const PILLARS_COOLDOWN = 700;
+const PILLAR_COUNT = 4;
+const PILLAR_CRYSTAL_INTERVAL = 55;
+const PILLAR_HEAL = 12;
+const PILLAR_HEAL_INTERVAL = 40;
+
+const STARFIRE_COOLDOWN = 620;
+const STARFIRE_TICKS = 120;
+const STARFIRE_RADIUS = 20;
+const STARFIRE_SAFE = 3.5;
+
+const BLADES_COOLDOWN = 360;
+const CHAIN_REACH = 22;
+const CHAIN_DAMAGE = 14;
+const CHAIN_AOE = 4;
+
+const gods = new Map();
+
+function getGodState(god) {
+  let s = gods.get(god.id);
+  if (!s) {
+    s = {
+      state: "idle", stateTicks: 0,
+      cdPunch: 20, cdFusion: 120, cdSolar: 200, cdSuffer: 160,
+      cdPillars: 320, cdStarfire: 260, cdBlades: 200, cdChain: 0,
+      bladeMode: false, bladeIds: [],
+      fusionVictimId: null,
+      subTicks: 0, subData: null,
+      mobFoeId: null, mobFoeTick: -9999, lastHostileScan: -99
+    };
+    gods.set(god.id, s);
+  }
+  return s;
+}
+
+function godBackToIdle(god, s, recovery = 0) {
+  s.state = "idle";
+  s.stateTicks = -recovery;
+  setAnimState(god, "idle");
+}
+
+// ---- Ability 1: Internal Fusion Grab ----
+function godStartFusion(god, s, target) {
+  s.state = "fusion";
+  s.stateTicks = 0;
+  s.cdFusion = FUSION_COOLDOWN;
+  setAnimState(god, "fusion");
+  freeze(god, 18);
+  // teleport BEHIND the target
+  try {
+    const vd = target.getViewDirection();
+    const behind = { x: target.location.x - vd.x * 1.4, y: target.location.y, z: target.location.z - vd.z * 1.4 };
+    const gy = groundY(god.dimension, behind.x, behind.y + 1, behind.z);
+    god.teleport({ x: behind.x, y: gy, z: behind.z }, { facingLocation: target.location });
+  } catch { }
+  playSoundAt(god.dimension, "mob.endermen.portal", god.location, 2);
+  s.fusionVictimId = target.id;
+  tellVictim(target, "§f✊ He's behind you...");
+}
+
+function godTickFusion(god, s) {
+  if (s.stateTicks === 10) {
+    let victim = null;
+    try { victim = world.getEntity(s.fusionVictimId); } catch { }
+    if (victim && victim.dimension.id === god.dimension.id &&
+      distance(victim.location, god.location) <= 4) {
+      godHurt(god, victim, FUSION_DAMAGE);
+      particle(god.dimension, "minecraft:huge_explosion_emitter", {
+        x: victim.location.x, y: victim.location.y + 1, z: victim.location.z
+      });
+      playSoundAt(god.dimension, "mob.warden.sonic_boom", god.location, 2);
+      // inject white molten energy: slow-burn death + massive Weakness
+      try { victim.addEffect("weakness", FUSION_BURN_TICKS, { amplifier: 4 }); } catch { }
+      try { victim.addEffect("wither", 60, { amplifier: 1, showParticles: true }); } catch { }
+      dots.push({
+        dimension: god.dimension, victimId: victim.id, godId: god.id,
+        ticksLeft: FUSION_BURN_TICKS, next: FUSION_BURN_INTERVAL
+      });
+      tellVictim(victim, "§f☀ MOLTEN ENERGY INJECTED — you are burning from within!");
+    }
+  }
+  if (s.stateTicks >= 22) godBackToIdle(god, s, 8);
+}
+
+// slow-burn damage-over-time from the Fusion Grab
+const dots = [];
+function tickDots() {
+  for (let i = dots.length - 1; i >= 0; i--) {
+    const d = dots[i];
+    d.ticksLeft--;
+    d.next--;
+    if (d.next <= 0) {
+      d.next = FUSION_BURN_INTERVAL;
+      try {
+        const v = world.getEntity(d.victimId);
+        if (v && v.isValid) {
+          v.applyDamage(FUSION_BURN_DMG, { cause: EntityDamageCause.wither });
+          particle(v.dimension, "minecraft:basic_flame_particle", { x: v.location.x, y: v.location.y + 1, z: v.location.z });
+        }
+      } catch { }
+    }
+    if (d.ticksLeft <= 0) dots.splice(i, 1);
+  }
+}
+
+// ---- Ability 2: Solar Beam Clones ----
+function godStartSolar(god, s) {
+  s.state = "beams";
+  s.stateTicks = 0;
+  s.cdSolar = SOLAR_COOLDOWN;
+  setAnimState(god, "beams");
+  freeze(god, 20);
+  playSoundAt(god.dimension, "mob.evocation_illager.cast_spell", god.location, 3);
+  actionbarNearby(god, 50, "§e☀ SOLAR CLONES — dodge the beams!");
+  for (let i = 0; i < SOLAR_CLONES; i++) {
+    const a = (Math.PI * 2 * i) / SOLAR_CLONES;
+    const pos = { x: god.location.x + Math.cos(a) * 4, y: god.location.y + 0.1, z: god.location.z + Math.sin(a) * 4 };
+    try {
+      const clone = god.dimension.spawnEntity(SOLAR_ID, pos);
+      solars.set(clone.id, { godId: god.id, shotsLeft: SOLAR_SHOTS, cd: 12 + i * 4 });
+      particle(god.dimension, "minecraft:huge_explosion_emitter", pos);
+    } catch { }
+  }
+}
+
+const solars = new Map();
+function tickSolar(clone) {
+  const cs = solars.get(clone.id);
+  if (!cs) { try { clone.remove(); } catch { } return; }
+  cs.cd--;
+  const target = nearestSolarTarget(clone);
+  if (target) { try { clone.teleport(clone.location, { facingLocation: target.location }); } catch { } }
+  if (cs.cd <= 0 && cs.shotsLeft > 0 && target) {
+    cs.cd = SOLAR_SHOT_INTERVAL;
+    cs.shotsLeft--;
+    fireBeam(clone, { x: clone.location.x, y: clone.location.y + 2.2, z: clone.location.z }, target, SOLAR_BEAM_DAMAGE);
+    if (cs.shotsLeft <= 0) {
+      // vanishes instead of exploding
+      system.runTimeout(() => {
+        try { particle(clone.dimension, "minecraft:basic_smoke_particle", clone.location); clone.remove(); } catch { }
+        solars.delete(clone.id);
+      }, 16);
+    }
+  }
+}
+
+function nearestSolarTarget(from) {
+  let best = null, bestD = Infinity;
+  for (const v of victimsNearDim(from.dimension, from.location, 30)) {
+    const d = distance(v.location, from.location);
+    if (d < bestD) { bestD = d; best = v; }
+  }
+  return best;
+}
+
+// a concentrated white molten beam from `origin` toward `target`
+function fireBeam(source, origin, target, damage) {
+  const aim = { x: target.location.x, y: target.location.y + 1, z: target.location.z };
+  const dir = norm3d(sub(aim, origin));
+  const len = Math.min(30, distance(aim, origin));
+  playSoundAt(source.dimension, "mob.blaze.shoot", origin, 2);
+  for (let d = 0; d < len; d += 0.6) {
+    particle(source.dimension, "minecraft:basic_flame_particle", {
+      x: origin.x + dir.x * d, y: origin.y + dir.y * d, z: origin.z + dir.z * d
+    });
+    if (d % 2 < 0.6) {
+      particle(source.dimension, "minecraft:balloon_gas_particle", {
+        x: origin.x + dir.x * d, y: origin.y + dir.y * d, z: origin.z + dir.z * d
+      });
+    }
+  }
+  // damage anyone the beam passes near
+  for (const v of victimsNearDim(source.dimension, origin, len + 2)) {
+    const to = sub({ x: v.location.x, y: v.location.y + 1, z: v.location.z }, origin);
+    const proj = to.x * dir.x + to.y * dir.y + to.z * dir.z;
+    if (proj < 0 || proj > len + 1) continue;
+    const closest = { x: origin.x + dir.x * proj, y: origin.y + dir.y * proj, z: origin.z + dir.z * proj };
+    if (distance({ x: v.location.x, y: v.location.y + 1, z: v.location.z }, closest) <= 1.6) {
+      godHurt(source, v, damage);
+      try { v.setOnFire(2, true); } catch { }
+    }
+  }
+}
+
+// ---- Ability 3: Suffer (two variants) ----
+function godStartSuffer(god, s) {
+  s.state = "suffer";
+  s.stateTicks = 0;
+  s.cdSuffer = SUFFER_COOLDOWN;
+  setAnimState(god, "suffer");
+  freeze(god, 22);
+  playSoundAt(god.dimension, "mob.evocation_illager.prepare_summon", god.location, 3);
+  const sentinelMode = Math.random() < 0.5;
+  if (sentinelMode) {
+    actionbarNearby(god, 50, "§f❖ CRYSTAL SENTINELS — destroy them before they fire!");
+    const count = SUFFER_SENTINEL_MIN + Math.floor(Math.random() * (SUFFER_SENTINEL_MAX - SUFFER_SENTINEL_MIN + 1));
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 4 + Math.random() * 12;
+      const x = god.location.x + Math.cos(a) * r;
+      const z = god.location.z + Math.sin(a) * r;
+      const y = groundY(god.dimension, x, god.location.y, z) + 1.5;
+      spawnCrystal(god, { x, y, z }, "sentinel", null, null);
+    }
+  } else {
+    actionbarNearby(god, 50, "§f❖ SUFFER — homing crystals inbound!");
+    for (let i = 0; i < SUFFER_HOMING_COUNT; i++) {
+      const a = (Math.PI * 2 * i) / SUFFER_HOMING_COUNT;
+      const pos = { x: god.location.x + Math.cos(a) * 2, y: god.location.y + 1.5 + Math.random() * 2, z: god.location.z + Math.sin(a) * 2 };
+      spawnCrystal(god, pos, "homing", null, null);
+    }
+  }
+  if (s.stateTicks >= 0) { /* no-op */ }
+}
+
+// ---- Ability 4: White Pillars ----
+function godStartPillars(god, s) {
+  s.state = "pillars";
+  s.stateTicks = 0;
+  s.cdPillars = PILLARS_COOLDOWN;
+  setAnimState(god, "pillars");
+  freeze(god, 22);
+  playSoundAt(god.dimension, "mob.wither.spawn", god.location, 3);
+  actionbarNearby(god, 50, "§f▲ WHITE PILLARS RISE — tear them down!");
+  for (let i = 0; i < PILLAR_COUNT; i++) {
+    const a = (Math.PI * 2 * i) / PILLAR_COUNT + 0.6;
+    const r = 9;
+    const x = god.location.x + Math.cos(a) * r;
+    const z = god.location.z + Math.sin(a) * r;
+    const y = groundY(god.dimension, x, god.location.y, z);
+    try {
+      const pillar = god.dimension.spawnEntity(PILLAR_ID, { x, y, z });
+      pillars.set(pillar.id, { godId: god.id, cdCrystal: 40 + i * 8, cdHeal: PILLAR_HEAL_INTERVAL });
+      particle(god.dimension, "minecraft:huge_explosion_emitter", { x, y: y + 1, z });
+    } catch { }
+  }
+}
+
+const pillars = new Map();
+function tickPillar(pillar) {
+  const ps = pillars.get(pillar.id);
+  if (!ps) { return; }
+  const loc = pillar.location;
+  if (pillar.dimension && Math.random() < 0.4) {
+    particle(pillar.dimension, "minecraft:basic_flame_particle", { x: loc.x, y: loc.y + 3.5 + Math.random() * 1.5, z: loc.z });
+  }
+  ps.cdCrystal--;
+  ps.cdHeal--;
+  // empower the field with fresh homing crystals
+  if (ps.cdCrystal <= 0) {
+    ps.cdCrystal = PILLAR_CRYSTAL_INTERVAL;
+    let god = null;
+    try { god = world.getEntity(ps.godId); } catch { }
+    if (god) spawnCrystal(god, { x: loc.x, y: loc.y + 3.5, z: loc.z }, "homing", null, pillar.id);
+  }
+  // and slowly heal the Molten God
+  if (ps.cdHeal <= 0) {
+    ps.cdHeal = PILLAR_HEAL_INTERVAL;
+    try {
+      const god = world.getEntity(ps.godId);
+      if (god && god.isValid) {
+        const h = god.getComponent("minecraft:health");
+        if (h) h.setCurrentValue(Math.min(h.effectiveMax, h.currentValue + PILLAR_HEAL));
+        // a beam of energy from pillar to god
+        const gl = god.location;
+        const dir = norm3d(sub({ x: gl.x, y: gl.y + 1.5, z: gl.z }, { x: loc.x, y: loc.y + 4, z: loc.z }));
+        for (let d = 0; d < distance(gl, loc); d += 1.2) {
+          particle(pillar.dimension, "minecraft:balloon_gas_particle", {
+            x: loc.x + dir.x * d, y: loc.y + 4 + dir.y * d, z: loc.z + dir.z * d
+          });
+        }
+      }
+    } catch { }
+  }
+}
+
+// ---- crystal system (shared by Suffer + Pillars) ----
+const crystals = new Map();
+function spawnCrystal(god, pos, mode, targetId, pillarId) {
+  try {
+    const c = god.dimension.spawnEntity(CRYSTAL_ID, pos);
+    let tid = targetId;
+    if (!tid) {
+      const t = nearestSolarTarget(c);
+      tid = t ? t.id : null;
+    }
+    crystals.set(c.id, {
+      mode, godId: god.id, targetId: tid, pillarId,
+      born: system.currentTick, charge: SENTINEL_CHARGE
+    });
+    particle(god.dimension, "minecraft:basic_flame_particle", pos);
+  } catch { }
+}
+
+function tickCrystal(crystal) {
+  const cs = crystals.get(crystal.id);
+  if (!cs) { return; }
+  const loc = crystal.location;
+  particle(crystal.dimension, "minecraft:basic_flame_particle", { x: loc.x, y: loc.y + 0.3, z: loc.z });
+
+  // refresh target
+  let target = null;
+  try { if (cs.targetId) target = world.getEntity(cs.targetId); } catch { }
+  if (!target || !target.isValid || (isPlayer(target) === false && !canFight(target))) {
+    target = nearestSolarTarget(crystal);
+    cs.targetId = target ? target.id : null;
+  }
+
+  if (cs.mode === "homing") {
+    if (!target) return;
+    const dir = norm3d(sub({ x: target.location.x, y: target.location.y + 1, z: target.location.z }, loc));
+    try {
+      crystal.teleport({ x: loc.x + dir.x * CRYSTAL_HOMING_SPEED, y: loc.y + dir.y * CRYSTAL_HOMING_SPEED, z: loc.z + dir.z * CRYSTAL_HOMING_SPEED },
+        { facingLocation: target.location });
+    } catch { }
+    if (distance(loc, { x: target.location.x, y: target.location.y + 1, z: target.location.z }) <= 1.5) {
+      // explode on impact
+      let god = null; try { god = world.getEntity(cs.godId); } catch { }
+      playSoundAt(crystal.dimension, "random.explode", loc, 1.5);
+      particle(crystal.dimension, "minecraft:large_explosion", loc);
+      for (const v of victimsNearDim(crystal.dimension, loc, 2.5)) {
+        godHurt(god ?? crystal, v, CRYSTAL_EXPLODE_DMG);
+        try { v.setOnFire(2, true); } catch { }
+      }
+      crystals.delete(crystal.id);
+      try { crystal.remove(); } catch { }
+    }
+  } else {
+    // sentinel: stationary, charge then fire a beam
+    cs.charge--;
+    if (cs.charge <= SENTINEL_CHARGE * 0.4 && cs.charge % 2 === 0) {
+      particle(crystal.dimension, "minecraft:balloon_gas_particle", { x: loc.x, y: loc.y + 0.5, z: loc.z });
+    }
+    if (cs.charge <= 0) {
+      cs.charge = SENTINEL_CHARGE + 20;
+      if (target) {
+        let god = null; try { god = world.getEntity(cs.godId); } catch { }
+        fireBeam(god ?? crystal, { x: loc.x, y: loc.y + 0.5, z: loc.z }, target, CRYSTAL_BEAM_DAMAGE);
+      }
+    }
+  }
+}
+
+// ---- The Special: Starfire Rain ----
+function godStartStarfire(god, s) {
+  s.state = "starfire";
+  s.stateTicks = 0;
+  s.cdStarfire = STARFIRE_COOLDOWN;
+  setAnimState(god, "starfire");
+  freeze(god, STARFIRE_TICKS + 10);
+  playSoundAt(god.dimension, "ambient.weather.thunder", god.location, 4);
+  titleNearby(god, 60, "§eSTARFIRE RAIN", "§6The heavens burn — find no shelter!");
+}
+
+function godTickStarfire(god, s) {
+  const t = s.stateTicks;
+  const loc = god.location;
+  freeze(god, 5);
+  if (t < STARFIRE_TICKS) {
+    // fire falls everywhere across the battlefield
+    for (let i = 0; i < 6; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = Math.random() * STARFIRE_RADIUS;
+      const x = loc.x + Math.cos(a) * r;
+      const z = loc.z + Math.sin(a) * r;
+      particle(god.dimension, "minecraft:basic_flame_particle", { x, y: loc.y + 6 + Math.random() * 6, z });
+      particle(god.dimension, "minecraft:basic_flame_particle", { x, y: loc.y + 2 + Math.random() * 4, z });
+    }
+    if (t % 6 === 0) playSoundAt(god.dimension, "mob.ghast.fireball", loc, 1.5);
+    // ignite everyone caught in the open (but never the God himself)
+    if (t % 8 === 0) {
+      for (const v of victimsNearDim(god.dimension, loc, STARFIRE_RADIUS)) {
+        if (distance(v.location, loc) < STARFIRE_SAFE) continue;
+        try { v.setOnFire(4, true); v.applyDamage(2, { cause: EntityDamageCause.fire }); } catch { }
+      }
+    }
+    return;
+  }
+  godBackToIdle(god, s, 12);
+}
+
+// ---- The Ultimate: Divine Chaos Blades ----
+function godStartBlades(god, s) {
+  s.state = "blades";
+  s.stateTicks = 0;
+  s.cdBlades = BLADES_COOLDOWN;
+  setAnimState(god, "blades");
+  freeze(god, 26);
+  playSoundAt(god.dimension, "mob.enderdragon.growl", god.location, 4);
+  titleNearby(god, 60, "§fDIVINE CHAOS BLADES", "§eHeaven's edge descends.");
+  if (!s.bladeMode) {
+    s.bladeMode = true;
+    // manifest two heaven-blades that orbit him
+    for (let i = 0; i < 2; i++) {
+      try {
+        const b = god.dimension.spawnEntity(BLADE_ID, {
+          x: god.location.x + (i === 0 ? 2 : -2), y: god.location.y + 2.5, z: god.location.z
+        });
+        s.bladeIds.push(b.id);
+      } catch { }
+    }
+  }
+}
+
+function godTickBlades(god, s) {
+  const t = s.stateTicks;
+  if (t === 14) {
+    // a sweeping heaven-slash across everything in front
+    const target = nearestTarget(god, s);
+    if (target) godChainStrike(god, s, target, true);
+  }
+  if (t >= 28) godBackToIdle(god, s, 8);
+}
+
+// long-range, high-speed chain strike (basic attack once bladeMode is on)
+function godStartChain(god, s, target) {
+  s.state = "chain";
+  s.stateTicks = 0;
+  s.cdChain = 14;
+  setAnimState(god, "chain");
+  faceTarget(god, target);
+}
+
+function godTickChain(god, s) {
+  if (s.stateTicks === 5) {
+    const target = nearestTarget(god, s);
+    if (target && distance(target.location, god.location) <= CHAIN_REACH) {
+      godChainStrike(god, s, target, false);
+    }
+  }
+  if (s.stateTicks >= 10) godBackToIdle(god, s);
+}
+
+function godChainStrike(god, s, target, heavy) {
+  const origin = { x: god.location.x, y: god.location.y + 2, z: god.location.z };
+  const aim = { x: target.location.x, y: target.location.y + 1, z: target.location.z };
+  const dir = norm3d(sub(aim, origin));
+  const len = Math.min(CHAIN_REACH, distance(aim, origin) + 2);
+  playSoundAt(god.dimension, "mob.enderdragon.flap", god.location, 2);
+  // a streak of divine light lashes out
+  for (let d = 0; d < len; d += 0.5) {
+    particle(god.dimension, "minecraft:basic_flame_particle", {
+      x: origin.x + dir.x * d, y: origin.y + dir.y * d, z: origin.z + dir.z * d
+    });
+    particle(god.dimension, "minecraft:balloon_gas_particle", {
+      x: origin.x + dir.x * d, y: origin.y + dir.y * d, z: origin.z + dir.z * d
+    });
+  }
+  const dmg = heavy ? CHAIN_DAMAGE + 8 : CHAIN_DAMAGE;
+  // heavy AOE around the strike's end point plus the line it travels
+  const end = { x: origin.x + dir.x * len, y: origin.y + dir.y * len, z: origin.z + dir.z * len };
+  for (const v of victimsNearDim(god.dimension, end, CHAIN_AOE)) {
+    godHurt(god, v, dmg);
+    knockPlayer(v, norm2d(sub(v.location, god.location)), 1.4, 0.4);
+  }
+  for (const v of victimsNearDim(god.dimension, origin, len)) {
+    const to = sub({ x: v.location.x, y: v.location.y + 1, z: v.location.z }, origin);
+    const proj = to.x * dir.x + to.y * dir.y + to.z * dir.z;
+    if (proj < 0 || proj > len) continue;
+    const closest = { x: origin.x + dir.x * proj, y: origin.y + dir.y * proj, z: origin.z + dir.z * proj };
+    if (distance({ x: v.location.x, y: v.location.y + 1, z: v.location.z }, closest) <= 2) {
+      godHurt(god, v, dmg);
+    }
+  }
+  if (heavy) {
+    particle(god.dimension, "minecraft:huge_explosion_emitter", end);
+    playSoundAt(god.dimension, "random.explode", end, 3);
+  }
+}
+
+// keep the two heaven-blades orbiting the god
+function tickGodBlades(god, s) {
+  if (!s.bladeMode || s.bladeIds.length === 0) return;
+  const loc = god.location;
+  const spin = system.currentTick * 0.15;
+  for (let i = 0; i < s.bladeIds.length; i++) {
+    let b = null;
+    try { b = world.getEntity(s.bladeIds[i]); } catch { }
+    if (!b) continue;
+    const a = spin + i * Math.PI;
+    try {
+      b.teleport({ x: loc.x + Math.cos(a) * 2.6, y: loc.y + 2.6 + Math.sin(spin * 2) * 0.3, z: loc.z + Math.sin(a) * 2.6 },
+        { facingLocation: { x: loc.x + Math.cos(a) * 6, y: loc.y + 1, z: loc.z + Math.sin(a) * 6 } });
+    } catch { }
+  }
+}
+
+// ---- the Molten God brain ----
+function tickGod(god) {
+  const s = getGodState(god);
+  s.stateTicks++;
+  if (s.cdPunch > 0) s.cdPunch--;
+  if (s.cdFusion > 0) s.cdFusion--;
+  if (s.cdSolar > 0) s.cdSolar--;
+  if (s.cdSuffer > 0) s.cdSuffer--;
+  if (s.cdPillars > 0) s.cdPillars--;
+  if (s.cdStarfire > 0) s.cdStarfire--;
+  if (s.cdBlades > 0) s.cdBlades--;
+  if (s.cdChain > 0) s.cdChain--;
+
+  // radiant white aura constantly pouring off him
+  if (s.stateTicks % 3 === 0) {
+    const loc = god.location;
+    const a = Math.random() * Math.PI * 2;
+    particle(god.dimension, "minecraft:basic_flame_particle", {
+      x: loc.x + Math.cos(a) * 1.2, y: loc.y + 0.5 + Math.random() * 2.5, z: loc.z + Math.sin(a) * 1.2
+    });
+  }
+  if (s.bladeMode) tickGodBlades(god, s);
+
+  switch (s.state) {
+    case "fusion": return godTickFusion(god, s);
+    case "beams": if (s.stateTicks >= 22) godBackToIdle(god, s, 10); return;
+    case "suffer": if (s.stateTicks >= 24) godBackToIdle(god, s, 10); return;
+    case "pillars": if (s.stateTicks >= 24) godBackToIdle(god, s, 10); return;
+    case "starfire": return godTickStarfire(god, s);
+    case "blades": return godTickBlades(god, s);
+    case "chain": return godTickChain(god, s);
+    case "punch": if (s.stateTicks >= 8) godBackToIdle(god, s); return;
+  }
+
+  if (s.stateTicks < 0) return;
+
+  const target = nearestTarget(god, s);
+  if (!target) return;
+  const dist = distance(target.location, god.location);
+  const h = god.getComponent("minecraft:health");
+  const frac = h ? h.currentValue / h.effectiveMax : 1;
+
+  // ULTIMATE: at 75% HP, manifest the Divine Chaos Blades (once)
+  if (!s.bladeMode && frac <= GOD_ULTIMATE_FRAC) {
+    godStartBlades(god, s);
+    return;
+  }
+
+  // ability rotation
+  if (s.cdStarfire <= 0 && dist <= 26) { godStartStarfire(god, s); return; }
+  if (s.cdPillars <= 0 && dist <= 30) { godStartPillars(god, s); return; }
+  if (s.cdSuffer <= 0 && dist <= 30) { godStartSuffer(god, s); return; }
+  if (s.cdSolar <= 0 && dist >= 4 && dist <= 30) { godStartSolar(god, s); return; }
+  if (s.cdFusion <= 0 && dist >= 3 && dist <= 26) { godStartFusion(god, s, target); return; }
+  // in blade mode he switches to high-speed long-range chain attacks
+  if (s.bladeMode) {
+    if (s.cdBlades <= 0 && dist <= 30) { godStartBlades(god, s); return; }
+    if (s.cdChain <= 0 && dist >= 3 && dist <= CHAIN_REACH) { godStartChain(god, s, target); return; }
+  } else if (s.cdPunch <= 0 && dist <= 3.2) {
+    // hyper-fast bare-fist flurry up close
+    s.state = "punch"; s.stateTicks = 0; s.cdPunch = 16;
+    setAnimState(god, "punch");
+    faceTarget(god, target);
+    godHurt(god, target, 6);
+    knockPlayer(target, norm2d(sub(target.location, god.location)), 0.6, 0.2);
+    return;
+  }
+}
+
+// ---- god grudge memory (fights mobs too) ----
+world.afterEvents.entityHurt.subscribe((ev) => {
+  const hurt = ev.hurtEntity;
+  const src = ev.damageSource?.damagingEntity;
+  if (src?.typeId === MOLTEN_GOD_ID && hurt && !isPlayer(hurt) && canFight(hurt)) {
+    const s = getGodState(src);
+    s.mobFoeId = hurt.id; s.mobFoeTick = system.currentTick;
+  }
+  if (hurt.typeId !== MOLTEN_GOD_ID) return;
+  const s = getGodState(hurt);
+  if (src && !isPlayer(src) && canFight(src)) {
+    s.mobFoeId = src.id; s.mobFoeTick = system.currentTick;
+  }
+});
+
+// clean maps when props die
+world.afterEvents.entityDie.subscribe((ev) => {
+  const id = ev.deadEntity?.id;
+  if (!id) return;
+  crystals.delete(id);
+  pillars.delete(id);
+  solars.delete(id);
+  leviathans.delete(id);
+});
+
+// ---- phase 3 master loop ----
+system.runInterval(() => {
+  tickDots();
+  for (const dimId of DIMENSIONS) {
+    let dimension;
+    try { dimension = world.getDimension(dimId); } catch { continue; }
+    try { for (const g of dimension.getEntities({ type: MOLTEN_GOD_ID })) { try { tickGod(g); } catch { } } } catch { }
+    try { for (const l of dimension.getEntities({ type: LEVIATHAN_ID })) { try { tickLeviathan(l); } catch { } } } catch { }
+    try { for (const c of dimension.getEntities({ type: SOLAR_ID })) { try { tickSolar(c); } catch { } } } catch { }
+    try { for (const c of dimension.getEntities({ type: CRYSTAL_ID })) { try { tickCrystal(c); } catch { } } } catch { }
+    try { for (const p of dimension.getEntities({ type: PILLAR_ID })) { try { tickPillar(p); } catch { } } } catch { }
+  }
+}, 1);
+
+// phase 3 housekeeping
+system.runInterval(() => {
+  const live = new Set();
+  for (const dimId of DIMENSIONS) {
+    try {
+      for (const t of [MOLTEN_GOD_ID, CRYSTAL_ID, PILLAR_ID, SOLAR_ID, LEVIATHAN_ID]) {
+        for (const e of world.getDimension(dimId).getEntities({ type: t })) live.add(e.id);
+      }
+    } catch { }
+  }
+  for (const m of [gods, crystals, pillars, solars, leviathans]) {
+    for (const id of m.keys()) if (!live.has(id)) m.delete(id);
+  }
+}, 600);

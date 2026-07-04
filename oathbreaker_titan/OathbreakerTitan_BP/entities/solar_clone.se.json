@@ -1,0 +1,33 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "ob:solar_clone",
+      "is_spawnable": false,
+      "is_summonable": true
+    },
+    "component_groups": {
+      "ob:despawn": { "minecraft:instant_despawn": {} }
+    },
+    "components": {
+      "minecraft:type_family": { "family": ["ob_solar", "mob"] },
+      "minecraft:scale": { "value": 0.85 },
+      "minecraft:collision_box": { "width": 1.0, "height": 2.7 },
+      "minecraft:health": { "value": 40, "max": 40 },
+      "minecraft:physics": { "has_gravity": false, "has_collision": false },
+      "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": false },
+      "minecraft:fire_immune": {},
+      "minecraft:damage_sensor": {
+        "triggers": [{ "cause": "all", "deals_damage": false }]
+      },
+      "minecraft:timer": {
+        "time": 8,
+        "looping": false,
+        "time_down_event": { "event": "ob:expire" }
+      }
+    },
+    "events": {
+      "ob:expire": { "add": { "component_groups": ["ob:despawn"] } }
+    }
+  }
+}

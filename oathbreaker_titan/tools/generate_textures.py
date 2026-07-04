@@ -63,6 +63,11 @@ def crack_veins(px, rect, count, hot=False, palette="orange"):
                     c = (random.randint(90, 150), random.randint(190, 235), 255, 255)
                 else:
                     c = (40, random.randint(110, 160), 240, 255)
+            elif palette == "white":
+                if hot or heat > 0.5:
+                    c = (255, 255, 255, 255)
+                else:
+                    c = (random.randint(200, 245), random.randint(220, 250), 255, 255)
             else:
                 if hot or heat > 0.55:
                     c = (255, random.randint(150, 220), random.randint(20, 60), 255)
@@ -341,6 +346,104 @@ def overlord_texture():
     return img
 
 
+def god_texture():
+    """The Molten God: blinding white flowing molten energy, no weapon,
+    huge glowing fists. Shares the titan UV layout minus the sword."""
+    img = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
+    px = img.load()
+    # fill everything faint-white so any geo face (incl. fists) samples white
+    for x in range(128):
+        for y in range(128):
+            j = random.randint(-6, 6)
+            px[x, y] = (clamp(240 + j), clamp(244 + j), 255, 255)
+
+    core_white = (250, 252, 255)
+    warm_white = (255, 246, 220)
+
+    body_regions = ["head", "body", "arm_r", "arm_l", "pauldron_r",
+                    "pauldron_l", "leg_r", "leg_l"]
+    for name in body_regions:
+        r = region_rect(name)
+        base = warm_white if name in ("body", "head") else core_white
+        noisy_fill(px, r, base, jitter=6)
+        area = (r[2] - r[0]) * (r[3] - r[1])
+        crack_veins(px, r, max(2, area // 55), hot=True, palette="white")
+
+    # horns become radiant white spikes
+    for name in ("horn_r", "horn_l"):
+        noisy_fill(px, region_rect(name), (255, 255, 255), jitter=4)
+
+    # glowing fists mapped to the pauldron overflow (bright white blocks)
+    for fx, fy in ((100, 100), (114, 100)):
+        for x in range(fx, fx + 14):
+            for y in range(fy, fy + 14):
+                if 0 <= x < 128 and 0 <= y < 128:
+                    j = random.randint(-6, 6)
+                    px[x, y] = (clamp(250 + j), clamp(250 + j), 255, 255)
+
+    # blazing core: pure white
+    cr = region_rect("core")
+    for x in range(cr[0], cr[2]):
+        for y in range(cr[1], cr[3]):
+            px[x, y] = (255, 255, 255, 255)
+
+    # solar eyes
+    u, v, w, h, d = REGIONS["head"]
+    fu, fv = u + d, v + d
+    for ex in (fu + 2, fu + 3, fu + 6, fu + 7):
+        for ey in (fv + 4, fv + 5):
+            px[ex, ey] = (255, 255, 210, 255)
+    return img
+
+
+def leviathan_texture():
+    """The Blue Leviathan: a massive blue molten sea-beast."""
+    img = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
+    px = img.load()
+    hide = (18, 40, 92)
+    belly = (60, 120, 200)
+    for x in range(128):
+        for y in range(128):
+            # lighter belly stripe down the middle band
+            base = belly if 96 <= y < 120 else hide
+            j = random.randint(-10, 10)
+            px[x, y] = (clamp(base[0] + j), clamp(base[1] + j), clamp(base[2] + j), 255)
+    crack_veins(px, (0, 0, 128, 128), 40, palette="blue")
+    # glowing eyes patch
+    for x in range(6, 12):
+        for y in range(6, 10):
+            px[x, y] = (150, 230, 255, 255)
+    return img
+
+
+def tex_suffer_crystal():
+    img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+    px = img.load()
+    for x in range(32):
+        for y in range(32):
+            d = abs(x - 16) + abs(y - 16)
+            if d < 15:
+                t = d / 15
+                px[x, y] = (clamp(255), clamp(255 - t * 30), clamp(255 - t * 10), 255)
+    crack_veins(px, (0, 0, 32, 32), 5, hot=True, palette="white")
+    return img
+
+
+def tex_divine_blade():
+    img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    px = img.load()
+    # long white blade with a gold edge
+    for x in range(64):
+        for y in range(64):
+            j = random.randint(-6, 6)
+            px[x, y] = (clamp(248 + j), clamp(248 + j), 255, 255)
+    crack_veins(px, (0, 0, 64, 64), 8, hot=True, palette="white")
+    for y in range(64):
+        if random.random() > 0.3:
+            px[2, y] = (255, 220, 120, 255)
+    return img
+
+
 def tex_boulder():
     img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
     px = img.load()
@@ -389,6 +492,10 @@ def save(img, *path):
 save(titan_texture(False), RP, "textures/entity/oathbreaker_titan.png")
 save(titan_texture(True), RP, "textures/entity/oathbreaker_titan_rage.png")
 save(overlord_texture(), RP, "textures/entity/obsidian_overlord.png")
+save(god_texture(), RP, "textures/entity/molten_god.png")
+save(leviathan_texture(), RP, "textures/entity/blue_leviathan.png")
+save(tex_suffer_crystal(), RP, "textures/entity/suffer_crystal.png")
+save(tex_divine_blade(), RP, "textures/entity/divine_blade.png")
 save(tex_titan_core(), RP, "textures/items/titan_core.png")
 save(tex_forged_oath(), RP, "textures/items/forged_oath.png")
 save(tex_titan_crest(), RP, "textures/items/titan_crest.png")
