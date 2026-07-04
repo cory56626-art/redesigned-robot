@@ -37,6 +37,31 @@
       "part_visibility": [
         { "*": true }
       ]
+    },
+    "controller.render.overseer": {
+      "geometry": "Geometry.default",
+      "materials": [ { "*": "Material.default" } ],
+      "textures": [ "Texture.default" ],
+      "part_visibility": [
+        { "*": true },
+        { "halo": false },
+        { "arm_right_3": false },
+        { "arm_left_3": false }
+      ]
+    },
+    "controller.render.fallen_knight": {
+      "geometry": "Geometry.default",
+      "materials": [ { "*": "Material.default" } ],
+      "textures": [ "Texture.default" ],
+      "part_visibility": [
+        { "*": true },
+        { "crown": false },
+        { "halo": false },
+        { "arm_right_2": false },
+        { "arm_left_2": false },
+        { "arm_right_3": false },
+        { "arm_left_3": false }
+      ]
     }
   }
 }

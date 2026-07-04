@@ -63,6 +63,52 @@ knockback immunity — and his own mechanics:
 - Defeating him counts as completing the ten-night rivalry and drops a richer
   core haul (extra unbroken cores + shards).
 
+## The Complete Expansion — two dual bosses
+
+The two stage-10 paths now each have a full second-phase overhaul.
+
+### The Overseer (Corrupted Marauder / Fallen King)
+
+When the **normal** stage-10 Marauder finally dies, he doesn't fall — he **rises
+as the Overseer** (config `overseerPhase`, on by default). A 4-second invulnerable
+**emerge** (armor-debris + metallic breaks), then a completely different fight:
+
+- **Two stances** — a **scythe** melee stance, and when pressured he **backsteps**
+  (leaving an afterimage) into a **King's Crossbow** stance that fires 3 homing
+  **spectral bolts**.
+- **King's Orders** every ~10–15 s: **HALT!** (roots you), **KNEEL!** (sneak in
+  1.5 s or eat a massive blast + Weakness/Slowness), **SCATTER!** (kinetic wave
+  that flings you back and he snaps to his crossbow).
+- **Scythe Parry** — he periodically raises a guard; strike it and he negates the
+  hit, stuns you, and impales you into a **Bleed** (drip + tick damage + **+50%
+  damage taken** while it lasts).
+- **Phase 2.5 — Fallen Knights** at 50% HP: he raises **3 knights** behind a
+  **Royal Aegis** (near-total immunity) and bolsters them from the backline; slay
+  them all and the aegis shatters, forcing him back into melee.
+
+### The Fractured Marauder — Unbound Holy Zealot (expanded)
+
+- **Adaptation Halo (Mahoraga-style)** — his halo *learns* the damage type you
+  spam and builds **+15%/stack resistance** (cap **45%**) to it; hit him with a
+  different type and the old resistance erodes while the new one builds. **Rotate
+  your arsenal** (melee / projectile / fire‑magic / explosive). Shown on his boss
+  bar; toggle with config `adaptationEnabled`.
+- **Base holy toolkit** — **Radiant Tether** (chains that yank you back if you
+  flee >6 blocks), **Consecrated Arena** (a golden seal that buffs him and
+  *purifies* players inside), **Blinding Counter** (mirror guard → blind + dash
+  bash), **Spears of Hard‑Light** (3 javelins that detonate a beat after impact).
+- **Seraphim now also triggers at 50% HP** (permanent), adding **Dive‑Bomb &
+  Feather Rain** (leap → target‑locked crash + stun, then feathers rain for area
+  denial) and the **Flaming Greatsword Cleave** (charged 180° fire wave), on top
+  of the Radiant Wing‑Sweep.
+
+### Config (`/scriptevent marauder:config`)
+
+Live‑tunable, saved to the world: `overseerPhase`, `fracturedChance`,
+`adaptationEnabled`, `bossDamageMult`, `bossHealthMult`, `craterEnabled`,
+`knightCount`. Run the command with no args to list them, or
+`marauder:config <key> <value>` to set one.
+
 ```
 marauder_bp/   behavior pack  (entity AI, items, script)
 marauder_rp/   resource pack  (model, textures, animations, controllers)
@@ -138,6 +184,10 @@ The fixes below bring the Bedrock version in line with the Java entity’s inten
 | `/scriptevent marauder:grit` | Force Unrivaled Grit (the feint) |
 | `/scriptevent marauder:skyfall` | Force the Might Shove + Sky Beam |
 | `/scriptevent marauder:wingsweep` | Force the Seraphim wing-sweep (transform him first) |
+| `/scriptevent marauder:ability <id>` | Force any ability (tether, arena, mirror, spears, divebomb, cleave, …) |
+| `/scriptevent marauder:overseer` | Rise the Overseer next to you |
+| `/scriptevent marauder:knights` | Drop the Overseer to 50% (summons Fallen Knights) |
+| `/scriptevent marauder:config [key] [value]` | List or set config (overseerPhase, fracturedChance, …) |
 | `/scriptevent marauder:ping` | Confirm the script loaded (lists registered subscriptions) |
 | `/scriptevent marauder:help` | List every command |
 | `/scriptevent marauder:freeforall on` | Testing: make marauders attack **any** mob — melee *and* abilities target whatever he's fighting, and he retaliates against anything. `off` reverts; no argument flips it. Applies to active + future marauders. |

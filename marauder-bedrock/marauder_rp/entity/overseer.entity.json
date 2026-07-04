@@ -1,0 +1,24 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "marauder:overseer",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/entity/overseer" },
+      "geometry": { "default": "geometry.marauder" },
+      "animations": {
+        "idle": "animation.marauder.idle",
+        "walk": "animation.marauder.walk",
+        "attack": "animation.marauder.attack",
+        "cast": "animation.marauder.cast",
+        "omni_punch": "animation.marauder.omni_punch",
+        "take_knee": "animation.marauder.take_knee",
+        "move_ctrl": "controller.animation.marauder.move",
+        "action_ctrl": "controller.animation.marauder.action"
+      },
+      "scripts": { "animate": [ "move_ctrl", "action_ctrl" ] },
+      "render_controllers": [ "controller.render.overseer" ],
+      "spawn_egg": { "base_color": "#1A0406", "overlay_color": "#8A1414" }
+    }
+  }
+}

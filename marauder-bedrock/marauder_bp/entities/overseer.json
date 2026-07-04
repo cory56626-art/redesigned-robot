@@ -1,0 +1,118 @@
+{
+  "format_version": "1.20.60",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "marauder:overseer",
+      "is_spawnable": true,
+      "is_summonable": true,
+      "is_experimental": false,
+      "properties": {
+        "marauder:stance": { "type": "int", "range": [0, 2], "default": 0, "client_sync": true },
+        "marauder:attacking": { "type": "bool", "default": false, "client_sync": true },
+        "marauder:casting": { "type": "bool", "default": false, "client_sync": true },
+        "marauder:omni": { "type": "bool", "default": false, "client_sync": true },
+        "marauder:kneeling": { "type": "bool", "default": false, "client_sync": true },
+        "marauder:last_stand": { "type": "bool", "default": false, "client_sync": true }
+      }
+    },
+    "component_groups": {
+      "marauder:boss": {
+        "minecraft:boss": { "should_darken_sky": true, "hud_range": 60 }
+      },
+      "marauder:emerging": {
+        "minecraft:damage_sensor": { "triggers": [ { "deals_damage": false } ] },
+        "minecraft:movement": { "value": 0.0 },
+        "minecraft:knockback_resistance": { "value": 1.0 },
+        "minecraft:attack": { "damage": 0 }
+      },
+      "marauder:aegis": {
+        "minecraft:damage_sensor": {
+          "triggers": [
+            { "cause": "entity_attack", "deals_damage": false },
+            { "cause": "projectile", "deals_damage": false },
+            { "cause": "entity_explosion", "deals_damage": false },
+            { "cause": "block_explosion", "deals_damage": false },
+            { "cause": "magic", "deals_damage": false },
+            { "cause": "fire", "deals_damage": false },
+            { "cause": "fire_tick", "deals_damage": false }
+          ]
+        }
+      },
+      "marauder:invulnerable": {
+        "minecraft:damage_sensor": { "triggers": [ { "deals_damage": false } ] }
+      },
+      "marauder:stunned": {
+        "minecraft:movement": { "value": 0.0 },
+        "minecraft:knockback_resistance": { "value": 1.0 },
+        "minecraft:attack": { "damage": 0 }
+      },
+      "marauder:ranged": {
+        "minecraft:movement": { "value": 0.24 }
+      },
+      "marauder:free_for_all": {
+        "minecraft:behavior.nearest_attackable_target": {
+          "priority": 2, "must_see": false, "must_reach": false, "reselect_targets": true, "within_radius": 40,
+          "entity_types": [
+            { "filters": { "test": "is_family", "subject": "other", "value": "player" }, "max_dist": 64 },
+            { "filters": { "all_of": [ { "test": "is_family", "subject": "other", "value": "mob" }, { "test": "is_family", "subject": "other", "value": "marauder", "operator": "!=" } ] }, "max_dist": 40 }
+          ]
+        },
+        "minecraft:behavior.hurt_by_target": { "priority": 1, "hurt_owner": true }
+      }
+    },
+    "components": {
+      "minecraft:type_family": { "family": ["marauder", "overseer", "monster", "mob"] },
+      "minecraft:health": { "value": 420, "max": 420 },
+      "minecraft:movement": { "value": 0.32 },
+      "minecraft:knockback_resistance": { "value": 0.9 },
+      "minecraft:attack": { "damage": 20 },
+      "minecraft:follow_range": { "value": 72, "max": 72 },
+      "minecraft:collision_box": { "width": 0.7, "height": 2.1 },
+      "minecraft:scale": { "value": 1.12 },
+      "minecraft:physics": {},
+      "minecraft:jump.static": {},
+      "minecraft:movement.basic": {},
+      "minecraft:navigation.walk": { "can_path_over_water": true, "avoid_water": false, "can_pass_doors": true, "can_open_doors": false },
+      "minecraft:can_climb": {},
+      "minecraft:persistent": {},
+      "minecraft:fire_immune": true,
+      "minecraft:damage_sensor": {
+        "triggers": [
+          { "cause": "fire", "deals_damage": false },
+          { "cause": "fire_tick", "deals_damage": false },
+          { "cause": "lava", "deals_damage": false },
+          { "cause": "magic", "deals_damage": false },
+          { "cause": "wither", "deals_damage": false },
+          { "cause": "drowning", "deals_damage": false }
+        ]
+      },
+      "minecraft:behavior.float": { "priority": 0 },
+      "minecraft:behavior.hurt_by_target": { "priority": 1, "hurt_owner": true },
+      "minecraft:behavior.nearest_attackable_target": {
+        "priority": 2, "must_see": false, "must_reach": false, "reselect_targets": true, "within_radius": 72,
+        "entity_types": [ { "filters": { "test": "is_family", "subject": "other", "value": "player" }, "max_dist": 72 } ]
+      },
+      "minecraft:behavior.melee_attack": {
+        "priority": 3, "speed_multiplier": 1.2, "track_target": true, "require_complete_path": false, "reach_multiplier": 1.7, "melee_fov": 200
+      },
+      "minecraft:behavior.random_stroll": { "priority": 6, "speed_multiplier": 0.6, "interval": 120 },
+      "minecraft:behavior.look_at_player": { "priority": 7, "look_distance": 32 },
+      "minecraft:behavior.random_look_around": { "priority": 8 }
+    },
+    "events": {
+      "marauder:become_boss": { "add": { "component_groups": ["marauder:boss"] } },
+      "marauder:emerge_on": { "add": { "component_groups": ["marauder:emerging"] } },
+      "marauder:emerge_off": { "remove": { "component_groups": ["marauder:emerging"] } },
+      "marauder:aegis_on": { "add": { "component_groups": ["marauder:aegis"] } },
+      "marauder:aegis_off": { "remove": { "component_groups": ["marauder:aegis"] } },
+      "marauder:invulnerable_on": { "add": { "component_groups": ["marauder:invulnerable"] } },
+      "marauder:invulnerable_off": { "remove": { "component_groups": ["marauder:invulnerable"] } },
+      "marauder:stun_on": { "add": { "component_groups": ["marauder:stunned"] } },
+      "marauder:stun_off": { "remove": { "component_groups": ["marauder:stunned"] } },
+      "marauder:ranged_on": { "add": { "component_groups": ["marauder:ranged"] } },
+      "marauder:ranged_off": { "remove": { "component_groups": ["marauder:ranged"] } },
+      "marauder:ffa_on": { "add": { "component_groups": ["marauder:free_for_all"] } },
+      "marauder:ffa_off": { "remove": { "component_groups": ["marauder:free_for_all"] } }
+    }
+  }
+}

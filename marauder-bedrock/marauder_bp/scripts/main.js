@@ -17,6 +17,8 @@ const OVERWORLD = "minecraft:overworld";
 const MARAUDER = "marauder:marauder";
 const AFTERIMAGE = "marauder:afterimage";
 const FRACTURED = "marauder:fractured_marauder";
+const OVERSEER = "marauder:overseer";
+const FALLEN_KNIGHT = "marauder:fallen_knight";
 const STAGE_MAX = 10;
 
 // --- The Fractured Marauder (challenge variant) ---
@@ -25,6 +27,26 @@ const FRACTURE_GAIN_MELEE = 8;      // meter gain per landed melee hit
 const FRACTURE_GAIN_ABILITY = 5;    // meter gain per scripted-ability hit
 const FRACTURE_DECAY = 0.4;         // meter lost per combat tick while Seraphim
 const FRACTURED_ABILITY_MULT = 1.25;// his abilities hit harder than stage 10's
+
+// ------------------------------------------------------------- config
+//
+// Runtime-tunable settings, stored as world dynamic properties so they survive
+// reloads and can be changed live with /scriptevent marauder:config <key> <val>.
+// Read via cfg(key); every gameplay knob below routes through here.
+const CONFIG_DEFAULTS = {
+  overseerPhase: 1,      // 1 = the final Marauder rises as the Overseer on death
+  fracturedChance: 0.12, // chance a stage-10 night is the Fractured Marauder
+  adaptationEnabled: 1,  // Fractured's Mahoraga-style damage adaptation
+  bossDamageMult: 1.0,   // global multiplier on all boss-dealt damage
+  bossHealthMult: 1.0,   // global multiplier on boss max HP (applied on spawn)
+  craterEnabled: 1,      // allow terrain-destroying craters
+  knightCount: 3,        // Fallen Knights summoned at the Overseer's 50%
+};
+function cfg(key) {
+  const v = world.getDynamicProperty("marauder:cfg:" + key);
+  return v === undefined ? CONFIG_DEFAULTS[key] : v;
+}
+function setCfg(key, val) { world.setDynamicProperty("marauder:cfg:" + key, val); }
 
 const CHECK_INTERVAL = 40;   // night manager cadence (ticks)
 const COMBAT_INTERVAL = 2;   // combat/ability driver cadence (ticks)
@@ -60,11 +82,19 @@ function isMobId(e) {
   return t && t !== "minecraft:player" && !isMarauderKind(t);
 }
 
-// Both boss variants share the combat driver; the afterimage is a prop, not a boss.
+// The boss family — none of these should ever be caught by a boss's own AoE, and
+// none count as a "mob" the boss will hunt. Overseer + knights are allies of the
+// Overseer; the afterimage is a prop.
 function isMarauderKind(typeId) {
-  return typeId === MARAUDER || typeId === FRACTURED || typeId === AFTERIMAGE;
+  return typeId === MARAUDER || typeId === FRACTURED || typeId === AFTERIMAGE
+      || typeId === OVERSEER || typeId === FALLEN_KNIGHT;
+}
+function isBoss(ent) {
+  const t = ent?.typeId;
+  return t === MARAUDER || t === FRACTURED || t === OVERSEER;
 }
 function isFractured(ent) { return ent?.typeId === FRACTURED; }
+function isOverseer(ent) { return ent?.typeId === OVERSEER; }
 function isSeraph(ent) {
   try { return ent.getDynamicProperty("marauder:seraph") === true; } catch (e) { return false; }
 }
@@ -169,7 +199,7 @@ function spawnMarauder(player, stage, immediate, forceFractured) {
   stage = clampStage(stage);
   // The final night has a low chance of sending the Fractured Marauder instead.
   const fractured = forceFractured === true
-    || (forceFractured !== false && stage >= STAGE_MAX && Math.random() < FRACTURED_CHANCE);
+    || (forceFractured !== false && stage >= STAGE_MAX && Math.random() < (Number(cfg("fracturedChance")) || FRACTURED_CHANCE));
   const loc = findSafeNear(player.dimension, player.location, immediate ? 5 : 12);
   let ent;
   try {
@@ -212,6 +242,7 @@ function initFractured(ent) {
   ent.setDynamicProperty("marauder:stageNum", STAGE_MAX); // ability damage baseline
   ent.setDynamicProperty("marauder:fracture", 0);
   ent.setDynamicProperty("marauder:seraph", false);
+  ent.setDynamicProperty("marauder:seraphPermanent", false);
   ent.setDynamicProperty("marauder:haloShattered", true); // halo shatter is the normal boss's set-piece
   ent.setDynamicProperty("marauder:lastStandUsed", false);
   ent.setDynamicProperty("marauder:enrageTier", 1);
@@ -277,13 +308,14 @@ function challengeCue(player, stage, fractured) {
 // halo shatter, last stand — and for the Fractured Marauder, his Fracture meter.
 function updateTitle(ent) {
   try {
+    if (ent.typeId === OVERSEER) { overseerTitle(ent); return; }
     if (ent.typeId === FRACTURED) {
       const m = Math.round(ent.getDynamicProperty("marauder:fracture") ?? 0);
       const bars = Math.round(m / 10);
       const meter = "§e" + "|".repeat(bars) + "§8" + "|".repeat(10 - bars);
-      ent.nameTag = isSeraph(ent)
+      ent.nameTag = (isSeraph(ent)
         ? `§6✧ SERAPHIM ✧ §f${meter} §6✧`
-        : `§fThe Fractured Marauder §7— ${meter} §7${m}%`;
+        : `§fThe Fractured Marauder §7— ${meter} §7${m}%`) + adaptLabel(ent);
       return;
     }
     const stage = clampStage(ent.getDynamicProperty("marauder:stageNum") ?? 1);
@@ -316,11 +348,17 @@ const ABILITIES = [
   { id: "flash",  minStage: 5, min: 5.0, max: 20.0, windup: 8,  recover: 6,  cd: 85,  weight: 9  },
   { id: "beam",   minStage: 6, min: 4.0, max: 22.0, windup: 16, recover: 10, cd: 80,  weight: 9  },
   { id: "omni",   minStage: 5, min: 0.0, max: 4.5,  windup: 8,  recover: 20, cd: 280, weight: 4,  only: "marauder" },
-  // --- Fractured Marauder exclusives (sealed while Seraphim) ---
+  // --- Fractured Marauder base-form toolkit (sealed while Seraphim) ---
   { id: "grit",    minStage: 1, min: 0.0, max: 4.5,  windup: 9,  recover: 12, cd: 170, weight: 9, only: "fractured", noSeraph: true },
   { id: "skyfall", minStage: 1, min: 0.0, max: 7.0,  windup: 8,  recover: 24, cd: 220, weight: 8, only: "fractured", noSeraph: true },
-  // --- Seraphim signature (only WHILE transformed) ---
-  { id: "wingsweep", minStage: 1, min: 0.0, max: 6.5, windup: 12, recover: 14, cd: 70, weight: 14, only: "fractured", seraphOnly: true },
+  { id: "tether",  minStage: 1, min: 3.0, max: 16.0, windup: 12, recover: 8,  cd: 150, weight: 8, only: "fractured", noSeraph: true },
+  { id: "arena",   minStage: 1, min: 0.0, max: 12.0, windup: 16, recover: 10, cd: 320, weight: 6, only: "fractured", noSeraph: true },
+  { id: "mirror",  minStage: 1, min: 0.0, max: 6.0,  windup: 6,  recover: 30, cd: 200, weight: 7, only: "fractured", noSeraph: true },
+  { id: "spears",  minStage: 1, min: 3.0, max: 20.0, windup: 14, recover: 10, cd: 170, weight: 8, only: "fractured", noSeraph: true },
+  // --- Seraphim signatures (only WHILE transformed) ---
+  { id: "wingsweep", minStage: 1, min: 0.0, max: 6.5,  windup: 12, recover: 14, cd: 70,  weight: 12, only: "fractured", seraphOnly: true },
+  { id: "divebomb",  minStage: 1, min: 3.0, max: 22.0, windup: 10, recover: 26, cd: 200, weight: 9, only: "fractured", seraphOnly: true },
+  { id: "cleave",    minStage: 1, min: 0.0, max: 6.0,  windup: 20, recover: 16, cd: 130, weight: 10, only: "fractured", seraphOnly: true },
 ];
 
 // entityId -> { cooldowns, globalCd, current, swingUntil, aggroId, aggroTick, illusion, phaseLock }
@@ -338,10 +376,12 @@ function stateFor(ent) {
 try {
   system.runInterval(() => {
     const dim = world.getDimension(OVERWORLD);
-    let marauders;
+    let marauders = [];
     try {
       marauders = dim.getEntities({ type: MARAUDER });
-      try { marauders = marauders.concat(dim.getEntities({ type: FRACTURED })); } catch (e2) {}
+      for (const t of [FRACTURED, OVERSEER]) {
+        try { marauders = marauders.concat(dim.getEntities({ type: t })); } catch (e2) {}
+      }
     } catch (e) { return; }
     const now = system.currentTick;
     const alive = new Set();
@@ -371,6 +411,24 @@ try {
   console.warn(`[Marauder] combat runInterval failed: ${err?.stack || err}`);
 }
 
+// Bleed DoT — once a second, bleeding players drip and take tick damage. The
+// +50% incoming-damage vulnerability is applied in the entityHurt handler.
+try {
+  system.runInterval(() => {
+    const now = system.currentTick;
+    for (const p of world.getAllPlayers()) {
+      if (!isBleeding(p)) continue;
+      try { p.applyDamage(2, { cause: EntityDamageCause.magic }); } catch (e) {}
+      try {
+        const l = p.location;
+        p.dimension.spawnParticle("minecraft:redstone_wander_particle", { x: l.x, y: l.y + 0.8, z: l.z });
+      } catch (e) {}
+    }
+    try { tickHolyGrounds(now); } catch (e) {}
+  }, 10);
+  _subsLoaded.bleedInterval = true;
+} catch (e) {}
+
 function ownerOf(ent) {
   const id = ent.getDynamicProperty("marauder:owner");
   if (!id) return null;
@@ -383,8 +441,13 @@ function tickCombat(ent, now) {
   // Clear a finished melee swing.
   if (s.swingUntil && now >= s.swingUntil) { s.swingUntil = 0; setAttacking(ent, false); }
 
-  // Fractured Marauder: Seraphim decay + radiant aura.
+  // The Overseer runs a completely different fight (stances, King's Orders,
+  // parry, Fallen Knights) — hand him off to his own driver.
+  if (isOverseer(ent)) { try { tickOverseer(ent, s, now); } catch (e) {} return; }
+
+  // Fractured Marauder: Seraphim decay + radiant aura + active tether.
   tickFracture(ent, s);
+  tickTether(ent, s, now);
 
   // Unbroken-Core Revive — primary monitor. Catch him just above death and revive
   // BEFORE a killing blow lands (the stable API can't cancel the lethal hit itself).
@@ -581,7 +644,13 @@ function fireAbility(ent, a, target) {
     case "omni":   effectOmni(ent, target); break;
     case "grit":    effectGrit(ent, target, base); break;
     case "skyfall": effectSkyfall(ent, target, base); break;
+    case "tether":  effectTether(ent, target, base); break;
+    case "arena":   effectArena(ent, target); break;
+    case "mirror":  effectMirror(ent, target); break;
+    case "spears":  effectSpears(ent, target, base); break;
     case "wingsweep": effectWingsweep(ent, target, base); break;
+    case "divebomb":  effectDivebomb(ent, target, base); break;
+    case "cleave":    effectCleave(ent, target, base); break;
   }
 }
 
@@ -616,6 +685,228 @@ function effectWingsweep(ent, target, base) {
     try { v.setOnFire(4, true); } catch (e) {}
     const away = norm({ x: v.location.x - origin.x, y: 0, z: v.location.z - origin.z });
     try { v.applyKnockback(away.x, away.z, 1.4 + 1.6 * falloff, 0.9); } catch (e) {}
+  }
+}
+
+// ============================================================= FRACTURED BASE TOOLKIT
+// Radiant Tether — golden chains bind the target; stray too far and they snap taut,
+// yanking the player back into melee. Tracked per-marauder in state.tether.
+function effectTether(ent, target, base) {
+  const dim = ent.dimension;
+  triggerCast(ent, 14);
+  spawnRing(dim, ent.location, "minecraft:endrod", 1.2, 16);
+  try { dim.playSound("mob.wither.shoot", ent.location, { pitch: 1.2 }); } catch (e) {}
+  hurt(target, ent, Math.round(base * 0.4));
+  const s = stateFor(ent);
+  s.tether = { id: target.id, until: system.currentTick + 80 }; // 4 seconds
+}
+// Called each combat tick from tickCombat: draw the chain + yank if it goes taut.
+function tickTether(ent, s, now) {
+  if (!s.tether) return;
+  if (now >= s.tether.until) { s.tether = null; return; }
+  const t = entityById(ent.dimension, s.tether.id);
+  if (!t || !isValid(t)) { s.tether = null; return; }
+  // chain of light
+  const a = ent.location, b = t.location;
+  const steps = 6;
+  for (let i = 1; i < steps; i++) {
+    trySpawnParticle(ent.dimension, "minecraft:endrod", { x: a.x + (b.x - a.x) * i / steps, y: a.y + 1 + (b.y - a.y) * i / steps, z: a.z + (b.z - a.z) * i / steps });
+  }
+  if (dist(a, b) > 6) {
+    const pull = norm({ x: a.x - b.x, y: 0, z: a.z - b.z });
+    try { t.applyKnockback(pull.x, pull.z, 2.6, 0.35); } catch (e) {}
+    try { ent.dimension.playSound("mob.enderdragon.flap", b, { pitch: 1.4, volume: 1.0 }); } catch (e) {}
+  }
+}
+
+// Consecrated Arena — a glowing golden seal. Buffs the Marauder, "purifies"
+// players inside (no sprint + holy tick damage). Tracked in the holyGrounds list.
+const holyGrounds = [];
+function effectArena(ent, target) {
+  triggerCast(ent, 16);
+  const c = target ? { x: Math.floor(target.location.x) + 0.5, y: target.location.y, z: Math.floor(target.location.z) + 0.5 } : ent.location;
+  try { ent.dimension.playSound("beacon.activate", c, { pitch: 0.9, volume: 1.4 }); } catch (e) {}
+  holyGrounds.push({ dimId: ent.dimension.id, ownerId: ent.id, x: c.x, y: c.y, z: c.z, r: 6, until: system.currentTick + 200 });
+}
+function tickHolyGrounds(now) {
+  for (let i = holyGrounds.length - 1; i >= 0; i--) {
+    const g = holyGrounds[i];
+    if (now >= g.until) { holyGrounds.splice(i, 1); continue; }
+    let dim; try { dim = world.getDimension(g.dimId); } catch (e) { holyGrounds.splice(i, 1); continue; }
+    const center = { x: g.x, y: g.y, z: g.z };
+    // seal ring VFX
+    if (now % 6 === 0) spawnRing(dim, center, "minecraft:endrod", g.r, 26);
+    // buff the owner if inside
+    const owner = entityById(dim, g.ownerId);
+    if (owner && isValid(owner) && dist(owner.location, center) <= g.r) {
+      try { owner.addEffect("speed", 40, { amplifier: 1, showParticles: false }); } catch (e) {}
+      try { owner.addEffect("regeneration", 40, { amplifier: 1, showParticles: false }); } catch (e) {}
+    }
+    // purify players inside
+    if (now % 20 === 0) {
+      try {
+        for (const p of dim.getEntities({ type: "minecraft:player", location: center, maxDistance: g.r })) {
+          const gm = safeGameMode(p);
+          if (gm === GameMode.creative || gm === GameMode.spectator) continue;
+          try { p.addEffect("mining_fatigue", 40, { amplifier: 1, showParticles: false }); } catch (e) {}
+          try { p.applyDamage(2, { cause: EntityDamageCause.magic, damagingEntity: owner }); } catch (e) {}
+          try { p.onScreenDisplay.setActionBar("§6✟ Purification §7— leave the holy ground!"); } catch (e) {}
+        }
+      } catch (e) {}
+    }
+  }
+}
+
+// Blinding Counter — mirror guard. Sets a window; if struck (entityHurt), he
+// negates it, blinds the attacker, and dash-bashes them.
+function effectMirror(ent, target) {
+  const s = stateFor(ent);
+  s.mirrorUntil = system.currentTick + 30; // 1.5s
+  triggerCast(ent, 30);
+  spawnRing(ent.dimension, ent.location, "minecraft:endrod", 0.8, 10);
+  try { ent.dimension.playSound("item.shield.block", ent.location, { pitch: 1.3 }); } catch (e) {}
+}
+function mirrorRiposte(ent, attacker) {
+  const dim = ent.dimension;
+  try { dim.spawnParticle("minecraft:wax_particle", { x: ent.location.x, y: ent.location.y + 1.4, z: ent.location.z }); } catch (e) {}
+  try { dim.playSound("random.orb", ent.location, { pitch: 1.6, volume: 1.4 }); } catch (e) {}
+  if (attacker && isValid(attacker)) {
+    faceTarget(ent, attacker);
+    try { attacker.addEffect("blindness", 60, { amplifier: 0 }); } catch (e) {}
+    // dashing shoulder-bash
+    const dir = norm(sub(attacker.location, ent.location));
+    try { ent.applyKnockback(dir.x, dir.z, 2.0, 0.2); } catch (e) {}
+    system.runTimeout(() => {
+      if (!isValid(ent) || !isValid(attacker)) return;
+      if (dist(ent.location, attacker.location) < 3.5) {
+        const stage = clampStage(ent.getDynamicProperty("marauder:stageNum") ?? 10);
+        hurt(attacker, ent, Math.round(stageDamage(stage) * 1.2));
+        knockFrom(attacker, ent.location, 1.0, 0.4);
+      }
+    }, 5);
+  }
+}
+
+// Spears of Hard-Light — 3 floating javelins launch in sequence; each detonates
+// a beat after impact in a holy-fire burst.
+function effectSpears(ent, target, base) {
+  triggerCast(ent, 16);
+  const dim = ent.dimension;
+  try { dim.playSound("item.trident.throw", ent.location, { pitch: 1.2 }); } catch (e) {}
+  const targetId = target.id;
+  for (let n = 0; n < 3; n++) {
+    system.runTimeout(() => {
+      if (!isValid(ent)) return;
+      const t = entityById(dim, targetId);
+      const start = { x: ent.location.x, y: ent.location.y + 1.6, z: ent.location.z };
+      const aim = t && isValid(t) ? { x: t.location.x, y: t.location.y + 0.5, z: t.location.z } : { x: start.x, y: start.y, z: start.z + 3 };
+      const dir = norm(sub(aim, start));
+      // fast tracer
+      for (let i = 1; i <= 18; i++) trySpawnParticle(dim, "minecraft:endrod", { x: start.x + dir.x * i, y: start.y + dir.y * i, z: start.z + dir.z * i });
+      const impact = { x: start.x + dir.x * Math.min(18, dist(start, aim)), y: aim.y, z: start.z + dir.z * Math.min(18, dist(start, aim)) };
+      try { dim.playSound("item.trident.hit", impact, { pitch: 1.0 }); } catch (e) {}
+      // detonate after ~1s
+      system.runTimeout(() => {
+        if (!isValid(ent)) return;
+        spawnRing(dim, impact, "minecraft:basic_flame_particle", 2.0, 20);
+        spawnRing(dim, impact, "minecraft:endrod", 1.2, 12);
+        try { dim.playSound("random.explode", impact, { pitch: 1.1, volume: 1.1 }); } catch (e) {}
+        for (const v of victimsAt(dim, impact, 3.0)) {
+          try { v.applyDamage(Math.max(1, Math.round(base * 0.6)), { cause: EntityDamageCause.fire, damagingEntity: ent }); } catch (e) {}
+          trueDamage(v, 4);
+          try { v.setOnFire(3, true); } catch (e) {}
+        }
+      }, 20);
+    }, n * 8);
+  }
+}
+
+// ============================================================= SERAPHIM: DIVE-BOMB + GREATSWORD
+// Dive-Bomb & Feather Rain — leaps up with a wind gust, hovers target-locking,
+// crash-lands for heavy AoE + stun, then holy feathers rain down for area denial.
+function effectDivebomb(ent, target, base) {
+  const dim = ent.dimension;
+  triggerCast(ent, 40);
+  // wind gust pushback + leap
+  spawnRing(dim, ent.location, "minecraft:knockback_roar_particle", 2.0, 16);
+  for (const v of victimsNear(ent, 4.0, target, true)) { const a = norm(sub(v.location, ent.location)); try { v.applyKnockback(a.x, a.z, 1.4, 0.3); } catch (e) {} }
+  try { ent.applyKnockback(0, 0, 0, 1.4); } catch (e) {}
+  try { dim.playSound("mob.enderdragon.flap", ent.location, { pitch: 0.7, volume: 1.6 }); } catch (e) {}
+  const targetId = target.id;
+  // hover + target-lock (~1.5s), then crash where the target is.
+  system.runTimeout(() => {
+    if (!isValid(ent)) return;
+    const t = entityById(dim, targetId);
+    const pos = t && isValid(t) ? { x: t.location.x, y: t.location.y, z: t.location.z } : ent.location;
+    try { ent.teleport({ x: pos.x, y: pos.y, z: pos.z }); } catch (e) {}
+    spawnRing(dim, pos, "minecraft:basic_flame_particle", 3.5, 34);
+    spawnRing(dim, pos, "minecraft:endrod", 2.0, 20);
+    try { dim.spawnParticle("minecraft:huge_explosion_emitter", { x: pos.x, y: pos.y + 0.5, z: pos.z }); } catch (e) {}
+    try { dim.playSound("random.explode", pos, { pitch: 0.5, volume: 2.0 }); } catch (e) {}
+    for (const v of victimsAt(dim, pos, 4.5)) {
+      try { v.applyDamage(Math.max(1, Math.round(base * 1.0)), { cause: EntityDamageCause.fire, damagingEntity: ent }); } catch (e) {}
+      trueDamage(v, 10);
+      // 2-second stun: near-frozen + can't jump out
+      try { v.addEffect("slowness", 40, { amplifier: 254 }); } catch (e) {}
+      try { v.addEffect("jump_boost", 40, { amplifier: 128 }); } catch (e) {} // negative-style: prevents useful jump
+      try { v.addEffect("weakness", 60, { amplifier: 2 }); } catch (e) {}
+    }
+    featherRain(dim, pos, ent);
+  }, 30);
+}
+// Holy feathers rain over ~3s: delayed AoE motes falling around the crash site.
+function featherRain(dim, center, ent) {
+  const drops = 8 + Math.floor(Math.random() * 5);
+  for (let i = 0; i < drops; i++) {
+    const a = Math.random() * Math.PI * 2, r = Math.random() * 4.5;
+    const gx = center.x + Math.cos(a) * r, gz = center.z + Math.sin(a) * r;
+    const delay = 6 + Math.floor(Math.random() * 54);
+    // falling streak
+    for (let k = 0; k < 4; k++) {
+      system.runTimeout(() => trySpawnParticle(dim, "minecraft:endrod", { x: gx, y: center.y + 10 - k * 2.5, z: gz }), delay + k * 2);
+    }
+    // impact
+    system.runTimeout(() => {
+      spawnRing(dim, { x: gx, y: center.y, z: gz }, "minecraft:basic_flame_particle", 1.0, 8);
+      try { dim.playSound("random.orb", { x: gx, y: center.y, z: gz }, { pitch: 1.4, volume: 0.5 }); } catch (e) {}
+      for (const v of victimsAt(dim, { x: gx, y: center.y, z: gz }, 1.6)) {
+        try { v.applyDamage(4, { cause: EntityDamageCause.fire, damagingEntity: ent }); } catch (e) {}
+        try { v.setOnFire(2, true); } catch (e) {}
+      }
+    }, delay + 8);
+  }
+}
+
+// Flaming Greatsword Cleave — a slow, charged 180° frontal wave.
+function effectCleave(ent, target, base) {
+  const dim = ent.dimension;
+  // The 1s charge is the ability's 20-tick windup (telegraphed by casting + flame).
+  faceTarget(ent, target);
+  const origin = ent.location;
+  const fwd = norm(sub(target.location, origin));
+  // charge flames along the blade
+  for (let i = 0; i < 6; i++) system.runTimeout(() => { if (isValid(ent)) trySpawnParticle(dim, "minecraft:basic_flame_particle", { x: ent.location.x + fwd.x, y: ent.location.y + 1.4, z: ent.location.z + fwd.z }); }, i * 3);
+  try { dim.playSound("mob.blaze.shoot", origin, { pitch: 0.6, volume: 1.4 }); } catch (e) {}
+  try { dim.playSound("mob.player.attack.sweep", origin, { pitch: 0.6, volume: 1.6 }); } catch (e) {}
+  // the wave: 180° frontal
+  const R = 6.0;
+  for (let ring = 1; ring <= 6; ring++) {
+    system.runTimeout(() => {
+      if (!isValid(ent)) return;
+      for (let deg = -90; deg <= 90; deg += 15) {
+        const rad = Math.atan2(fwd.z, fwd.x) + deg * Math.PI / 180;
+        trySpawnParticle(dim, "minecraft:basic_flame_particle", { x: origin.x + Math.cos(rad) * ring, y: origin.y + 0.6, z: origin.z + Math.sin(rad) * ring });
+      }
+    }, ring * 2);
+  }
+  for (const v of victimsNear(ent, R, target, true)) {
+    const to = norm(sub(v.location, origin));
+    if (fwd.x * to.x + fwd.z * to.z < 0) continue; // frontal 180°
+    try { v.applyDamage(Math.max(1, Math.round(base * 1.1)), { cause: EntityDamageCause.fire, damagingEntity: ent }); } catch (e) {}
+    trueDamage(v, 8);
+    try { v.setOnFire(5, true); } catch (e) {}
+    const k = norm({ x: v.location.x - origin.x, y: 0, z: v.location.z - origin.z });
+    try { v.applyKnockback(k.x, k.z, 2.4, 0.5); } catch (e) {}
   }
 }
 
@@ -1198,7 +1489,9 @@ function seraphOff(ent) {
 function tickFracture(ent, s) {
   if (!isFractured(ent)) return;
   if (isSeraph(ent)) {
-    const meter = Math.max(0, getFracture(ent) - FRACTURE_DECAY);
+    // A meter-triggered Seraphim burns down; an HP-triggered (<=50%) one is permanent.
+    const permanent = ent.getDynamicProperty("marauder:seraphPermanent") === true;
+    const meter = permanent ? 100 : Math.max(0, getFracture(ent) - FRACTURE_DECAY);
     ent.setDynamicProperty("marauder:fracture", meter);
     // Radiant aura while transformed.
     if (system.currentTick % 8 === 0) {
@@ -1209,10 +1502,452 @@ function tickFracture(ent, s) {
         z: ent.location.z + Math.sin(a) * 0.9
       });
     }
-    if (meter <= 0) { seraphOff(ent); return; }
+    if (!permanent && meter <= 0) { seraphOff(ent); return; }
     // Throttled meter readout on the boss bar.
     if (system.currentTick % 20 === 0) updateTitle(ent);
   }
+}
+
+// ============================================================= FRACTURED: THE ADAPTATION HALO
+// Mahoraga-style: his halo "learns" the damage type it keeps eating and builds a
+// stacking resistance to it (15% per stack, cap 45%). Hit him with something else
+// and the old resistance erodes while the new one builds — forcing weapon rotation.
+const ADAPT_THRESHOLD = 30; // damage of one type absorbed per stack gained/lost
+const ADAPT_PER_STACK = 0.15;
+const ADAPT_MAX_STACKS = 3;
+
+function damageCategory(cause) {
+  switch (cause) {
+    case "entityAttack": case "entity_attack": return "melee";
+    case "projectile": case "arrow": case "thrown": return "projectile";
+    case "fire": case "fireTick": case "fire_tick": case "lava": case "magic":
+    case "wither": case "soul_campfire": case "campfire": case "fireworks": return "firemagic";
+    case "entityExplosion": case "entity_explosion":
+    case "blockExplosion": case "block_explosion": return "explosive";
+    default: return null;
+  }
+}
+const CATEGORY_LABEL = { melee: "MELEE", projectile: "PROJECTILE", firemagic: "FIRE/MAGIC", explosive: "EXPLOSIVE" };
+
+function adaptState(ent) {
+  const s = stateFor(ent);
+  if (!s.adapt) s.adapt = { cat: null, stacks: 0, build: 0, erode: 0 };
+  return s.adapt;
+}
+function adaptTo(ent, cause, dmg) {
+  const cat = damageCategory(cause);
+  if (!cat || dmg <= 0) return;
+  const a = adaptState(ent);
+  if (a.stacks === 0 || cat === a.cat) {
+    if (a.stacks === 0) a.cat = cat;
+    a.build += dmg; a.erode = 0;
+    if (a.build >= ADAPT_THRESHOLD && a.stacks < ADAPT_MAX_STACKS) {
+      a.stacks++; a.build = 0; adaptProc(ent, a.cat, a.stacks, true);
+    }
+  } else {
+    a.erode += dmg;
+    if (a.erode >= ADAPT_THRESHOLD) {
+      a.erode = 0; a.stacks = Math.max(0, a.stacks - 1); adaptProc(ent, a.cat, a.stacks, false);
+      if (a.stacks === 0) { a.cat = cat; a.build = dmg; }
+    }
+  }
+  updateTitle(ent);
+}
+function adaptationResist(ent, cause) {
+  const s = combat.get(ent.id);
+  if (!s || !s.adapt || s.adapt.stacks === 0) return 0;
+  if (damageCategory(cause) !== s.adapt.cat) return 0;
+  return Math.min(0.45, s.adapt.stacks * ADAPT_PER_STACK);
+}
+function adaptProc(ent, cat, stacks, gained) {
+  // Echoing clockwork chime + a ring of light spinning off the halo.
+  const head = { x: ent.location.x, y: ent.location.y + 2.4, z: ent.location.z };
+  for (let i = 0; i < 14; i++) {
+    const a = (Math.PI * 2 * i) / 14;
+    trySpawnParticle(ent.dimension, "minecraft:endrod", { x: head.x + Math.cos(a) * 1.1, y: head.y, z: head.z + Math.sin(a) * 1.1 });
+  }
+  try { ent.dimension.playSound(gained ? "block.bell.hit" : "note.bell", ent.location, { pitch: gained ? 1.2 : 0.7, volume: 1.2 }); } catch (e) {}
+  try { ent.setProperty("marauder:casting", true); } catch (e) {}
+  system.runTimeout(() => { try { if (isValid(ent) && !stateFor(ent).current) ent.setProperty("marauder:casting", false); } catch (e) {} }, 8);
+  overseerAnnounceGeneric(ent, gained
+    ? `§b✦ Adapted to ${CATEGORY_LABEL[cat]} §7(${Math.round(Math.min(45, stacks * 15))}% resist)`
+    : `§7Resistance to ${CATEGORY_LABEL[cat]} erodes §8(${Math.round(stacks * 15)}%)`);
+}
+function adaptLabel(ent) {
+  const s = combat.get(ent.id);
+  if (!s || !s.adapt || s.adapt.stacks === 0) return "";
+  return ` §b[${CATEGORY_LABEL[s.adapt.cat]} ${Math.round(Math.min(45, s.adapt.stacks * 15))}%]`;
+}
+// Small actionbar broadcaster reused by several systems.
+function overseerAnnounceGeneric(ent, text) {
+  try {
+    for (const p of ent.dimension.getEntities({ type: "minecraft:player", location: ent.location, maxDistance: 36 })) {
+      try { p.onScreenDisplay.setActionBar(text); } catch (e) {}
+    }
+  } catch (e) {}
+}
+
+// ============================================================= PART 1: THE OVERSEER (FALLEN KING)
+// The corrupted final phase: the stage-10 Marauder dies and rises as the Overseer.
+// He fights in two stances (scythe / crossbow), barks King's Orders, parries into
+// a bleeding impale, and at 50% HP raises Fallen Knights behind a Royal Aegis.
+
+// Rise from the fallen Marauder at `loc`, inheriting the owner.
+function emergeOverseer(dim, loc, ownerId) {
+  let ovr;
+  try { ovr = dim.spawnEntity(OVERSEER, loc); } catch (e) { return null; }
+  if (ownerId) ovr.setDynamicProperty("marauder:owner", ownerId);
+  ovr.setDynamicProperty("marauder:stageNum", STAGE_MAX);
+  ovr.setDynamicProperty("marauder:knightsUsed", false);
+  applyHealthMult(ovr);
+  const s = stateFor(ovr);
+  s.stance = "melee"; s.phaseLock = true; s.emergeUntil = system.currentTick + 80;
+  try { ovr.triggerEvent("marauder:emerge_on"); } catch (e) {}
+  try { ovr.triggerEvent("marauder:become_boss"); } catch (e) {}
+  try { ovr.setProperty("marauder:kneeling", true); } catch (e) {}
+  if (world.getDynamicProperty("marauder:ffa") === true) { try { ovr.triggerEvent("marauder:ffa_on"); } catch (e) {} }
+  ovr.nameTag = "§4The Overseer §8— §cFallen King (rising…)";
+
+  // Armor-shattering debris + heavy metallic breaks over the 4-second rise.
+  const owner = ownerId ? world.getAllPlayers().find(p => p.id === ownerId) : null;
+  if (owner) {
+    try { owner.onScreenDisplay.setTitle("§4THE OVERSEER", { fadeInDuration: 10, stayDuration: 50, fadeOutDuration: 20, subtitle: "§8The Fallen King rises" }); } catch (e) {}
+  }
+  try { dim.playSound("mob.wither.spawn", loc, { pitch: 0.5, volume: 1.6 }); } catch (e) {}
+  for (let i = 0; i < 4; i++) {
+    system.runTimeout(() => {
+      if (!isValid(ovr)) return;
+      const c = ovr.location;
+      spawnRing(dim, c, "minecraft:basic_flame_particle", 1.0 + i * 0.4, 20);
+      try { dim.spawnParticle("minecraft:knockback_roar_particle", { x: c.x, y: c.y + 0.4, z: c.z }); } catch (e) {}
+      try { dim.playSound("random.anvil_land", c, { pitch: 0.6, volume: 1.0 }); } catch (e) {}
+      try { dim.spawnItem(new ItemStack(i % 2 ? "marauder:blacksteel_fragment" : "marauder:ashen_shard", 1), { x: c.x, y: c.y + 1, z: c.z }); } catch (e) {}
+    }, 12 + i * 16);
+  }
+  // End of emerge: unlock and begin the real fight.
+  system.runTimeout(() => {
+    if (!isValid(ovr)) return;
+    try { ovr.triggerEvent("marauder:emerge_off"); } catch (e) {}
+    try { ovr.setProperty("marauder:kneeling", false); } catch (e) {}
+    const st = stateFor(ovr); st.phaseLock = false;
+    updateTitle(ovr);
+    try { dim.playSound("mob.enderdragon.growl", ovr.location, { pitch: 0.6, volume: 1.4 }); } catch (e) {}
+  }, 82);
+  return ovr;
+}
+
+function applyHealthMult(ent) {
+  const mult = Number(cfg("bossHealthMult")) || 1;
+  if (mult === 1) return;
+  try {
+    const h = ent.getComponent("minecraft:health");
+    if (h) { const m = (h.effectiveMax ?? h.defaultValue) * mult; /* raise cap via resetToMaxValue after event not available; scale current */ h.setCurrentValue(Math.min(h.effectiveMax ?? m, (h.effectiveMax ?? m))); }
+  } catch (e) {}
+}
+
+function overseerTitle(ent) {
+  const s = combat.get(ent.id);
+  let tag = "§4The Overseer §8— §cFallen King";
+  if (s && s.phaseLock) tag = "§4The Overseer §8— §cFallen King (rising…)";
+  else if (knightsAlive(ent) > 0) tag = "§4The Overseer §8— §bRoyal Aegis §7(" + knightsAlive(ent) + ")";
+  else if (s && s.stance === "ranged") tag = "§4The Overseer §8— §eKing's Crossbow";
+  try { ent.nameTag = tag; } catch (e) {}
+}
+
+function knightsAlive(ovr) {
+  try {
+    return ovr.dimension.getEntities({ type: FALLEN_KNIGHT })
+      .filter(k => isValid(k) && k.getDynamicProperty("marauder:master") === ovr.id).length;
+  } catch (e) { return 0; }
+}
+
+function tickOverseer(ent, s, now) {
+  // Emerge lock — invulnerable, kneeling, no actions.
+  if (s.phaseLock) { if (now >= (s.emergeUntil || 0)) s.phaseLock = false; else return; }
+
+  if (s.swingUntil && now >= s.swingUntil) { s.swingUntil = 0; setAttacking(ent, false); }
+  if (s.castUntil && now >= s.castUntil) { s.castUntil = 0; setCasting(ent, false); }
+
+  const owner = ownerOf(ent);
+  if (owner && (owner.dimension.id !== ent.dimension.id || dist(owner.location, ent.location) > LEASH_RANGE)) { retreat(ent); return; }
+
+  // Cooldowns.
+  if (s.globalCd > 0) s.globalCd -= COMBAT_INTERVAL;
+
+  // Royal Aegis: at 50% HP (first time) summon knights + raise the shield.
+  if (!ent.getDynamicProperty("marauder:knightsUsed") && healthPct(ent) <= 0.5) {
+    summonFallenKnights(ent, s, now); return;
+  }
+  // Maintain the aegis while knights live; drop it (and bark) when they fall.
+  const alive = knightsAlive(ent);
+  if (s.aegis && alive === 0) {
+    s.aegis = false;
+    try { ent.triggerEvent("marauder:aegis_off"); } catch (e) {}
+    try { ent.triggerEvent("marauder:ranged_off"); } catch (e) {}
+    s.stance = "melee";
+    overseerAnnounce(ent, "§cThe Aegis shatters!");
+    try { ent.dimension.playSound("mob.wither.break_block", ent.location, { volume: 1.4 }); } catch (e) {}
+  }
+
+  const target = pickTarget(ent, s, owner, now);
+  if (!target) return;
+  overseerTitle(ent);
+  const d = dist(ent.location, target.location);
+
+  // While the aegis holds he stays back, bolsters his knights, and fires.
+  if (s.aegis && alive > 0) {
+    if (now >= (s.nextBolster || 0)) { s.nextBolster = now + 120; bolsterKnights(ent); }
+    if (s.globalCd <= 0) { overseerVolley(ent, target); s.globalCd = 45; }
+    return;
+  }
+
+  // King's Orders on a 10–15s cadence.
+  if (now >= (s.nextOrder || (s.nextOrder = now + 160))) {
+    s.nextOrder = now + 200 + Math.floor(Math.random() * 100);
+    kingsOrder(ent, s, target, now);
+    return;
+  }
+
+  if (s.globalCd > 0) return;
+
+  // Pressure → backstep into ranged stance.
+  s.pressure = d <= 3 ? (s.pressure || 0) + COMBAT_INTERVAL : 0;
+  if (s.stance !== "ranged" && s.pressure >= 80) {
+    overseerBackstep(ent, target, s, now);
+    return;
+  }
+  if (s.stance === "ranged") {
+    overseerVolley(ent, target);
+    s.globalCd = 45;
+    if (now >= (s.stanceUntil || 0)) { s.stance = "melee"; try { ent.triggerEvent("marauder:ranged_off"); } catch (e) {} try { ent.setProperty("marauder:stance", 0); } catch (e) {} }
+    return;
+  }
+  // Melee stance: parry, then heavy scythe slash.
+  const roll = Math.random();
+  if (roll < 0.28 && d <= 6) { overseerParry(ent, s, now); s.globalCd = 60; }
+  else if (d <= 5.0) { overseerSlash(ent, target); s.globalCd = 34; }
+}
+
+function overseerDamage(base) { return Math.round(base * (Number(cfg("bossDamageMult")) || 1)); }
+
+function overseerAnnounce(ent, text) {
+  for (const p of ent.dimension.getEntities({ type: "minecraft:player", location: ent.location, maxDistance: 40 })) {
+    try { p.onScreenDisplay.setActionBar(text); } catch (e) {}
+  }
+}
+
+// -------- scythe stance --------
+function overseerSlash(ent, target) {
+  setAttacking(ent, true);
+  stateFor(ent).swingUntil = system.currentTick + SWING_TICKS;
+  faceTarget(ent, target);
+  const dim = ent.dimension, origin = ent.location;
+  const fwd = norm(sub(target.location, origin));
+  system.runTimeout(() => {
+    if (!isValid(ent)) return;
+    for (let i = 1; i <= 4; i++) trySpawnParticle(dim, "minecraft:critical_hit_emitter", { x: origin.x + fwd.x * i, y: origin.y + 1, z: origin.z + fwd.z * i });
+    try { dim.playSound("mob.player.attack.sweep", origin, { pitch: 0.7, volume: 1.3 }); } catch (e) {}
+    for (const v of victimsNear(ent, 4.5, target, true)) {
+      const to = norm(sub(v.location, origin));
+      if (fwd.x * to.x + fwd.z * to.z < 0.35) continue;
+      hurt(v, ent, overseerDamage(14));
+      const k = norm({ x: v.location.x - origin.x, y: 0, z: v.location.z - origin.z });
+      try { v.applyKnockback(k.x, k.z, 1.2, 0.4); } catch (e) {}
+    }
+  }, 6);
+}
+
+// -------- backstep + afterimage → ranged --------
+function overseerBackstep(ent, target, s, now) {
+  const dim = ent.dimension, loc = ent.location;
+  let ghost;
+  try { ghost = dim.spawnEntity(AFTERIMAGE, loc); } catch (e) {}
+  if (ghost) { try { ghost.setDynamicProperty("marauder:dodgePhantom", true); } catch (e) {} system.runTimeout(() => { try { poof(dim, ghost.location); ghost.remove(); } catch (e) {} }, 24); }
+  poof(dim, loc);
+  const away = norm(sub(loc, target.location));
+  try { ent.applyKnockback(away.x, away.z, 2.0, 0.5); } catch (e) {}
+  try { dim.playSound("mob.endermen.portal", loc, { pitch: 0.8 }); } catch (e) {}
+  s.stance = "ranged"; s.pressure = 0; s.stanceUntil = now + 120; s.globalCd = 20;
+  try { ent.triggerEvent("marauder:ranged_on"); } catch (e) {}
+  try { ent.setProperty("marauder:stance", 1); } catch (e) {}
+}
+
+// -------- crossbow stance: 3 homing spectral bolts --------
+function overseerVolley(ent, target) {
+  triggerCast(ent, 16);
+  faceTarget(ent, target);
+  const dim = ent.dimension;
+  try { dim.playSound("item.crossbow.loading_end", ent.location, { pitch: 0.8, volume: 1.2 }); } catch (e) {}
+  const targetId = target.id;
+  for (let n = 0; n < 3; n++) {
+    system.runTimeout(() => {
+      if (!isValid(ent)) return;
+      try { dim.playSound("item.crossbow.shoot", ent.location, { pitch: 1.0 + n * 0.1 }); } catch (e) {}
+      spectralBolt(ent, targetId, (n - 1) * 0.25);
+    }, 4 + n * 4);
+  }
+}
+
+// A scripted homing "spectral arrow": a glowing point that steers toward the mark.
+function spectralBolt(ent, targetId, spreadYaw) {
+  const dim = ent.dimension;
+  let pos = { x: ent.location.x, y: ent.location.y + 1.3, z: ent.location.z };
+  const t0 = entityById(dim, targetId);
+  let dir = t0 ? norm(sub({ x: t0.location.x, y: t0.location.y + 1, z: t0.location.z }, pos)) : { x: 0, y: 0, z: 1 };
+  // apply spread (rotate around Y)
+  const cs = Math.cos(spreadYaw), sn = Math.sin(spreadYaw);
+  dir = { x: dir.x * cs - dir.z * sn, y: dir.y, z: dir.x * sn + dir.z * cs };
+  const speed = 1.1;
+  let life = 40;
+  const handle = system.runInterval(() => {
+    if (!isValid(ent) || life-- <= 0) { system.clearRun(handle); return; }
+    const t = entityById(dim, targetId);
+    if (t && isValid(t)) {
+      const want = norm(sub({ x: t.location.x, y: t.location.y + 1, z: t.location.z }, pos));
+      dir = norm({ x: dir.x + want.x * 0.35, y: dir.y + want.y * 0.35, z: dir.z + want.z * 0.35 }); // homing
+    }
+    pos = { x: pos.x + dir.x * speed, y: pos.y + dir.y * speed, z: pos.z + dir.z * speed };
+    trySpawnParticle(dim, "minecraft:endrod", pos);
+    // hit test
+    for (const v of victimsAt(dim, pos, 1.2)) {
+      hurt(v, ent, overseerDamage(7));
+      try { v.addEffect("glowing", 60, { amplifier: 0 }); } catch (e) {}
+      system.clearRun(handle); return;
+    }
+    try { const b = dim.getBlock(pos); if (b && !b.isAir) { system.clearRun(handle); } } catch (e) {}
+  }, 1);
+}
+
+// -------- parry stance --------
+function overseerParry(ent, s, now) {
+  s.parryUntil = now + 24; // ~1.2s window
+  triggerCast(ent, 24);
+  try { ent.dimension.playSound("item.shield.block", ent.location, { pitch: 0.7, volume: 1.2 }); } catch (e) {}
+  trySpawnParticle(ent.dimension, "minecraft:balloon_gas_particle", { x: ent.location.x, y: ent.location.y + 1.4, z: ent.location.z });
+}
+
+// The counter, fired from the entityHurt handler when he is struck mid-parry.
+function overseerRiposte(ent, attacker) {
+  const dim = ent.dimension;
+  spawnRing(dim, ent.location, "minecraft:critical_hit_emitter", 1.5, 16);
+  try { dim.playSound("random.anvil_use", ent.location, { pitch: 0.6, volume: 1.4 }); } catch (e) {}
+  if (attacker && isValid(attacker)) {
+    faceTarget(ent, attacker);
+    // Stun + overhead impale → bleed.
+    try { attacker.addEffect("slowness", 40, { amplifier: 4 }); } catch (e) {}
+    try { attacker.addEffect("weakness", 40, { amplifier: 1 }); } catch (e) {}
+    hurt(attacker, ent, overseerDamage(12));
+    applyBleed(attacker, 160);
+    setAttacking(ent, true); stateFor(ent).swingUntil = system.currentTick + SWING_TICKS;
+  }
+}
+
+// -------- King's Orders --------
+function kingsOrder(ent, s, target, now) {
+  const orders = ["halt", "kneel", "scatter"];
+  const which = orders[Math.floor(Math.random() * orders.length)];
+  const dim = ent.dimension;
+  triggerCast(ent, 30);
+  if (which === "halt") {
+    overseerAnnounce(ent, "§4§lOrder: §cHALT!");
+    try { dim.playSound("mob.evocation_illager.prepare_summon", ent.location, { pitch: 0.7, volume: 1.4 }); } catch (e) {}
+    for (const p of playersNearEnt(ent, 24)) {
+      try { p.addEffect("slowness", 50, { amplifier: 254 }); } catch (e) {}
+      try { p.addEffect("weakness", 50, { amplifier: 2 }); } catch (e) {}
+      try { p.addEffect("mining_fatigue", 50, { amplifier: 2 }); } catch (e) {}
+    }
+  } else if (which === "kneel") {
+    overseerAnnounce(ent, "§4§lOrder: §cKNEEL! §7(sneak!)");
+    try { dim.playSound("mob.wither.ambient", ent.location, { pitch: 0.5, volume: 1.4 }); } catch (e) {}
+    const marks = playersNearEnt(ent, 24).map(p => p.id);
+    system.runTimeout(() => {
+      if (!isValid(ent)) return;
+      for (const p of playersNearEnt(ent, 26)) {
+        if (!marks.includes(p.id)) continue;
+        let sneaking = false; try { sneaking = p.isSneaking; } catch (e) {}
+        if (sneaking) { try { p.onScreenDisplay.setActionBar("§aYou knelt."); } catch (e) {} continue; }
+        hurt(p, ent, overseerDamage(16));
+        trueDamage(p, 6);
+        try { p.addEffect("weakness", 140, { amplifier: 3 }); } catch (e) {}
+        try { p.addEffect("slowness", 140, { amplifier: 3 }); } catch (e) {}
+        spawnRing(dim, p.location, "minecraft:basic_flame_particle", 1.5, 16);
+        try { dim.playSound("random.explode", p.location, { pitch: 0.7, volume: 1.2 }); } catch (e) {}
+      }
+    }, 30);
+  } else {
+    overseerAnnounce(ent, "§4§lOrder: §cSCATTER!");
+    try { dim.playSound("mob.warden.sonic_boom", ent.location, { volume: 1.2 }); } catch (e) {}
+    spawnRing(dim, ent.location, "minecraft:knockback_roar_particle", 2.5, 20);
+    for (const p of playersNearEnt(ent, 12)) {
+      const away = norm({ x: p.location.x - ent.location.x, y: 0, z: p.location.z - ent.location.z });
+      try { p.applyKnockback(away.x, away.z, 3.2, 0.7); } catch (e) {}
+    }
+    // Instantly transition to crossbow.
+    s.stance = "ranged"; s.stanceUntil = now + 120;
+    try { ent.triggerEvent("marauder:ranged_on"); } catch (e) {}
+    try { ent.setProperty("marauder:stance", 1); } catch (e) {}
+  }
+  s.globalCd = 40;
+}
+
+// -------- Fallen Knights + Royal Aegis --------
+function summonFallenKnights(ent, s, now) {
+  ent.setDynamicProperty("marauder:knightsUsed", true);
+  s.aegis = true; s.stance = "ranged"; s.stanceUntil = now + 999999; s.globalCd = 60;
+  try { ent.triggerEvent("marauder:aegis_on"); } catch (e) {}
+  try { ent.triggerEvent("marauder:ranged_on"); } catch (e) {}
+  try { ent.setProperty("marauder:stance", 1); } catch (e) {}
+  overseerAnnounce(ent, "§4§lRISE, MY KNIGHTS!");
+  try { ent.dimension.playSound("mob.wither.spawn", ent.location, { pitch: 0.6, volume: 1.6 }); } catch (e) {}
+  const dim = ent.dimension;
+  const count = Math.max(1, Math.min(6, Number(cfg("knightCount")) || 3));
+  for (let i = 0; i < count; i++) {
+    const a = (Math.PI * 2 * i) / count;
+    const spot = findSafeNear(dim, { x: ent.location.x + Math.cos(a) * 4, y: ent.location.y, z: ent.location.z + Math.sin(a) * 4 }, 2);
+    let k;
+    try { k = dim.spawnEntity(FALLEN_KNIGHT, spot); } catch (e) { continue; }
+    k.setDynamicProperty("marauder:master", ent.id);
+    try { k.triggerEvent("marauder:rise_on"); } catch (e) {}
+    spawnRing(dim, spot, "minecraft:basic_flame_particle", 1.0, 12);
+    const kref = k;
+    system.runTimeout(() => { try { if (isValid(kref)) kref.triggerEvent("marauder:rise_off"); } catch (e) {} }, 20);
+  }
+  updateTitle(ent);
+}
+
+function bolsterKnights(ent) {
+  overseerAnnounce(ent, "§4§lOrder: §eBOLSTER!");
+  try { ent.dimension.playSound("beacon.power", ent.location, { pitch: 0.8 }); } catch (e) {}
+  for (const k of ent.dimension.getEntities({ type: FALLEN_KNIGHT })) {
+    if (k.getDynamicProperty("marauder:master") !== ent.id) continue;
+    try { k.addEffect("speed", 160, { amplifier: 1 }); } catch (e) {}
+    try { k.addEffect("strength", 160, { amplifier: 1 }); } catch (e) {}
+    trySpawnParticle(ent.dimension, "minecraft:endrod", { x: k.location.x, y: k.location.y + 1.4, z: k.location.z });
+  }
+}
+
+// -------- bleed system (shared: Overseer impale) --------
+function applyBleed(player, ticks) {
+  try { player.setDynamicProperty("marauder:bleedUntil", system.currentTick + ticks); } catch (e) {}
+  try { player.onScreenDisplay.setActionBar("§4✚ Bleeding!"); } catch (e) {}
+}
+function isBleeding(player) {
+  try { return (player.getDynamicProperty("marauder:bleedUntil") ?? 0) > system.currentTick; } catch (e) { return false; }
+}
+
+function triggerCast(ent, ticks) {
+  setCasting(ent, true);
+  stateFor(ent).castUntil = system.currentTick + (ticks || 16);
+}
+function playersNearEnt(ent, range) {
+  const out = [];
+  try {
+    for (const p of ent.dimension.getEntities({ type: "minecraft:player", location: ent.location, maxDistance: range })) {
+      const gm = safeGameMode(p);
+      if (gm !== GameMode.creative && gm !== GameMode.spectator) out.push(p);
+    }
+  } catch (e) {}
+  return out;
 }
 
 // ---- afterimage / mirage -----------------------------------------------
@@ -1519,23 +2254,68 @@ safeSub("entityHurt", world.afterEvents?.entityHurt, ev => {
   const victim = ev.hurtEntity;
   if (!victim) return;
 
-  if (victim.typeId === AFTERIMAGE) { poof(victim.dimension, victim.location); return; }
-  if (victim.typeId !== MARAUDER && victim.typeId !== FRACTURED) return;
+  // Bleeding players suffer +50% from every incoming hit (top up after the fact).
+  if (victim.typeId === "minecraft:player" && isBleeding(victim)) {
+    const extra = Math.round((ev.damage || 0) * 0.5);
+    const src = ev.damageSource?.damagingEntity;
+    if (extra > 0) { try { victim.applyDamage(extra, { cause: EntityDamageCause.entityAttack, damagingEntity: src }); } catch (e) {} }
+    return;
+  }
 
-  const s = stateFor(victim);
+  if (victim.typeId === AFTERIMAGE) { poof(victim.dimension, victim.location); return; }
+
   const now = system.currentTick;
   const attacker = ev.damageSource?.damagingEntity;
   const dmg = ev.damage || 0;
+
+  // The Overseer: aegis is handled by his JSON group; here we only resolve the
+  // parry riposte and track aggro. (No dodge / halo / last-stand.)
+  if (victim.typeId === OVERSEER) {
+    const s = stateFor(victim);
+    if (attacker && !isMarauderKind(attacker.typeId)) { s.aggroId = attacker.id; s.aggroTick = now; }
+    if (s.parryUntil && now < s.parryUntil && attacker && attacker.typeId === "minecraft:player") {
+      s.parryUntil = 0;
+      const h = victim.getComponent("minecraft:health");
+      if (h) { try { h.setCurrentValue(Math.min(maxHp(victim), h.currentValue + dmg)); } catch (e) {} } // negate the hit
+      try { overseerRiposte(victim, attacker); } catch (e) {}
+    }
+    overseerTitle(victim);
+    return;
+  }
+
+  if (victim.typeId !== MARAUDER && victim.typeId !== FRACTURED) return;
+
+  const s = stateFor(victim);
 
   if (attacker && !isMarauderKind(attacker.typeId)) {
     s.aggroId = attacker.id;
     s.aggroTick = now;
   }
 
+  // Fractured Marauder: Mahoraga-style adaptation — build resistance to the damage
+  // type he keeps eating, healing back the adapted fraction.
+  if (isFractured(victim) && Number(cfg("adaptationEnabled")) === 1) {
+    try { adaptTo(victim, ev.damageSource?.cause, dmg); } catch (e) {}
+  }
+
   const health = victim.getComponent("minecraft:health");
   if (!health) return;
   const max = maxHp(victim);
   const healBack = (amt) => { try { health.setCurrentValue(Math.min(max, health.currentValue + amt)); } catch (e) {} };
+
+  // Blinding Counter (Mirror Guard) — negate + blind + shoulder-bash if struck mid-guard.
+  if (isFractured(victim) && s.mirrorUntil && now < s.mirrorUntil && attacker && attacker.typeId === "minecraft:player") {
+    s.mirrorUntil = 0;
+    healBack(dmg);
+    try { mirrorRiposte(victim, attacker); } catch (e) {}
+    return;
+  }
+
+  // Apply the Fractured adaptation resistance as heal-back.
+  if (isFractured(victim) && dmg > 0) {
+    const res = adaptationResist(victim, ev.damageSource?.cause);
+    if (res > 0) healBack(dmg * res);
+  }
 
   // enrageTier reads live HP, so capture it BEFORE we heal anything back.
   const tier = enrageTier(victim);
@@ -1562,6 +2342,14 @@ safeSub("entityHurt", world.afterEvents?.entityHurt, ev => {
   if (victim.typeId === MARAUDER && !haloShattered && !s.phaseLock && postPct <= 0.25) {
     const target = attacker && attacker.typeId === "minecraft:player" ? attacker : ownerOf(victim);
     haloShatter(victim, target);
+    return;
+  }
+
+  // (C2) Fractured Seraphim transformation at <=50% HP (in addition to the meter).
+  // HP-triggered Seraphim is PERMANENT — it does not decay back.
+  if (isFractured(victim) && !isSeraph(victim) && postPct <= 0.5) {
+    victim.setDynamicProperty("marauder:seraphPermanent", true);
+    seraphOn(victim);
     return;
   }
 
@@ -1601,25 +2389,56 @@ safeSub("itemUse", world.afterEvents?.itemUse, ev => {
 
 safeSub("entityDie_marauder", world.afterEvents?.entityDie, ev => {
   const dead = ev.deadEntity;
-  if (!dead || (dead.typeId !== MARAUDER && dead.typeId !== FRACTURED)) return;
+  if (!dead) return;
+
+  // Fallen Knight death — just clean up; the Overseer tick drops the aegis.
+  if (dead.typeId === FALLEN_KNIGHT) {
+    try { poof(dead.dimension, dead.location); } catch (e) {}
+    combat.delete(dead.id);
+    return;
+  }
+
+  if (dead.typeId !== MARAUDER && dead.typeId !== FRACTURED && dead.typeId !== OVERSEER) return;
   removeClonesOf(dead.dimension, dead.id);
   combat.delete(dead.id);
+
+  // Phase transition: when the stage-10 NORMAL Marauder finally dies, he rises as
+  // the Overseer instead of being defeated (config-gated). The Fractured (holy)
+  // path and the Overseer himself do not re-transform.
+  if (dead.typeId === MARAUDER) {
+    const stage = clampStage(dead.getDynamicProperty("marauder:stageNum") ?? 1);
+    const killer = ev.damageSource && ev.damageSource.damagingEntity;
+    const byPlayer = killer && killer.typeId === "minecraft:player";
+    if (stage >= STAGE_MAX && Number(cfg("overseerPhase")) === 1 && byPlayer) {
+      emergeOverseer(dead.dimension, dead.location, dead.getDynamicProperty("marauder:owner"));
+      return; // rewards come when the Overseer falls
+    }
+  }
+
   try { handleDefeat(dead, ev.damageSource); } catch (e) {}
 });
 
 function handleDefeat(dead, source) {
   const fractured = dead.typeId === FRACTURED;
-  const stage = fractured ? STAGE_MAX : clampStage(dead.getDynamicProperty("marauder:stageNum") ?? 1);
+  const overseer = dead.typeId === OVERSEER;
+  const stage = (fractured || overseer) ? STAGE_MAX : clampStage(dead.getDynamicProperty("marauder:stageNum") ?? 1);
   const ownerId = dead.getDynamicProperty("marauder:owner");
   const dim = dead.dimension;
   const loc = dead.location;
 
-  dropRewards(dim, loc, stage, fractured);
+  dropRewards(dim, loc, stage, fractured || overseer);
   try { dim.spawnParticle("minecraft:soul_particle", { x: loc.x, y: loc.y + 0.8, z: loc.z }); } catch (e) {}
   if (fractured) {
-    // He dies the way he fought: in a burst of light.
     spawnRing(dim, loc, "minecraft:endrod", 2.0, 24);
     try { dim.playSound("beacon.deactivate", loc, { pitch: 0.6, volume: 1.4 }); } catch (e) {}
+  }
+  if (overseer) {
+    // The Fallen King falls at last — sever his surviving knights and dim the sky.
+    for (const k of dim.getEntities({ type: FALLEN_KNIGHT })) {
+      if (k.getDynamicProperty("marauder:master") === dead.id) { try { poof(dim, k.location); k.remove(); } catch (e) {} }
+    }
+    spawnRing(dim, loc, "minecraft:basic_flame_particle", 2.5, 30);
+    try { dim.playSound("mob.wither.death", loc, { pitch: 0.7, volume: 1.6 }); } catch (e) {}
   }
 
   let owner = ownerId ? world.getAllPlayers().find(p => p.id === ownerId) : null;
@@ -1635,7 +2454,10 @@ function handleDefeat(dead, source) {
   if (stage >= STAGE_MAX) {
     owner.setDynamicProperty("marauder:finalComplete", true);
     owner.setDynamicProperty("marauder:rematchArmed", false);
-    if (fractured) {
+    if (overseer) {
+      owner.sendMessage("§4The Overseer, Fallen King, is undone. His corruption is spent.");
+      owner.sendMessage("§8An Ashen Remnant remains — should you ever wish to face him again.");
+    } else if (fractured) {
       owner.sendMessage("§eThe Fractured Marauder shatters into motes of light. The rivalry ends in radiance.");
       owner.sendMessage("§8An Ashen Remnant remains — should you ever wish to face him again.");
     } else {
@@ -1788,6 +2610,38 @@ safeSub("scriptEventReceive", system.afterEvents?.scriptEventReceive, ev => {
     case "marauder:wingsweep":
       tryTell(player, "marauder:wingsweep", () => forceAbilityOnNearest(player, "wingsweep"));
       break;
+    // Generic: force ANY ability by id (tether/arena/mirror/spears/divebomb/cleave/...).
+    case "marauder:ability":
+      tryTell(player, "marauder:ability", () => {
+        const id = (ev.message || "").trim().split(/\s+/)[0];
+        if (!id) { player.sendMessage("§7Usage: /scriptevent marauder:ability <" + ABILITIES.map(a => a.id).join("|") + ">"); return; }
+        forceAbilityOnNearest(player, id);
+      });
+      break;
+
+    // ---- The Overseer (Part 1) ----
+    case "marauder:overseer":
+      tryTell(player, "marauder:overseer", () => {
+        clearActive(player);
+        const loc = findSafeNear(player.dimension, player.location, 6);
+        emergeOverseer(player.dimension, loc, player.id);
+      });
+      break;
+    case "marauder:knights":
+      tryTell(player, "marauder:knights", () => {
+        const ent = nearestOwnedMarauder(player);
+        if (!ent || !isOverseer(ent)) { player.sendMessage("§cNo active Overseer found."); return; }
+        const h = ent.getComponent("minecraft:health");
+        if (h) h.setCurrentValue((h.effectiveMax ?? h.defaultValue) * 0.5);
+        ent.setDynamicProperty("marauder:knightsUsed", false);
+        player.sendMessage("§aSet the Overseer to 50% HP — he will raise his Fallen Knights.");
+      });
+      break;
+
+    // ---- config ----
+    case "marauder:config":
+      tryTell(player, "marauder:config", () => configCommand(player, ev.message));
+      break;
 
     // ---- diagnostic events (added in v5 so users can confirm the script loaded) ----
     case "marauder:ping":
@@ -1821,6 +2675,11 @@ safeSub("scriptEventReceive", system.afterEvents?.scriptEventReceive, ev => {
         player.sendMessage("§7marauder:grit           §8- force Unrivaled Grit (feint)");
         player.sendMessage("§7marauder:skyfall        §8- force Might Shove + Sky Beam");
         player.sendMessage("§7marauder:wingsweep      §8- force the Seraphim wing-sweep (must be transformed)");
+        player.sendMessage("§7marauder:ability <id>   §8- force any ability (tether/arena/mirror/spears/divebomb/cleave/...)");
+        player.sendMessage("§4-- The Overseer --");
+        player.sendMessage("§7marauder:overseer       §8- rise the Overseer next to you");
+        player.sendMessage("§7marauder:knights        §8- drop him to 50% (summons Fallen Knights)");
+        player.sendMessage("§7marauder:config [k] [v] §8- list/set config (overseerPhase, fracturedChance, ...)");
         player.sendMessage("§7marauder:ping           §8- check script is alive");
       });
       break;
@@ -1888,6 +2747,27 @@ function reportEnrage(player) {
   const h = ent.getComponent("minecraft:health");
   const hp = h ? `${Math.round(h.currentValue)}/${Math.round(h.effectiveMax ?? h.defaultValue ?? 0)}` : "?";
   player.sendMessage(`§7HP ${hp} | Tier ${t.tier} | dmg-reduce ${Math.round(t.reduce * 100)}% | speed ${t.speedMult}x | dmg ${t.damageMult}x | dodge ${Math.round(t.dodge * 100)}%`);
+}
+
+// /scriptevent marauder:config            -> list all keys + values
+// /scriptevent marauder:config <key> <v>  -> set a key (numbers parsed, else stored raw)
+function configCommand(player, message) {
+  const parts = (message || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) {
+    player.sendMessage("§6=== Marauder config ===");
+    for (const k of Object.keys(CONFIG_DEFAULTS)) {
+      player.sendMessage(`§7${k} §8= §f${cfg(k)} §8(default ${CONFIG_DEFAULTS[k]})`);
+    }
+    player.sendMessage("§8Set with: /scriptevent marauder:config <key> <value>");
+    return;
+  }
+  const key = parts[0];
+  if (!(key in CONFIG_DEFAULTS)) { player.sendMessage("§cUnknown config key: " + key); return; }
+  if (parts.length < 2) { player.sendMessage(`§7${key} §8= §f${cfg(key)}`); return; }
+  const num = Number(parts[1]);
+  const val = isNaN(num) ? parts[1] : num;
+  setCfg(key, val);
+  player.sendMessage(`§aSet §f${key} §a= §f${val}`);
 }
 
 function setFreeForAll(player, message) {
