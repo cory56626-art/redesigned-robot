@@ -1,0 +1,54 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Oathbreaker Titan v2 [BP]",
+    "description": "A Kratos-inspired molten greatsword boss: Titan Cleave, Earthsplitter Leap, Oathbound Parry, Rage Phase and Final Judgment.",
+    "uuid": "317ea667-4161-442b-b160-309273ded947",
+    "version": [
+      3,
+      1,
+      1
+    ],
+    "min_engine_version": [
+      1,
+      21,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "74c2bef4-ad3e-4f59-a1e9-7cd7401b0541",
+      "version": [
+        3,
+        1,
+        1
+      ]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "38325cd6-461c-4197-85ba-b87c6ccf4d54",
+      "version": [
+        3,
+        1,
+        1
+      ],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "1.12.0"
+    },
+    {
+      "uuid": "b2169d4f-d046-48c7-80ed-857a3bc37ff0",
+      "version": [
+        3,
+        1,
+        1
+      ]
+    }
+  ]
+}

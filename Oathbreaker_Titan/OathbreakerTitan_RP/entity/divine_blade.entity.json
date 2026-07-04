@@ -1,0 +1,14 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "ob:divine_blade",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/entity/divine_blade" },
+      "geometry": { "default": "geometry.ob_blade" },
+      "animations": { "hover": "animation.ob_blade.hover" },
+      "scripts": { "animate": ["hover"] },
+      "render_controllers": ["controller.render.default"]
+    }
+  }
+}

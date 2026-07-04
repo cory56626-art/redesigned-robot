@@ -1,0 +1,86 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "ob:suffer_crystal",
+      "is_spawnable": false,
+      "is_summonable": true
+    },
+    "component_groups": {
+      "ob:despawn": {
+        "minecraft:instant_despawn": {}
+      }
+    },
+    "components": {
+      "minecraft:type_family": {
+        "family": [
+          "ob_crystal",
+          "mob"
+        ]
+      },
+      "minecraft:scale": {
+        "value": 0.9
+      },
+      "minecraft:collision_box": {
+        "width": 0.7,
+        "height": 1.0
+      },
+      "minecraft:health": {
+        "value": 6,
+        "max": 6
+      },
+      "minecraft:physics": {
+        "has_gravity": false,
+        "has_collision": false
+      },
+      "minecraft:pushable": {
+        "is_pushable": false,
+        "is_pushable_by_piston": false
+      },
+      "minecraft:fire_immune": {},
+      "minecraft:damage_sensor": {
+        "triggers": [
+          {
+            "cause": "fire",
+            "deals_damage": false
+          },
+          {
+            "cause": "fire_tick",
+            "deals_damage": false
+          },
+          {
+            "cause": "lava",
+            "deals_damage": false
+          },
+          {
+            "cause": "magma",
+            "deals_damage": false
+          },
+          {
+            "cause": "fall",
+            "deals_damage": false
+          }
+        ]
+      },
+      "minecraft:timer": {
+        "time": 62,
+        "looping": false,
+        "time_down_event": {
+          "event": "ob:expire"
+        }
+      },
+      "minecraft:knockback_resistance": {
+        "value": 1.0
+      }
+    },
+    "events": {
+      "ob:expire": {
+        "add": {
+          "component_groups": [
+            "ob:despawn"
+          ]
+        }
+      }
+    }
+  }
+}

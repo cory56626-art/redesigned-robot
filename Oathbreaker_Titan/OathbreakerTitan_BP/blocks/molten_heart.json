@@ -1,0 +1,22 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:block": {
+    "description": {
+      "identifier": "ob:molten_heart",
+      "menu_category": { "category": "nature" }
+    },
+    "components": {
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "ob_molten_heart",
+          "render_method": "opaque"
+        }
+      },
+      "minecraft:light_emission": 12,
+      "minecraft:map_color": "#FF6A00",
+      "minecraft:destructible_by_mining": { "seconds_to_destroy": 2.5 },
+      "minecraft:destructible_by_explosion": { "explosion_resistance": 30 }
+    }
+  }
+}

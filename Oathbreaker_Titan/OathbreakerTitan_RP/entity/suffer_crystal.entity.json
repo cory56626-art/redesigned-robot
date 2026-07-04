@@ -1,0 +1,14 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "ob:suffer_crystal",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/entity/suffer_crystal" },
+      "geometry": { "default": "geometry.ob_crystal" },
+      "animations": { "spin": "animation.ob_crystal.spin" },
+      "scripts": { "animate": ["spin"] },
+      "render_controllers": ["controller.render.default"]
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "ob:obsidian_overlord",
+      "materials": { "default": "entity_alphatest" },
+      "textures": {
+        "default": "textures/entity/obsidian_overlord"
+      },
+      "geometry": { "default": "geometry.ob_overlord" },
+      "animations": {
+        "idle": "animation.ob_titan.idle",
+        "walk": "animation.ob_titan.walk",
+        "death": "animation.ob_titan.death",
+        "cleave_anim": "animation.ob_titan.cleave",
+        "leap_anim": "animation.ob_titan.leap",
+        "slam_anim": "animation.ob_titan.slam",
+        "summon_anim": "animation.ob_titan.summon",
+        "dash_anim": "animation.ob_titan.dash",
+        "pummel_anim": "animation.ob_titan.pummel",
+        "gravity_anim": "animation.ob_overlord.gravity",
+        "chain_anim": "animation.ob_overlord.chain",
+        "execute_anim": "animation.ob_overlord.execute",
+        "wing_flap": "animation.ob_overlord.wing_flap",
+        "attack_ctrl": "controller.animation.ob_overlord.attack"
+      },
+      "scripts": {
+        "animate": [
+          { "idle": "q.property('ob:attack_state') == 'idle' && q.is_alive" },
+          { "walk": "q.modified_move_speed > 0.02 && q.is_alive" },
+          "wing_flap",
+          "attack_ctrl",
+          { "death": "!q.is_alive" }
+        ]
+      },
+      "render_controllers": ["controller.render.default"],
+      "spawn_egg": {
+        "base_color": "#141020",
+        "overlay_color": "#5ac8ff"
+      }
+    }
+  }
+}

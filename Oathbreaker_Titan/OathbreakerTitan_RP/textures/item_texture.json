@@ -1,0 +1,10 @@
+{
+  "resource_pack_name": "OathbreakerTitan_RP",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "ob_forged_oath": { "textures": "textures/items/forged_oath" },
+    "ob_titan_core": { "textures": "textures/items/titan_core" },
+    "ob_titan_crest": { "textures": "textures/items/titan_crest" },
+    "ob_oathbreaker_blade": { "textures": "textures/items/oathbreaker_blade" }
+  }
+}

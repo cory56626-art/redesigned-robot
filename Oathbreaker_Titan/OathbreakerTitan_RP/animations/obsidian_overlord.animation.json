@@ -1,0 +1,132 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.ob_overlord.wing_flap": {
+      "loop": true,
+      "bones": {
+        "wing_left": {
+          "rotation": ["math.sin(q.anim_time * 140) * 6", "math.sin(q.anim_time * 140) * -9", "math.cos(q.anim_time * 140) * 7"]
+        },
+        "wing_right": {
+          "rotation": ["math.sin(q.anim_time * 140) * 6", "math.sin(q.anim_time * 140) * 9", "math.cos(q.anim_time * 140) * -7"]
+        }
+      }
+    },
+
+    "animation.ob_overlord.gravity": {
+      "loop": true,
+      "bones": {
+        "body": {
+          "rotation": ["22 + math.sin(q.anim_time * 400) * 2", 0, 0]
+        },
+        "right_arm": {
+          "rotation": [-58, -12, 0]
+        },
+        "left_arm": {
+          "rotation": [-58, 12, 0]
+        },
+        "sword": {
+          "rotation": [155, 0, 0]
+        },
+        "head": {
+          "rotation": [-16, 0, 0]
+        },
+        "core": {
+          "scale": "1 + 0.35 * math.sin(q.anim_time * 500)"
+        },
+        "wing_left": {
+          "rotation": [0, -18, 34]
+        },
+        "wing_right": {
+          "rotation": [0, 18, -34]
+        }
+      }
+    },
+
+    "animation.ob_overlord.chain": {
+      "loop": "hold_on_last_frame",
+      "animation_length": 0.6,
+      "bones": {
+        "left_arm": {
+          "rotation": {
+            "0.0": [0, 0, 0],
+            "0.15": [35, 0, -12],
+            "0.3": [-96, 0, -4],
+            "0.6": [-92, 0, -4]
+          }
+        },
+        "body": {
+          "rotation": {
+            "0.0": [0, 0, 0],
+            "0.15": [6, 22, 0],
+            "0.3": [10, -14, 0],
+            "0.6": [8, -12, 0]
+          }
+        },
+        "right_arm": {
+          "rotation": {
+            "0.0": [0, 0, 0],
+            "0.3": [22, 0, 10],
+            "0.6": [20, 0, 10]
+          }
+        }
+      }
+    },
+
+    "animation.ob_overlord.execute": {
+      "loop": "hold_on_last_frame",
+      "animation_length": 1.0,
+      "bones": {
+        "right_arm": {
+          "rotation": {
+            "0.0": [0, 0, 0],
+            "0.25": [-178, 0, -10],
+            "0.4": [-178, 0, -10],
+            "0.5": [-30, 0, 0],
+            "1.0": [-25, 0, 0]
+          }
+        },
+        "left_arm": {
+          "rotation": {
+            "0.0": [0, 0, 0],
+            "0.25": [-45, 0, 14],
+            "0.5": [-12, 0, 8],
+            "1.0": [-10, 0, 8]
+          }
+        },
+        "body": {
+          "rotation": {
+            "0.0": [0, 0, 0],
+            "0.25": [-14, 0, 0],
+            "0.5": [34, 0, 0],
+            "1.0": [28, 0, 0]
+          }
+        },
+        "head": {
+          "rotation": {
+            "0.0": [0, 0, 0],
+            "0.25": [-18, 0, 0],
+            "0.5": [-24, 0, 0],
+            "1.0": [-20, 0, 0]
+          }
+        },
+        "wing_left": {
+          "rotation": {
+            "0.0": [0, 0, 0],
+            "0.25": [0, -26, 30],
+            "0.5": [0, 4, -6],
+            "1.0": [0, 0, 0]
+          }
+        },
+        "wing_right": {
+          "rotation": {
+            "0.0": [0, 0, 0],
+            "0.25": [0, 26, -30],
+            "0.5": [0, -4, 6],
+            "1.0": [0, 0, 0]
+          }
+        }
+      }
+    }
+  }
+}

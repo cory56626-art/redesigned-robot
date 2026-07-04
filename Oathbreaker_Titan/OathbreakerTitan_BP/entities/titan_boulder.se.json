@@ -1,0 +1,48 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "ob:titan_boulder",
+      "is_spawnable": false,
+      "is_summonable": true
+    },
+    "component_groups": {
+      "ob:despawn": {
+        "minecraft:instant_despawn": {}
+      }
+    },
+    "components": {
+      "minecraft:type_family": { "family": ["ob_boulder"] },
+      "minecraft:collision_box": { "width": 0.6, "height": 0.6 },
+      "minecraft:health": { "value": 1, "max": 1 },
+      "minecraft:physics": {},
+      "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": false },
+      "minecraft:projectile": {
+        "on_hit": {
+          "impact_damage": {
+            "damage": 10,
+            "knockback": true
+          },
+          "remove_on_hit": {},
+          "particle_on_hit": {
+            "particle_type": "largeexplode",
+            "on_entity_hit": true,
+            "on_other_hit": true
+          }
+        },
+        "gravity": 0.06,
+        "hit_ground_sound_event": "explode"
+      },
+      "minecraft:timer": {
+        "time": 6,
+        "looping": false,
+        "time_down_event": { "event": "ob:expire" }
+      }
+    },
+    "events": {
+      "ob:expire": {
+        "add": { "component_groups": ["ob:despawn"] }
+      }
+    }
+  }
+}

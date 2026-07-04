@@ -1,0 +1,47 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.ob_leviathan.idle": {
+      "loop": true,
+      "bones": {
+        "body": { "rotation": ["math.sin(q.anim_time * 60) * 2", "math.sin(q.anim_time * 40) * 2", 0], "position": [0, "math.sin(q.anim_time * 50) * 0.8", 0] },
+        "neck": { "rotation": ["math.sin(q.anim_time * 50) * 3 - 4", 0, 0] },
+        "head": { "rotation": ["math.sin(q.anim_time * 50) * -2", "math.sin(q.anim_time * 35) * 4", 0] },
+        "jaw": { "rotation": ["3 + math.sin(q.anim_time * 70) * 3", 0, 0] },
+        "tail1": { "rotation": [0, "math.sin(q.anim_time * 55) * 8", 0] },
+        "tail2": { "rotation": [0, "math.sin(q.anim_time * 55 + 60) * 12", 0] },
+        "fin_left": { "rotation": ["math.sin(q.anim_time * 90) * 10", 0, -40] },
+        "fin_right": { "rotation": ["math.sin(q.anim_time * 90 + 180) * 10", 0, 40] }
+      }
+    },
+    "animation.ob_leviathan.walk": {
+      "loop": true,
+      "bones": {
+        "leg_fl": { "rotation": ["math.cos(q.modified_distance_moved * 30) * 30", 0, 0] },
+        "leg_fr": { "rotation": ["math.cos(q.modified_distance_moved * 30 + 180) * 30", 0, 0] },
+        "leg_bl": { "rotation": ["math.cos(q.modified_distance_moved * 30 + 180) * 30", 0, 0] },
+        "leg_br": { "rotation": ["math.cos(q.modified_distance_moved * 30) * 30", 0, 0] },
+        "body": { "rotation": [0, "math.cos(q.modified_distance_moved * 30) * 4", 0] },
+        "tail1": { "rotation": [0, "math.cos(q.modified_distance_moved * 30) * 14", 0] }
+      }
+    },
+    "animation.ob_leviathan.bite": {
+      "loop": "hold_on_last_frame",
+      "animation_length": 0.7,
+      "bones": {
+        "neck": { "rotation": { "0.0": [-4, 0, 0], "0.2": [-30, 0, 0], "0.4": [25, 0, 0], "0.7": [-4, 0, 0] } },
+        "head": { "rotation": { "0.0": [0, 0, 0], "0.4": [30, 0, 0], "0.7": [0, 0, 0] } },
+        "jaw": { "rotation": { "0.0": [3, 0, 0], "0.2": [45, 0, 0], "0.45": [0, 0, 0], "0.7": [3, 0, 0] } }
+      }
+    },
+    "animation.ob_leviathan.spew": {
+      "loop": "hold_on_last_frame",
+      "animation_length": 1.0,
+      "bones": {
+        "neck": { "rotation": { "0.0": [-4, 0, 0], "0.4": [-35, 0, 0], "0.6": [-30, 0, 0], "1.0": [-4, 0, 0] } },
+        "jaw": { "rotation": { "0.0": [3, 0, 0], "0.45": [50, 0, 0], "0.85": [50, 0, 0], "1.0": [3, 0, 0] } },
+        "body": { "rotation": { "0.0": [0, 0, 0], "0.4": [-8, 0, 0], "1.0": [0, 0, 0] } }
+      }
+    }
+  }
+}

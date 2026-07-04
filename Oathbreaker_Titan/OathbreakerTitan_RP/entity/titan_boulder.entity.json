@@ -1,0 +1,20 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "ob:titan_boulder",
+      "materials": { "default": "entity_alphatest" },
+      "textures": {
+        "default": "textures/entity/titan_boulder"
+      },
+      "geometry": { "default": "geometry.ob_boulder" },
+      "animations": {
+        "spin": "animation.ob_boulder.spin"
+      },
+      "scripts": {
+        "animate": ["spin"]
+      },
+      "render_controllers": ["controller.render.default"]
+    }
+  }
+}
