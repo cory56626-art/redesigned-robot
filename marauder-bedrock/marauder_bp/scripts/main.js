@@ -950,7 +950,9 @@ function effectSkyfall(ent, target, base) {
   spawnRing(dim, origin, "minecraft:knockback_roar_particle", 2.0, 16);
   try { dim.playSound("mob.irongolem.attack", origin, { pitch: 0.6, volume: 1.6 }); } catch (e) {}
   try { dim.playSound("random.explode", origin, { pitch: 1.3, volume: 0.8 }); } catch (e) {}
-  for (const v of victimsNear(ent, 5.0, target, true)) {
+  // Shove radius covers the ability's own max engage range (7.0) — it used to
+  // be 5.0, so a fight that STARTED at 5-7 blocks skipped the shove entirely.
+  for (const v of victimsNear(ent, 7.5, target, true)) {
     const away = norm({ x: v.location.x - origin.x, y: 0, z: v.location.z - origin.z });
     try { v.applyKnockback(away.x, away.z, 2.6, 0.5); } catch (e) {}
   }
@@ -1699,17 +1701,40 @@ function tickOverseer(ent, s, now) {
     try { ent.dimension.playSound("mob.wither.break_block", ent.location, { volume: 1.4 }); } catch (e) {}
   }
 
-  const target = pickTarget(ent, s, owner, now);
+  // Bolster runs on its own clock — the king rallies his knights even before
+  // he has picked out a mark (previously a missing target froze the whole phase).
+  if (s.aegis && alive > 0 && now >= (s.nextBolster || 0)) {
+    s.nextBolster = now + 120;
+    bolsterKnights(ent);
+  }
+
+  let target = pickTarget(ent, s, owner, now);
+  // Besieged fallback: while the aegis holds, he fires at ANYTHING hostile in
+  // range — mobs included, free-for-all or not. Without this, a sandbox mob
+  // pounding on the shield never became a target and he just stood there.
+  if (!target && s.aegis && alive > 0) {
+    let bd = Infinity;
+    for (const v of victimsNear(ent, CHALLENGE_RANGE + 8, null, true)) {
+      const dd = dist(ent.location, v.location);
+      if (dd < bd) { bd = dd; target = v; }
+    }
+  }
   if (!target) return;
   overseerTitle(ent);
   const d = dist(ent.location, target.location);
 
-  // While the aegis holds he stays back, bolsters his knights, and fires.
+  // While the aegis holds he stays back, keeps his knights on the mark, and fires.
   if (s.aegis && alive > 0) {
-    if (now >= (s.nextBolster || 0)) { s.nextBolster = now + 120; bolsterKnights(ent); }
+    sicKnights(ent, target);
     if (s.globalCd <= 0) { overseerVolley(ent, target); s.globalCd = 45; }
     return;
   }
+
+  // Pressure accrues EVERY combat tick the mark stays on top of him — before
+  // any cooldown gate. It used to sit below the globalCd early-return, so it
+  // only gained one tick per ~2s attack cycle and the crossbow backstep was
+  // effectively unreachable (~80s of sustained hugging). Now ~2.5s does it.
+  s.pressure = d <= 3.5 ? (s.pressure || 0) + COMBAT_INTERVAL : Math.max(0, (s.pressure || 0) - COMBAT_INTERVAL);
 
   // King's Orders on a 10–15s cadence.
   if (now >= (s.nextOrder || (s.nextOrder = now + 160))) {
@@ -1721,8 +1746,7 @@ function tickOverseer(ent, s, now) {
   if (s.globalCd > 0) return;
 
   // Pressure → backstep into ranged stance.
-  s.pressure = d <= 3 ? (s.pressure || 0) + COMBAT_INTERVAL : 0;
-  if (s.stance !== "ranged" && s.pressure >= 80) {
+  if (s.stance !== "ranged" && s.pressure >= 50) {
     overseerBackstep(ent, target, s, now);
     return;
   }
@@ -1933,6 +1957,30 @@ function summonFallenKnights(ent, s, now) {
     system.runTimeout(() => { try { if (isValid(kref)) kref.triggerEvent("marauder:rise_off"); } catch (e) {} }, 20);
   }
   updateTitle(ent);
+}
+
+// Point the Fallen Knights at whoever is fighting the king. Uses the proven
+// Brawl-Stick attribution trick: a 1-damage poke attributed to the target arms
+// each knight's hurt_by_target retaliation (which works against players AND
+// mobs on every engine build, unlike declarative target filters). The poke is
+// refunded immediately, so it costs the knight nothing.
+function sicKnights(ovr, target) {
+  if (!target || !isValid(target) || isMarauderKind(target.typeId) || !isEngageable(target)) return;
+  const s = stateFor(ovr);
+  const now = system.currentTick;
+  if (now < (s.nextSic || 0)) return; // rate-limit the pokes
+  s.nextSic = now + 40;
+  let dimKnights = [];
+  try { dimKnights = ovr.dimension.getEntities({ type: FALLEN_KNIGHT }); } catch (e) {}
+  for (const k of dimKnights) {
+    if (k.getDynamicProperty("marauder:master") !== ovr.id) continue;
+    try {
+      const kh = k.getComponent("minecraft:health");
+      const before = kh ? kh.currentValue : 0;
+      k.applyDamage(1, { damagingEntity: target });
+      if (kh) { try { kh.setCurrentValue(Math.max(before, kh.currentValue)); } catch (e) {} } // refund the poke
+    } catch (e) {}
+  }
 }
 
 function bolsterKnights(ent) {
@@ -2236,6 +2284,19 @@ safeSub("entityHitEntity", world.afterEvents?.entityHitEntity, ev => {
   const attacker = ev.damagingEntity;
   if (!attacker) return;
 
+  // Victim-side aggro: whoever melee-strikes a boss becomes his mark — even
+  // while a damage sensor is NEGATING the damage (aegis, emerge, halo kneel),
+  // during which entityHurt never fires and aggro used to go blind. This is
+  // why the Overseer "just stood there and took hits" behind his aegis.
+  const struck = ev.hitEntity;
+  if (struck && isBoss(struck) && !isMarauderKind(attacker.typeId)) {
+    const bs = stateFor(struck);
+    bs.aggroId = attacker.id;
+    bs.aggroTick = system.currentTick;
+    // Behind the aegis, the king's guards answer for him.
+    if (struck.typeId === OVERSEER && bs.aegis) sicKnights(struck, attacker);
+  }
+
   if (attacker.typeId === MARAUDER || attacker.typeId === FRACTURED) {
     const s = stateFor(attacker);
     // Allow the swing animation during the illusion — he fights alongside his
@@ -2382,7 +2443,10 @@ safeSub("entityHurt", world.afterEvents?.entityHurt, ev => {
   // parry riposte and track aggro. (No dodge / halo / last-stand.)
   if (victim.typeId === OVERSEER) {
     const s = stateFor(victim);
-    if (attacker && !isMarauderKind(attacker.typeId)) { s.aggroId = attacker.id; s.aggroTick = now; }
+    if (attacker && !isMarauderKind(attacker.typeId)) {
+      s.aggroId = attacker.id; s.aggroTick = now;
+      if (s.aegis) { try { sicKnights(victim, attacker); } catch (e) {} } // ranged attackers too
+    }
     // A fatal hit ends it — never parry-negate a killing blow back to life.
     try { const oh = victim.getComponent("minecraft:health"); if (oh && oh.currentValue <= 0.001) return; } catch (e) {}
     if (s.parryUntil && now < s.parryUntil && attacker && attacker.typeId === "minecraft:player") {

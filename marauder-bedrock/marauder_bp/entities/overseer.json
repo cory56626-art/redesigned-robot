@@ -31,11 +31,11 @@
       "marauder:aegis": {
         "minecraft:damage_sensor": {
           "triggers": [
-            { "cause": "entity_attack", "deals_damage": false },
-            { "cause": "projectile", "deals_damage": false },
-            { "cause": "entity_explosion", "deals_damage": false },
-            { "cause": "block_explosion", "deals_damage": false },
-            { "cause": "magic", "deals_damage": false },
+            { "cause": "entity_attack", "deals_damage": true, "damage_multiplier": 0.1 },
+            { "cause": "projectile", "deals_damage": true, "damage_multiplier": 0.1 },
+            { "cause": "entity_explosion", "deals_damage": true, "damage_multiplier": 0.1 },
+            { "cause": "block_explosion", "deals_damage": true, "damage_multiplier": 0.1 },
+            { "cause": "magic", "deals_damage": true, "damage_multiplier": 0.1 },
             { "cause": "fire", "deals_damage": false },
             { "cause": "fire_tick", "deals_damage": false }
           ]
