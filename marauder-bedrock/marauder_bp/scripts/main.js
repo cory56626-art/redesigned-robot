@@ -221,6 +221,7 @@ function applyStage(ent, stage) {
   // and his enrage tier should be 1 (full armor) at full HP.
   ent.setDynamicProperty("marauder:haloShattered", false);
   ent.setDynamicProperty("marauder:lastStandUsed", false);
+  ent.setDynamicProperty("marauder:risen", false);
   ent.setDynamicProperty("marauder:enrageTier", 1);
   // Reset the per-encounter visual properties too.
   try { ent.setProperty("marauder:kneeling", false); } catch (e) {}
@@ -623,8 +624,13 @@ function advanceAbility(ent, s, now) {
 function resolveTargetId(ent, id) {
   try {
     const near = ent.dimension.getEntities({ location: ent.location, maxDistance: CHALLENGE_RANGE + 12 });
-    return near.find(e => e.id === id && isValid(e)) || null;
-  } catch (e) { return null; }
+    const hit = near.find(e => e.id === id && isValid(e));
+    if (hit) return hit;
+  } catch (e) {}
+  // Some engine builds omit players from dimension queries — fall back to the
+  // explicit lookup (world.getAllPlayers first) so abilities keep their mark.
+  const e2 = entityById(ent.dimension, id);
+  return e2 && isValid(e2) && dist(e2.location, ent.location) <= CHALLENGE_RANGE + 12 ? e2 : null;
 }
 
 // ------------------------------------------------------------- ability effects
@@ -746,7 +752,7 @@ function tickHolyGrounds(now) {
     // purify players inside
     if (now % 20 === 0) {
       try {
-        for (const p of dim.getEntities({ type: "minecraft:player", location: center, maxDistance: g.r })) {
+        for (const p of playersInRange(dim, center, g.r)) {
           const gm = safeGameMode(p);
           if (gm === GameMode.creative || gm === GameMode.spectator) continue;
           try { p.addEffect("mining_fatigue", 40, { amplifier: 1, showParticles: false }); } catch (e) {}
@@ -1582,7 +1588,7 @@ function adaptLabel(ent) {
 // Small actionbar broadcaster reused by several systems.
 function overseerAnnounceGeneric(ent, text) {
   try {
-    for (const p of ent.dimension.getEntities({ type: "minecraft:player", location: ent.location, maxDistance: 36 })) {
+    for (const p of playersInRange(ent.dimension, ent.location, 36)) {
       try { p.onScreenDisplay.setActionBar(text); } catch (e) {}
     }
   } catch (e) {}
@@ -1742,7 +1748,7 @@ function tickOverseer(ent, s, now) {
 function overseerDamage(base) { return Math.round(base * (Number(cfg("bossDamageMult")) || 1)); }
 
 function overseerAnnounce(ent, text) {
-  for (const p of ent.dimension.getEntities({ type: "minecraft:player", location: ent.location, maxDistance: 40 })) {
+  for (const p of playersInRange(ent.dimension, ent.location, 40)) {
     try { p.onScreenDisplay.setActionBar(text); } catch (e) {}
   }
 }
@@ -1956,7 +1962,7 @@ function triggerCast(ent, ticks) {
 function playersNearEnt(ent, range) {
   const out = [];
   try {
-    for (const p of ent.dimension.getEntities({ type: "minecraft:player", location: ent.location, maxDistance: range })) {
+    for (const p of playersInRange(ent.dimension, ent.location, range)) {
       const gm = safeGameMode(p);
       if (gm !== GameMode.creative && gm !== GameMode.spectator) out.push(p);
     }
@@ -2091,6 +2097,25 @@ function telegraphTick(ent, a) {
 
 // ------------------------------------------------------------- combat helpers
 
+// Engine-proof player query. Some engine builds do NOT return players from
+// dimension.getEntities() — the same quirk already worked around in entityById.
+// Every AoE that queried players through the dimension (halo strikes, King's
+// Orders, the arena, victimsNear/At...) silently hit nobody on those builds,
+// which is why the divine beam "did no damage". world.getAllPlayers() is
+// reliable everywhere, so all player lookups now route through here.
+function playersInRange(dim, loc, range) {
+  const out = [];
+  try {
+    for (const p of world.getAllPlayers()) {
+      if (!isValid(p)) continue;
+      try {
+        if (p.dimension.id === dim.id && dist(p.location, loc) <= range) out.push(p);
+      } catch (e) {}
+    }
+  } catch (e) {}
+  return out;
+}
+
 // Everything an AoE ability may strike: players always; other mobs when free-for-all
 // is armed, when forceMobs is set, or when the primary mark itself is a mob (a Brawl
 // Stick grudge). Never the marauder itself, another marauder, or an afterimage.
@@ -2098,7 +2123,7 @@ function victimsNear(ent, range, primary, forceMobs) {
   const includeMobs = forceMobs === true || isFFA() || isMobId(primary);
   const out = [];
   const seen = new Set();
-  for (const p of ent.dimension.getEntities({ type: "minecraft:player", location: ent.location, maxDistance: range })) {
+  for (const p of playersInRange(ent.dimension, ent.location, range)) {
     if (isEngageable(p)) { out.push(p); seen.add(p.id); }
   }
   if (includeMobs) {
@@ -2124,7 +2149,7 @@ function victimsAt(dim, loc, range) {
   const out = [];
   const seen = new Set();
   try {
-    for (const p of dim.getEntities({ type: "minecraft:player", location: loc, maxDistance: range })) {
+    for (const p of playersInRange(dim, loc, range)) {
       if (isEngageable(p)) { out.push(p); seen.add(p.id); }
     }
   } catch (e) {}
@@ -2307,6 +2332,33 @@ function tryLastStand(ent) {
   return true;
 }
 
+// Death intercept for the stage-10 → Overseer transition. Runs the moment a
+// FATAL hit lands (entityHurt), while the dying entity is still fully readable —
+// entityDie on some engine builds can't reliably read the corpse's dimension or
+// dynamic properties (and mis-attributes some killing blows), which is why the
+// transition sometimes never happened in-game. Guarded by marauder:risen so the
+// entityDie backup path can't double-spawn. Works for ANY killer (player, mob,
+// environment) — sandbox deaths transition too.
+function interceptBossDeath(victim, s) {
+  if (victim.typeId !== MARAUDER) return false;
+  let risen = false;
+  try { risen = victim.getDynamicProperty("marauder:risen") === true; } catch (e) {}
+  if (risen) return true;
+  const stage = clampStage(victim.getDynamicProperty("marauder:stageNum") ?? 1);
+  if (stage < STAGE_MAX || Number(cfg("overseerPhase")) !== 1) return false;
+  try { victim.setDynamicProperty("marauder:risen", true); } catch (e) {}
+  try { victim.setDynamicProperty("marauder:lastStandUsed", true); } catch (e) {} // no revive from the grave
+  if (s) s.phaseLock = true;
+  const dim = victim.dimension;
+  const loc = { x: victim.location.x, y: victim.location.y, z: victim.location.z };
+  const oid = victim.getDynamicProperty("marauder:owner");
+  system.run(() => {
+    try { emergeOverseer(dim, loc, oid); }
+    catch (e) { console.warn(`[Marauder] Overseer emerge (death intercept) failed: ${e?.stack || e}`); }
+  });
+  return true;
+}
+
 // AFTER damage applies. Not cancellable — we heal the hit back instead.
 safeSub("entityHurt", world.afterEvents?.entityHurt, ev => {
   const victim = ev.hurtEntity;
@@ -2331,6 +2383,8 @@ safeSub("entityHurt", world.afterEvents?.entityHurt, ev => {
   if (victim.typeId === OVERSEER) {
     const s = stateFor(victim);
     if (attacker && !isMarauderKind(attacker.typeId)) { s.aggroId = attacker.id; s.aggroTick = now; }
+    // A fatal hit ends it — never parry-negate a killing blow back to life.
+    try { const oh = victim.getComponent("minecraft:health"); if (oh && oh.currentValue <= 0.001) return; } catch (e) {}
     if (s.parryUntil && now < s.parryUntil && attacker && attacker.typeId === "minecraft:player") {
       s.parryUntil = 0;
       const h = victim.getComponent("minecraft:health");
@@ -2359,6 +2413,15 @@ safeSub("entityHurt", world.afterEvents?.entityHurt, ev => {
   const health = victim.getComponent("minecraft:health");
   if (!health) return;
   const max = maxHp(victim);
+
+  // The hit was FATAL: never heal a corpse back (that can wedge the entity in a
+  // 0-HP zombie state and eat the death event), and raise the Overseer from
+  // right here while the entity is still readable.
+  if (health.currentValue <= 0.001) {
+    try { interceptBossDeath(victim, s); } catch (e) {}
+    return;
+  }
+
   const healBack = (amt) => { try { health.setCurrentValue(Math.min(max, health.currentValue + amt)); } catch (e) {} };
 
   // Blinding Counter (Mirror Guard) — negate + blind + shoulder-bash if struck mid-guard.
@@ -2457,26 +2520,32 @@ safeSub("entityDie_marauder", world.afterEvents?.entityDie, ev => {
   }
 
   if (dead.typeId !== MARAUDER && dead.typeId !== FRACTURED && dead.typeId !== OVERSEER) return;
-  removeClonesOf(dead.dimension, dead.id);
+  // Wrap every read on the corpse — on some engine builds these throw for a
+  // freshly dead entity, and one throw here used to abort the whole handler
+  // (killing the transition AND the rewards).
+  try { removeClonesOf(dead.dimension, dead.id); } catch (e) {}
   combat.delete(dead.id);
 
-  // Phase transition: when the stage-10 NORMAL Marauder finally dies, he rises as
-  // the Overseer instead of being defeated (config-gated). The Fractured (holy)
-  // path and the Overseer himself do not re-transform.
+  // Phase transition: when the stage-10 NORMAL Marauder finally dies, he rises
+  // as the Overseer instead of being defeated (config-gated, any killer). The
+  // entityHurt death intercept is the PRIMARY path (the entity is still fully
+  // readable there) — this is the backup, guarded by marauder:risen so the two
+  // can never double-spawn. Fractured and the Overseer himself never re-transform.
   if (dead.typeId === MARAUDER) {
-    const stage = clampStage(dead.getDynamicProperty("marauder:stageNum") ?? 1);
-    const killer = ev.damageSource && ev.damageSource.damagingEntity;
-    const byPlayer = killer && killer.typeId === "minecraft:player";
-    if (stage >= STAGE_MAX && Number(cfg("overseerPhase")) === 1 && byPlayer) {
+    let stage = 1, risen = false, oid;
+    try { stage = clampStage(dead.getDynamicProperty("marauder:stageNum") ?? 1); } catch (e) {}
+    try { risen = dead.getDynamicProperty("marauder:risen") === true; } catch (e) {}
+    try { oid = dead.getDynamicProperty("marauder:owner"); } catch (e) {}
+    if (risen) return; // the death intercept already raised him — rewards come when the Overseer falls
+    if (stage >= STAGE_MAX && Number(cfg("overseerPhase")) === 1) {
       // Defer the spawn out of the entityDie handler — spawning an entity from
-      // inside a death event is unreliable on some engine builds (the Overseer
-      // would silently never appear, which read as "he doesn't transform").
-      // system.run resolves it cleanly on the next tick.
-      const dim = dead.dimension;
-      const loc = { x: dead.location.x, y: dead.location.y, z: dead.location.z };
-      const oid = dead.getDynamicProperty("marauder:owner");
-      system.run(() => { try { emergeOverseer(dim, loc, oid); } catch (e) { console.warn(`[Marauder] Overseer emerge failed: ${e?.stack || e}`); } });
-      return; // rewards come when the Overseer falls
+      // inside a death event is unreliable on some engine builds.
+      let dim = null, loc = null;
+      try { dim = dead.dimension; loc = { x: dead.location.x, y: dead.location.y, z: dead.location.z }; } catch (e) {}
+      if (dim && loc) {
+        system.run(() => { try { emergeOverseer(dim, loc, oid); } catch (e) { console.warn(`[Marauder] Overseer emerge failed: ${e?.stack || e}`); } });
+        return; // rewards come when the Overseer falls
+      }
     }
   }
 
