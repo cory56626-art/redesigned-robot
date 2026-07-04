@@ -3657,24 +3657,15 @@ function combatTargetFor(godId, fromEntity) {
 // active beams persist for several ticks so they're clearly visible
 const activeBeams = [];
 
-const BEAM_PERSIST_TICKS = 35; // the beam hangs in the air for ~1.75s
+const BEAM_PERSIST_TICKS = 20; // the sonic beam holds for ~1s
 
+// the Warden sonic-boom beam: a line of sonic_explosion pulses
 function drawBeam(dimension, origin, dir, len) {
-  // dense bright core so the beam actually reads as a beam
-  for (let d = 0; d < len; d += 0.5) {
-    const p = { x: origin.x + dir.x * d, y: origin.y + dir.y * d, z: origin.z + dir.z * d };
-    particle(dimension, "minecraft:basic_flame_particle", p);
-    particle(dimension, "minecraft:endrod", p);
-    if (d % 1 < 0.5) {
-      // thickness ring around the core
-      particle(dimension, "minecraft:basic_flame_particle", { x: p.x + 0.2, y: p.y + 0.1, z: p.z });
-      particle(dimension, "minecraft:basic_flame_particle", { x: p.x - 0.2, y: p.y - 0.1, z: p.z });
-    }
+  for (let d = 0; d < len; d += 1.3) {
+    particle(dimension, "minecraft:sonic_explosion", {
+      x: origin.x + dir.x * d, y: origin.y + dir.y * d, z: origin.z + dir.z * d
+    });
   }
-  // blast marker where it lands
-  particle(dimension, "minecraft:large_explosion", {
-    x: origin.x + dir.x * len, y: origin.y + dir.y * len, z: origin.z + dir.z * len
-  });
 }
 
 // a concentrated white molten beam from `origin` toward `target`
@@ -3682,11 +3673,9 @@ function fireBeam(source, origin, target, damage) {
   const aim = { x: target.location.x, y: target.location.y + 1, z: target.location.z };
   const dir = norm3d(sub(aim, origin));
   const len = Math.min(30, Math.max(2, distance(aim, origin)));
-  playSoundAt(source.dimension, "mob.blaze.shoot", origin, 2.5);
-  // muzzle flash so the shot is unmistakable
-  particle(source.dimension, "minecraft:large_explosion", origin);
+  playSoundAt(source.dimension, "mob.warden.sonic_boom", origin, 2.5);
   drawBeam(source.dimension, origin, dir, len);
-  // persist the beam so it's clearly visible (~1.75s)
+  // persist the beam so it's clearly visible (~1s)
   activeBeams.push({ dimension: source.dimension, origin, dir, len, ticks: BEAM_PERSIST_TICKS });
   // damage anyone the beam passes near
   for (const v of victimsNearDim(source.dimension, origin, len + 2)) {
@@ -3705,10 +3694,9 @@ function tickBeams() {
   for (let i = activeBeams.length - 1; i >= 0; i--) {
     const b = activeBeams[i];
     b.ticks--;
-    // redraw every other tick: flame particles live ~1s, so the beam
-    // stays solid without flooding the particle budget (a flooded
-    // budget makes the engine cull particles = invisible beams)
-    if (b.ticks % 2 === 0) drawBeam(b.dimension, b.origin, b.dir, b.len);
+    // re-pulse the sonic beam periodically; sonic_explosion lingers ~1s
+    // on its own, so a sparse re-pulse keeps it visible without smearing
+    if (b.ticks % 8 === 0) drawBeam(b.dimension, b.origin, b.dir, b.len);
     if (b.ticks <= 0) activeBeams.splice(i, 1);
   }
 }
