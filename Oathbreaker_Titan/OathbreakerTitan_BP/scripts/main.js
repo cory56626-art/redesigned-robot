@@ -3733,7 +3733,9 @@ function godStartSuffer(god, s) {
       const x = god.location.x + Math.cos(a) * r;
       const z = god.location.z + Math.sin(a) * r;
       const y = groundY(god.dimension, x, god.location.y, z) + 1.5;
-      spawnCrystal(god, { x, y, z }, "sentinel", null, null);
+      // stagger each sentinel by 0.6s (12 ticks) so their beams fire one at a
+      // time instead of all on the same tick (where i-frames eat all but one)
+      spawnCrystal(god, { x, y, z }, "sentinel", null, null, i * 12);
     }
   } else {
     actionbarNearby(god, 50, "§f❖ SUFFER — homing crystals inbound!");
@@ -3809,7 +3811,7 @@ function tickPillar(pillar) {
 
 // ---- crystal system (shared by Suffer + Pillars) ----
 const crystals = new Map();
-function spawnCrystal(god, pos, mode, targetId, pillarId) {
+function spawnCrystal(god, pos, mode, targetId, pillarId, fireOffset = 0) {
   try {
     const c = god.dimension.spawnEntity(CRYSTAL_ID, pos);
     let tid = targetId;
@@ -3819,7 +3821,9 @@ function spawnCrystal(god, pos, mode, targetId, pillarId) {
     }
     crystals.set(c.id, {
       mode, godId: god.id, targetId: tid, pillarId,
-      born: system.currentTick, charge: SENTINEL_CHARGE
+      // fireOffset staggers sentinel volleys so their beams don't all land on
+      // the same tick (only the first would register through i-frames)
+      born: system.currentTick, charge: SENTINEL_CHARGE + fireOffset
     });
     particle(god.dimension, "minecraft:basic_flame_particle", pos);
   } catch { }
