@@ -3471,6 +3471,7 @@ const SOLAR_SHOT_INTERVAL = 14;
 const SOLAR_BEAM_DAMAGE = 7;
 
 const SUFFER_COOLDOWN = 380;
+const SENTINEL_SUFFER_COOLDOWN = 1000; // sentinel variant only: 50s (20tps)
 const SUFFER_HOMING_COUNT = 20;
 const SUFFER_SENTINEL_MIN = 10;
 const SUFFER_SENTINEL_MAX = 15;
@@ -3507,7 +3508,8 @@ const BLADE_SPIN_SPEED = 0.6;     // radians/tick the blade whirls
 const BLADE_SPIN_DAMAGE = 7;      // damage per bite while spinning
 const BLADE_SPIN_HIT_EVERY = 5;   // ticks between bites
 const BLADE_RETURN_SPEED = 2.0;   // blocks/tick flying home
-const BLADE_MAX_RANGE = 42;       // give up / return past this range
+const BLADE_MAX_RANGE = 42;       // hunt/return range from the god
+const BLADE_ATTACK_CD = 24;       // rest between a blade's own attacks (ticks)
 
 const gods = new Map();
 
@@ -3518,7 +3520,7 @@ function getGodState(god) {
       state: "idle", stateTicks: 0,
       cdPunch: 20, cdFusion: 120, cdSolar: 200, cdSuffer: 160,
       cdPillars: 320, cdStarfire: 260, cdBlades: 200, cdChain: 0,
-      bladeMode: false, blades: [], bladeTargetId: null,
+      bladeMode: false, blades: [],
       fusionVictimId: null,
       subTicks: 0, subData: null,
       lastPos: null, wasMoving: null,
@@ -3719,11 +3721,12 @@ function tickBeams() {
 function godStartSuffer(god, s) {
   s.state = "suffer";
   s.stateTicks = 0;
-  s.cdSuffer = SUFFER_COOLDOWN;
   setAnimState(god, "suffer");
   freeze(god, 22);
   playSoundAt(god.dimension, "mob.evocation_illager.prepare_summon", god.location, 3);
   const sentinelMode = Math.random() < 0.5;
+  // the Crystal Sentinel variant runs on its own long 50s cooldown
+  s.cdSuffer = sentinelMode ? SENTINEL_SUFFER_COOLDOWN : SUFFER_COOLDOWN;
   if (sentinelMode) {
     actionbarNearby(god, 50, "§f❖ CRYSTAL SENTINELS — destroy them before they fire!");
     const count = SUFFER_SENTINEL_MIN + Math.floor(Math.random() * (SUFFER_SENTINEL_MAX - SUFFER_SENTINEL_MIN + 1));
@@ -3921,10 +3924,6 @@ function godTickStarfire(god, s) {
 // Two chained blades that hover BEHIND the god (never orbiting, never held).
 // On command he hurls them out; they streak to the target, whirl around it in
 // a chain-slinging vortex doing heavy damage, then retract to their rest slots.
-function bladesReady(s) {
-  return s.bladeMode && s.blades.some((bl) => bl.phase === "rest");
-}
-
 // where a resting blade should hover: behind him, split to either side
 function restBladePos(god, i) {
   let fwd;
@@ -3978,7 +3977,8 @@ function drawBladeChain(god, bladePos, spacing) {
   }
 }
 
-// first manifestation: conjure the two resting blades behind him
+// first manifestation: conjure the two resting blades behind him. From here
+// on they hunt on their own (see tickGodBlades) — no command needed.
 function godManifestBlades(god, s) {
   s.bladeMode = true;
   s.blades = [];
@@ -3986,12 +3986,13 @@ function godManifestBlades(god, s) {
     const rp = restBladePos(god, i);
     try {
       const b = god.dimension.spawnEntity(BLADE_ID, rp);
-      s.blades.push({ id: b.id, phase: "rest", t: 0, angle: 0, lastAim: null });
+      // cd 0 → both blades strike the moment they appear
+      s.blades.push({ id: b.id, phase: "rest", t: 0, angle: 0, lastAim: null, cd: i * 8, targetId: null });
     } catch { }
   }
 }
 
-// the command cast: thrust his arms out and hurl the blades at the target
+// the 75% cast: the god unchains the Blades of Chaos for the first time
 function godStartBlades(god, s) {
   s.state = "blades";
   s.stateTicks = 0;
@@ -4004,14 +4005,19 @@ function godStartBlades(god, s) {
   if (target) faceTarget(god, target);
   playSoundAt(god.dimension, firstTime ? "mob.enderdragon.growl" : "mob.enderdragon.flap", god.location, 4);
   if (firstTime) titleNearby(god, 60, "§fBLADES OF CHAOS", "§eHeaven's edge is unchained.");
-  // command every resting blade to fly at the target
-  if (target) {
-    s.bladeTargetId = target.id;
-    const aim = { x: target.location.x, y: target.location.y + 1, z: target.location.z };
-    for (const bl of s.blades) {
-      if (bl.phase === "rest") { bl.phase = "launch"; bl.t = 0; bl.lastAim = aim; }
-    }
+}
+
+// each blade picks its own quarry: blade 0 takes the nearest foe, blade 1
+// takes a different (farthest) foe so they cover close AND far at once.
+function pickBladeTarget(god, i, avoidId) {
+  let cands = victimsNearDim(god.dimension, god.location, BLADE_MAX_RANGE);
+  if (!cands || cands.length === 0) return null;
+  cands = cands.slice().sort((a, b) => distance(a.location, god.location) - distance(b.location, god.location));
+  if (i === 0) return cands[0];                 // nearest
+  for (let k = cands.length - 1; k >= 0; k--) { // farthest that isn't the sibling's target
+    if (cands[k].id !== avoidId) return cands[k];
   }
+  return cands[0];
 }
 
 function godTickBlades(god, s) {
@@ -4075,14 +4081,12 @@ function godChainStrike(god, s, target, heavy) {
   }
 }
 
-// drive every blade each tick: rest behind him, or carry out a command
+// drive every blade each tick. Each blade acts on its OWN: it hunts its own
+// target, flies out, whirls on it, and returns — independent of the god and
+// of the other blade, so both are always harassing someone.
 function tickGodBlades(god, s) {
   if (!s.bladeMode || s.blades.length === 0) return;
   const gLoc = god.location;
-
-  // the blades home on the live target where possible
-  let target = null;
-  if (s.bladeTargetId) { try { target = world.getEntity(s.bladeTargetId); } catch { } }
 
   for (let i = 0; i < s.blades.length; i++) {
     const bl = s.blades[i];
@@ -4091,15 +4095,32 @@ function tickGodBlades(god, s) {
     if (!b) {
       // a blade got unloaded/removed — reconjure it at its rest slot
       const rp = restBladePos(god, i);
-      try { b = god.dimension.spawnEntity(BLADE_ID, rp); bl.id = b.id; bl.phase = "rest"; bl.t = 0; }
+      try { b = god.dimension.spawnEntity(BLADE_ID, rp); bl.id = b.id; bl.phase = "rest"; bl.t = 0; bl.cd = BLADE_ATTACK_CD; bl.targetId = null; }
       catch { continue; }
     }
     bl.t++;
+
+    // this blade's own live target (may have wandered off or died)
+    let target = null;
+    try { if (bl.targetId) target = world.getEntity(bl.targetId); } catch { }
+    if (target && (!target.isValid || (!isPlayer(target) && !canFight(target)))) target = null;
 
     if (bl.phase === "rest") {
       const rp = restBladePos(god, i);
       try { b.teleport(rp, { facingLocation: bladeForwardAim(god, rp) }); } catch { }
       drawBladeChain(god, rp, 1.4);
+      // autonomous: once its cooldown is up, pick a foe and strike on its own
+      if (bl.cd > 0) bl.cd--;
+      if (bl.cd <= 0) {
+        const sibling = s.blades[1 - i];
+        const foe = pickBladeTarget(god, i, sibling ? sibling.targetId : null);
+        if (foe) {
+          bl.targetId = foe.id;
+          bl.phase = "launch"; bl.t = 0;
+          bl.lastAim = { x: foe.location.x, y: foe.location.y + 1, z: foe.location.z };
+          playSoundAt(god.dimension, "mob.enderdragon.flap", b.location, 1.5);
+        }
+      }
       continue;
     }
 
@@ -4112,7 +4133,8 @@ function tickGodBlades(god, s) {
       const pos = moveBladeToward(b, aim, BLADE_FLY_SPEED);
       drawBladeChain(god, pos, 0.8);
       particle(god.dimension, "minecraft:basic_flame_particle", pos);
-      if (distance(pos, aim) <= BLADE_ARRIVE_DIST || distance(pos, gLoc) >= BLADE_MAX_RANGE) {
+      // arrived, or the target ran out of leash → whirl here
+      if (distance(pos, aim) <= BLADE_ARRIVE_DIST || distance(pos, gLoc) >= BLADE_MAX_RANGE || bl.t > 60) {
         bl.phase = "spin"; bl.t = 0; bl.angle = i * Math.PI;
         playSoundAt(god.dimension, "mob.enderdragon.flap", pos, 2);
         particle(god.dimension, "minecraft:huge_explosion_emitter", pos);
@@ -4121,6 +4143,7 @@ function tickGodBlades(god, s) {
     }
 
     if (bl.phase === "spin") {
+      // follow the target as it tries to flee the whirlwind
       const center = target
         ? { x: target.location.x, y: target.location.y + 1, z: target.location.z }
         : (bl.lastAim || gLoc);
@@ -4147,7 +4170,7 @@ function tickGodBlades(god, s) {
           knockPlayer(v, norm2d(sub(v.location, center)), 0.5, 0.25);
         }
       }
-      if (bl.t >= BLADE_SPIN_TICKS + i * 6) { bl.phase = "return"; bl.t = 0; }
+      if (bl.t >= BLADE_SPIN_TICKS) { bl.phase = "return"; bl.t = 0; }
       continue;
     }
 
@@ -4155,13 +4178,14 @@ function tickGodBlades(god, s) {
       const rp = restBladePos(god, i);
       const pos = moveBladeToward(b, rp, BLADE_RETURN_SPEED, bladeForwardAim(god, rp));
       drawBladeChain(god, pos, 1.0);
-      if (distance(pos, rp) <= 0.8) { bl.phase = "rest"; bl.t = 0; }
+      if (distance(pos, rp) <= 0.8 || bl.t > 60) {
+        bl.phase = "rest"; bl.t = 0;
+        bl.targetId = null;
+        bl.cd = BLADE_ATTACK_CD + i * 8; // small stagger so the two desync
+      }
       continue;
     }
   }
-
-  // command finished once every blade is back home
-  if (!s.blades.some((bl) => bl.phase !== "rest")) s.bladeTargetId = null;
 }
 
 // ---- the Molten God brain ----
@@ -4237,11 +4261,10 @@ function tickGod(god) {
   if (s.cdSuffer <= 0 && dist <= 30) { godStartSuffer(god, s); return; }
   if (s.cdSolar <= 0 && dist >= 4 && dist <= 30) { godStartSolar(god, s); return; }
   if (s.cdFusion <= 0 && dist >= 3 && dist <= 26) { godStartFusion(god, s, target); return; }
-  // in blade mode he commands the Blades of Chaos to fly out and whirl on his foe
-  if (s.bladeMode) {
-    if (s.cdBlades <= 0 && bladesReady(s) && dist >= 5 && dist <= BLADE_MAX_RANGE) { godStartBlades(god, s); return; }
-    if (s.cdChain <= 0 && dist >= 3 && dist <= CHAIN_REACH) { godStartChain(god, s, target); return; }
-  } else if (s.cdPunch <= 0 && dist <= 3.2) {
+  // in blade mode his own hand lashes a chain of light at mid-range (the two
+  // Blades of Chaos hunt on their own, every tick, in tickGodBlades)
+  if (s.bladeMode && s.cdChain <= 0 && dist >= 3 && dist <= CHAIN_REACH) { godStartChain(god, s, target); return; }
+  if (s.cdPunch <= 0 && dist <= 3.2) {
     // hyper-fast bare-fist flurry up close
     s.state = "punch"; s.stateTicks = 0; s.cdPunch = 16;
     setAnimState(god, "punch");
