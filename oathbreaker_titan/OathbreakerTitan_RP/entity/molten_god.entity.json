@@ -21,8 +21,8 @@
       },
       "scripts": {
         "animate": [
-          { "idle": "q.property('ob:attack_state') == 'idle' && q.modified_move_speed <= 0.02 && q.is_alive" },
-          { "walk": "q.property('ob:attack_state') == 'idle' && q.modified_move_speed > 0.02 && q.is_alive" },
+          { "idle": "q.property('ob:attack_state') == 'idle' && q.is_alive" },
+          { "walk": "q.modified_move_speed > 0.02 && q.is_alive" },
           "attack_ctrl"
         ]
       },

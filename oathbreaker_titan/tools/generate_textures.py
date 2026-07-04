@@ -417,15 +417,27 @@ def leviathan_texture():
 
 
 def tex_suffer_crystal():
+    # clean faceted white gem with pale-cyan edges
     img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
     px = img.load()
     for x in range(32):
         for y in range(32):
-            d = abs(x - 16) + abs(y - 16)
-            if d < 15:
-                t = d / 15
-                px[x, y] = (clamp(255), clamp(255 - t * 30), clamp(255 - t * 10), 255)
-    crack_veins(px, (0, 0, 32, 32), 5, hot=True, palette="white")
+            # facet shading: brighter toward the top-left of each 16px cell
+            cell = 16
+            lx = (x % cell) / cell
+            ly = (y % cell) / cell
+            shade = 1.0 - (lx * 0.18 + ly * 0.22)
+            r = clamp(235 * shade + 20)
+            g = clamp(245 * shade + 10)
+            b = clamp(255 * shade)
+            px[x, y] = (r, g, b, 255)
+    # pale-cyan facet edge lines every 16px + a bright highlight streak
+    for x in range(32):
+        for y in range(32):
+            if x % 16 == 0 or y % 16 == 0:
+                px[x, y] = (150, 220, 255, 255)
+            elif (x % 16) == (y % 16):
+                px[x, y] = (255, 255, 255, 255)
     return img
 
 

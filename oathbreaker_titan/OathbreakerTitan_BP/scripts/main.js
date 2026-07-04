@@ -3634,32 +3634,51 @@ function nearestSolarTarget(from) {
   return best;
 }
 
+// active beams persist for several ticks so they're clearly visible
+const activeBeams = [];
+
+function drawBeam(dimension, origin, dir, len) {
+  // dense bright core so the beam actually reads as a beam
+  for (let d = 0; d < len; d += 0.3) {
+    const p = { x: origin.x + dir.x * d, y: origin.y + dir.y * d, z: origin.z + dir.z * d };
+    particle(dimension, "minecraft:basic_flame_particle", p);
+    if (d % 0.6 < 0.3) particle(dimension, "minecraft:endrod", p);
+    // a little thickness around the core
+    particle(dimension, "minecraft:basic_flame_particle", { x: p.x + 0.15, y: p.y, z: p.z });
+    particle(dimension, "minecraft:basic_flame_particle", { x: p.x, y: p.y + 0.15, z: p.z });
+  }
+}
+
 // a concentrated white molten beam from `origin` toward `target`
 function fireBeam(source, origin, target, damage) {
   const aim = { x: target.location.x, y: target.location.y + 1, z: target.location.z };
   const dir = norm3d(sub(aim, origin));
-  const len = Math.min(30, distance(aim, origin));
-  playSoundAt(source.dimension, "mob.blaze.shoot", origin, 2);
-  for (let d = 0; d < len; d += 0.6) {
-    particle(source.dimension, "minecraft:basic_flame_particle", {
-      x: origin.x + dir.x * d, y: origin.y + dir.y * d, z: origin.z + dir.z * d
-    });
-    if (d % 2 < 0.6) {
-      particle(source.dimension, "minecraft:balloon_gas_particle", {
-        x: origin.x + dir.x * d, y: origin.y + dir.y * d, z: origin.z + dir.z * d
-      });
-    }
-  }
+  const len = Math.min(30, Math.max(2, distance(aim, origin)));
+  playSoundAt(source.dimension, "mob.blaze.shoot", origin, 2.5);
+  // muzzle flash so the shot is unmistakable
+  particle(source.dimension, "minecraft:large_explosion", origin);
+  drawBeam(source.dimension, origin, dir, len);
+  // persist the beam for a few ticks
+  activeBeams.push({ dimension: source.dimension, origin, dir, len, ticks: 6 });
   // damage anyone the beam passes near
   for (const v of victimsNearDim(source.dimension, origin, len + 2)) {
     const to = sub({ x: v.location.x, y: v.location.y + 1, z: v.location.z }, origin);
     const proj = to.x * dir.x + to.y * dir.y + to.z * dir.z;
     if (proj < 0 || proj > len + 1) continue;
     const closest = { x: origin.x + dir.x * proj, y: origin.y + dir.y * proj, z: origin.z + dir.z * proj };
-    if (distance({ x: v.location.x, y: v.location.y + 1, z: v.location.z }, closest) <= 1.6) {
+    if (distance({ x: v.location.x, y: v.location.y + 1, z: v.location.z }, closest) <= 1.8) {
       godHurt(source, v, damage);
       try { v.setOnFire(2, true); } catch { }
     }
+  }
+}
+
+function tickBeams() {
+  for (let i = activeBeams.length - 1; i >= 0; i--) {
+    const b = activeBeams[i];
+    b.ticks--;
+    drawBeam(b.dimension, b.origin, b.dir, b.len);
+    if (b.ticks <= 0) activeBeams.splice(i, 1);
   }
 }
 
@@ -3746,7 +3765,7 @@ function tickPillar(pillar) {
         const gl = god.location;
         const dir = norm3d(sub({ x: gl.x, y: gl.y + 1.5, z: gl.z }, { x: loc.x, y: loc.y + 4, z: loc.z }));
         for (let d = 0; d < distance(gl, loc); d += 1.2) {
-          particle(pillar.dimension, "minecraft:balloon_gas_particle", {
+          particle(pillar.dimension, "minecraft:endrod", {
             x: loc.x + dir.x * d, y: loc.y + 4 + dir.y * d, z: loc.z + dir.z * d
           });
         }
@@ -3810,7 +3829,7 @@ function tickCrystal(crystal) {
     // sentinel: stationary, charge then fire a beam
     cs.charge--;
     if (cs.charge <= SENTINEL_CHARGE * 0.4 && cs.charge % 2 === 0) {
-      particle(crystal.dimension, "minecraft:balloon_gas_particle", { x: loc.x, y: loc.y + 0.5, z: loc.z });
+      particle(crystal.dimension, "minecraft:endrod", { x: loc.x, y: loc.y + 0.5, z: loc.z });
     }
     if (cs.charge <= 0) {
       cs.charge = SENTINEL_CHARGE + 20;
@@ -3923,7 +3942,7 @@ function godChainStrike(god, s, target, heavy) {
     particle(god.dimension, "minecraft:basic_flame_particle", {
       x: origin.x + dir.x * d, y: origin.y + dir.y * d, z: origin.z + dir.z * d
     });
-    particle(god.dimension, "minecraft:balloon_gas_particle", {
+    particle(god.dimension, "minecraft:endrod", {
       x: origin.x + dir.x * d, y: origin.y + dir.y * d, z: origin.z + dir.z * d
     });
   }
@@ -4063,6 +4082,7 @@ world.afterEvents.entityDie.subscribe((ev) => {
 // ---- phase 3 master loop ----
 system.runInterval(() => {
   tickDots();
+  tickBeams();
   for (const dimId of DIMENSIONS) {
     let dimension;
     try { dimension = world.getDimension(dimId); } catch { continue; }
