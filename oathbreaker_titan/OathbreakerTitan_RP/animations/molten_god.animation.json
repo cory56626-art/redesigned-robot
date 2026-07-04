@@ -14,11 +14,11 @@
     "animation.ob_god.walk": {
       "loop": true,
       "bones": {
-        "right_leg": { "rotation": ["math.cos(q.modified_distance_moved * 24) * 45", 0, 0] },
-        "left_leg": { "rotation": ["math.cos(q.modified_distance_moved * 24 + 180) * 45", 0, 0] },
-        "right_arm": { "rotation": ["math.cos(q.modified_distance_moved * 24 + 180) * 30 - 6", 0, 0] },
-        "left_arm": { "rotation": ["math.cos(q.modified_distance_moved * 24) * 30 - 6", 0, 0] },
-        "body": { "rotation": [4, "math.cos(q.modified_distance_moved * 24) * 4", 0] }
+        "right_leg": { "rotation": ["math.cos(q.modified_distance_moved * 22) * 55 * math.clamp(q.modified_move_speed * 8, 0, 1)", 0, 0] },
+        "left_leg": { "rotation": ["math.cos(q.modified_distance_moved * 22 + 180) * 55 * math.clamp(q.modified_move_speed * 8, 0, 1)", 0, 0] },
+        "right_arm": { "rotation": ["math.cos(q.modified_distance_moved * 22 + 180) * 35 * math.clamp(q.modified_move_speed * 8, 0, 1)", 0, 0] },
+        "left_arm": { "rotation": ["math.cos(q.modified_distance_moved * 22) * 35 * math.clamp(q.modified_move_speed * 8, 0, 1)", 0, 0] },
+        "body": { "rotation": ["5 * math.clamp(q.modified_move_speed * 8, 0, 1)", "math.cos(q.modified_distance_moved * 22) * 5 * math.clamp(q.modified_move_speed * 8, 0, 1)", 0] }
       }
     },
     "animation.ob_god.punch": {

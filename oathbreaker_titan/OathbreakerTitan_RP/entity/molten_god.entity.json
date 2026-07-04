@@ -9,6 +9,7 @@
       "animations": {
         "idle": "animation.ob_god.idle",
         "walk": "animation.ob_god.walk",
+        "death": "animation.ob_titan.death",
         "punch_anim": "animation.ob_god.punch",
         "fusion_anim": "animation.ob_god.fusion",
         "beams_anim": "animation.ob_god.beams",
@@ -22,8 +23,9 @@
       "scripts": {
         "animate": [
           { "idle": "q.property('ob:attack_state') == 'idle' && q.is_alive" },
-          { "walk": "q.modified_move_speed > 0.02 && q.is_alive" },
-          "attack_ctrl"
+          "walk",
+          "attack_ctrl",
+          { "death": "!q.is_alive" }
         ]
       },
       "render_controllers": ["controller.render.default"],

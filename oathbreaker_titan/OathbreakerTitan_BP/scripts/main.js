@@ -3595,11 +3595,15 @@ function godStartSolar(god, s) {
   actionbarNearby(god, 50, "§e☀ SOLAR CLONES — dodge the beams!");
   for (let i = 0; i < SOLAR_CLONES; i++) {
     const a = (Math.PI * 2 * i) / SOLAR_CLONES;
-    const pos = { x: god.location.x + Math.cos(a) * 4, y: god.location.y + 0.1, z: god.location.z + Math.sin(a) * 4 };
+    const px = god.location.x + Math.cos(a) * 4;
+    const pz = god.location.z + Math.sin(a) * 4;
+    // snap to the ground so clones never spawn buried in a wall
+    const py = groundY(god.dimension, px, god.location.y + 1, pz);
+    const pos = { x: px, y: py, z: pz };
     try {
       const clone = god.dimension.spawnEntity(SOLAR_ID, pos);
       solars.set(clone.id, { godId: god.id, shotsLeft: SOLAR_SHOTS, cd: 12 + i * 4 });
-      particle(god.dimension, "minecraft:huge_explosion_emitter", pos);
+      particle(god.dimension, "minecraft:huge_explosion_emitter", { x: px, y: py + 1, z: pz });
     } catch { }
   }
 }
@@ -3637,16 +3641,24 @@ function nearestSolarTarget(from) {
 // active beams persist for several ticks so they're clearly visible
 const activeBeams = [];
 
+const BEAM_PERSIST_TICKS = 35; // the beam hangs in the air for ~1.75s
+
 function drawBeam(dimension, origin, dir, len) {
   // dense bright core so the beam actually reads as a beam
-  for (let d = 0; d < len; d += 0.3) {
+  for (let d = 0; d < len; d += 0.5) {
     const p = { x: origin.x + dir.x * d, y: origin.y + dir.y * d, z: origin.z + dir.z * d };
     particle(dimension, "minecraft:basic_flame_particle", p);
-    if (d % 0.6 < 0.3) particle(dimension, "minecraft:endrod", p);
-    // a little thickness around the core
-    particle(dimension, "minecraft:basic_flame_particle", { x: p.x + 0.15, y: p.y, z: p.z });
-    particle(dimension, "minecraft:basic_flame_particle", { x: p.x, y: p.y + 0.15, z: p.z });
+    particle(dimension, "minecraft:endrod", p);
+    if (d % 1 < 0.5) {
+      // thickness ring around the core
+      particle(dimension, "minecraft:basic_flame_particle", { x: p.x + 0.2, y: p.y + 0.1, z: p.z });
+      particle(dimension, "minecraft:basic_flame_particle", { x: p.x - 0.2, y: p.y - 0.1, z: p.z });
+    }
   }
+  // blast marker where it lands
+  particle(dimension, "minecraft:large_explosion", {
+    x: origin.x + dir.x * len, y: origin.y + dir.y * len, z: origin.z + dir.z * len
+  });
 }
 
 // a concentrated white molten beam from `origin` toward `target`
@@ -3658,8 +3670,8 @@ function fireBeam(source, origin, target, damage) {
   // muzzle flash so the shot is unmistakable
   particle(source.dimension, "minecraft:large_explosion", origin);
   drawBeam(source.dimension, origin, dir, len);
-  // persist the beam for a few ticks
-  activeBeams.push({ dimension: source.dimension, origin, dir, len, ticks: 6 });
+  // persist the beam so it's clearly visible (~1.75s)
+  activeBeams.push({ dimension: source.dimension, origin, dir, len, ticks: BEAM_PERSIST_TICKS });
   // damage anyone the beam passes near
   for (const v of victimsNearDim(source.dimension, origin, len + 2)) {
     const to = sub({ x: v.location.x, y: v.location.y + 1, z: v.location.z }, origin);
@@ -3677,7 +3689,10 @@ function tickBeams() {
   for (let i = activeBeams.length - 1; i >= 0; i--) {
     const b = activeBeams[i];
     b.ticks--;
-    drawBeam(b.dimension, b.origin, b.dir, b.len);
+    // redraw every other tick: flame particles live ~1s, so the beam
+    // stays solid without flooding the particle budget (a flooded
+    // budget makes the engine cull particles = invisible beams)
+    if (b.ticks % 2 === 0) drawBeam(b.dimension, b.origin, b.dir, b.len);
     if (b.ticks <= 0) activeBeams.splice(i, 1);
   }
 }
