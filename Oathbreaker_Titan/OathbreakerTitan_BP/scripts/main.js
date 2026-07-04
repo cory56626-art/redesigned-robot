@@ -3501,12 +3501,14 @@ const BLADE_REST_DIST = 3.4;      // how far behind the god the blades hover
 const BLADE_REST_HEIGHT = 2.9;    // hover height above his feet
 const BLADE_REST_SPREAD = 1.1;    // sideways gap between the two blades
 const BLADE_FLY_SPEED = 1.7;      // blocks/tick while streaking out to a target
-const BLADE_ARRIVE_DIST = 2.2;    // switch to the whirlwind once this close
-const BLADE_SPIN_TICKS = 46;      // how long the whirlwind lasts on the target
-const BLADE_SPIN_RADIUS = 2.4;    // radius of the orbiting slash
-const BLADE_SPIN_SPEED = 0.6;     // radians/tick the blade whirls
-const BLADE_SPIN_DAMAGE = 7;      // damage per bite while spinning
-const BLADE_SPIN_HIT_EVERY = 5;   // ticks between bites
+const BLADE_ARRIVE_DIST = 3.0;    // begin the pierce assault once this close
+const BLADE_STAB_COUNT = 4;       // how many times it runs the blade through
+const BLADE_STAB_SPEED = 2.1;     // blocks/tick during a thrust
+const BLADE_STAB_OVERSHOOT = 3.5; // how far past the target the tip drives
+const BLADE_STAB_WINDUP = 3.5;    // how far it pulls back before each stab
+const BLADE_STAB_HIT_RADIUS = 1.9;// how near the blade line a foe must be
+const BLADE_STAB_DAMAGE = 8;      // damage per pierce
+const BLADE_STAB_WAIT = 9;        // pause between stabs (spaces out i-frames)
 const BLADE_RETURN_SPEED = 2.0;   // blocks/tick flying home
 const BLADE_MAX_RANGE = 42;       // hunt/return range from the god
 const BLADE_ATTACK_CD = 24;       // rest between a blade's own attacks (ticks)
@@ -4081,9 +4083,23 @@ function godChainStrike(god, s, target, heavy) {
   }
 }
 
+// shortest distance from point p to the segment a→b (so a fast thrust can't
+// tunnel past a foe between ticks — we test the whole swept line)
+function pointSegDist(p, a, b) {
+  const ab = sub(b, a);
+  const denom = ab.x * ab.x + ab.y * ab.y + ab.z * ab.z;
+  let t = 0;
+  if (denom > 0.0001) {
+    const ap = sub(p, a);
+    t = (ap.x * ab.x + ap.y * ab.y + ap.z * ab.z) / denom;
+    t = Math.max(0, Math.min(1, t));
+  }
+  return distance(p, { x: a.x + ab.x * t, y: a.y + ab.y * t, z: a.z + ab.z * t });
+}
+
 // drive every blade each tick. Each blade acts on its OWN: it hunts its own
-// target, flies out, whirls on it, and returns — independent of the god and
-// of the other blade, so both are always harassing someone.
+// target, runs itself through it like a spear, and returns — independent of
+// the god and of the other blade, so both are always harassing someone.
 function tickGodBlades(god, s) {
   if (!s.bladeMode || s.blades.length === 0) return;
   const gLoc = god.location;
@@ -4133,44 +4149,69 @@ function tickGodBlades(god, s) {
       const pos = moveBladeToward(b, aim, BLADE_FLY_SPEED);
       drawBladeChain(god, pos, 0.8);
       particle(god.dimension, "minecraft:basic_flame_particle", pos);
-      // arrived, or the target ran out of leash → whirl here
+      // arrived, or the target ran out of leash → begin the pierce assault
       if (distance(pos, aim) <= BLADE_ARRIVE_DIST || distance(pos, gLoc) >= BLADE_MAX_RANGE || bl.t > 60) {
-        bl.phase = "spin"; bl.t = 0; bl.angle = i * Math.PI;
+        bl.phase = "pierce"; bl.t = 0;
+        bl.stabsLeft = BLADE_STAB_COUNT;
+        bl.stab = "lunge";
+        bl.hitIds = new Set();
         playSoundAt(god.dimension, "mob.enderdragon.flap", pos, 2);
-        particle(god.dimension, "minecraft:huge_explosion_emitter", pos);
       }
       continue;
     }
 
-    if (bl.phase === "spin") {
-      // follow the target as it tries to flee the whirlwind
+    if (bl.phase === "pierce") {
+      // the blade repeatedly runs itself THROUGH the target like a spear:
+      // pull back, thrust clean through and out the far side, pause, repeat.
       const center = target
         ? { x: target.location.x, y: target.location.y + 1, z: target.location.z }
         : (bl.lastAim || gLoc);
       if (target) bl.lastAim = center;
-      bl.angle += BLADE_SPIN_SPEED;
-      const pos = {
-        x: center.x + Math.cos(bl.angle) * BLADE_SPIN_RADIUS,
-        y: center.y + Math.sin(bl.t * 0.4) * 0.4,
-        z: center.z + Math.sin(bl.angle) * BLADE_SPIN_RADIUS
-      };
-      // lead with the edge: face a point further along the orbit
-      const lead = {
-        x: center.x + Math.cos(bl.angle + 1.3) * BLADE_SPIN_RADIUS,
-        y: pos.y,
-        z: center.z + Math.sin(bl.angle + 1.3) * BLADE_SPIN_RADIUS
-      };
-      try { b.teleport(pos, { facingLocation: lead }); } catch { }
-      drawBladeChain(god, pos, 0.8);
+      // thrust axis: outward from the god, through the target, kept level
+      const dir = norm2d(sub(center, gLoc));
+      const near = { x: center.x - dir.x * BLADE_STAB_WINDUP, y: center.y, z: center.z - dir.z * BLADE_STAB_WINDUP };
+      const far = { x: center.x + dir.x * BLADE_STAB_OVERSHOOT, y: center.y, z: center.z + dir.z * BLADE_STAB_OVERSHOOT };
+
+      if (bl.stab === "wait") {
+        // hover cocked on the near side, tip trained on the target
+        try { b.teleport(near, { facingLocation: far }); } catch { }
+        drawBladeChain(god, near, 0.9);
+        if (bl.t >= BLADE_STAB_WAIT) { bl.stab = "lunge"; bl.t = 0; bl.hitIds = new Set(); }
+        continue;
+      }
+
+      const dest = bl.stab === "lunge" ? far : near;
+      const prev = b.location;
+      const pos = moveBladeToward(b, dest, BLADE_STAB_SPEED, far);
+      drawBladeChain(god, pos, 0.7);
       particle(god.dimension, "minecraft:basic_flame_particle", pos);
       particle(god.dimension, "minecraft:endrod", pos);
-      if (bl.t % BLADE_SPIN_HIT_EVERY === 0) {
-        for (const v of victimsNearDim(god.dimension, pos, 2.2)) {
-          godHurt(god, v, BLADE_SPIN_DAMAGE);
-          knockPlayer(v, norm2d(sub(v.location, center)), 0.5, 0.25);
+
+      // only the forward thrust bites — run it through everything on the line,
+      // each foe once per stab (a fresh pierce, like stabbing paper again)
+      if (bl.stab === "lunge") {
+        for (const v of victimsNearDim(god.dimension, center, BLADE_STAB_OVERSHOOT + BLADE_STAB_WINDUP + 3)) {
+          if (bl.hitIds.has(v.id)) continue;
+          const vp = { x: v.location.x, y: v.location.y + 1, z: v.location.z };
+          if (pointSegDist(vp, prev, pos) <= BLADE_STAB_HIT_RADIUS) {
+            godHurt(god, v, BLADE_STAB_DAMAGE);
+            knockPlayer(v, dir, 0.35, 0.15);
+            particle(god.dimension, "minecraft:critical_hit_emitter", vp);
+            bl.hitIds.add(v.id);
+          }
         }
       }
-      if (bl.t >= BLADE_SPIN_TICKS) { bl.phase = "return"; bl.t = 0; }
+
+      // reached the end of a thrust (or is taking too long) → next sub-phase
+      if (distance(pos, dest) <= 0.6 || bl.t > 30) {
+        if (bl.stab === "lunge") {
+          bl.stab = "retract"; bl.t = 0;
+        } else {
+          bl.stabsLeft--;
+          if (bl.stabsLeft <= 0) { bl.phase = "return"; bl.t = 0; }
+          else { bl.stab = "wait"; bl.t = 0; }
+        }
+      }
       continue;
     }
 
