@@ -22,8 +22,8 @@
       },
       "scripts": {
         "animate": [
-          { "idle": "q.property('ob:attack_state') == 'idle' && q.is_alive" },
-          "walk",
+          { "idle": "q.property('ob:attack_state') == 'idle' && !q.property('ob:moving') && q.is_alive" },
+          { "walk": "q.property('ob:attack_state') == 'idle' && q.property('ob:moving') && q.is_alive" },
           "attack_ctrl",
           { "death": "!q.is_alive" }
         ]

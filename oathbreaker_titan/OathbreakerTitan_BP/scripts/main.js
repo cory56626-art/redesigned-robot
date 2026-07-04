@@ -3507,6 +3507,7 @@ function getGodState(god) {
       bladeMode: false, bladeIds: [],
       fusionVictimId: null,
       subTicks: 0, subData: null,
+      lastPos: null, wasMoving: null,
       mobFoeId: null, mobFoeTick: -9999, lastHostileScan: -99
     };
     gods.set(god.id, s);
@@ -3613,7 +3614,7 @@ function tickSolar(clone) {
   const cs = solars.get(clone.id);
   if (!cs) { try { clone.remove(); } catch { } return; }
   cs.cd--;
-  const target = nearestSolarTarget(clone);
+  const target = combatTargetFor(cs.godId, clone);
   if (target) { try { clone.teleport(clone.location, { facingLocation: target.location }); } catch { } }
   if (cs.cd <= 0 && cs.shotsLeft > 0 && target) {
     cs.cd = SOLAR_SHOT_INTERVAL;
@@ -3636,6 +3637,21 @@ function nearestSolarTarget(from) {
     if (d < bestD) { bestD = d; best = v; }
   }
   return best;
+}
+
+// what a summon should shoot at: the GOD's own combat foe (the mob he's
+// fighting), so in a mob-vs-mob battle beams/crystals hit that mob and
+// never the watching player. Falls back to nearest victim.
+function combatTargetFor(godId, fromEntity) {
+  try {
+    const god = godId ? world.getEntity(godId) : null;
+    if (god && god.isValid) {
+      const gs = gods.get(god.id) ?? getGodState(god);
+      const foe = nearestTarget(god, gs);
+      if (foe) return foe;
+    }
+  } catch { }
+  return nearestSolarTarget(fromEntity);
 }
 
 // active beams persist for several ticks so they're clearly visible
@@ -3796,7 +3812,7 @@ function spawnCrystal(god, pos, mode, targetId, pillarId) {
     const c = god.dimension.spawnEntity(CRYSTAL_ID, pos);
     let tid = targetId;
     if (!tid) {
-      const t = nearestSolarTarget(c);
+      const t = combatTargetFor(god.id, c);
       tid = t ? t.id : null;
     }
     crystals.set(c.id, {
@@ -3813,11 +3829,12 @@ function tickCrystal(crystal) {
   const loc = crystal.location;
   particle(crystal.dimension, "minecraft:basic_flame_particle", { x: loc.x, y: loc.y + 0.3, z: loc.z });
 
-  // refresh target
+  // refresh target — prefer the God's own combat foe (the mob he's
+  // fighting) so crystals home the golem, not the watching player
   let target = null;
   try { if (cs.targetId) target = world.getEntity(cs.targetId); } catch { }
   if (!target || !target.isValid || (isPlayer(target) === false && !canFight(target))) {
-    target = nearestSolarTarget(crystal);
+    target = combatTargetFor(cs.godId, crystal);
     cs.targetId = target ? target.id : null;
   }
 
@@ -4012,6 +4029,25 @@ function tickGod(god) {
   if (s.cdStarfire > 0) s.cdStarfire--;
   if (s.cdBlades > 0) s.cdBlades--;
   if (s.cdChain > 0) s.cdChain--;
+
+  // WALK DETECTION (script-driven, never relies on molang move speed):
+  // measure real horizontal displacement and sync a bool the animation
+  // controller reads to switch idle <-> walk
+  try {
+    const here = god.location;
+    if (s.lastPos) {
+      const dx = here.x - s.lastPos.x, dz = here.z - s.lastPos.z;
+      const moving = (dx * dx + dz * dz) > 0.0009; // ~0.03 blocks/tick
+      if (moving !== s.wasMoving) {
+        god.setProperty("ob:moving", moving);
+        s.wasMoving = moving;
+      }
+    } else {
+      god.setProperty("ob:moving", false);
+      s.wasMoving = false;
+    }
+    s.lastPos = { x: here.x, y: here.y, z: here.z };
+  } catch { }
 
   // radiant white aura constantly pouring off him
   if (s.stateTicks % 3 === 0) {

@@ -7,32 +7,76 @@
       "is_summonable": true
     },
     "component_groups": {
-      "ob:despawn": { "minecraft:instant_despawn": {} }
+      "ob:despawn": {
+        "minecraft:instant_despawn": {}
+      }
     },
     "components": {
-      "minecraft:type_family": { "family": ["ob_pillar", "mob"] },
-      "minecraft:scale": { "value": 1.0 },
-      "minecraft:collision_box": { "width": 1.2, "height": 4.4 },
-      "minecraft:health": { "value": 60, "max": 60 },
-      "minecraft:physics": { "has_gravity": false, "has_collision": false },
-      "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": false },
+      "minecraft:type_family": {
+        "family": [
+          "ob_pillar",
+          "mob"
+        ]
+      },
+      "minecraft:scale": {
+        "value": 1.0
+      },
+      "minecraft:collision_box": {
+        "width": 1.2,
+        "height": 4.4
+      },
+      "minecraft:health": {
+        "value": 60,
+        "max": 60
+      },
+      "minecraft:physics": {
+        "has_gravity": false,
+        "has_collision": false
+      },
+      "minecraft:pushable": {
+        "is_pushable": false,
+        "is_pushable_by_piston": false
+      },
       "minecraft:fire_immune": {},
       "minecraft:damage_sensor": {
         "triggers": [
-          { "cause": "fire", "deals_damage": false },
-          { "cause": "fire_tick", "deals_damage": false },
-          { "cause": "lava", "deals_damage": false },
-          { "cause": "magma", "deals_damage": false }
+          {
+            "cause": "fire",
+            "deals_damage": false
+          },
+          {
+            "cause": "fire_tick",
+            "deals_damage": false
+          },
+          {
+            "cause": "lava",
+            "deals_damage": false
+          },
+          {
+            "cause": "magma",
+            "deals_damage": false
+          }
         ]
       },
       "minecraft:timer": {
         "time": 32,
         "looping": false,
-        "time_down_event": { "event": "ob:expire" }
+        "time_down_event": {
+          "event": "ob:expire"
+        }
+      },
+      "minecraft:knockback_resistance": {
+        "value": 1.0
       }
     },
     "events": {
-      "ob:expire": { "add": { "component_groups": ["ob:despawn"] } }
+      "ob:expire": {
+        "add": {
+          "component_groups": [
+            "ob:despawn"
+          ]
+        }
+      }
     }
   }
 }

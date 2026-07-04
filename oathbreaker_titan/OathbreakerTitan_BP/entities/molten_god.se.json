@@ -11,6 +11,11 @@
           "values": ["idle", "punch", "fusion", "beams", "suffer", "pillars", "starfire", "blades", "chain"],
           "default": "idle",
           "client_sync": true
+        },
+        "ob:moving": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
         }
       }
     },
