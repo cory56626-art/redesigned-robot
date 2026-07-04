@@ -304,7 +304,8 @@ function updateTitle(ent) {
 // ------------------------------------------------------------- combat driver
 
 // `only` restricts an ability to one variant ("marauder" | "fractured");
-// `noSeraph` marks Fractured moves that are sealed while he is transformed.
+// `noSeraph` marks Fractured moves sealed while transformed; `seraphOnly` marks
+// the Seraphim signature that is ONLY available while transformed.
 const ABILITIES = [
   { id: "shock",  minStage: 1, min: 0.0, max: 5.0,  windup: 10, recover: 8,  cd: 55,  weight: 10 },
   { id: "guard",  minStage: 2, min: 0.0, max: 4.5,  windup: 8,  recover: 6,  cd: 70,  weight: 8  },
@@ -318,6 +319,8 @@ const ABILITIES = [
   // --- Fractured Marauder exclusives (sealed while Seraphim) ---
   { id: "grit",    minStage: 1, min: 0.0, max: 4.5,  windup: 9,  recover: 12, cd: 170, weight: 9, only: "fractured", noSeraph: true },
   { id: "skyfall", minStage: 1, min: 0.0, max: 7.0,  windup: 8,  recover: 24, cd: 220, weight: 8, only: "fractured", noSeraph: true },
+  // --- Seraphim signature (only WHILE transformed) ---
+  { id: "wingsweep", minStage: 1, min: 0.0, max: 6.5, windup: 12, recover: 14, cd: 70, weight: 14, only: "fractured", seraphOnly: true },
 ];
 
 // entityId -> { cooldowns, globalCd, current, swingUntil, aggroId, aggroTick, illusion, phaseLock }
@@ -455,6 +458,13 @@ function pickTarget(ent, s, owner, now) {
 }
 
 function entityById(dim, id) {
+  if (!id) return null;
+  // Players first and explicitly — some engine builds don't return players from
+  // dim.getEntities({}), which would make tracking strikes fall back to the boss.
+  try {
+    const p = world.getAllPlayers().find(pl => pl.id === id);
+    if (p) return isValid(p) ? p : null;
+  } catch (e) {}
   try {
     for (const e of dim.getEntities({})) if (e.id === id) return isValid(e) ? e : null;
   } catch (e) {}
@@ -480,6 +490,7 @@ function chooseAbility(ent, d) {
   for (const a of ABILITIES) {
     if (a.only && a.only !== kind) continue;
     if (a.noSeraph && seraph) continue;
+    if (a.seraphOnly && !seraph) continue;
     if (a.minStage > stage) continue;
     if (s.cooldowns[a.id] > 0) continue;
     if (d < a.min || d > a.max) continue;
@@ -570,6 +581,41 @@ function fireAbility(ent, a, target) {
     case "omni":   effectOmni(ent, target); break;
     case "grit":    effectGrit(ent, target, base); break;
     case "skyfall": effectSkyfall(ent, target, base); break;
+    case "wingsweep": effectWingsweep(ent, target, base); break;
+  }
+}
+
+// ============================================================= SERAPHIM SIGNATURE: RADIANT WING-SWEEP
+// His transformation's own offensive identity: he flares six wings of light and
+// sweeps a 360° radiant nova outward — holy fire plus an armor-piercing core that
+// falls off with distance, launching everything around him up and away.
+function effectWingsweep(ent, target, base) {
+  const dim = ent.dimension;
+  const origin = ent.location;
+  const R = 6.5;
+
+  try { dim.playSound("mob.enderdragon.flap", origin, { pitch: 0.7, volume: 1.8 }); } catch (e) {}
+  try { dim.playSound("beacon.power", origin, { pitch: 1.5, volume: 1.3 }); } catch (e) {}
+
+  // Expanding rings of light fanning outward over a few ticks — the "wing sweep".
+  for (let step = 0; step < 5; step++) {
+    system.runTimeout(() => {
+      if (!isValid(ent)) return;
+      const c = ent.location;
+      spawnRing(dim, c, "minecraft:endrod", 1.2 + step * 1.3, 20 + step * 8);
+      if (step % 2 === 0) spawnRing(dim, c, "minecraft:basic_flame_particle", 1.0 + step * 1.3, 14 + step * 6);
+    }, step * 2);
+  }
+
+  // The blast: holy fire + a distance-scaled TRUE core, big outward + upward launch.
+  for (const v of victimsNear(ent, R, target, true)) {
+    const d = dist(v.location, origin);
+    const falloff = Math.max(0.35, 1 - d / R);
+    try { v.applyDamage(Math.max(1, Math.round(base * 0.8)), { cause: EntityDamageCause.fire, damagingEntity: ent }); } catch (e) {}
+    trueDamage(v, Math.round(12 * falloff));           // armor cannot save you near the core
+    try { v.setOnFire(4, true); } catch (e) {}
+    const away = norm({ x: v.location.x - origin.x, y: 0, z: v.location.z - origin.z });
+    try { v.applyKnockback(away.x, away.z, 1.4 + 1.6 * falloff, 0.9); } catch (e) {}
   }
 }
 
@@ -955,60 +1001,73 @@ function haloShatter(ent, target) {
   }
 }
 
-// The crater only consumes NATURAL terrain — player builds (planks, concrete,
-// glass, etc.) are spared. Explicit whitelist plus a few suffix families.
-const NATURAL_BLOCKS = new Set([
-  "minecraft:stone", "minecraft:cobblestone", "minecraft:mossy_cobblestone",
-  "minecraft:granite", "minecraft:diorite", "minecraft:andesite",
-  "minecraft:deepslate", "minecraft:cobbled_deepslate", "minecraft:tuff", "minecraft:calcite",
-  "minecraft:dirt", "minecraft:grass_block", "minecraft:grass_path", "minecraft:podzol",
-  "minecraft:mycelium", "minecraft:coarse_dirt", "minecraft:rooted_dirt", "minecraft:farmland",
-  "minecraft:sand", "minecraft:red_sand", "minecraft:gravel", "minecraft:clay",
-  "minecraft:sandstone", "minecraft:red_sandstone", "minecraft:mud", "minecraft:packed_mud",
-  "minecraft:snow", "minecraft:snow_layer", "minecraft:ice", "minecraft:packed_ice",
-  "minecraft:moss_block", "minecraft:moss_carpet", "minecraft:netherrack", "minecraft:soul_sand",
-  "minecraft:soul_soil", "minecraft:basalt", "minecraft:blackstone", "minecraft:end_stone",
-  "minecraft:magma", "minecraft:dripstone_block", "minecraft:pointed_dripstone",
-  "minecraft:tallgrass", "minecraft:short_grass", "minecraft:tall_grass", "minecraft:fern",
-  "minecraft:large_fern", "minecraft:double_plant", "minecraft:deadbush", "minecraft:vine",
-  "minecraft:web", "minecraft:brown_mushroom", "minecraft:red_mushroom",
+// The crater destroys terrain of ANY kind (whatever a given Bedrock version calls
+// it) but spares player builds and valuables. A blacklist is far more robust than
+// a natural-terrain whitelist, whose exact ids differ between Bedrock versions
+// (e.g. grass_block vs grass) — that mismatch made the old crater silently no-op.
+const PROTECTED_EXACT = new Set([
+  "minecraft:bedrock", "minecraft:barrier", "minecraft:command_block", "minecraft:repeating_command_block",
+  "minecraft:chain_command_block", "minecraft:structure_block", "minecraft:jigsaw", "minecraft:structure_void",
+  "minecraft:end_portal_frame", "minecraft:end_portal", "minecraft:end_gateway", "minecraft:reinforced_deepslate",
+  "minecraft:obsidian", "minecraft:crying_obsidian", "minecraft:respawn_anchor", "minecraft:beacon",
+  "minecraft:conduit", "minecraft:enchanting_table", "minecraft:ender_chest", "minecraft:mob_spawner",
+  "minecraft:chest", "minecraft:trapped_chest", "minecraft:barrel", "minecraft:furnace", "minecraft:blast_furnace",
+  "minecraft:smoker", "minecraft:hopper", "minecraft:dispenser", "minecraft:dropper", "minecraft:crafting_table",
+  "minecraft:cartography_table", "minecraft:smithing_table", "minecraft:loom", "minecraft:stonecutter",
+  "minecraft:grindstone", "minecraft:brewing_stand", "minecraft:lectern", "minecraft:bookshelf",
+  "minecraft:chiseled_bookshelf", "minecraft:bell", "minecraft:anvil", "minecraft:chipped_anvil",
+  "minecraft:damaged_anvil", "minecraft:glass", "minecraft:tinted_glass", "minecraft:glowstone",
+  "minecraft:sea_lantern", "minecraft:shulker_box", "minecraft:undyed_shulker_box", "minecraft:spawner",
 ]);
-function isNaturalBlock(typeId) {
-  if (NATURAL_BLOCKS.has(typeId)) return true;
-  // Ore veins and foliage are terrain too.
-  return typeId.endsWith("_ore") || typeId.endsWith("_leaves") || typeId.endsWith("_sapling");
+const PROTECTED_SUFFIX = [
+  "_planks", "_stairs", "_slab", "_wall", "_fence", "_fence_gate", "_door", "_trapdoor",
+  "_glass", "_glass_pane", "_wool", "_carpet", "_concrete", "_concrete_powder", "_terracotta",
+  "_glazed_terracotta", "_bricks", "_sign", "_bed", "_banner", "_shulker_box", "_log", "_wood",
+  "_stem", "_hyphae", "_button", "_pressure_plate", "_candle",
+];
+function isProtectedBlock(id) {
+  if (!id) return true;
+  if (PROTECTED_EXACT.has(id)) return true;
+  for (const s of PROTECTED_SUFFIX) if (id.endsWith(s)) return true;
+  return false;
 }
 
-// A single divine strike at `loc`. Fire damage + ignite across a 4-block radius,
-// an unavoidable true-damage core near the epicenter, and (final strike) a big
-// upward launch. `victimsAt` centers on the strike, not the marauder.
+// A single divine strike at `loc`. Fire (for the ignite + hurt-flash) plus a big
+// TRUE-DAMAGE core that ARMOR CANNOT reduce — the old version only did fire, which
+// heavy armor shrugged off, so it "did too little." `victimsAt` centers on the
+// strike, not the marauder, so it lands where the beam telegraphed.
 function divineStrike(ent, loc, isFinal) {
   const dim = ent.dimension;
-  const RADIUS = 4.0, CORE = 2.2;
-  const fireDmg = isFinal ? 12 : 8;
-  const coreDmg = isFinal ? 6 : 4;
+  const RADIUS = 4.5, CORE = 3.0;
+  const fireDmg = isFinal ? 8 : 6;
+  const coreTrue = isFinal ? 16 : 10;
 
   for (const v of victimsAt(dim, loc, RADIUS)) {
     try { v.applyDamage(fireDmg, { cause: EntityDamageCause.fire, damagingEntity: ent }); } catch (e) {}
-    try { v.setOnFire(8, true); } catch (e) {}
-    if (dist(v.location, loc) <= CORE) trueDamage(v, coreDmg); // pierces armor
+    try { v.setOnFire(6, true); } catch (e) {}
+    // Full true damage at the core; the outer ring still takes half — unavoidable
+    // by armor, so the strike actually threatens a geared player.
+    const inCore = dist(v.location, loc) <= CORE;
+    trueDamage(v, inCore ? coreTrue : Math.round(coreTrue * 0.5));
     if (isFinal) {
       const away = norm({ x: v.location.x - loc.x, y: 0, z: v.location.z - loc.z });
-      try { v.applyKnockback(away.x, away.z, 1.2, 1.0); } catch (e) {}
+      try { v.applyKnockback(away.x, away.z, 1.4, 1.1); } catch (e) {}
     }
   }
 
-  // Crater: consume NATURAL terrain in a 3-block radius — player builds survive.
+  // Crater: gouge terrain of any type; spare builds/valuables (isProtectedBlock).
   const cx = Math.floor(loc.x), cy = Math.floor(loc.y), cz = Math.floor(loc.z);
-  for (let dx = -3; dx <= 3; dx++) {
-    for (let dy = -1; dy <= 2; dy++) {
-      for (let dz = -3; dz <= 3; dz++) {
+  const air = BlockPermutation.resolve("minecraft:air");
+  const R = 3;
+  for (let dx = -R; dx <= R; dx++) {
+    for (let dy = -2; dy <= 1; dy++) {
+      for (let dz = -R; dz <= R; dz++) {
+        if (dx * dx + dz * dz > (R + 0.5) * (R + 0.5)) continue; // round the crater
         try {
           const block = dim.getBlock({ x: cx + dx, y: cy + dy, z: cz + dz });
-          if (!block || block.isAir) continue;
-          if (!isNaturalBlock(block.typeId)) continue;
-          block.setPermutation(BlockPermutation.resolve("minecraft:air"));
-        } catch (e) {}
+          if (!block || block.isAir || isProtectedBlock(block.typeId)) continue;
+          block.setPermutation(air);
+        } catch (e) { /* unloaded / read-only — skip */ }
       }
     }
   }
@@ -1016,6 +1075,7 @@ function divineStrike(ent, loc, isFinal) {
   // VFX: flame nova + endrod ring + explosion.
   spawnRing(dim, loc, "minecraft:basic_flame_particle", isFinal ? 4.0 : 3.0, isFinal ? 40 : 32);
   spawnRing(dim, loc, "minecraft:endrod", 2.0, 18);
+  try { dim.spawnParticle("minecraft:huge_explosion_emitter", { x: loc.x, y: loc.y + 0.5, z: loc.z }); } catch (e) {}
   try { dim.playSound("random.explode", loc, { pitch: isFinal ? 0.4 : 0.5, volume: 2.0 }); } catch (e) {}
   try { dim.playSound("mob.wither.death", loc, { pitch: 0.8 }); } catch (e) {}
 }
@@ -1725,6 +1785,9 @@ safeSub("scriptEventReceive", system.afterEvents?.scriptEventReceive, ev => {
     case "marauder:skyfall":
       tryTell(player, "marauder:skyfall", () => forceAbilityOnNearest(player, "skyfall"));
       break;
+    case "marauder:wingsweep":
+      tryTell(player, "marauder:wingsweep", () => forceAbilityOnNearest(player, "wingsweep"));
+      break;
 
     // ---- diagnostic events (added in v5 so users can confirm the script loaded) ----
     case "marauder:ping":
@@ -1757,6 +1820,7 @@ safeSub("scriptEventReceive", system.afterEvents?.scriptEventReceive, ev => {
         player.sendMessage("§7marauder:fracture [n]   §8- report or set his Fracture meter");
         player.sendMessage("§7marauder:grit           §8- force Unrivaled Grit (feint)");
         player.sendMessage("§7marauder:skyfall        §8- force Might Shove + Sky Beam");
+        player.sendMessage("§7marauder:wingsweep      §8- force the Seraphim wing-sweep (must be transformed)");
         player.sendMessage("§7marauder:ping           §8- check script is alive");
       });
       break;
@@ -1790,6 +1854,7 @@ function forceAbilityOnNearest(player, abilityId) {
     return;
   }
   if (a.noSeraph && isSeraph(ent)) { player.sendMessage("§cThat move is sealed while he is Seraphim."); return; }
+  if (a.seraphOnly && !isSeraph(ent)) { player.sendMessage("§cThat is a Seraphim-only move — transform him first (marauder:fracture 100)."); return; }
   s.cooldowns[a.id] = 0;
   s.globalCd = 0;
   beginAbility(ent, s, a, player, system.currentTick);

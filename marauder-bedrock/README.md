@@ -55,6 +55,9 @@ knockback immunity — and his own mechanics:
 - **Might & Skyfall** *(sealed while Seraphim)* — he hurls everyone near him
   back with sheer might, then a **holy beam slams down from the sky** onto the
   shoved target after a short telegraph.
+- **Radiant Wing-Sweep** *(Seraphim only)* — his transformation's own signature:
+  he flares six wings of light and sweeps a 360° radiant nova, holy fire plus an
+  armor-piercing core that launches everything around him up and away.
 - He does *not* use the normal boss's mirage, omni-flurry, or halo-shatter —
   the two variants are deliberately their own fights.
 - Defeating him counts as completing the ten-night rivalry and drops a richer
@@ -134,6 +137,7 @@ The fixes below bring the Bedrock version in line with the Java entity’s inten
 | `/scriptevent marauder:fracture 90` | Report or set his Fracture meter (0–100) |
 | `/scriptevent marauder:grit` | Force Unrivaled Grit (the feint) |
 | `/scriptevent marauder:skyfall` | Force the Might Shove + Sky Beam |
+| `/scriptevent marauder:wingsweep` | Force the Seraphim wing-sweep (transform him first) |
 | `/scriptevent marauder:ping` | Confirm the script loaded (lists registered subscriptions) |
 | `/scriptevent marauder:help` | List every command |
 | `/scriptevent marauder:freeforall on` | Testing: make marauders attack **any** mob — melee *and* abilities target whatever he's fighting, and he retaliates against anything. `off` reverts; no argument flips it. Applies to active + future marauders. |
