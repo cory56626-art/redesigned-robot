@@ -26,6 +26,21 @@
           "default": false,
           "client_sync": true
         },
+        "marauder:slash": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        },
+        "marauder:aim": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        },
+        "marauder:guard": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        },
         "marauder:omni": {
           "type": "bool",
           "default": false,

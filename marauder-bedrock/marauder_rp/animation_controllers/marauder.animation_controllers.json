@@ -6,14 +6,14 @@
       "states": {
         "idle": {
           "animations": [ "idle" ],
-          "blend_transition": 0.15,
+          "blend_transition": 0.2,
           "transitions": [
             { "walk": "query.modified_move_speed > 0.1" }
           ]
         },
         "walk": {
           "animations": [ "walk" ],
-          "blend_transition": 0.15,
+          "blend_transition": 0.2,
           "transitions": [
             { "idle": "query.modified_move_speed <= 0.1" }
           ]
@@ -27,18 +27,51 @@
           "transitions": [
             { "kneeling": "query.property('marauder:kneeling')" },
             { "omni": "query.property('marauder:omni')" },
+            { "slash": "query.property('marauder:slash')" },
+            { "aim": "query.property('marauder:aim')" },
+            { "guard": "query.property('marauder:guard')" },
             { "cast": "query.property('marauder:casting')" },
             { "swing": "query.property('marauder:attacking')" }
           ]
         },
         "swing": {
           "animations": [ "attack" ],
+          "blend_transition": 0.1,
+          "transitions": [
+            { "kneeling": "query.property('marauder:kneeling')" },
+            { "omni": "query.property('marauder:omni')" },
+            { "slash": "query.property('marauder:slash')" },
+            { "aim": "query.property('marauder:aim')" },
+            { "guard": "query.property('marauder:guard')" },
+            { "cast": "query.property('marauder:casting')" },
+            { "idle": "!query.property('marauder:attacking')" }
+          ]
+        },
+        "slash": {
+          "animations": [ "slash" ],
+          "blend_transition": 0.1,
+          "transitions": [
+            { "kneeling": "query.property('marauder:kneeling')" },
+            { "omni": "query.property('marauder:omni')" },
+            { "idle": "!query.property('marauder:slash')" }
+          ]
+        },
+        "aim": {
+          "animations": [ "aim" ],
           "blend_transition": 0.15,
           "transitions": [
             { "kneeling": "query.property('marauder:kneeling')" },
             { "omni": "query.property('marauder:omni')" },
-            { "cast": "query.property('marauder:casting')" },
-            { "idle": "!query.property('marauder:attacking')" }
+            { "idle": "!query.property('marauder:aim')" }
+          ]
+        },
+        "guard": {
+          "animations": [ "guard" ],
+          "blend_transition": 0.12,
+          "transitions": [
+            { "kneeling": "query.property('marauder:kneeling')" },
+            { "omni": "query.property('marauder:omni')" },
+            { "idle": "!query.property('marauder:guard')" }
           ]
         },
         "cast": {
@@ -47,12 +80,15 @@
           "transitions": [
             { "kneeling": "query.property('marauder:kneeling')" },
             { "omni": "query.property('marauder:omni')" },
+            { "slash": "query.property('marauder:slash')" },
+            { "aim": "query.property('marauder:aim')" },
+            { "guard": "query.property('marauder:guard')" },
             { "idle": "!query.property('marauder:casting')" }
           ]
         },
         "omni": {
           "animations": [ "omni_punch" ],
-          "blend_transition": 0.2,
+          "blend_transition": 0.15,
           "transitions": [
             { "kneeling": "query.property('marauder:kneeling')" },
             { "idle": "!query.property('marauder:omni')" }

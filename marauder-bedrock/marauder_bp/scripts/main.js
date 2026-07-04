@@ -226,6 +226,7 @@ function applyStage(ent, stage) {
   try { ent.setProperty("marauder:kneeling", false); } catch (e) {}
   try { ent.setProperty("marauder:omni", false); } catch (e) {}
   try { ent.setProperty("marauder:last_stand", false); } catch (e) {}
+  clearPoses(ent);
 
   try { ent.setProperty("marauder:stage", stage); } catch (e) {}
   try { ent.triggerEvent("marauder:set_stage_" + stage); } catch (e) {}
@@ -570,20 +571,20 @@ function chooseAbility(ent, d) {
 
 function beginAbility(ent, s, ability, target, now) {
   s.current = { ability, tick: 0, targetId: target.id, fired: false };
-  setCasting(ent, true);
   faceTarget(ent, target);
   // Omni-flurry: 20-tick movement lock via stun_on + drive the omni animation.
   if (ability.id === "omni") {
+    clearPoses(ent);
     try { ent.triggerEvent("marauder:stun_on"); } catch (e) {}
     try { ent.setProperty("marauder:omni", true); } catch (e) {}
-    setCasting(ent, false);  // omni has its own animation, not the generic cast pose
-  }
-  // Unrivaled Grit is a FEINT: it must look like a normal sword swing, so the
-  // only tells are the swing pose + a faint stance-shift sound (in telegraphStart).
-  if (ability.id === "grit") {
-    setCasting(ent, false);
-    setAttacking(ent, true);
+  } else if (ability.id === "grit") {
+    // Unrivaled Grit is a FEINT: it must look like a normal sword swing, so the
+    // only tells are the swing pose + a faint stance-shift sound (telegraphStart).
+    setPose(ent, "swing");
     s.swingUntil = now + ability.windup + 4;
+  } else {
+    // Everything else gets a distinct wind-up stance keyed to the attack.
+    setPose(ent, ABILITY_POSE[ability.id] || "cast");
   }
   telegraphStart(ent, ability);
 }
@@ -610,7 +611,7 @@ function advanceAbility(ent, s, now) {
     s.current = null;
     s.cooldowns[a.id] = a.cd;
     s.globalCd = 14 + Math.floor(Math.random() * 16);
-    setCasting(ent, false);
+    clearPoses(ent);
     // Omni cleanup: release the movement lock and clear the animation property.
     if (a.id === "omni") {
       try { ent.triggerEvent("marauder:stun_off"); } catch (e) {}
@@ -1595,7 +1596,8 @@ function overseerAnnounceGeneric(ent, text) {
 // Rise from the fallen Marauder at `loc`, inheriting the owner.
 function emergeOverseer(dim, loc, ownerId) {
   let ovr;
-  try { ovr = dim.spawnEntity(OVERSEER, loc); } catch (e) { return null; }
+  try { ovr = dim.spawnEntity(OVERSEER, loc); } catch (e) { console.warn(`[Marauder] Overseer spawnEntity threw: ${e?.stack || e}`); return null; }
+  if (!ovr) { console.warn("[Marauder] Overseer spawnEntity returned null"); return null; }
   if (ownerId) ovr.setDynamicProperty("marauder:owner", ownerId);
   ovr.setDynamicProperty("marauder:stageNum", STAGE_MAX);
   ovr.setDynamicProperty("marauder:knightsUsed", false);
@@ -1628,8 +1630,9 @@ function emergeOverseer(dim, loc, ownerId) {
   system.runTimeout(() => {
     if (!isValid(ovr)) return;
     try { ovr.triggerEvent("marauder:emerge_off"); } catch (e) {}
+    try { ovr.triggerEvent("marauder:melee_on"); } catch (e) {}
     try { ovr.setProperty("marauder:kneeling", false); } catch (e) {}
-    const st = stateFor(ovr); st.phaseLock = false;
+    const st = stateFor(ovr); st.phaseLock = false; st.stance = "melee";
     updateTitle(ovr);
     try { dim.playSound("mob.enderdragon.growl", ovr.location, { pitch: 0.6, volume: 1.4 }); } catch (e) {}
   }, 82);
@@ -1667,6 +1670,7 @@ function tickOverseer(ent, s, now) {
 
   if (s.swingUntil && now >= s.swingUntil) { s.swingUntil = 0; setAttacking(ent, false); }
   if (s.castUntil && now >= s.castUntil) { s.castUntil = 0; setCasting(ent, false); }
+  if (s.poseUntil && now >= s.poseUntil) { s.poseUntil = 0; clearPoses(ent); }
 
   const owner = ownerOf(ent);
   if (owner && (owner.dimension.id !== ent.dimension.id || dist(owner.location, ent.location) > LEASH_RANGE)) { retreat(ent); return; }
@@ -1717,6 +1721,13 @@ function tickOverseer(ent, s, now) {
     return;
   }
   if (s.stance === "ranged") {
+    // Kite: if the mark closes the gap, hop back so he actually "stays back"
+    // and fires. His melee_attack behavior is removed in this stance (ranged_on),
+    // so he won't just walk back into melee.
+    if (d < 4.5) {
+      const away = norm(sub(ent.location, target.location));
+      try { ent.applyKnockback(away.x, away.z, 1.1, 0.25); } catch (e) {}
+    }
     overseerVolley(ent, target);
     s.globalCd = 45;
     if (now >= (s.stanceUntil || 0)) { s.stance = "melee"; try { ent.triggerEvent("marauder:ranged_off"); } catch (e) {} try { ent.setProperty("marauder:stance", 0); } catch (e) {} }
@@ -1738,8 +1749,8 @@ function overseerAnnounce(ent, text) {
 
 // -------- scythe stance --------
 function overseerSlash(ent, target) {
-  setAttacking(ent, true);
-  stateFor(ent).swingUntil = system.currentTick + SWING_TICKS;
+  setPose(ent, "slash");
+  stateFor(ent).poseUntil = system.currentTick + SWING_TICKS + 3;
   faceTarget(ent, target);
   const dim = ent.dimension, origin = ent.location;
   const fwd = norm(sub(target.location, origin));
@@ -1774,7 +1785,8 @@ function overseerBackstep(ent, target, s, now) {
 
 // -------- crossbow stance: 3 homing spectral bolts --------
 function overseerVolley(ent, target) {
-  triggerCast(ent, 16);
+  setPose(ent, "aim");
+  stateFor(ent).poseUntil = system.currentTick + 26;
   faceTarget(ent, target);
   const dim = ent.dimension;
   try { dim.playSound("item.crossbow.loading_end", ent.location, { pitch: 0.8, volume: 1.2 }); } catch (e) {}
@@ -1821,7 +1833,8 @@ function spectralBolt(ent, targetId, spreadYaw) {
 // -------- parry stance --------
 function overseerParry(ent, s, now) {
   s.parryUntil = now + 24; // ~1.2s window
-  triggerCast(ent, 24);
+  setPose(ent, "guard");
+  s.poseUntil = now + 28;
   try { ent.dimension.playSound("item.shield.block", ent.location, { pitch: 0.7, volume: 1.2 }); } catch (e) {}
   trySpawnParticle(ent.dimension, "minecraft:balloon_gas_particle", { x: ent.location.x, y: ent.location.y + 1.4, z: ent.location.z });
 }
@@ -1838,7 +1851,7 @@ function overseerRiposte(ent, attacker) {
     try { attacker.addEffect("weakness", 40, { amplifier: 1 }); } catch (e) {}
     hurt(attacker, ent, overseerDamage(12));
     applyBleed(attacker, 160);
-    setAttacking(ent, true); stateFor(ent).swingUntil = system.currentTick + SWING_TICKS;
+    setPose(ent, "slash"); stateFor(ent).poseUntil = system.currentTick + SWING_TICKS;
   }
 }
 
@@ -1847,7 +1860,8 @@ function kingsOrder(ent, s, target, now) {
   const orders = ["halt", "kneel", "scatter"];
   const which = orders[Math.floor(Math.random() * orders.length)];
   const dim = ent.dimension;
-  triggerCast(ent, 30);
+  setPose(ent, "cast");
+  s.poseUntil = now + 34;
   if (which === "halt") {
     overseerAnnounce(ent, "§4§lOrder: §cHALT!");
     try { dim.playSound("mob.evocation_illager.prepare_summon", ent.location, { pitch: 0.7, volume: 1.4 }); } catch (e) {}
@@ -2146,6 +2160,29 @@ function faceTarget(ent, target) {
 
 function setAttacking(ent, v) { try { if (isValid(ent)) ent.setProperty("marauder:attacking", v); } catch (e) {} }
 function setCasting(ent, v) { try { if (isValid(ent)) ent.setProperty("marauder:casting", v); } catch (e) {} }
+
+// --- pose system: give every move a distinct, readable silhouette ---
+// The animation controller shows one stance at a time (swing / cast / slash /
+// aim / guard). setPose raises exactly one of these and lowers the rest, so
+// players can actually tell which attack is coming instead of a generic wobble.
+const POSE_PROPS = ["attacking", "casting", "slash", "aim", "guard"];
+const POSE_TO_PROP = { swing: "attacking", cast: "casting", slash: "slash", aim: "aim", guard: "guard" };
+function setPose(ent, pose) {
+  const keep = POSE_TO_PROP[pose];
+  for (const p of POSE_PROPS) { try { if (isValid(ent)) ent.setProperty("marauder:" + p, p === keep); } catch (e) {} }
+}
+function clearPoses(ent) {
+  for (const p of POSE_PROPS) { try { if (isValid(ent)) ent.setProperty("marauder:" + p, false); } catch (e) {} }
+}
+// The wind-up stance each telegraphed ability strikes from. omni + grit are
+// special-cased (omni has its own six-arm clip; grit is a feint that must read
+// as a normal swing).
+const ABILITY_POSE = {
+  shock: "slash", guard: "guard", lunge: "slash", cinder: "cast", mirage: "cast",
+  brand: "cast", flash: "cast", beam: "aim", skyfall: "slash", tether: "aim",
+  arena: "cast", mirror: "guard", spears: "aim", wingsweep: "slash",
+  divebomb: "aim", cleave: "slash",
+};
 function safeName(ent) { try { return ent.nameTag; } catch (e) { return ""; } }
 
 function retreat(ent) {
@@ -2197,6 +2234,27 @@ safeSub("entityHitEntity", world.afterEvents?.entityHitEntity, ev => {
     }
     // Every landed melee blow — on a player or a mob — cracks the Fracture meter.
     if (attacker.typeId === FRACTURED) addFracture(attacker, FRACTURE_GAIN_MELEE);
+    return;
+  }
+
+  // Overseer lands a basic melee hit -> show a swing, unless a scripted move
+  // (slash / aim / guard / order) already owns the pose this instant.
+  if (attacker.typeId === OVERSEER) {
+    const os = combat.get(attacker.id);
+    if (!os || !(os.poseUntil && system.currentTick < os.poseUntil)) {
+      try { attacker.setProperty("marauder:attacking", true); } catch (e) {}
+      const oref = attacker;
+      system.runTimeout(() => { try { if (isValid(oref)) oref.setProperty("marauder:attacking", false); } catch (e) {} }, SWING_TICKS);
+    }
+    return;
+  }
+
+  // Fallen Knight lands a hit -> show a swing (its melee_attack has no built-in
+  // animation, which is why the guards previously looked like they did nothing).
+  if (attacker.typeId === FALLEN_KNIGHT) {
+    try { attacker.setProperty("marauder:attacking", true); } catch (e) {}
+    const kref = attacker;
+    system.runTimeout(() => { try { if (isValid(kref)) kref.setProperty("marauder:attacking", false); } catch (e) {} }, SWING_TICKS);
     return;
   }
 
@@ -2410,7 +2468,14 @@ safeSub("entityDie_marauder", world.afterEvents?.entityDie, ev => {
     const killer = ev.damageSource && ev.damageSource.damagingEntity;
     const byPlayer = killer && killer.typeId === "minecraft:player";
     if (stage >= STAGE_MAX && Number(cfg("overseerPhase")) === 1 && byPlayer) {
-      emergeOverseer(dead.dimension, dead.location, dead.getDynamicProperty("marauder:owner"));
+      // Defer the spawn out of the entityDie handler — spawning an entity from
+      // inside a death event is unreliable on some engine builds (the Overseer
+      // would silently never appear, which read as "he doesn't transform").
+      // system.run resolves it cleanly on the next tick.
+      const dim = dead.dimension;
+      const loc = { x: dead.location.x, y: dead.location.y, z: dead.location.z };
+      const oid = dead.getDynamicProperty("marauder:owner");
+      system.run(() => { try { emergeOverseer(dim, loc, oid); } catch (e) { console.warn(`[Marauder] Overseer emerge failed: ${e?.stack || e}`); } });
       return; // rewards come when the Overseer falls
     }
   }
@@ -2623,8 +2688,16 @@ safeSub("scriptEventReceive", system.afterEvents?.scriptEventReceive, ev => {
     case "marauder:overseer":
       tryTell(player, "marauder:overseer", () => {
         clearActive(player);
+        const dim = player.dimension;
         const loc = findSafeNear(player.dimension, player.location, 6);
-        emergeOverseer(player.dimension, loc, player.id);
+        const pid = player.id;
+        // Defer the spawn out of the scriptEvent handler for the same reason as
+        // the natural transition — spawning inside an event context can silently
+        // fail on some engine builds.
+        system.run(() => {
+          const ovr = emergeOverseer(dim, loc, pid);
+          try { player.sendMessage(ovr ? "§4The Overseer rises." : "§c[Marauder] Overseer failed to spawn — check the content log."); } catch (e) {}
+        });
       });
       break;
     case "marauder:knights":
@@ -2688,7 +2761,7 @@ safeSub("scriptEventReceive", system.afterEvents?.scriptEventReceive, ev => {
 
 function nearestOwnedMarauder(player) {
   let best = null, bestD = Infinity;
-  for (const t of [MARAUDER, FRACTURED]) {
+  for (const t of [MARAUDER, FRACTURED, OVERSEER]) {
     for (const e of player.dimension.getEntities({ type: t })) {
       if (e.getDynamicProperty("marauder:owner") !== player.id) continue;
       if (!isValid(e)) continue;
