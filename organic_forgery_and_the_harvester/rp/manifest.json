@@ -1,0 +1,41 @@
+{
+  "format_version": 2,
+  "header": {
+    "description": "Wield living bone-tech: adaptive blades, skeletal allies, shrapnel cones, and deadly biogadgets.",
+    "name": "Organic Forgery And The Harvester",
+    "uuid": "730e4a8f-2016-4ed6-91bd-fdd1b94d31d1",
+    "version": [
+      29,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      21,
+      93
+    ],
+    "pack_scope": "world"
+  },
+  "modules": [
+    {
+      "description": "Organic Forgery And The Harvester Resource Pack",
+      "type": "resources",
+      "uuid": "392991b1-dff3-4104-8b5e-a182f7214954",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "ce770ace-3f5b-4a9d-8a67-fc5604cf1ef2",
+      "version": [
+        29,
+        0,
+        0
+      ]
+    }
+  ]
+}

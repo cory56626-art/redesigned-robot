@@ -1,0 +1,12 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "com_organic_forgery_and_the_harvester_kse6cimp:acid_dart",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/necrotic_ichor" },
+      "geometry": { "default": "geometry.com_organic_forgery_and_the_harvester_kse6cimp.acid_dart" },
+      "render_controllers": ["controller.render.com_organic_forgery_and_the_harvester_kse6cimp.projectile"]
+    }
+  }
+}

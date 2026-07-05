@@ -1,0 +1,61 @@
+{
+  "format_version": 2,
+  "header": {
+    "description": "Wield living bone-tech: adaptive blades, skeletal allies, shrapnel cones, and deadly biogadgets.",
+    "name": "Organic Forgery And The Harvester",
+    "uuid": "ce770ace-3f5b-4a9d-8a67-fc5604cf1ef2",
+    "version": [
+      29,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      21,
+      93
+    ],
+    "pack_scope": "world"
+  },
+  "modules": [
+    {
+      "description": "Organic Forgery And The Harvester Behavior Pack",
+      "type": "data",
+      "uuid": "181dc458-8a90-4135-83e6-ed202faf0653",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "description": "Custom Components",
+      "type": "script",
+      "language": "javascript",
+      "uuid": "c7a7642c-6483-44d7-a1f0-c73517a85d66",
+      "version": [
+        1,
+        0,
+        0
+      ],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "730e4a8f-2016-4ed6-91bd-fdd1b94d31d1",
+      "version": [
+        29,
+        0,
+        0
+      ]
+    },
+    {
+      "module_name": "@minecraft/server",
+      "version": "2.0.0"
+    },
+    {
+      "module_name": "@minecraft/server-ui",
+      "version": "2.0.0"
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "format_version": "1.14.0",
+  "sound_definitions": {
+    "com.organic_forgery_and_the_harvester_kse6cimp.bile_spitter_fire": {
+      "category": "player",
+      "sounds": ["sounds/com/organic_forgery_and_the_harvester_kse6cimp/bile_spitter_fire"]
+    },
+    "com.organic_forgery_and_the_harvester_kse6cimp.adrenaline_squeeze": {
+      "category": "player",
+      "sounds": ["sounds/com/organic_forgery_and_the_harvester_kse6cimp/adrenaline_squeeze"]
+    },
+    "com.organic_forgery_and_the_harvester_kse6cimp.flesh_anchor_latch": {
+      "category": "player",
+      "sounds": ["sounds/com/organic_forgery_and_the_harvester_kse6cimp/flesh_anchor_latch"]
+    },
+    "com.organic_forgery_and_the_harvester_kse6cimp.vertebrae_flail_snap": {
+      "category": "player",
+      "sounds": ["sounds/com/organic_forgery_and_the_harvester_kse6cimp/vertebrae_flail_snap"]
+    },
+    "com.organic_forgery_and_the_harvester_kse6cimp.cremation_ally_scream": {
+      "category": "hostile",
+      "sounds": ["sounds/com/organic_forgery_and_the_harvester_kse6cimp/vertebrae_flail_snap"]
+    },
+    "com.organic_forgery_and_the_harvester_kse6cimp.cremation_command_screech": {
+      "category": "player",
+      "sounds": ["sounds/com/organic_forgery_and_the_harvester_kse6cimp/bile_spitter_fire"]
+    },
+    "com.organic_forgery_and_the_harvester_kse6cimp.cremation_wand_error": {
+      "category": "player",
+      "sounds": ["sounds/com/organic_forgery_and_the_harvester_kse6cimp/flesh_anchor_latch"]
+    },
+    "com.organic_forgery_and_the_harvester_kse6cimp.bleed_slice": {
+      "category": "hostile",
+      "sounds": ["sounds/com/organic_forgery_and_the_harvester_kse6cimp/vertebrae_flail_snap"]
+    },
+    "com.organic_forgery_and_the_harvester_kse6cimp.adapt_click": {
+      "category": "player",
+      "sounds": ["sounds/com/organic_forgery_and_the_harvester_kse6cimp/adapt_click"]
+    },
+    "com.organic_forgery_and_the_harvester_kse6cimp.adapt_complete": {
+      "category": "player",
+      "sounds": ["sounds/com/organic_forgery_and_the_harvester_kse6cimp/adapt_complete"]
+    },
+    "com.organic_forgery_and_the_harvester_kse6cimp.fracture_revive": {
+      "category": "player",
+      "sounds": ["sounds/com/organic_forgery_and_the_harvester_kse6cimp/fracture_revive"]
+    },
+    "com.organic_forgery_and_the_harvester_kse6cimp.biomass_hive_roar": {
+      "category": "hostile",
+      "sounds": ["sounds/com/organic_forgery_and_the_harvester_kse6cimp/biomass_hive_roar"]
+    },
+    "com.organic_forgery_and_the_harvester_kse6cimp.harvester.crunch": {
+      "category": "block",
+      "sounds": ["sounds/com/organic_forgery_and_the_harvester_kse6cimp/vertebrae_flail_snap"]
+    }
+  }
+}

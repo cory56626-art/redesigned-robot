@@ -1,0 +1,33 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:block": {
+    "description": {
+      "identifier": "com_organic_forgery_and_the_harvester_kse6cimp:harvester", 
+      "traits": {
+        "minecraft:placement_direction": {
+          "enabled_states": ["minecraft:cardinal_direction"]
+        }
+      }
+    },
+    "components": {
+      
+      "minecraft:geometry": "minecraft:geometry.cross",
+
+      
+      
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "com_organic_forgery_and_the_harvester_kse6cimp:harvester",
+          "render_method": "alpha_test"
+        }
+      },
+
+      "minecraft:tick": {
+        "interval_range": [1, 1],
+        "looping": true
+      },
+      "minecraft:entity_fall_on": {},
+      "com_organic_forgery_and_the_harvester_kse6cimp:place_harvester": {}
+    }
+  }
+}

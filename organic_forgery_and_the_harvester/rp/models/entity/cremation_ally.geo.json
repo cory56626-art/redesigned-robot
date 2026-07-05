@@ -1,0 +1,23 @@
+{
+  "format_version": "1.12.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.cremation_ally",
+        "texture_width": 64,
+        "texture_height": 64,
+        "visible_bounds_width": 2,
+        "visible_bounds_height": 3,
+        "visible_bounds_offset": [0, 1.25, 0]
+      },
+      "bones": [
+        { "name": "head", "pivot": [0, 24, 0], "cubes": [{ "origin": [-4, 24, -4], "size": [8, 8, 8], "uv": [0, 0] }] },
+        { "name": "body", "pivot": [0, 24, 0], "cubes": [{ "origin": [-3, 12, -2], "size": [6, 12, 4], "uv": [16, 16] }] },
+        { "name": "rightArm", "pivot": [-4, 22, 0], "cubes": [{ "origin": [-7, 11, -1.5], "size": [3, 13, 3], "uv": [40, 16] }] },
+        { "name": "leftArm", "pivot": [4, 22, 0], "cubes": [{ "origin": [4, 11, -1.5], "size": [3, 13, 3], "uv": [32, 48] }] },
+        { "name": "rightLeg", "pivot": [-1.9, 12, 0], "cubes": [{ "origin": [-3.4, 0, -1.5], "size": [3, 12, 3], "uv": [0, 16] }] },
+        { "name": "leftLeg", "pivot": [1.9, 12, 0], "cubes": [{ "origin": [0.4, 0, -1.5], "size": [3, 12, 3], "uv": [16, 48] }] }
+      ]
+    }
+  ]
+}

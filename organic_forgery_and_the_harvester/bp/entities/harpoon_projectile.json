@@ -1,0 +1,23 @@
+{
+  "format_version": "1.21.100",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "com_organic_forgery_and_the_harvester_kse6cimp:harpoon_projectile",
+      "is_spawnable": false,
+      "is_summonable": true
+    },
+    "components": {
+      "minecraft:collision_box": { "width": 0.32, "height": 0.32 },
+      "minecraft:projectile": {
+        "on_hit": { "impact_damage": { "damage": 0, "knockback": false, "destroy_on_hit": false } },
+        "power": 1.9,
+        "gravity": 0.04,
+        "inertia": 1.0,
+        "anchor": 1,
+        "should_bounce": false
+      },
+      "minecraft:physics": { "has_gravity": true, "has_collision": false },
+      "minecraft:pushable": { "is_pushable": false, "push_only_in_piston_direction": false }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "format_version": "1.21.100",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "com_organic_forgery_and_the_harvester_kse6cimp:bile_glob",
+      "is_spawnable": false,
+      "is_summonable": true
+    },
+    "components": {
+      "minecraft:type_family": { "family": ["bile_glob", "inanimate"] },
+      "minecraft:collision_box": { "width": 0.35, "height": 0.35 },
+      "minecraft:physics": { "has_gravity": false },
+      "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": false },
+      "minecraft:health": { "value": 1, "max": 1 }
+    }
+  }
+}

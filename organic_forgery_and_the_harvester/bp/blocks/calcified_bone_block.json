@@ -1,0 +1,7 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:block": {
+    "description": { "identifier": "com_organic_forgery_and_the_harvester_kse6cimp:calcified_bone_block", "menu_category": { "category": "nature" } },
+    "components": { "minecraft:geometry": "minecraft:geometry.full_block", "minecraft:material_instances": { "*": { "texture": "com_organic_forgery_and_the_harvester_kse6cimp:calcified_bone_block", "render_method": "opaque" } }, "minecraft:destructible_by_mining": { "seconds_to_destroy": 1.5 }, "minecraft:destructible_by_explosion": { "explosion_resistance": 4.0 }, "minecraft:map_color": "#d8d0bb" }
+  }
+}

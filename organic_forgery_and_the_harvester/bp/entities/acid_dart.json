@@ -1,0 +1,12 @@
+{
+  "format_version": "1.21.100",
+  "minecraft:entity": {
+    "description": { "identifier": "com_organic_forgery_and_the_harvester_kse6cimp:acid_dart", "is_spawnable": false, "is_summonable": true },
+    "components": {
+      "minecraft:collision_box": { "width": 0.25, "height": 0.25 },
+      "minecraft:projectile": { "on_hit": { "impact_damage": { "damage": 4, "knockback": false, "destroy_on_hit": true } }, "power": 1.6, "gravity": 0.02, "inertia": 1.0, "anchor": 1, "should_bounce": false },
+      "minecraft:physics": { "has_gravity": false, "has_collision": false },
+      "minecraft:pushable": { "is_pushable": false, "push_only_in_piston_direction": false }
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "format_version": "1.8.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "com_organic_forgery_and_the_harvester_kse6cimp:bloated_amalgam",
+      "min_engine_version": "1.8.0",
+      "materials": {
+        "default": "creeper",
+        "charged": "charged_creeper"
+      },
+      "textures": {
+        "default": "textures/com/organic_forgery_and_the_harvester_kse6cimp/entity/bloated_amalgam/bloated_amalgam",
+        "charged": "textures/com/organic_forgery_and_the_harvester_kse6cimp/entity/bloated_amalgam/creeper_armor"
+      },
+      "geometry": {
+        "default": "geometry.com_organic_forgery_and_the_harvester_kse6cimp.bloated_amalgam",
+        "charged": "geometry.com_organic_forgery_and_the_harvester_kse6cimp.bloated_amalgam.charged"
+      },
+      "spawn_egg": {
+        "base_color": "#4A2B1F",
+        "overlay_color": "#8A6A4A"
+      },
+      "scripts": {
+        "pre_animation": [
+          "variable.wobble = Math.sin(query.swell_amount * 5730) * query.swell_amount * 0.01 + 1.0;",
+          "variable.swelling_scale1 = (Math.pow(Math.clamp(query.swell_amount, 0.0, 1.0), 4.0) * 0.4 + 1.0) * variable.wobble;",
+          "variable.swelling_scale2 = (Math.pow(Math.clamp(query.swell_amount, 0.0, 1.0), 4.0) * 0.1 + 1.0) / variable.wobble;",
+          "variable.leg_rot = Math.cos(query.modified_distance_moved * 38.17326) * 80.22 * query.modified_move_speed;",
+          "variable.flash = Math.mod(Math.Round(query.swell_amount * 10.0), 2.0);"
+        ]
+      },
+      "animations": {
+        "creeper_head": "animation.common.look_at_target",
+        "creeper_legs": "animation.com_organic_forgery_and_the_harvester_kse6cimp.bloated_amalgam.legs",
+        "creeper_swelling": "animation.com_organic_forgery_and_the_harvester_kse6cimp.bloated_amalgam.swelling"
+      },
+      "animation_controllers": [
+        {
+          "creeper_head": "controller.animation.com_organic_forgery_and_the_harvester_kse6cimp.bloated_amalgam.head"
+        },
+        {
+          "creeper_legs": "controller.animation.com_organic_forgery_and_the_harvester_kse6cimp.bloated_amalgam.legs"
+        },
+        {
+          "creeper_swelling": "controller.animation.com_organic_forgery_and_the_harvester_kse6cimp.bloated_amalgam.swelling"
+        }
+      ],
+      "render_controllers": ["controller.render.com_organic_forgery_and_the_harvester_kse6cimp.bloated_amalgam"]
+    }
+  }
+}

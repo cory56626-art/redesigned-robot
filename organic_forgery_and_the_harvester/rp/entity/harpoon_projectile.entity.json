@@ -1,0 +1,12 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "com_organic_forgery_and_the_harvester_kse6cimp:harpoon_projectile",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/spine_harpoon" },
+      "geometry": { "default": "geometry.com_organic_forgery_and_the_harvester_kse6cimp.harpoon_projectile" },
+      "render_controllers": ["controller.render.com_organic_forgery_and_the_harvester_kse6cimp.projectile"]
+    }
+  }
+}

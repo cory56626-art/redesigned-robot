@@ -1,0 +1,30 @@
+{
+  "resource_pack_name": "object_3d_spec",
+  "texture_data": {
+    "com_organic_forgery_and_the_harvester_kse6cimp:harvester": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/blocks/harvester"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:harvester_atlas": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/blocks/harvester_atlas"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:organic_forgery": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/blocks/organic_forgery"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:rot_block": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/blocks/rot_block"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:flesh_moss": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/blocks/flesh_moss"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:spine_barricade": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/blocks/spine_barricade"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:pheromone_vent": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/blocks/pheromone_vent"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:calcified_bone_block": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/blocks/calcified_bone_block"
+    }
+  },
+  "texture_name": "atlas.terrain"
+}

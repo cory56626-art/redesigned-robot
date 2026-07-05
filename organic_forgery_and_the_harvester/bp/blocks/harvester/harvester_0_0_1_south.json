@@ -1,0 +1,63 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:block": {
+    "components": {
+      "minecraft:collision_box": {
+        "origin": [
+          -8.0,
+          0.0,
+          -8.0
+        ],
+        "size": [
+          10.3334,
+          16.0,
+          16.0
+        ]
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 0
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.5
+      },
+      "minecraft:entity_fall_on": {},
+      "minecraft:geometry": "geometry.com_organic_forgery_and_the_harvester_kse6cimp.harvester_0_0_1",
+      "minecraft:light_emission": 0,
+      "minecraft:material_instances": {
+        "*": {
+          "render_method": "opaque",
+          "texture": "com_organic_forgery_and_the_harvester_kse6cimp:harvester_atlas"
+        }
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -8.0,
+          0.0,
+          -8.0
+        ],
+        "size": [
+          10.3334,
+          16.0,
+          16.0
+        ]
+      },
+      "minecraft:tick": {
+        "interval_range": [
+          1,
+          1
+        ],
+        "looping": true
+      },
+      "minecraft:transformation": {
+        "rotation": [
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "description": {
+      "identifier": "com_organic_forgery_and_the_harvester_kse6cimp:harvester_0_0_1_south"
+    }
+  }
+}

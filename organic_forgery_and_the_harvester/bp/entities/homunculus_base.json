@@ -1,0 +1,21 @@
+{
+  "format_version": "1.21.100",
+  "minecraft:entity": {
+    "description": { "identifier": "com_organic_forgery_and_the_harvester_kse6cimp:homunculus_base", "spawn_category": "monster", "is_spawnable": false, "is_summonable": true },
+    "components": {
+      "minecraft:type_family": { "family": ["homunculus", "organic_ally", "mob"] },
+      "minecraft:nameable": {},
+      "minecraft:collision_box": { "width": 0.6, "height": 1.9 },
+      "minecraft:health": { "value": 50, "max": 50 },
+      "minecraft:movement": { "value": 0.0 },
+      "minecraft:physics": { "has_gravity": true, "has_collision": true },
+      "minecraft:pushable": { "is_pushable": false, "push_only_in_piston_direction": false },
+      "minecraft:knockback_resistance": { "value": 1.0 },
+      "minecraft:fire_immune": {},
+      "minecraft:loot": { "table": "loot_tables/com/organic_forgery_and_the_harvester_kse6cimp/homunculus_base.json" },
+      "minecraft:shooter": { "def": "com_organic_forgery_and_the_harvester_kse6cimp:acid_dart", "sound": "bow" },
+      "minecraft:behavior.ranged_attack": { "priority": 0, "attack_interval_min": 1.5, "attack_interval_max": 2.5, "attack_radius": 14.0 },
+      "minecraft:behavior.nearest_attackable_target": { "priority": 1, "must_see": true, "reselect_targets": true, "entity_types": [{ "filters": { "test": "is_family", "subject": "other", "value": "monster" }, "max_dist": 14 }] }
+    }
+  }
+}

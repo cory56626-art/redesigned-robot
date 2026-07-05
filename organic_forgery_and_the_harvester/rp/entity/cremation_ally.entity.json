@@ -1,0 +1,22 @@
+{
+  "format_version": "1.8.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "com_organic_forgery_and_the_harvester_kse6cimp:cremation_ally",
+      "min_engine_version": "1.8.0",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/com/organic_forgery_and_the_harvester_kse6cimp/entity/cremation_ally/cremation_ally" },
+      "geometry": { "default": "geometry.cremation_ally" },
+      "spawn_egg": { "base_color": "#241018", "overlay_color": "#b46a3c" },
+      "scripts": { "pre_animation": [ "variable.tcos0 = (math.cos(query.modified_distance_moved * 38.17) * query.modified_move_speed / variable.gliding_speed_value) * 57.3;" ] },
+      "animations": {
+        "move": "animation.humanoid.move",
+        "attack.rotations": "animation.humanoid.attack.rotations",
+        "zombie_attack_bare_hand": "animation.humanoid.attack.rotations"
+      },
+      "animation_controllers": [ { "move": "controller.animation.humanoid.move" }, { "attack": "controller.animation.humanoid.attack" } ],
+      "render_controllers": ["controller.render.com_organic_forgery_and_the_harvester_kse6cimp.cremation_ally"],
+      "enable_attachables": true
+    }
+  }
+}

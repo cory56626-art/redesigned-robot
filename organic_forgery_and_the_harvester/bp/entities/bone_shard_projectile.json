@@ -1,0 +1,20 @@
+{
+  "format_version": "1.21.100",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "com_organic_forgery_and_the_harvester_kse6cimp:bone_shard_projectile",
+      "is_spawnable": false,
+      "is_summonable": true
+    },
+    "components": {
+      "minecraft:collision_box": { "width": 0.25, "height": 0.25 },
+      "minecraft:projectile": {
+        "on_hit": { "impact_damage": { "damage": 5, "knockback": true, "destroy_on_hit": true } },
+        "power": 3.0,
+        "gravity": 0.01,
+        "inertia": 1.0
+      },
+      "minecraft:physics": { "has_gravity": false, "has_collision": false }
+    }
+  }
+}

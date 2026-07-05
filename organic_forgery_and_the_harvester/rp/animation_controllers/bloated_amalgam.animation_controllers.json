@@ -1,0 +1,29 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.com_organic_forgery_and_the_harvester_kse6cimp.bloated_amalgam.head": {
+      "initial_state": "default",
+      "states": {
+        "default": {
+          "animations": ["creeper_head"]
+        }
+      }
+    },
+    "controller.animation.com_organic_forgery_and_the_harvester_kse6cimp.bloated_amalgam.legs": {
+      "initial_state": "default",
+      "states": {
+        "default": {
+          "animations": ["creeper_legs"]
+        }
+      }
+    },
+    "controller.animation.com_organic_forgery_and_the_harvester_kse6cimp.bloated_amalgam.swelling": {
+      "initial_state": "default",
+      "states": {
+        "default": {
+          "animations": ["creeper_swelling"]
+        }
+      }
+    }
+  }
+}

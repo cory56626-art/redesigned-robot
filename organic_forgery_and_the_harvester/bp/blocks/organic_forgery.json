@@ -1,0 +1,14 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:block": {
+    "description": { "identifier": "com_organic_forgery_and_the_harvester_kse6cimp:organic_forgery", "menu_category": { "category": "construction" } },
+    "components": {
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": { "*": { "texture": "com_organic_forgery_and_the_harvester_kse6cimp:organic_forgery", "render_method": "opaque" } },
+      "minecraft:crafting_table": { "crafting_tags": ["crafting_table", "organic_forging"] },
+      "tag:minecraft:is_pickaxe_item_destructible": {},
+      "minecraft:destructible_by_mining": { "seconds_to_destroy": 3.5 },
+      "minecraft:destructible_by_explosion": { "explosion_resistance": 8.0 }
+    }
+  }
+}
