@@ -1,0 +1,36 @@
+{
+  "resource_pack_name": "marauder",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "blacksteel_blade": {
+      "textures": "textures/item/blacksteel_blade"
+    },
+    "dark_scrap": {
+      "textures": "textures/item/dark_scrap"
+    },
+    "blacksteel_fragment": {
+      "textures": "textures/item/blacksteel_fragment"
+    },
+    "ashen_shard": {
+      "textures": "textures/item/ashen_shard"
+    },
+    "moon_shard": {
+      "textures": "textures/item/moon_shard"
+    },
+    "rune_fragment": {
+      "textures": "textures/item/rune_fragment"
+    },
+    "abyss_fragment": {
+      "textures": "textures/item/abyss_fragment"
+    },
+    "unbroken_core": {
+      "textures": "textures/item/unbroken_core"
+    },
+    "marauder_trophy": {
+      "textures": "textures/item/marauder_trophy"
+    },
+    "ashen_remnant": {
+      "textures": "textures/item/ashen_remnant"
+    }
+  }
+}

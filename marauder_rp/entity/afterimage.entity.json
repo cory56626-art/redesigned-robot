@@ -1,0 +1,33 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "marauder:afterimage",
+      "materials": { "default": "entity_alphatest" },
+      "textures": {
+        "s1": "textures/entity/marauder_1",
+        "s2": "textures/entity/marauder_2",
+        "s3": "textures/entity/marauder_3",
+        "s4": "textures/entity/marauder_4",
+        "s5": "textures/entity/marauder_5",
+        "s6": "textures/entity/marauder_6",
+        "s7": "textures/entity/marauder_7",
+        "s8": "textures/entity/marauder_8",
+        "s9": "textures/entity/marauder_9",
+        "s10": "textures/entity/marauder_10"
+      },
+      "geometry": { "default": "geometry.marauder" },
+      "animations": {
+        "idle": "animation.marauder.idle",
+        "walk": "animation.marauder.walk",
+        "attack": "animation.marauder.attack",
+        "move_ctrl": "controller.animation.marauder.move",
+        "action_ctrl": "controller.animation.marauder.afterimage_action"
+      },
+      "scripts": {
+        "animate": [ "move_ctrl", "action_ctrl" ]
+      },
+      "render_controllers": [ "controller.render.marauder" ]
+    }
+  }
+}

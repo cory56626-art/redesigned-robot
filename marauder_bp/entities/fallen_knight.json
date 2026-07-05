@@ -1,0 +1,63 @@
+{
+  "format_version": "1.20.60",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "marauder:fallen_knight",
+      "is_spawnable": true,
+      "is_summonable": true,
+      "is_experimental": false,
+      "properties": {
+        "marauder:attacking": { "type": "bool", "default": false, "client_sync": true },
+        "marauder:slash": { "type": "bool", "default": false, "client_sync": true }
+      }
+    },
+    "component_groups": {
+      "marauder:rising": {
+        "minecraft:damage_sensor": { "triggers": [ { "deals_damage": false } ] },
+        "minecraft:movement": { "value": 0.0 }
+      }
+    },
+    "components": {
+      "minecraft:type_family": { "family": ["marauder", "fallen_knight", "monster", "mob"] },
+      "minecraft:health": { "value": 60, "max": 60 },
+      "minecraft:movement": { "value": 0.26 },
+      "minecraft:knockback_resistance": { "value": 0.85 },
+      "minecraft:attack": { "damage": 9 },
+      "minecraft:follow_range": { "value": 48, "max": 48 },
+      "minecraft:collision_box": { "width": 0.6, "height": 1.95 },
+      "minecraft:scale": { "value": 0.95 },
+      "minecraft:physics": {},
+      "minecraft:jump.static": {},
+      "minecraft:movement.basic": {},
+      "minecraft:navigation.walk": { "can_path_over_water": true, "avoid_water": false, "can_pass_doors": true, "can_open_doors": false },
+      "minecraft:persistent": {},
+      "minecraft:fire_immune": true,
+      "minecraft:damage_sensor": {
+        "triggers": [
+          { "cause": "fire", "deals_damage": false },
+          { "cause": "fire_tick", "deals_damage": false },
+          { "cause": "lava", "deals_damage": false },
+          { "cause": "drowning", "deals_damage": false }
+        ]
+      },
+      "minecraft:behavior.float": { "priority": 0 },
+      "minecraft:behavior.hurt_by_target": { "priority": 1, "hurt_owner": true },
+      "minecraft:behavior.nearest_attackable_target": {
+        "priority": 2, "must_see": false, "must_reach": false, "reselect_targets": true, "within_radius": 48,
+        "entity_types": [
+          { "filters": { "test": "is_family", "subject": "other", "value": "player" }, "max_dist": 48 },
+          { "filters": { "all_of": [ { "test": "is_family", "subject": "other", "value": "mob" }, { "test": "is_family", "subject": "other", "value": "marauder", "operator": "!=" } ] }, "max_dist": 32 }
+        ]
+      },
+      "minecraft:behavior.melee_attack": {
+        "priority": 3, "speed_multiplier": 1.15, "track_target": true, "require_complete_path": false, "reach_multiplier": 1.5, "melee_fov": 200
+      },
+      "minecraft:behavior.look_at_player": { "priority": 7, "look_distance": 24 },
+      "minecraft:behavior.random_look_around": { "priority": 8 }
+    },
+    "events": {
+      "marauder:rise_on": { "add": { "component_groups": ["marauder:rising"] } },
+      "marauder:rise_off": { "remove": { "component_groups": ["marauder:rising"] } }
+    }
+  }
+}

@@ -1,0 +1,222 @@
+{
+  "format_version": "1.20.60",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "marauder:fractured_marauder",
+      "is_spawnable": true,
+      "is_summonable": true,
+      "is_experimental": false,
+      "properties": {
+        "marauder:fracture_stage": {
+          "type": "int",
+          "range": [0, 3],
+          "default": 0,
+          "client_sync": true
+        },
+        "marauder:attacking": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        },
+        "marauder:casting": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        },
+        "marauder:slash": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        },
+        "marauder:aim": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        },
+        "marauder:guard": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        },
+        "marauder:omni": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        },
+        "marauder:kneeling": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        },
+        "marauder:last_stand": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        }
+      }
+    },
+    "component_groups": {
+      "marauder:boss": {
+        "minecraft:boss": {
+          "should_darken_sky": false,
+          "hud_range": 55
+        }
+      },
+      "marauder:seraph": {
+        "minecraft:scale": { "value": 1.15 },
+        "minecraft:movement": { "value": 0.42 },
+        "minecraft:attack": { "damage": 20 },
+        "minecraft:knockback_resistance": { "value": 1.0 }
+      },
+      "marauder:stunned": {
+        "minecraft:movement": { "value": 0.0 },
+        "minecraft:knockback_resistance": { "value": 1.0 },
+        "minecraft:attack": { "damage": 0 }
+      },
+      "marauder:invulnerable": {
+        "minecraft:damage_sensor": {
+          "triggers": [
+            { "deals_damage": false }
+          ]
+        }
+      },
+      "marauder:free_for_all": {
+        "minecraft:behavior.nearest_attackable_target": {
+          "priority": 2,
+          "must_see": false,
+          "must_reach": false,
+          "reselect_targets": true,
+          "within_radius": 40,
+          "entity_types": [
+            {
+              "filters": {
+                "test": "is_family",
+                "subject": "other",
+                "value": "player"
+              },
+              "max_dist": 64
+            },
+            {
+              "filters": {
+                "all_of": [
+                  { "test": "is_family", "subject": "other", "value": "mob" },
+                  { "test": "is_family", "subject": "other", "value": "marauder", "operator": "!=" }
+                ]
+              },
+              "max_dist": 40
+            }
+          ]
+        },
+        "minecraft:behavior.hurt_by_target": {
+          "priority": 1,
+          "hurt_owner": true
+        }
+      }
+    },
+    "components": {
+      "minecraft:type_family": {
+        "family": ["marauder", "marauder_fractured", "monster", "mob"]
+      },
+      "minecraft:health": { "value": 340, "max": 340 },
+      "minecraft:movement": { "value": 0.38 },
+      "minecraft:knockback_resistance": { "value": 1.0 },
+      "minecraft:attack": { "damage": 17 },
+      "minecraft:follow_range": { "value": 64, "max": 64 },
+      "minecraft:collision_box": { "width": 0.6, "height": 1.95 },
+      "minecraft:physics": {},
+      "minecraft:jump.static": {},
+      "minecraft:movement.basic": {},
+      "minecraft:navigation.walk": {
+        "can_path_over_water": true,
+        "avoid_water": false,
+        "can_pass_doors": true,
+        "can_open_doors": false
+      },
+      "minecraft:can_climb": {},
+      "minecraft:persistent": {},
+      "minecraft:fire_immune": true,
+      "minecraft:damage_sensor": {
+        "triggers": [
+          { "cause": "fire", "deals_damage": false },
+          { "cause": "fire_tick", "deals_damage": false },
+          { "cause": "lava", "deals_damage": false },
+          { "cause": "magic", "deals_damage": false },
+          { "cause": "wither", "deals_damage": false },
+          { "cause": "drowning", "deals_damage": false }
+        ]
+      },
+      "minecraft:behavior.float": { "priority": 0 },
+      "minecraft:behavior.hurt_by_target": {
+        "priority": 1,
+        "hurt_owner": true
+      },
+      "minecraft:behavior.nearest_attackable_target": {
+        "priority": 2,
+        "must_see": false,
+        "must_reach": false,
+        "reselect_targets": true,
+        "within_radius": 64,
+        "entity_types": [
+          {
+            "filters": {
+              "test": "is_family",
+              "subject": "other",
+              "value": "player"
+            },
+            "max_dist": 64
+          }
+        ]
+      },
+      "minecraft:behavior.melee_attack": {
+        "priority": 3,
+        "speed_multiplier": 1.2,
+        "track_target": true,
+        "require_complete_path": false,
+        "reach_multiplier": 1.6,
+        "melee_fov": 180
+      },
+      "minecraft:behavior.random_stroll": {
+        "priority": 6,
+        "speed_multiplier": 0.6,
+        "interval": 120
+      },
+      "minecraft:behavior.look_at_player": {
+        "priority": 7,
+        "look_distance": 24
+      },
+      "minecraft:behavior.random_look_around": { "priority": 8 }
+    },
+    "events": {
+      "marauder:become_boss": {
+        "add": { "component_groups": ["marauder:boss"] }
+      },
+      "marauder:clear_boss": {
+        "remove": { "component_groups": ["marauder:boss"] }
+      },
+      "marauder:seraph_on": {
+        "add": { "component_groups": ["marauder:seraph"] }
+      },
+      "marauder:seraph_off": {
+        "remove": { "component_groups": ["marauder:seraph"] }
+      },
+      "marauder:stun_on": {
+        "add": { "component_groups": ["marauder:stunned"] }
+      },
+      "marauder:stun_off": {
+        "remove": { "component_groups": ["marauder:stunned"] }
+      },
+      "marauder:invulnerable_on": {
+        "add": { "component_groups": ["marauder:invulnerable"] }
+      },
+      "marauder:invulnerable_off": {
+        "remove": { "component_groups": ["marauder:invulnerable"] }
+      },
+      "marauder:ffa_on": {
+        "add": { "component_groups": ["marauder:free_for_all"] }
+      },
+      "marauder:ffa_off": {
+        "remove": { "component_groups": ["marauder:free_for_all"] }
+      }
+    }
+  }
+}
