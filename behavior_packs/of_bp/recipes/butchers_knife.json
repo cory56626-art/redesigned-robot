@@ -1,0 +1,18 @@
+{
+  "format_version": "1.21.80",
+  "minecraft:recipe_shaped": {
+    "description": { "identifier": "custom:butchers_knife_recipe" },
+    "tags": ["crafting_table"],
+    "pattern": [
+      " I",
+      " I",
+      "B "
+    ],
+    "key": {
+      "I": { "item": "minecraft:iron_ingot" },
+      "B": { "item": "minecraft:bone" }
+    },
+    "unlock": [{ "item": "minecraft:iron_ingot" }],
+    "result": { "item": "custom:butchers_knife" }
+  }
+}

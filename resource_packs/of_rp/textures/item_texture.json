@@ -1,0 +1,13 @@
+{
+  "resource_pack_name": "organic_forgery",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "of_butchers_knife": { "textures": "textures/of/items/butchers_knife" },
+    "of_organic_cleaver": { "textures": "textures/of/items/organic_cleaver" },
+    "of_raw_carcass": { "textures": "textures/of/items/raw_carcass" },
+    "of_sinew": { "textures": "textures/of/items/sinew" },
+    "of_dense_bone": { "textures": "textures/of/items/dense_bone" },
+    "of_marrow": { "textures": "textures/of/items/marrow" },
+    "of_cured_hide": { "textures": "textures/of/items/cured_hide" }
+  }
+}

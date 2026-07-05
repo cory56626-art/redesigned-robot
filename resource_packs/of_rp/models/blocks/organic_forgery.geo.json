@@ -1,0 +1,31 @@
+{
+  "format_version": "1.16.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.of_organic_forgery",
+        "texture_width": 64,
+        "texture_height": 64,
+        "visible_bounds_width": 3,
+        "visible_bounds_height": 3,
+        "visible_bounds_offset": [0, 1, 0]
+      },
+      "bones": [
+        {
+          "name": "root",
+          "pivot": [0, 0, 0],
+          "cubes": [
+            { "origin": [-7, 0, -7], "size": [14, 4, 14], "uv": [0, 0] },
+            { "origin": [-4, 4, -4], "size": [8, 4, 8], "uv": [0, 22] },
+            { "origin": [-7, 8, -6], "size": [14, 5, 12], "uv": [0, 34] },
+            { "origin": [-7, 13, -6], "size": [3, 2, 12], "uv": [0, 51] },
+            { "origin": [4, 13, -6], "size": [3, 2, 12], "uv": [30, 34] },
+            { "origin": [-5, 8, 4], "size": [2, 6, 2], "uv": [44, 0] },
+            { "origin": [3, 8, 4], "size": [2, 6, 2], "uv": [44, 8] },
+            { "origin": [-1, 13, -1], "size": [2, 3, 2], "uv": [44, 16] }
+          ]
+        }
+      ]
+    }
+  ]
+}

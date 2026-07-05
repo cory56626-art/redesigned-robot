@@ -1,0 +1,19 @@
+## Creative / recipe group
+itemGroup.name.of_biopunk=Organic Forgery
+
+## Blocks
+tile.custom:harvester.name=The Harvester
+tile.custom:organic_forgery.name=Organic Forgery
+tile.custom:flesh_moss.name=Flesh Moss
+
+## Items
+item.custom:butchers_knife.name=Butcher's Knife
+item.custom:raw_carcass.name=Raw Carcass
+item.custom:sinew.name=Sinew
+item.custom:dense_bone.name=Dense Bone
+item.custom:marrow.name=Marrow
+item.custom:cured_hide.name=Cured Hide
+item.custom:organic_cleaver.name=Organic Cleaver
+
+## Entities (hidden logic entity)
+entity.custom:harvester_logic.name=

@@ -1,0 +1,44 @@
+{
+  "format_version": "1.21.80",
+  "minecraft:block": {
+    "description": {
+      "identifier": "custom:organic_forgery",
+      "menu_category": {
+        "category": "equipment",
+        "group": "itemGroup.name.of_biopunk"
+      },
+      "traits": {
+        "minecraft:placement_direction": {
+          "enabled_states": ["minecraft:cardinal_direction"]
+        }
+      }
+    },
+    "components": {
+      "minecraft:geometry": "geometry.of_organic_forgery",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "of_organic_forgery",
+          "render_method": "alpha_test",
+          "face_dimming": true,
+          "ambient_occlusion": true
+        }
+      },
+      "minecraft:crafting_table": {
+        "table_name": "Organic Forgery",
+        "crafting_tags": ["organic_forging"]
+      },
+      "minecraft:collision_box": {
+        "origin": [-8, 0, -8],
+        "size": [16, 15, 16]
+      },
+      "minecraft:selection_box": {
+        "origin": [-8, 0, -8],
+        "size": [16, 15, 16]
+      },
+      "minecraft:destructible_by_mining": { "seconds_to_destroy": 3.0 },
+      "minecraft:destructible_by_explosion": { "explosion_resistance": 8 },
+      "minecraft:light_emission": 4,
+      "minecraft:map_color": "#6b3f4a"
+    }
+  }
+}

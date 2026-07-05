@@ -1,0 +1,20 @@
+{
+  "format_version": "1.21.80",
+  "minecraft:recipe_shaped": {
+    "description": { "identifier": "custom:harvester_recipe" },
+    "tags": ["crafting_table"],
+    "pattern": [
+      "IPI",
+      "PHP",
+      "IRI"
+    ],
+    "key": {
+      "I": { "item": "minecraft:iron_ingot" },
+      "P": { "item": "minecraft:piston" },
+      "H": { "item": "minecraft:hopper" },
+      "R": { "item": "minecraft:redstone_block" }
+    },
+    "unlock": [{ "item": "minecraft:hopper" }],
+    "result": { "item": "custom:harvester" }
+  }
+}

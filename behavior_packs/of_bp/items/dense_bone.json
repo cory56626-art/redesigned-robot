@@ -1,0 +1,15 @@
+{
+  "format_version": "1.21.80",
+  "minecraft:item": {
+    "description": {
+      "identifier": "custom:dense_bone",
+      "menu_category": { "category": "items", "group": "itemGroup.name.of_biopunk" }
+    },
+    "components": {
+      "minecraft:icon": "of_dense_bone",
+      "minecraft:display_name": { "value": "Dense Bone" },
+      "minecraft:max_stack_size": 64,
+      "minecraft:tags": { "tags": ["custom:organic_component", "custom:homunculus_catalyst"] }
+    }
+  }
+}

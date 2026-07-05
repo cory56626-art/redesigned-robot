@@ -1,0 +1,19 @@
+{
+  "format_version": "1.21.80",
+  "minecraft:recipe_shaped": {
+    "description": { "identifier": "custom:organic_cleaver_recipe" },
+    "tags": ["organic_forging"],
+    "pattern": [
+      "MDM",
+      " D ",
+      " S "
+    ],
+    "key": {
+      "M": { "item": "custom:marrow" },
+      "D": { "item": "custom:dense_bone" },
+      "S": { "item": "custom:sinew" }
+    },
+    "unlock": [{ "item": "custom:dense_bone" }],
+    "result": { "item": "custom:organic_cleaver" }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "§4Organic Forgery§r — Resources",
+    "description": "§cBiopunk survival: harvest flesh, forge living gear, corrupt the land.§r\n§7Part 1 · Module 1 — Core Loop§r",
+    "uuid": "e3b360e2-86fd-40d0-ab82-b99dfae24f42",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 80]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "d093d3d8-7617-445f-9adc-af165962fb1a",
+      "version": [1, 0, 0]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "0644c7cd-72f8-4ca8-a2cb-480e6d4145a8",
+      "version": [1, 0, 0]
+    }
+  ],
+  "metadata": {
+    "authors": ["Organic Forgery Team"],
+    "license": "All Rights Reserved",
+    "product_type": "addon"
+  }
+}

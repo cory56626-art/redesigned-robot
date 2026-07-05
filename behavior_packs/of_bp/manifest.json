@@ -1,0 +1,46 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "§4Organic Forgery§r — Behavior",
+    "description": "§cBiopunk survival: harvest flesh, forge living gear, corrupt the land.§r\n§7Part 1 · Module 1 — Core Loop§r",
+    "uuid": "0644c7cd-72f8-4ca8-a2cb-480e6d4145a8",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 80]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "cf1e579f-4b2e-4891-8cad-f94309c7b593",
+      "version": [1, 0, 0]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "eb30b7d4-cdbc-4505-9e61-95266cb57220",
+      "version": [1, 0, 0],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "2.0.0-beta"
+    },
+    {
+      "module_name": "@minecraft/server-ui",
+      "version": "2.0.0-beta"
+    },
+    {
+      "uuid": "e3b360e2-86fd-40d0-ab82-b99dfae24f42",
+      "version": [1, 0, 0]
+    }
+  ],
+  "metadata": {
+    "authors": ["Organic Forgery Team"],
+    "license": "All Rights Reserved",
+    "product_type": "addon",
+    "generated_with": {
+      "organic_forgery": ["1.0.0"]
+    }
+  }
+}

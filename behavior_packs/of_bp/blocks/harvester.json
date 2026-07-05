@@ -1,0 +1,53 @@
+{
+  "format_version": "1.21.80",
+  "minecraft:block": {
+    "description": {
+      "identifier": "custom:harvester",
+      "menu_category": {
+        "category": "equipment",
+        "group": "itemGroup.name.of_biopunk"
+      },
+      "states": {
+        "custom:active": [false, true]
+      },
+      "traits": {
+        "minecraft:placement_direction": {
+          "enabled_states": ["minecraft:cardinal_direction"]
+        }
+      }
+    },
+    "components": {
+      "minecraft:custom_components": ["of:harvester"],
+      "minecraft:geometry": "geometry.of_harvester",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "of_harvester",
+          "render_method": "opaque",
+          "face_dimming": true,
+          "ambient_occlusion": true
+        }
+      },
+      "minecraft:collision_box": {
+        "origin": [-8, 0, -8],
+        "size": [16, 16, 16]
+      },
+      "minecraft:selection_box": {
+        "origin": [-8, 0, -8],
+        "size": [16, 16, 16]
+      },
+      "minecraft:destructible_by_mining": { "seconds_to_destroy": 3.5 },
+      "minecraft:destructible_by_explosion": { "explosion_resistance": 12 },
+      "minecraft:light_emission": 3,
+      "minecraft:map_color": "#5a2a2a",
+      "minecraft:tick": { "interval_range": [10, 10], "looping": true }
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('custom:active') == true",
+        "components": {
+          "minecraft:light_emission": 7
+        }
+      }
+    ]
+  }
+}

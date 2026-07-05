@@ -1,0 +1,6 @@
+{
+  "format_version": [1, 1, 0],
+  "custom:harvester": { "sound": "metal", "isotropic": false },
+  "custom:organic_forgery": { "sound": "slime", "isotropic": false },
+  "custom:flesh_moss": { "sound": "slime", "isotropic": true }
+}

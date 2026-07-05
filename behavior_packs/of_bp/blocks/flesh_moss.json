@@ -1,0 +1,29 @@
+{
+  "format_version": "1.21.80",
+  "minecraft:block": {
+    "description": {
+      "identifier": "custom:flesh_moss",
+      "menu_category": {
+        "category": "nature",
+        "group": "itemGroup.name.of_biopunk"
+      }
+    },
+    "components": {
+      "minecraft:custom_components": ["of:flesh_moss"],
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "of_flesh_moss",
+          "render_method": "opaque",
+          "face_dimming": true,
+          "ambient_occlusion": true
+        }
+      },
+      "minecraft:destructible_by_mining": { "seconds_to_destroy": 0.9 },
+      "minecraft:destructible_by_explosion": { "explosion_resistance": 1 },
+      "minecraft:friction": 0.55,
+      "minecraft:map_color": "#7a2f3a",
+      "minecraft:light_emission": 1,
+      "minecraft:loot": "loot_tables/blocks/flesh_moss.json"
+    }
+  }
+}

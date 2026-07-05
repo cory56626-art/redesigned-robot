@@ -1,0 +1,12 @@
+{
+  "name": "organic-forgery",
+  "version": "1.0.0",
+  "description": "Organic Forgery & The Harvester — a biopunk survival add-on for Minecraft Bedrock (Part 1 / Module 1).",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "textures": "python3 tools/gen_textures.py",
+    "build": "node tools/build.mjs",
+    "package": "python3 tools/gen_textures.py && node tools/build.mjs"
+  }
+}
