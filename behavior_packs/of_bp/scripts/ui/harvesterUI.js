@@ -12,7 +12,7 @@ import { system, EquipmentSlot, EntityComponentTypes } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
 import { CONFIG } from "../core/config.js";
 import { safe } from "../core/util.js";
-import { invOf, isFuel, isValidInput } from "../machines/harvester.js";
+import { invOf, isFuel, isValidInput } from "../machines/harvesterCore.js";
 import { getChumScore } from "../systems/chum.js";
 
 const S = CONFIG.harvester.slots;

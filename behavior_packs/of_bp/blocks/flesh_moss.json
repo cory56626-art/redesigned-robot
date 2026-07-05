@@ -9,7 +9,6 @@
       }
     },
     "components": {
-      "minecraft:custom_components": ["of:flesh_moss"],
       "minecraft:material_instances": {
         "*": {
           "texture": "of_flesh_moss",

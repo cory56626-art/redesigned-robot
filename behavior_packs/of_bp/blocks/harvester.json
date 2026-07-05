@@ -17,7 +17,6 @@
       }
     },
     "components": {
-      "minecraft:custom_components": ["of:harvester"],
       "minecraft:geometry": "geometry.of_harvester",
       "minecraft:material_instances": {
         "*": {
@@ -38,8 +37,7 @@
       "minecraft:destructible_by_mining": { "seconds_to_destroy": 3.5 },
       "minecraft:destructible_by_explosion": { "explosion_resistance": 12 },
       "minecraft:light_emission": 3,
-      "minecraft:map_color": "#5a2a2a",
-      "minecraft:tick": { "interval_range": [10, 10], "looping": true }
+      "minecraft:map_color": "#5a2a2a"
     },
     "permutations": [
       {

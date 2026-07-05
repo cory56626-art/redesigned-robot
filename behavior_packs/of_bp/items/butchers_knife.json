@@ -9,7 +9,6 @@
       }
     },
     "components": {
-      "minecraft:custom_components": ["of:butchers_knife"],
       "minecraft:icon": "of_butchers_knife",
       "minecraft:display_name": { "value": "Butcher's Knife" },
       "minecraft:max_stack_size": 1,

@@ -1,10 +1,10 @@
 /**
  * Butcher's Knife.
  *
- * Melee weapon that "renders down" a weakened farm mob when you interact
- * (right-click) with it. On a valid harvest it despawns the mob, sprays blood,
- * cracks a bone-break sound, and drops a Raw Carcass — the feedstock for the
- * Harvester.
+ * Interact (right-click) with a weakened farm mob to render it down into a Raw
+ * Carcass — despawns the mob, sprays blood, cracks bone, drops the carcass, and
+ * chips the blade. Also sprays a little blood on any melee hit. Wired through
+ * stable world events (no item custom component), so the item always loads.
  *
  * @module items/butchersKnife
  */
@@ -14,9 +14,16 @@ import { safe } from "../core/util.js";
 
 const KNIFE_ID = "custom:butchers_knife";
 
-/** Is this mob one the knife can harvest, and is it weak enough? */
+function mainhandOf(entity) {
+  const equip = safe(() =>
+    entity.getComponent(EntityComponentTypes.Equippable ?? "minecraft:equippable")
+  );
+  return equip ? { equip, item: safe(() => equip.getEquipment(EquipmentSlot.Mainhand)) } : {};
+}
+
+/** Is this a farm mob that the knife can harvest, and is it weak enough? */
 function isHarvestable(target) {
-  if (!CONFIG.knife.harvestableTypes.includes(target.typeId)) return false;
+  if (!target || !CONFIG.knife.harvestableTypes.includes(target.typeId)) return false;
   const hp = safe(() => target.getComponent(EntityComponentTypes.Health ?? "minecraft:health"));
   if (!hp) return false;
   return hp.currentValue <= hp.effectiveMax * CONFIG.knife.weakHealthFraction;
@@ -24,27 +31,22 @@ function isHarvestable(target) {
 
 /** Spend a little durability on the knife after a successful harvest. */
 function damageKnife(player) {
-  const equip = safe(() =>
-    player.getComponent(EntityComponentTypes.Equippable ?? "minecraft:equippable")
-  );
-  if (!equip) return;
-  const knife = equip.getEquipment(EquipmentSlot.Mainhand);
-  if (!knife || knife.typeId !== KNIFE_ID) return;
-  const dur = knife.getComponent("minecraft:durability");
+  const { equip, item } = mainhandOf(player);
+  if (!equip || !item || item.typeId !== KNIFE_ID) return;
+  const dur = item.getComponent("minecraft:durability");
   if (!dur) return;
   dur.damage = Math.min(dur.maxDurability, dur.damage + CONFIG.knife.harvestDurabilityCost);
   if (dur.damage >= dur.maxDurability) {
-    // Knife shatters.
-    equip.setEquipment(EquipmentSlot.Mainhand, undefined);
+    equip.setEquipment(EquipmentSlot.Mainhand, undefined); // blade shatters
     safe(() => player.playSound("random.break", { location: player.location }));
   } else {
-    equip.setEquipment(EquipmentSlot.Mainhand, knife);
+    equip.setEquipment(EquipmentSlot.Mainhand, item);
   }
 }
 
-/** Perform the gory bit — called next tick so we're outside the read-only event. */
+/** The gory bit — run next tick, outside the read-only interact event. */
 function harvest(player, target) {
-  if (!target || !target.isValid) return;
+  if (!target || target.isValid === false) return;
   const dim = target.dimension;
   const loc = target.location;
 
@@ -62,35 +64,28 @@ function harvest(player, target) {
   damageKnife(player);
 }
 
-/** The `of:butchers_knife` item component — light blood spray on any melee hit. */
-export function butchersKnifeComponent() {
-  return {
-    onHitEntity(e) {
-      const { hitEntity } = e;
-      if (!hitEntity) return;
-      safe(() =>
-        hitEntity.dimension.spawnParticle(CONFIG.particles.blood, {
-          x: hitEntity.location.x,
-          y: hitEntity.location.y + 0.6,
-          z: hitEntity.location.z,
-        })
-      );
-    },
-  };
-}
-
-/** Wire the interact-to-harvest behaviour. */
-export function startButcherInteractions() {
+export function startButcherKnife() {
+  // Interact-to-harvest.
   world.beforeEvents.playerInteractWithEntity.subscribe((e) => {
     const { player, target, itemStack } = e;
     if (!itemStack || itemStack.typeId !== KNIFE_ID) return;
     if (!isHarvestable(target)) return;
+    e.cancel = true; // committing to the harvest
+    system.run(() => harvest(player, target));
+  });
 
-    // We are committing to a harvest — cancel any default interaction and do the
-    // world mutations on the next tick (before-events are read-only).
-    e.cancel = true;
-    const capturedTarget = target;
-    const capturedPlayer = player;
-    system.run(() => harvest(capturedPlayer, capturedTarget));
+  // Light blood spray on any melee hit with the knife.
+  world.afterEvents.entityHitEntity.subscribe((e) => {
+    const { damagingEntity, hitEntity } = e;
+    if (!damagingEntity || !hitEntity) return;
+    const { item } = mainhandOf(damagingEntity);
+    if (!item || item.typeId !== KNIFE_ID) return;
+    safe(() =>
+      hitEntity.dimension.spawnParticle(CONFIG.particles.blood, {
+        x: hitEntity.location.x,
+        y: hitEntity.location.y + 0.6,
+        z: hitEntity.location.z,
+      })
+    );
   });
 }

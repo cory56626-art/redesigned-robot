@@ -1,111 +1,50 @@
 /**
  * The Harvester — a script-driven meat grinder.
  *
- * A custom block cannot hold a native multi-slot container, so each placed
- * Harvester spawns an invisible companion entity (`custom:harvester_logic`)
- * whose 6-slot inventory *is* the machine's storage. A single central interval
- * advances every machine in the world: it burns coal/charcoal, grinds a carcass
- * over ~10 seconds while venting dark smoke and grind noise, deposits the
- * extracted organic components into the output slots, and feeds the Chum system.
+ * A custom block can't hold a native multi-slot container, so each placed
+ * Harvester owns an invisible companion entity (`custom:harvester_logic`) whose
+ * 6-slot inventory is the machine's storage. Behaviour is wired through stable
+ * world events (place / interact / break) plus one central grind loop — no
+ * custom block component, so the block itself always loads.
  *
  * @module machines/harvester
  */
-import { world, system, ItemStack, EntityComponentTypes } from "@minecraft/server";
+import { world, system } from "@minecraft/server";
 import { CONFIG } from "../core/config.js";
 import { blockCenter, safe, weightedPick } from "../core/util.js";
 import { addChum } from "../systems/chum.js";
+import { openHarvesterUI } from "../ui/harvesterUI.js";
+import {
+  H,
+  SLOTS,
+  logicAt,
+  ensureLogic,
+  invOf,
+  isValidInput,
+  isFuel,
+  slotAccepts,
+  addToSlot,
+  decrement,
+  dropContents,
+} from "./harvesterCore.js";
 
-const H = CONFIG.harvester;
-const S = H.slots;
-
-/* ------------------------------------------------------------------ companion entity */
-
-function logicAt(dimension, blockLoc) {
-  const center = blockCenter(blockLoc);
-  const found = safe(() =>
-    dimension.getEntities({ location: center, maxDistance: 1.0, type: H.logicEntity })
-  );
-  return found && found.length ? found[0] : undefined;
-}
-
-function ensureLogic(dimension, blockLoc) {
-  let ent = logicAt(dimension, blockLoc);
-  if (!ent) {
-    ent = safe(() => dimension.spawnEntity(H.logicEntity, blockCenter(blockLoc)));
-  }
-  return ent;
-}
-
-function invOf(entity) {
-  const comp = safe(() =>
-    entity.getComponent(EntityComponentTypes.Inventory ?? "minecraft:inventory")
-  );
-  return comp ? comp.container : undefined;
-}
-
-/* ------------------------------------------------------------------ item helpers */
-
-function isValidInput(item) {
-  if (!item) return false;
-  return (
-    item.getTags().includes(CONFIG.tags.harvesterInput) ||
-    CONFIG.rot.feedMeatItems.includes(item.typeId)
-  );
-}
-
-function isFuel(item) {
-  return item && H.fuelItems.includes(item.typeId);
-}
-
-/** Can the given output slot accept `count` of `itemId`? (no mutation) */
-function slotAccepts(container, slot, itemId, count) {
-  const existing = container.getItem(slot);
-  if (!existing) return true;
-  if (existing.typeId !== itemId) return false;
-  return existing.amount + count <= existing.maxAmount;
-}
-
-/** Push items into a dedicated output slot, stacking where possible. */
-function addToSlot(container, slot, itemId, count) {
-  const existing = container.getItem(slot);
-  if (!existing) {
-    container.setItem(slot, new ItemStack(itemId, count));
-    return true;
-  }
-  if (existing.typeId === itemId && existing.amount + count <= existing.maxAmount) {
-    existing.amount += count;
-    container.setItem(slot, existing);
-    return true;
-  }
-  return false;
-}
-
-function decrement(container, slot, n = 1) {
-  const it = container.getItem(slot);
-  if (!it) return;
-  if (it.amount > n) {
-    it.amount -= n;
-    container.setItem(slot, it);
-  } else {
-    container.setItem(slot, undefined);
-  }
-}
+const BLOCK_ID = "custom:harvester";
 
 /* ------------------------------------------------------------------ processing */
 
 function canProduceMain(container) {
   return (
-    slotAccepts(container, S.OUT_SINEW, H.outputs.sinew.item, H.outputs.sinew.count) &&
-    slotAccepts(container, S.OUT_BONE, H.outputs.bone.item, H.outputs.bone.count)
+    slotAccepts(container, SLOTS.OUT_SINEW, H.outputs.sinew.item, H.outputs.sinew.count) &&
+    slotAccepts(container, SLOTS.OUT_BONE, H.outputs.bone.item, H.outputs.bone.count)
   );
 }
 
 function produce(container) {
-  addToSlot(container, S.OUT_SINEW, H.outputs.sinew.item, H.outputs.sinew.count);
-  addToSlot(container, S.OUT_BONE, H.outputs.bone.item, H.outputs.bone.count);
+  addToSlot(container, SLOTS.OUT_SINEW, H.outputs.sinew.item, H.outputs.sinew.count);
+  addToSlot(container, SLOTS.OUT_BONE, H.outputs.bone.item, H.outputs.bone.count);
   if (Math.random() < H.byproduct.chance) {
     const pick = weightedPick(H.byproduct.pool);
-    addToSlot(container, S.OUT_BYPRODUCT, pick.item, pick.count);
+    addToSlot(container, SLOTS.OUT_BYPRODUCT, pick.item, pick.count);
   }
 }
 
@@ -135,7 +74,7 @@ function processMachine(entity) {
   const block = safe(() => dimension.getBlock(blockLoc));
 
   // Orphaned companion (block gone) — dump its contents and vanish.
-  if (!block || block.typeId !== "custom:harvester") {
+  if (!block || block.typeId !== BLOCK_ID) {
     dropContents(entity);
     safe(() => entity.remove());
     return;
@@ -148,13 +87,13 @@ function processMachine(entity) {
   let progress = Number(entity.getDynamicProperty("of:progress") ?? 0);
   let fuel = Number(entity.getDynamicProperty("of:fuel") ?? 0);
 
-  const input = container.getItem(S.INPUT);
+  const input = container.getItem(SLOTS.INPUT);
   const runnable = isValidInput(input) && canProduceMain(container);
   let active = false;
 
   if (runnable) {
-    if (fuel < dt && isFuel(container.getItem(S.FUEL))) {
-      decrement(container, S.FUEL, 1);
+    if (fuel < dt && isFuel(container.getItem(SLOTS.FUEL))) {
+      decrement(container, SLOTS.FUEL, 1);
       fuel += H.fuelTicksPerUnit;
     }
     if (fuel >= dt) {
@@ -165,7 +104,7 @@ function processMachine(entity) {
       if (progress >= H.processTicks) {
         progress = 0;
         produce(container);
-        decrement(container, S.INPUT, 1);
+        decrement(container, SLOTS.INPUT, 1);
         safe(() => dimension.playSound(CONFIG.sounds.squish, blockCenter(blockLoc)));
         addChum(dimension, blockLoc, H.chumPerProcess);
       }
@@ -179,46 +118,42 @@ function processMachine(entity) {
   setActive(block, active);
 }
 
-/* ------------------------------------------------------------------ teardown */
+/* ------------------------------------------------------------------ wiring */
 
-function dropContents(entity) {
-  const container = invOf(entity);
-  if (!container) return;
-  const dim = entity.dimension;
-  const loc = entity.location;
-  for (let i = 0; i < container.size; i++) {
-    const it = container.getItem(i);
-    if (it) safe(() => dim.spawnItem(it, loc));
-  }
-}
+export function startHarvester() {
+  // Placing a Harvester spawns its companion inventory entity.
+  world.afterEvents.playerPlaceBlock.subscribe((e) => {
+    if (e.block?.typeId !== BLOCK_ID) return;
+    const loc = e.block.location;
+    const dim = e.block.dimension;
+    system.run(() => ensureLogic(dim, loc));
+  });
 
-/* ------------------------------------------------------------------ block component */
+  // Right-click opens the machine panel (sneak-click still lets you build).
+  world.beforeEvents.playerInteractWithBlock.subscribe((e) => {
+    const { block, player } = e;
+    if (!block || block.typeId !== BLOCK_ID) return;
+    if (player?.isSneaking) return; // allow placing/building against it
+    e.cancel = true; // stop the held item from being used/placed
+    const loc = block.location;
+    const dim = block.dimension;
+    system.run(() => {
+      const entity = ensureLogic(dim, loc);
+      if (entity) openHarvesterUI(player, entity, block);
+    });
+  });
 
-export function harvesterBlockComponent(openUi) {
-  return {
-    onPlace(e) {
-      const { block, dimension } = e;
-      system.run(() => ensureLogic(dimension, block.location));
-    },
-    onPlayerInteract(e) {
-      const { block, dimension, player } = e;
-      if (!player) return;
-      const entity = ensureLogic(dimension, block.location);
-      if (entity) system.run(() => openUi(player, entity, block));
-    },
-    onPlayerDestroy(e) {
-      const { block, dimension } = e;
-      const entity = logicAt(dimension, block.location);
-      if (entity) {
-        dropContents(entity);
-        safe(() => entity.remove());
-      }
-    },
-  };
-}
+  // Breaking a Harvester spills its contents and removes the companion.
+  world.afterEvents.playerBreakBlock.subscribe((e) => {
+    if (e.brokenBlockPermutation?.type?.id !== BLOCK_ID) return;
+    const entity = logicAt(e.dimension, e.block.location);
+    if (entity) {
+      dropContents(entity);
+      safe(() => entity.remove());
+    }
+  });
 
-/** Start the single loop that drives every Harvester in the world. */
-export function startHarvesterProcessing() {
+  // One loop drives every Harvester in the world.
   system.runInterval(() => {
     for (const dimId of ["overworld", "nether", "the_end"]) {
       let dim;
@@ -232,5 +167,3 @@ export function startHarvesterProcessing() {
     }
   }, H.tickInterval);
 }
-
-export { logicAt, invOf, isValidInput, isFuel };

@@ -9,7 +9,6 @@
       }
     },
     "components": {
-      "minecraft:custom_components": ["of:organic_gear"],
       "minecraft:icon": "of_organic_cleaver",
       "minecraft:display_name": { "value": "Organic Cleaver" },
       "minecraft:max_stack_size": 1,

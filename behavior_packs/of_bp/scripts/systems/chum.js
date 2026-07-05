@@ -80,17 +80,3 @@ export function startChumCorruption() {
     }
   }, C.spreadInterval);
 }
-
-/** The `of:flesh_moss` block component — light corruption motes underfoot. */
-export function fleshMossBlockComponent() {
-  return {
-    onStepOn(e) {
-      const { block } = e;
-      if (Math.random() < 0.15) {
-        safe(() =>
-          block.dimension.spawnParticle(CONFIG.particles.corruption, blockCenter(block.location))
-        );
-      }
-    },
-  };
-}

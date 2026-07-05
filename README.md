@@ -19,19 +19,21 @@ system loops).
 
 1. Double-click **`dist/Organic-Forgery.mcaddon`** — Minecraft imports both the
    behavior and resource packs automatically.
-2. Create or edit a world and **add both packs** (Behavior + Resource).
-3. This add-on targets the **beta Script API**, so in the world's
-   **Experiments** settings enable:
-   - **Beta APIs**
-   - **Holiday Creator Features / Custom biomes** are *not* required, but leaving
-     **Beta APIs** on is mandatory or the scripts won't load.
-4. Load the world. You'll see `[Organic Forgery] Module 1 loaded` in the content log.
+   - *Fallback:* if the combined file ever misbehaves, import
+     **`dist/of_bp.mcpack`** and **`dist/of_rp.mcpack`** individually instead.
+2. Create or edit a world and **add both packs** (Behavior + Resource). Make sure
+   the **resource pack is activated** too, or you'll get missing textures.
+3. **No experimental toggles are required** — this add-on targets the **stable**
+   Script API. (You may leave all Experiments off.)
+4. Load the world. You'll see `[Organic Forgery] Module 1 (v2) loaded` in the
+   content log (Settings → Creator → enable "Content Log" to view it).
 
-> **Version note:** the manifest requests `@minecraft/server` `2.0.0-beta`. If your
-> Minecraft version ships a different beta build and the pack reports an *invalid
-> module version*, open `behavior_packs/of_bp/manifest.json` and change the two
-> `-beta` version strings to the version your game's content log lists, then
-> re-run `node tools/build.mjs`.
+> **Version note:** the manifest targets stable `@minecraft/server 2.0.0`
+> (`min_engine_version` 1.21.80), which covers Minecraft 1.21.80 through current
+> (1.21.130+). If the pack ever reports an *invalid module version*, open
+> `behavior_packs/of_bp/manifest.json`, set the two `version` strings to the
+> number your game's content log lists (e.g. `2.4.0`), and re-run
+> `node tools/build.mjs`.
 
 ---
 
@@ -82,20 +84,38 @@ system loops).
 ## Project layout
 
 ```
-behavior_packs/of_bp/    manifest, block/item/recipe JSON shells, loot, entity, scripts/
+behavior_packs/of_bp/    manifest, block/item/recipe JSON, loot, entity, scripts/
 resource_packs/of_rp/    manifest, geometry, textures, particles, lang
 tools/gen_textures.py    procedural placeholder-texture generator (Pillow)
-tools/build.mjs          validates all JSON, zips the .mcaddon
-dist/Organic-Forgery.mcaddon
+tools/validate.mjs       reference-integrity linter
+tools/smoke.mjs + stubs/ load-time script smoke test (no game required)
+tools/build.mjs          validate + smoke + package (asserts archive layout)
+dist/Organic-Forgery.mcaddon   +   dist/of_bp.mcpack   +   dist/of_rp.mcpack
 ```
 
 ## Build from source
 
 ```bash
 python3 tools/gen_textures.py   # regenerate placeholder PNGs (needs Pillow)
-node tools/build.mjs            # validate JSON + produce dist/Organic-Forgery.mcaddon
+node tools/validate.mjs         # reference-integrity linter (icons/textures/geometry)
+node tools/smoke.mjs            # load scripts against @minecraft stubs (no game needed)
+node tools/build.mjs            # runs the above, then packages dist/*.mcaddon + *.mcpack
 # or: npm run package
 ```
+
+### Built so it can't silently break
+
+Because this can't be tested inside a live game here, the build enforces the
+things that broke the first prototype:
+- **Archive layout is asserted** — pack folders must sit at the archive root
+  (`of_bp/`, `of_rp/`); a nested wrapper fails the build.
+- **`tools/validate.mjs`** fails the build on any dangling icon / texture /
+  geometry / particle reference.
+- **`tools/smoke.mjs`** imports the whole script graph against no-op
+  `@minecraft/*` stubs to catch load-time errors before shipping.
+- **Content is decoupled from scripts** — blocks/items carry no
+  `custom_components`, so even a script fault can't make them fail to load.
+  Every behaviour is a stable world-event subscription.
 
 ---
 

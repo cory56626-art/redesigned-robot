@@ -1,49 +1,31 @@
 /**
  * Organic Forgery & The Harvester — Part 1 / Module 1 entry point.
  *
- * Registers all custom block/item components during the engine startup event,
- * then wires up the background systems (Harvester processing, Rot Tier scan,
- * combat siphon, Chum corruption, Butcher's Knife harvesting).
- *
- * Everything gameplay-facing is JavaScript; the JSON files are thin
- * registration shells the engine requires for content to exist.
+ * ARCHITECTURE (v2): behaviour is wired entirely through **stable world events**
+ * and `system.runInterval` — no custom-component registration and no startup
+ * event. That decoupling is deliberate: the blocks and items are pure data that
+ * always load, so a script problem can never make the Harvester or the knife
+ * "disappear" (the failure mode of v1). Everything here targets the stable
+ * `@minecraft/server` 2.x API and needs no experimental toggles.
  *
  * @module main
  */
-import { system, world } from "@minecraft/server";
+import { world } from "@minecraft/server";
 
-import { harvesterBlockComponent, startHarvesterProcessing } from "./machines/harvester.js";
-import { openHarvesterUI } from "./ui/harvesterUI.js";
-import { butchersKnifeComponent, startButcherInteractions } from "./items/butchersKnife.js";
-import { organicGearComponent, startRotScan } from "./systems/rot.js";
+import { startHarvester } from "./machines/harvester.js";
+import { startButcherKnife } from "./items/butchersKnife.js";
+import { startRotEngine } from "./systems/rot.js";
 import { startCombatSiphon } from "./systems/gearMaintenance.js";
-import { fleshMossBlockComponent, startChumCorruption } from "./systems/chum.js";
+import { startChumCorruption } from "./systems/chum.js";
 
-/* -------------------------------------------------- custom component registration */
-
-system.beforeEvents.startup.subscribe(({ blockComponentRegistry, itemComponentRegistry }) => {
-  // Blocks
-  blockComponentRegistry.registerCustomComponent(
-    "of:harvester",
-    harvesterBlockComponent(openHarvesterUI)
-  );
-  blockComponentRegistry.registerCustomComponent("of:flesh_moss", fleshMossBlockComponent());
-
-  // Items
-  itemComponentRegistry.registerCustomComponent("of:butchers_knife", butchersKnifeComponent());
-  itemComponentRegistry.registerCustomComponent("of:organic_gear", organicGearComponent());
-});
-
-/* -------------------------------------------------- background systems */
-
-startHarvesterProcessing(); // grind loop over every Harvester
-startRotScan(); // keep organic gear tiers + buffs current
+// Each start* function subscribes its own world events / intervals. They are
+// safe to call at module load — subscribing never touches world state.
+startHarvester(); // place / interact / break + central grind loop
+startButcherKnife(); // interact-to-harvest weakened farm mobs
+startRotEngine(); // rot tier scan, on-hit effects, feeding
 startCombatSiphon(); // lifesteal-for-durability on kills
-startButcherInteractions(); // interact-to-harvest weakened farm mobs
 startChumCorruption(); // spread flesh moss as the world rots
 
-/* -------------------------------------------------- boot banner */
-
 world.afterEvents.worldLoad.subscribe(() => {
-  console.warn("[Organic Forgery] Module 1 loaded — the meat remembers.");
+  console.warn("[Organic Forgery] Module 1 (v2) loaded — the meat remembers.");
 });
