@@ -16,7 +16,11 @@
         { "name": "rightArm", "pivot": [-4, 22, 0], "cubes": [{ "origin": [-7, 11, -1.5], "size": [3, 13, 3], "uv": [40, 16] }] },
         { "name": "leftArm", "pivot": [4, 22, 0], "cubes": [{ "origin": [4, 11, -1.5], "size": [3, 13, 3], "uv": [32, 48] }] },
         { "name": "rightLeg", "pivot": [-1.9, 12, 0], "cubes": [{ "origin": [-3.4, 0, -1.5], "size": [3, 12, 3], "uv": [0, 16] }] },
-        { "name": "leftLeg", "pivot": [1.9, 12, 0], "cubes": [{ "origin": [0.4, 0, -1.5], "size": [3, 12, 3], "uv": [16, 48] }] }
+        { "name": "leftLeg", "pivot": [1.9, 12, 0], "cubes": [{ "origin": [0.4, 0, -1.5], "size": [3, 12, 3], "uv": [16, 48] }] },
+        { "name": "waist", "pivot": [0, 12, 0] },
+        { "name": "hat", "pivot": [0, 24, 0] },
+        { "name": "rightItem", "pivot": [-6, 15, 1] },
+        { "name": "leftItem", "pivot": [6, 15, 1] }
       ]
     }
   ]

@@ -4,7 +4,7 @@
     "description": {
       "identifier": "com_organic_forgery_and_the_harvester_kse6cimp:marrow_ghast",
       "min_engine_version": "1.8.0",
-      "materials": { "default": "entity_alphablend" },
+      "materials": { "default": "entity_alphatest" },
       "textures": {
         "default": "textures/com/organic_forgery_and_the_harvester_kse6cimp/entity/marrow_ghast/marrow_ghast"
       },
