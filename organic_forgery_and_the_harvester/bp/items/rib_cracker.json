@@ -5,8 +5,9 @@
     "components": {
       "minecraft:icon": "com_organic_forgery_and_the_harvester_kse6cimp:rib_cracker",
       "minecraft:hand_equipped": true,
-      "minecraft:damage": { "value": 9 },
+      "minecraft:damage": { "value": 10 },
       "minecraft:durability": { "max_durability": 410 },
+      "minecraft:use_modifiers": { "use_duration": 3600, "movement_modifier": 0.7 },
       "minecraft:digger": { "use_efficiency": true, "destroy_speeds": [{ "speed": 8, "block": { "tags": "q.any_tag('minecraft:is_axe_item_destructible')" } }] },
       "minecraft:tags": { "tags": ["minecraft:is_axe", "minecraft:is_tool"] },
       "com_organic_forgery_and_the_harvester_kse6cimp:rib_cracker": {}

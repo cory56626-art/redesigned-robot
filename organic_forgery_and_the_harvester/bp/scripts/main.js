@@ -58,11 +58,14 @@ function handleAdaptiveHit(player, victim, itemStack) {
 function kineticShieldBreaker(player, victim) {
   const hasShield = !!(victim.getComponent?.("minecraft:shield") || victim.getComponent?.("minecraft:is_blocking"));
   victim.setDynamicProperty("adaptive_shield_broken_until", system.currentTick + 40);
-  victim.runCommand("effect @s slowness 2 2 true");
-  victim.runCommand("effect @s weakness 2 1 true");
+  victim.runCommand("effect @s slowness 4 2 true");
+  victim.runCommand("effect @s weakness 4 1 true");
+  victim.runCommand("effect @s mining_fatigue 4 1 true");
+  applySickly(victim, 120, 2);
   if (hasShield) victim.dimension.playSound("random.shield_break", victim.location, { volume: 1.1, pitch: 0.75 });
+  victim.dimension.spawnParticle("minecraft:knockback_roar_particle", { x: victim.location.x, y: victim.location.y + 0.2, z: victim.location.z });
   const dx = victim.location.x - player.location.x, dz = victim.location.z - player.location.z, m = Math.max(0.1, Math.sqrt(dx * dx + dz * dz));
-  if (!(victim instanceof Player)) victim.applyImpulse({ x: dx / m * 1.6, y: 0.55, z: dz / m * 1.6 });
+  if (!(victim instanceof Player)) victim.applyImpulse({ x: dx / m * 0.5, y: 1.35, z: dz / m * 0.5 });
 }
 world.afterEvents.entityHitEntity.subscribe((e) => {
   const p = e.damagingEntity;
@@ -166,27 +169,36 @@ world.afterEvents.itemUse.subscribe((e) => {
     p.onScreenDisplay.setActionBar("\xA7fCalcified Bulwark Aura protects nearby allies.");
   }
 });
-world.beforeEvents.entityDamage?.subscribe((e) => {
-  const p = e.damagedEntity;
+world.afterEvents.entityHurt.subscribe((e) => {
+  const p = e.hurtEntity;
   if (!(p instanceof Player) || !heldAdaptive(p) || p.getDynamicProperty("adaptive_fractured_used")) return;
   const h = p.getComponent("minecraft:health");
-  const current = Number(h?.currentValue ?? h?.value ?? 20);
-  if (Number(e.damage ?? 0) < current) return;
-  e.cancel = true;
-  system.run(() => {
-    p.setDynamicProperty("adaptive_fractured_used", 1);
-    p.runCommand("effect @s resistance 8 3 true");
-    p.runCommand("effect @s regeneration 8 2 true");
-    p.runCommand("effect @s instant_health 1 10 true");
-    p.dimension.playSound(`${SOUND}.fracture_revive`, p.location, { volume: 2, pitch: 0.55 });
-    for (let i = 0; i < 32; i++) p.dimension.spawnParticle(i % 2 ? "minecraft:redstone_wire_dust_particle" : "minecraft:critical_hit_emitter", { x: p.location.x + (Math.random() - 0.5) * 1.5, y: p.location.y + Math.random() * 1.8, z: p.location.z + (Math.random() - 0.5) * 1.5 });
-    const c = invContainer(p), sel = selectedStack(p);
-    if (sel?.typeId === ADAPTIVE_ARM_BLADE) c?.setItem(p.selectedSlotIndex, new ItemStack(FRACTURED_ARM_BLADE, 1));
-    else {
-      p.runCommand(`clear @s ${ADAPTIVE_ARM_BLADE} 0 1`);
-      p.runCommand(`give @s ${FRACTURED_ARM_BLADE} 1`);
-    }
-  });
+  const current = Number(h?.currentValue ?? 20);
+  if (current > 6) return;
+  p.setDynamicProperty("adaptive_fractured_used", 1);
+  try {
+    h?.setCurrentValue?.(Number(h?.effectiveMax ?? h?.defaultValue ?? 20));
+  } catch {
+  }
+  p.runCommand("effect @s resistance 8 3 true");
+  p.runCommand("effect @s regeneration 8 2 true");
+  p.runCommand("effect @s instant_health 1 10 true");
+  p.runCommand("effect @s absorption 12 2 true");
+  p.runCommand("effect @s fire_resistance 8 0 true");
+  p.dimension.playSound(`${SOUND}.fracture_revive`, p.location, { volume: 2, pitch: 0.55 });
+  for (let i = 0; i < 40; i++) p.dimension.spawnParticle(i % 2 ? "minecraft:redstone_wire_dust_particle" : "minecraft:critical_hit_emitter", { x: p.location.x + (Math.random() - 0.5) * 1.6, y: p.location.y + Math.random() * 1.9, z: p.location.z + (Math.random() - 0.5) * 1.6 });
+  for (const en of p.dimension.getEntities({ location: p.location, maxDistance: 4.5, excludeTypes: ["minecraft:item", "minecraft:xp_orb"] })) if (hostileForBlade(en, p)) {
+    const dx = en.location.x - p.location.x, dz = en.location.z - p.location.z, m = Math.max(0.1, Math.sqrt(dx * dx + dz * dz));
+    en.applyImpulse({ x: dx / m, y: 0.5, z: dz / m });
+    en.runCommand("effect @s slowness 3 1 true");
+  }
+  const c = invContainer(p), sel = selectedStack(p);
+  if (sel?.typeId === ADAPTIVE_ARM_BLADE) c?.setItem(p.selectedSlotIndex, new ItemStack(FRACTURED_ARM_BLADE, 1));
+  else {
+    p.runCommand(`clear @s ${ADAPTIVE_ARM_BLADE} 0 1`);
+    p.runCommand(`give @s ${FRACTURED_ARM_BLADE} 1`);
+  }
+  p.onScreenDisplay.setActionBar("\xA74\xA7lDEATH-DEFYING FRACTURE\xA7r \xA7c— the blade shatters to save you.");
 });
 system.runInterval(() => {
   for (const p of world.getPlayers()) if (heldFractured(p) || Number(p.getDynamicProperty("fractured_bulwark_until") ?? 0) > system.currentTick) {
@@ -755,6 +767,20 @@ function ownerHasAdaptiveBlade(ally) {
   const p = world.getPlayers().find((pl) => pl.name === owner && pl.dimension.id === ally.dimension.id);
   return !!p && hasItem(p, ADAPTIVE_ARM_BLADE);
 }
+world.afterEvents.entityHurt.subscribe((e) => {
+  const v = e.hurtEntity;
+  if (v?.typeId !== CREMATION_ALLY || !Number(v.getDynamicProperty("is_adapted"))) return;
+  const src = String(e.damageSource?.damagingEntity?.typeId ?? e.damageSource?.cause ?? "generic");
+  const prev = String(v.getDynamicProperty("ally_adapt_source") ?? "");
+  let stacks = prev === src ? Number(v.getDynamicProperty("ally_adapt_stacks") ?? 0) : 0;
+  v.setDynamicProperty("ally_adapt_source", src);
+  stacks = Math.min(4, stacks + 1);
+  v.setDynamicProperty("ally_adapt_stacks", stacks);
+  const amp = stacks >= 4 ? 1 : 0;
+  v.runCommand(`effect @s resistance 6 ${amp} true`);
+  v.dimension.spawnParticle("minecraft:critical_hit_emitter", { x: v.location.x, y: v.location.y + 1.4, z: v.location.z });
+  if (stacks >= 4) v.dimension.playSound(`${SOUND}.adapt_complete`, v.location, { volume: 0.8, pitch: 1.1 });
+});
 world.beforeEvents.playerInteractWithEntity?.subscribe((e) => {
   const p = e.player ?? e.source;
   const target = e.target ?? e.targetEntity;
@@ -783,6 +809,14 @@ system.runInterval(() => {
     for (const ally of dim.getEntities({ type: CREMATION_ALLY })) {
       const adapted = ownerHasAdaptiveBlade(ally);
       ally.setDynamicProperty("is_adapted", adapted ? 1 : 0);
+      if (adapted) {
+        ally.runCommand("effect @s speed 2 1 true");
+        ally.runCommand("effect @s strength 2 1 true");
+        if (system.currentTick % 20 === 0) ally.dimension.spawnParticle("minecraft:redstone_wire_dust_particle", { x: ally.location.x, y: ally.location.y + 2.1, z: ally.location.z });
+      } else {
+        ally.setDynamicProperty("ally_adapt_stacks", 0);
+        ally.setDynamicProperty("ally_adapt_source", "");
+      }
       const targetId = String(ally.getDynamicProperty("currentTarget") ?? "");
       if (!targetId) continue;
       const target = dim.getEntities({ location: ally.location, maxDistance: 24, excludeTypes: ["minecraft:item", "minecraft:xp_orb"] }).find((e) => e.id === targetId);
@@ -794,7 +828,7 @@ system.runInterval(() => {
       ally.applyImpulse({ x: dx / m * 0.12, y: 0, z: dz / m * 0.12 });
       if (m < 2.3 && Number(ally.getDynamicProperty("ally_next_forced_hit") ?? 0) <= system.currentTick) {
         ally.setDynamicProperty("ally_next_forced_hit", system.currentTick + 20);
-        target.runCommand(`damage @s ${adapted ? 6 : 4} entity_attack`);
+        target.runCommand(`damage @s ${adapted ? 8 : 4} entity_attack`);
       }
     }
   }
@@ -919,30 +953,27 @@ function triggerOsteoSpike(player) {
 var marrowBladeComponent = {};
 world.afterEvents.entityHitEntity.subscribe((e) => {
   const p = e.damagingEntity;
-  if (!(p instanceof Player)) return;
-  const c = invContainer(p);
-  const itemStack = c?.getItem(p.selectedSlotIndex);
-  if (!c || !itemStack || itemStack.typeId !== MARROW_BLADE) return;
-  let stacks = Math.min(3, Number(itemStack.getDynamicProperty("marrow_stacks") ?? itemStack.getDynamicProperty("organic_marrow_stacks") ?? 0) + 1);
-  itemStack.setDynamicProperty("marrow_stacks", stacks);
-  itemStack.setDynamicProperty("organic_marrow_stacks", stacks);
-  c.setItem(p.selectedSlotIndex, itemStack);
-  if (e.hitEntity?.isValid) e.hitEntity.runCommand(`effect @s slowness 2 ${stacks - 1} true`);
+  if (!(p instanceof Player) || selectedType(p) !== MARROW_BLADE) return;
+  const victim = e.hitEntity;
+  const now = system.currentTick, last = Number(p.getDynamicProperty("organic_marrow_last") ?? -99999);
+  let stacks = now - last > 120 ? 0 : Number(p.getDynamicProperty("organic_marrow_stacks") ?? 0);
+  stacks = Math.min(3, stacks + 1);
+  p.setDynamicProperty("organic_marrow_stacks", stacks);
+  p.setDynamicProperty("organic_marrow_last", now);
+  if (victim?.isValid) victim.runCommand(`effect @s slowness 2 ${stacks - 1} true`);
   if (stacks >= 3) {
     p.dimension.playSound("mob.warden.heartbeat", p.location, { volume: 0.9, pitch: 0.7 });
     for (let i = 0; i < 8; i++) p.dimension.spawnParticle("minecraft:redstone_wire_dust_particle", { x: p.location.x + (Math.random() - 0.5) * 0.7, y: p.location.y + 1, z: p.location.z + (Math.random() - 0.5) * 0.7 });
     p.runCommand("effect @s strength 4 0 true");
     const v = p.getVelocity();
     const crit = v.y < -0.05 && !p.isOnGround;
-    if (crit || p.isSprinting) {
-      itemStack.setDynamicProperty("marrow_stacks", 0);
-      itemStack.setDynamicProperty("organic_marrow_stacks", 0);
-      c.setItem(p.selectedSlotIndex, itemStack);
+    if (crit || p.isSprinting || p.isSneaking) {
+      p.setDynamicProperty("organic_marrow_stacks", 0);
       triggerOsteoSpike(p);
       return;
     }
-    p.onScreenDisplay.setActionBar("\xA74Marrow-Blade \xA7cPRIMED\xA74: \xA7fjump-crit or sprint-strike \xA74to erupt Osteo-Spike.");
-  } else p.onScreenDisplay.setActionBar(`\xA7cMarrow kinetic charge: \xA7f${stacks}/3 \xA78█${"█".repeat(stacks)}${"░".repeat(3 - stacks)}`);
+    p.onScreenDisplay.setActionBar("\xA74Marrow-Blade \xA7cPRIMED\xA74: \xA7fsprint, jump-crit, or sneak-strike \xA74to erupt Osteo-Spike.");
+  } else p.onScreenDisplay.setActionBar(`\xA7cMarrow kinetic charge: \xA7f${stacks}/3 \xA78${"█".repeat(stacks)}${"░".repeat(3 - stacks)}`);
 });
 var activeHarpoons = /* @__PURE__ */ new Map();
 function invContainer(player) {
@@ -1159,6 +1190,46 @@ var ribCrackerComponent = { onHitEntity(e) {
   p.dimension.playSound("mob.skeleton.hurt", target.location, { volume: 1, pitch: 0.55 });
   p.onScreenDisplay.setActionBar("\xA7cRib-Cracker splinters through the guard!");
 } };
+function ribCrackerSlam(player) {
+  const dir = view(player);
+  player.dimension.playSound("mob.warden.sonic_boom", player.location, { volume: 1.2, pitch: 0.7 });
+  player.dimension.spawnParticle("minecraft:knockback_roar_particle", player.location);
+  for (const ent of player.dimension.getEntities({ location: player.location, maxDistance: 4, excludeTypes: ["minecraft:item", "minecraft:xp_orb"] })) if (hostileForBlade(ent, player)) {
+    ent.runCommand("damage @s 14 entity_attack");
+    applyBleed(ent);
+    const dx = ent.location.x - player.location.x, dz = ent.location.z - player.location.z, m = Math.max(0.1, Math.sqrt(dx * dx + dz * dz));
+    ent.applyImpulse({ x: dx / m * 0.6, y: 0.5, z: dz / m * 0.6 });
+  }
+  const mag = Math.max(1e-3, Math.sqrt(dir.x * dir.x + dir.z * dir.z));
+  const nx = dir.x / mag, nz = dir.z / mag, hit = /* @__PURE__ */ new Set();
+  for (let i = 1; i <= 8; i++) system.runTimeout(() => {
+    if (!player.isValid) return;
+    const loc = { x: player.location.x + nx * i, y: player.location.y, z: player.location.z + nz * i };
+    player.dimension.spawnParticle("minecraft:knockback_roar_particle", loc);
+    player.dimension.spawnParticle("minecraft:redstone_wire_dust_particle", { x: loc.x, y: loc.y + 0.3, z: loc.z });
+    for (const ent of player.dimension.getEntities({ location: loc, maxDistance: 1.6, excludeTypes: ["minecraft:item", "minecraft:xp_orb"] })) if (hostileForBlade(ent, player) && !hit.has(ent.id)) {
+      hit.add(ent.id);
+      ent.runCommand("damage @s 8 entity_attack");
+      applyBleed(ent);
+    }
+  }, i);
+  player.onScreenDisplay.setActionBar("\xA74Rib-Cracker \xA7cSLAM\xA74 — \xA7fa bleeding fissure tears forward!");
+}
+world.afterEvents.itemUse.subscribe((e) => {
+  const p = e.source;
+  if (p instanceof Player && e.itemStack?.typeId === RIB_CRACKER) {
+    p.setDynamicProperty("organic_rib_charge_start", system.currentTick);
+    p.dimension.playSound("block.bell.hit", p.location, { volume: 0.5, pitch: 0.6 });
+    p.onScreenDisplay.setActionBar("\xA78Rib-Cracker charging... \xA77hold and release to slam.");
+  }
+});
+world.afterEvents.itemReleaseAfterUse?.subscribe((e) => {
+  const p = e.source;
+  if (!(p instanceof Player) || e.itemStack?.typeId !== RIB_CRACKER) return;
+  const start = Number(p.getDynamicProperty("organic_rib_charge_start") ?? 0);
+  p.setDynamicProperty("organic_rib_charge_start", 0);
+  if (start > 0 && system.currentTick - start >= 12 && ready(p, "organic_rib_slam_cd", 100)) ribCrackerSlam(p);
+});
 function devourerEmergence(_mob) {
 }
 function devourerDoAttack(attacker, victim) {
@@ -1170,31 +1241,104 @@ function triggerShieldBash(player) {
   chimeraShieldComponent.onUse?.({ source: player }, {});
   player.setDynamicProperty("organic_shield_bash_sneak_lock", system.currentTick + 20);
 }
-function giveTestingGear(p) {
-  [SPINE_SHOT_CROSSBOW, TENDON_DAGGER, SPINE_HARPOON, SPITTER, MARROW_BLADE, RIB_CRACKER, PARASITIC_PICKAXE, ANCHOR, GLAND, WAND, HOMUNCULUS_WARD, CHITIN.head, CHITIN.chest, CHITIN.legs, CHITIN.feet, MEAT.head, MEAT.chest, MEAT.legs, MEAT.feet].forEach((id) => p.runCommand(`give @s ${id} 1`));
+var ITEM_ICON = (n) => `textures/com/organic_forgery_and_the_harvester_kse6cimp/items/${n}`;
+function isDevPlayer(p) {
+  try {
+    if (p.isOp?.()) return true;
+  } catch {
+  }
+  try {
+    const gm = p.getGameMode?.();
+    if (gm && String(gm).toLowerCase().includes("creative")) return true;
+  } catch {
+  }
+  return p.hasTag("dev") || p.hasTag("op");
 }
-function openDevSandbox(p) {
-  new ActionFormData().title("[DEV] Bioscience Sandbox").body("Operator-only Organic Forgery debug triggers.").button("Force-Spawn Cremation Ally").button("Max Out Corruption/Chum Score").button("Clear Active Harpoon Tethers").button("Acquire All Biological Testing Gear").show(p).then((r) => {
+function giveTestingGear(p) {
+  [ADAPTIVE_ARM_BLADE, LIVING_BLADE, MARROW_BLADE, FLAIL, TENDON_DAGGER, SPINE_HARPOON, SPITTER, SPINE_SHOT_CROSSBOW, RIB_CRACKER, PARASITIC_PICKAXE, ANCHOR, GLAND, WAND, HOMUNCULUS_WARD, FLESH_SHIELD, CHIMERA_SHIELD, JOURNAL, `${NS}:butchers_knife`, PURE_HEART, `${NS}:harvester_placer`, CHITIN.head, CHITIN.chest, CHITIN.legs, CHITIN.feet, MEAT.head, MEAT.chest, MEAT.legs, MEAT.feet, ARMOR.head, ARMOR.chest, ARMOR.legs, ARMOR.feet].forEach((id) => p.runCommand(`give @s ${id} 1`));
+  p.runCommand(`give @s ${BONE_SHARD_AMMO} 64`);
+  p.runCommand(`give @s ${RAW_CARCASS} 16`);
+  p.runCommand(`give @s ${NS}:calcified_bone_block 8`);
+  p.runCommand("give @s minecraft:coal 16");
+}
+function spawnBossFor(p) {
+  const d = view(p), loc = { x: p.location.x + d.x * 4, y: p.location.y, z: p.location.z + d.z * 4 };
+  const b = p.dimension.spawnEntity(BIOMASS_HIVE, loc);
+  b.addTag(`${NS}_boss`);
+  b.setDynamicProperty("biomass_phase", 1);
+  b.setDynamicProperty("biomass_anchor_x", loc.x);
+  b.setDynamicProperty("biomass_anchor_y", loc.y);
+  b.setDynamicProperty("biomass_anchor_z", loc.z);
+  p.dimension.playSound(`${SOUND}.biomass_hive_roar`, loc, { volume: 2, pitch: 0.7 });
+}
+function openMobSpawner(p) {
+  const mobs = [["Grafted Stalker", GRAFTED_STALKER], ["Splintered Hound", SPLINTERED_HOUND], ["Bloated Amalgam", BLOATED_AMALGAM], ["Marrow-Ghast", MARROW_GHAST], ["Homunculus Ward", HOMUNCULUS_BASE], ["Venom Homunculus", HOMUNCULUS_VENOM], ["Mortar Homunculus", HOMUNCULUS_MORTAR], ["Bulwark Homunculus", HOMUNCULUS_BULWARK]];
+  const form = new ActionFormData().title("\xA7l\xA76Spawn a Mob").body("\xA77Spawns 4 blocks ahead of you. Homunculi bind to you as wards.");
+  mobs.forEach((m) => form.button("\xA7f" + m[0]));
+  form.button("\xA77◀ Back");
+  form.show(p).then((r) => {
     if (r.canceled) return;
-    if (r.selection === 0) {
-      summonCremationAlly(p);
-      p.sendMessage(`\xA7d[DEV] Spawned ${CREMATION_ALLY} at your coordinates.`);
+    if (r.selection === mobs.length) {
+      openTestLab(p);
+      return;
     }
-    if (r.selection === 1) {
-      const k = `custom:chum_score:${chumKey(p.location, p.dimension.id)}`;
-      world.setDynamicProperty(k, 250);
-      world.setDynamicProperty("chum_score", 250);
-      world.setDynamicProperty("corruption_score", 250);
-      p.sendMessage("\xA7d[DEV] Corruption/Chum score maxed for high-tier events.");
+    const m = mobs[r.selection], d = view(p);
+    const e = p.dimension.spawnEntity(m[1], { x: p.location.x + d.x * 4, y: p.location.y, z: p.location.z + d.z * 4 });
+    if ([HOMUNCULUS_BASE, HOMUNCULUS_VENOM, HOMUNCULUS_MORTAR, HOMUNCULUS_BULWARK].includes(m[1])) {
+      e.addTag(`${NS}_homunculus`);
+      e.setDynamicProperty("organic_owner", p.name);
     }
-    if (r.selection === 2) {
-      for (const id of Array.from(activeHarpoons.keys())) clearHarpoon(id, true, "random.break");
-      p.sendMessage("\xA7d[DEV] Cleared active harpoon tethers.");
+    p.sendMessage(`\xA7d[LAB] Spawned ${m[0]}.`);
+  }).catch(() => {
+  });
+}
+function openTestLab(p) {
+  new ActionFormData().title("\xA7l\xA7dBIOSCIENCE TEST LAB").body("\xA77Developer tools — gear up, spawn, and validate every system.").button("\xA7aGive All Gear & Ammo", ITEM_ICON("apex_spine")).button("\xA7cSummon Cremation Ally", ITEM_ICON("cremation_wand")).button("\xA74Summon Biomass Hive (Boss)", ITEM_ICON("pure_necrotic_heart")).button("\xA76Spawn a Mob…", ITEM_ICON("necrotic_ichor")).button("\xA75Max Corruption / Chum", ITEM_ICON("marrow")).button("\xA7bCycle Wellness Tier", ITEM_ICON("cured_hide")).button("\xA7fHeal & Clear Effects", ITEM_ICON("crystalline_marrow")).button("\xA79Reset Fracture & Cooldowns", ITEM_ICON("adaptive_arm_blade")).button("\xA78Clear Harpoon Tethers", ITEM_ICON("sinew_spool")).show(p).then((r) => {
+    if (r.canceled) return;
+    switch (r.selection) {
+      case 0:
+        giveTestingGear(p);
+        p.sendMessage("\xA7d[LAB] Full gear + ammo granted.");
+        break;
+      case 1:
+        summonCremationAlly(p);
+        p.sendMessage("\xA7d[LAB] Cremation Ally summoned.");
+        break;
+      case 2:
+        spawnBossFor(p);
+        p.sendMessage("\xA7d[LAB] Biomass Hive-Mind summoned.");
+        break;
+      case 3:
+        openMobSpawner(p);
+        break;
+      case 4: {
+        const k = `custom:chum_score:${chumKey(findNearbyHarvester(p), p.dimension.id)}`;
+        world.setDynamicProperty(k, 250);
+        world.setDynamicProperty("chum_score", 250);
+        p.sendMessage("\xA7d[LAB] Corruption/Chum maxed near you.");
+        break;
+      }
+      case 5: {
+        const w = getWellness(p), nw = w >= 67 ? 20 : w >= 34 ? 90 : 50;
+        setWellness(p, nw);
+        p.sendMessage(`\xA7d[LAB] Wellness set to ${nw} (${rotTier(nw)}).`);
+        break;
+      }
+      case 6:
+        p.runCommand("effect @s clear");
+        p.runCommand("effect @s instant_health 1 20 true");
+        p.sendMessage("\xA7d[LAB] Healed & cleared effects.");
+        break;
+      case 7:
+        for (const k of ["adaptive_fractured_used", "organic_gland_cd", "organic_parasite_cd", "organic_parasitized_cd", "organic_rib_slam_cd", "organic_chimera_shield_cd"]) p.setDynamicProperty(k, 0);
+        p.sendMessage("\xA7d[LAB] Fracture + cooldowns reset.");
+        break;
+      case 8:
+        for (const id of Array.from(activeHarpoons.keys())) clearHarpoon(id, true, "random.break");
+        p.sendMessage("\xA7d[LAB] Harpoon tethers cleared.");
+        break;
     }
-    if (r.selection === 3) {
-      giveTestingGear(p);
-      p.sendMessage("\xA7d[DEV] Biological testing gear acquired.");
-    }
+  }).catch(() => {
   });
 }
 function journalPage(p, title, body) {
@@ -1204,36 +1348,34 @@ function journalPage(p, title, body) {
   });
 }
 function openJournalDev(p) {
-  const isOp = p.isOp?.() ?? p.hasTag("op");
+  const dev = isDevPlayer(p);
   const h = findNearbyHarvester(p);
   const chum = Number(world.getDynamicProperty(`custom:chum_score:${chumKey(h, p.dimension.id)}`) ?? 0);
   const w = Math.floor(getWellness(p));
-  const form = new ActionFormData().title("\xA7l\xA74The Anatomist's Journal").body(`\xA78━━━━━━━━━━━━━━━━
-\xA7cWellness  \xA7f${w}  \xA77(${rotTier(w)})
-\xA75Local Chum  \xA7f${chum}
-\xA78━━━━━━━━━━━━━━━━`).button("\xA76Organic Forgery Recipes\n\xA78Living weapons \xB7 armor \xB7 tools").button("\xA7aRot Tier Progression\n\xA78Fresh \xB7 Fermented \xB7 Putrid").button("\xA75Harvester & Corruption\n\xA78Chum \xB7 flesh-moss \xB7 the Hive-Mind");
-  if (isOp) form.button("\xA7c[DEV] Bioscience Sandbox\n\xA78Operator debug triggers");
+  const form = new ActionFormData().title("\xA7l\xA74The Anatomist's Journal").body(`\xA7cWellness \xA7f${w} \xA77(${rotTier(w)})    \xA78\xB7    \xA75Chum \xA7f${chum}`).button("\xA76Living Weapons\n\xA78Blades \xB7 flail \xB7 spitter \xB7 crossbow", ITEM_ICON("adaptive_arm_blade")).button("\xA7aArmor & Rot Tiers\n\xA78Sets \xB7 wellness \xB7 synergies", ITEM_ICON("ribcage_carapace")).button("\xA75Harvester & Corruption\n\xA78Chum \xB7 flesh-moss \xB7 the Hive-Mind", ITEM_ICON("pure_necrotic_heart"));
+  if (dev) form.button("\xA7d\xA7lBioscience Test Lab\n\xA78Spawn \xB7 gear \xB7 validate", ITEM_ICON("anatomists_journal"));
   form.show(p).then((r) => {
     if (r.canceled) return;
-    if (r.selection === 0) journalPage(p, "\xA7l\xA76Organic Forgery Recipes", `\xA78Craft at the \xA76Organic Forgery\xA78 block.
+    if (r.selection === 0) journalPage(p, "\xA7l\xA76Living Weapons", `\xA7cAdaptive Arm-Blade\xA77: sneak-use cycles Severing / Sweeping / Kinetic; use to leap-slam; cheats death once into the Fractured Blade.
+\xA7cMarrow-Blade\xA77: build 3 kinetic stacks, then sprint, jump-crit, or sneak-strike to erupt an Osteo-Spike.
+\xA7cLiving Bone Blade\xA77: vampiric; a 5-hit Sanguine combo unleashes a life-draining Feast.
+\xA7cBile-Spitter\xA77: sneak to load 5 charges - rotten flesh (toxic), carcass (shrapnel cone), spider eye (sickly).
+\xA7cSpine-Shot Crossbow\xA77: hold to rapid-fire bone shards; sickly targets rupture.
+\xA7cTendon Dagger\xA77: sneak/invis strikes bleed - backstabs hit harder.
+\xA7cRib-Cracker\xA77: hold to charge a bleeding ground-slam.`);
+    else if (r.selection === 1) journalPage(p, "\xA7l\xA7aArmor & Rot Tiers", `\xA76Anatomical set\xA77 shares one Wellness pool (feed raw meat to raise it):
+\xA72Fresh 67-100\xA77: faster gear, Speed/Haste on hits.
+\xA76Fermented 34-66\xA77: knockback & projectile resistance.
+\xA75Putrid 0-33\xA77: camouflage & emergency invisibility.
 
-\xA7c• Bile-Spitter\xA77: dense bone + sinew + necrotic ichor + raw carcass
-\xA7c• Flesh Shield\xA77: cured hide + dense bone + sinew + necrotic ichor
-\xA7c• Anatomical Armor\xA77: cured hide, sinew, marrow, dense bone
-\xA7c• Symbiotic Exoskeleton\xA77: The Apex Spine + the full anatomical set
+\xA7cChitinous set\xA77: fireproof, crash-proof tank.
+\xA7cMeat-Sack set\xA77: full set is \xA7cParasitized\xA77 - tendrils auto-block a blow, health-boost you, and tangle the attacker (20s cooldown).`);
+    else if (r.selection === 2) journalPage(p, "\xA7l\xA75Harvester & Corruption", `\xA78Place \xA7cThe Harvester\xA78, then use a \xA7cRaw Carcass\xA78 on it (coal in inventory) to grind biomaterials and build \xA75Chum\xA78.
 
-\xA78Butcher weakened animals (below 30% HP) for Raw Carcasses, then grind them at the Harvester with coal for biomaterials.`);
-    else if (r.selection === 1) journalPage(p, "\xA7l\xA7aRot Tier Progression", `\xA78Living gear carries \xA7cWellness 0-100\xA78. Feed it raw meat to raise it; combat and time lower it.
+\xA77Rising Chum spreads \xA72flesh-moss\xA77 and \xA7fcalcified bone\xA77, and \xA74Grafted Stalkers\xA77 emerge.
 
-\xA72Fresh (67-100)\xA77: stable, faster living gear; rot-sync grants Speed & Haste on hits.
-\xA76Fermented (34-66)\xA77: heavy defense, knockback and projectile resistance.
-\xA75Putrid (0-33)\xA77: predator camouflage and emergency invisibility at low HP - risky power.`);
-    else if (r.selection === 2) journalPage(p, "\xA7l\xA75Harvester & Corruption", `\xA78Place \xA7cThe Harvester\xA78, then use a \xA7cRaw Carcass\xA78 on it (with coal in your inventory) to grind biomaterials. Each grind builds \xA75Chum\xA78 in the soil.
-
-\xA77As Chum rises, \xA72flesh-moss\xA77 and \xA7fcalcified bone\xA77 spread across nearby terrain and \xA74Grafted Stalkers\xA77 crawl out.
-
-\xA74\xA7lTHE HIVE-MIND\xA7r\xA77: ring the Harvester's base with 4 \xA7fCalcified Bone Blocks\xA77 (one on each cardinal side, at the base row), then use a \xA7cPure Necrotic Heart\xA77 on the Harvester to summon the boss.`);
-    else if (isOp && r.selection === 3) openDevSandbox(p);
+\xA74\xA7lTHE HIVE-MIND\xA7r\xA77: ring the Harvester base with 4 \xA7fCalcified Bone Blocks\xA77 (cardinal sides), then use a \xA7cPure Necrotic Heart\xA77 on it to summon the boss.`);
+    else if (dev && r.selection === 3) openTestLab(p);
   }).catch(() => {
   });
 }
@@ -1435,7 +1577,7 @@ function forgePage(player, title, body) {
   });
 }
 function showForgeUi(player) {
-  new ActionFormData().title("\xA7l\xA74ORGANIC FORGE \xA78// \xA7cLive Grafting").body("\xA78\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\xA7cBone clamps \u2022 pulsing valves \u2022 marrow channels\n\xA78\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\xA77Craft living gear, feed it raw flesh to stabilize Wellness, or let it decay into Putrid mutations for riskier power.").button("\xA7l\xA7cLIVING WEAPONS\n\xA78Blade \u2022 Flail \u2022 Spitter \u2022 Anchor").button("\xA7l\xA76ANATOMICAL ARMOR\n\xA78Crown \u2022 Carapace \u2022 Greaves \u2022 Treads").button("\xA7l\xA75HARVEST CYCLE\n\xA78Stronger prey yields richer carcasses").show(player).then((r) => {
+  new ActionFormData().title("\xA7l\xA74ORGANIC FORGE \xA78// \xA7cLive Grafting").body("\xA78\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\xA7cBone clamps \u2022 pulsing valves \u2022 marrow channels\n\xA78\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\xA77Craft living gear, feed it raw flesh to stabilize Wellness, or let it decay into Putrid mutations for riskier power.").button("\xA7l\xA7cLIVING WEAPONS\n\xA78Blade \u2022 Flail \u2022 Spitter \u2022 Anchor", ITEM_ICON("marrow_blade")).button("\xA7l\xA76ANATOMICAL ARMOR\n\xA78Crown \u2022 Carapace \u2022 Greaves \u2022 Treads", ITEM_ICON("ocular_crown")).button("\xA7l\xA75HARVEST CYCLE\n\xA78Stronger prey yields richer carcasses", ITEM_ICON("raw_carcass")).show(player).then((r) => {
     if (r.canceled) return;
     if (r.selection === 0) forgePage(player, "\xA7l\xA7cLIVING WEAPONS", `\xA7c\u2022 Living Bone Blade\xA77: vampiric; builds a Sanguine combo into a life-draining Feast.
 \xA7c\u2022 Marrow-Blade\xA77: stacks kinetic charge - jump-crit or sprint-strike erupts an Osteo-Spike.
@@ -1574,18 +1716,59 @@ world.afterEvents.entityHurt.subscribe((ev) => {
   const hurt = ev.hurtEntity;
   const attacker = ev.damageSource.damagingEntity;
   if (hurt.typeId === BIOMASS_HIVE && Number(hurt.getDynamicProperty("biomass_phase") ?? 1) === 1 && ev.damageSource.cause?.toString?.().includes("projectile")) system.run(() => hurt.runCommand("effect @s instant_health 1 1 true"));
-  if (hurt instanceof Player && (offhandType(hurt) === FLESH_SHIELD || selectedType(hurt) === FLESH_SHIELD)) {
-    hurt.setDynamicProperty("organic_flesh_shield_hit", system.currentTick + 10);
-    if (hurt.isSneaking) {
-      const dir = view(hurt);
-      hurt.applyKnockback({ x: dir.x * 2.2, z: dir.z * 2.2 }, 0.08);
-      const target = attacker && !(attacker instanceof Player) ? attacker : hurt.dimension.getEntities({ location: hurt.location, maxDistance: 3, excludeTypes: ["minecraft:item", "minecraft:xp_orb"] }).find((e) => !(e instanceof Player));
-      if (target) {
-        target.runCommand("damage @s 5 entity_attack");
-        target.applyKnockback({ x: dir.x * 3, z: dir.z * 3 }, 0.35);
-      }
+  if (hurt instanceof Player && (offhandType(hurt) === FLESH_SHIELD || hasItem(hurt, FLESH_SHIELD)) && system.currentTick >= Number(hurt.getDynamicProperty("organic_parasite_cd") ?? 0)) {
+    const dmg = Math.max(1, ev.damage ?? 1);
+    hurt.runCommand(`effect @s instant_health 1 ${Math.min(9, Math.ceil(dmg / 2))} true`);
+    hurt.runCommand("effect @s absorption 5 0 true");
+    hurt.setDynamicProperty("organic_parasite_cd", system.currentTick + 120);
+    hurt.dimension.playSound("mob.slime.attack", hurt.location, { volume: 1, pitch: 0.6 });
+    for (let i = 0; i < 12; i++) hurt.dimension.spawnParticle("minecraft:redstone_wire_dust_particle", { x: hurt.location.x + (Math.random() - 0.5) * 1.2, y: hurt.location.y + 0.5 + Math.random(), z: hurt.location.z + (Math.random() - 0.5) * 1.2 });
+    const target = attacker && !(attacker instanceof Player) ? attacker : hurt.dimension.getEntities({ location: hurt.location, maxDistance: 5, excludeTypes: ["minecraft:item", "minecraft:xp_orb"] }).find((en) => hostileForBlade(en, hurt));
+    if (target?.isValid) {
+      target.runCommand("effect @s slowness 3 7 true");
+      target.runCommand("effect @s weakness 3 2 true");
+      const dx = target.location.x - hurt.location.x, dz = target.location.z - hurt.location.z;
+      for (let i = 1; i <= 6; i++) hurt.dimension.spawnParticle("minecraft:redstone_wire_dust_particle", { x: hurt.location.x + dx * i / 7, y: hurt.location.y + 1, z: hurt.location.z + dz * i / 7 });
     }
+    hurt.onScreenDisplay.setActionBar("\xA7aSymbiotic Parasite intercepts the blow! \xA78Tendril recovering \xA7c6s");
   }
+});
+world.afterEvents.entityHurt.subscribe((ev) => {
+  const victim = ev.hurtEntity;
+  if (!(victim instanceof Player) || !isHoldingChimeraShield(victim) || !victim.isSneaking) return;
+  const attacker = ev.damageSource.damagingEntity;
+  const facing = view(victim);
+  if (attacker?.isValid) {
+    const dx = attacker.location.x - victim.location.x, dz = attacker.location.z - victim.location.z, m = Math.max(0.1, Math.sqrt(dx * dx + dz * dz));
+    if (facing.x * (dx / m) + facing.z * (dz / m) <= -0.25) return;
+  }
+  const dmg = Math.max(1, ev.damage ?? 1);
+  victim.runCommand(`effect @s instant_health 1 ${Math.min(8, Math.max(1, Math.floor(dmg / 5)))} true`);
+  victim.dimension.playSound("random.shield_block", victim.location, { volume: 1, pitch: 0.85 });
+  victim.dimension.spawnParticle("minecraft:critical_hit_emitter", { x: victim.location.x + facing.x, y: victim.location.y + 1, z: victim.location.z + facing.z });
+  victim.onScreenDisplay.setActionBar("\xA76Living Carapace Shield \xA78— \xA7fraised, blow blocked");
+});
+world.afterEvents.entityHurt.subscribe((ev) => {
+  const victim = ev.hurtEntity;
+  if (!(victim instanceof Player) || !fullSet(victim, MEAT)) return;
+  if (system.currentTick < Number(victim.getDynamicProperty("organic_parasitized_cd") ?? 0)) return;
+  victim.setDynamicProperty("organic_parasitized_cd", system.currentTick + 400);
+  const dmg = Math.max(1, ev.damage ?? 1);
+  victim.runCommand(`effect @s instant_health 1 ${Math.min(9, Math.ceil(dmg / 2))} true`);
+  victim.runCommand("effect @s absorption 20 1 true");
+  victim.runCommand("effect @s health_boost 30 1 true");
+  victim.runCommand("effect @s regeneration 4 1 true");
+  victim.dimension.playSound("mob.slime.attack", victim.location, { volume: 1.1, pitch: 0.5 });
+  for (let i = 0; i < 16; i++) victim.dimension.spawnParticle("minecraft:redstone_wire_dust_particle", { x: victim.location.x + (Math.random() - 0.5) * 1.4, y: victim.location.y + 0.4 + Math.random() * 1.6, z: victim.location.z + (Math.random() - 0.5) * 1.4 });
+  const attacker = ev.damageSource.damagingEntity;
+  const target = attacker && !(attacker instanceof Player) ? attacker : victim.dimension.getEntities({ location: victim.location, maxDistance: 5, excludeTypes: ["minecraft:item", "minecraft:xp_orb"] }).find((en) => hostileForBlade(en, victim));
+  if (target?.isValid) {
+    target.runCommand("effect @s slowness 2 10 true");
+    target.runCommand("effect @s weakness 2 3 true");
+    const dx = target.location.x - victim.location.x, dz = target.location.z - victim.location.z;
+    for (let i = 1; i <= 6; i++) victim.dimension.spawnParticle("minecraft:redstone_wire_dust_particle", { x: victim.location.x + dx * i / 7, y: victim.location.y + 1, z: victim.location.z + dz * i / 7 });
+  }
+  victim.onScreenDisplay.setActionBar("\xA7c\xA7lPARASITIZED!\xA7r \xA78Churning tendrils tangle your attacker \xB7 \xA7c20s");
 });
 world.afterEvents.entityHurt.subscribe((event) => {
   const attacker = event.damageSource.damagingEntity;
