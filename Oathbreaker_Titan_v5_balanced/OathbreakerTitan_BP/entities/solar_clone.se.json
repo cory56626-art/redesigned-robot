@@ -47,7 +47,7 @@
         ]
       },
       "minecraft:timer": {
-        "time": 8,
+        "time": 11,
         "looping": false,
         "time_down_event": {
           "event": "ob:expire"

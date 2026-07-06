@@ -3469,11 +3469,20 @@ const FUSION_BURN_TICKS = 120;   // slow-burn over ~6s
 const FUSION_BURN_INTERVAL = 12;
 const FUSION_BURN_DMG = 2;
 
-const SOLAR_COOLDOWN = 420;
-const SOLAR_CLONES = 4;
-const SOLAR_SHOTS = 4;
-const SOLAR_SHOT_INTERVAL = 14;
-const SOLAR_BEAM_DAMAGE = 6;
+// The Molten Clones' beam volley is retired (and so are the Crystal
+// Sentinels). Same summon, new behaviour: the clones BLINK in, punch, and
+// vanish for ~10s — see godStartSolar / tickSolar below.
+const SOLAR_COOLDOWN = 420;   // how often the god calls the clones in (~21s)
+const SOLAR_CLONES = 3;       // clones summoned per assault
+
+// ---- Blink Assault (the clones' melee) ----
+const BLINK_DURATION = 200;   // each clone harasses for ~10s, then burns out
+const BLINK_INTERVAL = 26;    // one blink-strike cycle per clone (~1.3s)
+const BLINK_STRIKE_AT = 8;    // wind-up ticks between reappearing and the punch
+const BLINK_VANISH_AT = 12;   // when in the cycle the clone blinks back out
+const BLINK_RANGE = 2.0;      // how close it reappears to you
+const BLINK_HIT_REACH = 2.4;  // must still be this close when the punch lands
+const BLINK_DAMAGE = 5;       // per punch — move to dodge; a still target eats it
 
 const SUFFER_COOLDOWN = 380;
 const SENTINEL_SUFFER_COOLDOWN = 1000; // sentinel variant only: 50s (20tps)
@@ -3487,7 +3496,7 @@ const SENTINEL_CHARGE = 55;
 const SENTINEL_LIFESPAN = 200; // sentinels burn out after exactly 10s (20tps)
 
 const PILLARS_COOLDOWN = 700;
-const PILLAR_COUNT = 3;
+const PILLAR_COUNT = 4;
 const PILLAR_CRYSTAL_INTERVAL = 55;
 const PILLAR_HEAL = 6;
 const PILLAR_HEAL_INTERVAL = 60;
@@ -3620,7 +3629,7 @@ function godStartSolar(god, s) {
   setAnimState(god, "beams");
   freeze(god, 20);
   playSoundAt(god.dimension, "mob.evocation_illager.cast_spell", god.location, 3);
-  actionbarNearby(god, 50, "§e☀ SOLAR CLONES — dodge the beams!");
+  actionbarNearby(god, 50, "§e☀ MOLTEN CLONES — they blink in to strike!");
   for (let i = 0; i < SOLAR_CLONES; i++) {
     const a = (Math.PI * 2 * i) / SOLAR_CLONES;
     const px = god.location.x + Math.cos(a) * 4;
@@ -3630,30 +3639,95 @@ function godStartSolar(god, s) {
     const pos = { x: px, y: py, z: pz };
     try {
       const clone = god.dimension.spawnEntity(SOLAR_ID, pos);
-      solars.set(clone.id, { godId: god.id, shotsLeft: SOLAR_SHOTS, cd: 12 + i * 4 });
+      // stagger each clone's cycle so they don't all punch on the same tick
+      solars.set(clone.id, {
+        godId: god.id,
+        born: system.currentTick,
+        offset: i * Math.floor(BLINK_INTERVAL / SOLAR_CLONES),
+        strikeLoc: null,
+        struck: false
+      });
       particle(god.dimension, "minecraft:huge_explosion_emitter", { x: px, y: py + 1, z: pz });
     } catch { }
   }
 }
 
 const solars = new Map();
+// Blink Assault: instead of firing beams, each clone teleports next to its
+// target, winds up for a beat, throws a single punch (which a moving target
+// can slip), then blinks out and reappears somewhere else — for ~10s.
 function tickSolar(clone) {
   const cs = solars.get(clone.id);
   if (!cs) { try { clone.remove(); } catch { } return; }
-  cs.cd--;
+
+  const age = system.currentTick - cs.born;
+
+  // burn out after ~10s in a puff instead of hanging around
+  if (age >= BLINK_DURATION) {
+    try { particle(clone.dimension, "minecraft:huge_explosion_emitter", clone.location); } catch { }
+    try { clone.removeEffect("invisibility"); } catch { }
+    try { clone.remove(); } catch { }
+    solars.delete(clone.id);
+    return;
+  }
+
   const target = combatTargetFor(cs.godId, clone);
-  if (target) { try { clone.teleport(clone.location, { facingLocation: target.location }); } catch { } }
-  if (cs.cd <= 0 && cs.shotsLeft > 0 && target) {
-    cs.cd = SOLAR_SHOT_INTERVAL;
-    cs.shotsLeft--;
-    fireBeam(clone, { x: clone.location.x, y: clone.location.y + 2.2, z: clone.location.z }, target, SOLAR_BEAM_DAMAGE);
-    if (cs.shotsLeft <= 0) {
-      // vanishes instead of exploding
-      system.runTimeout(() => {
-        try { particle(clone.dimension, "minecraft:basic_smoke_particle", clone.location); clone.remove(); } catch { }
-        solars.delete(clone.id);
-      }, 16);
+  if (!target) return;
+
+  const phase = (age + cs.offset) % BLINK_INTERVAL;
+
+  if (phase === 0) {
+    // REAPPEAR: blink in at a fixed spot right next to the target
+    const ang = Math.random() * Math.PI * 2;
+    const px = target.location.x + Math.cos(ang) * BLINK_RANGE;
+    const pz = target.location.z + Math.sin(ang) * BLINK_RANGE;
+    const py = groundY(clone.dimension, px, target.location.y + 1, pz);
+    cs.strikeLoc = { x: px, y: py, z: pz };
+    cs.struck = false;
+    try { clone.removeEffect("invisibility"); } catch { }
+    try { clone.teleport(cs.strikeLoc, { facingLocation: target.location }); } catch { }
+    particle(clone.dimension, "minecraft:huge_explosion_emitter", { x: px, y: py + 1, z: pz });
+    playSoundAt(clone.dimension, "mob.endermen.portal", cs.strikeLoc, 1.6);
+    return;
+  }
+
+  if (phase > 0 && phase < BLINK_STRIKE_AT) {
+    // WIND-UP: flames gather on the fist — this is the window to move away
+    if (cs.strikeLoc) {
+      try { clone.teleport(cs.strikeLoc, { facingLocation: target.location }); } catch { }
+      particle(clone.dimension, "minecraft:basic_flame_particle", { x: cs.strikeLoc.x, y: cs.strikeLoc.y + 1.4, z: cs.strikeLoc.z });
     }
+    return;
+  }
+
+  if (phase === BLINK_STRIKE_AT && !cs.struck && cs.strikeLoc) {
+    // PUNCH: only connects if the target is still in reach of the fixed spot
+    cs.struck = true;
+    playSoundAt(clone.dimension, "mob.irongolem.throw", cs.strikeLoc, 1.0);
+    particle(clone.dimension, "minecraft:critical_hit_emitter", { x: cs.strikeLoc.x, y: cs.strikeLoc.y + 1, z: cs.strikeLoc.z });
+    let god = null; try { god = world.getEntity(cs.godId); } catch { }
+    if (distance(target.location, cs.strikeLoc) <= BLINK_HIT_REACH) {
+      godHurt(god ?? clone, target, BLINK_DAMAGE);
+      knockPlayer(target, norm2d(sub(target.location, cs.strikeLoc)), 0.4, 0.2);
+      tellVictim(target, "§e☀ A clone strikes from nowhere!");
+    }
+    return;
+  }
+
+  if (phase === BLINK_VANISH_AT) {
+    // VANISH: blink out, go invisible, and drift off until the next cycle
+    const loc = clone.location;
+    particle(clone.dimension, "minecraft:huge_explosion_emitter", { x: loc.x, y: loc.y + 1, z: loc.z });
+    playSoundAt(clone.dimension, "mob.endermen.portal", loc, 1.3);
+    try { clone.addEffect("invisibility", BLINK_INTERVAL, { amplifier: 0, showParticles: false }); } catch { }
+    try {
+      const ang = Math.random() * Math.PI * 2;
+      const hx = target.location.x + Math.cos(ang) * 7;
+      const hz = target.location.z + Math.sin(ang) * 7;
+      const hy = groundY(clone.dimension, hx, target.location.y + 1, hz);
+      clone.teleport({ x: hx, y: hy, z: hz }, { facingLocation: target.location });
+    } catch { }
+    return;
   }
 }
 
@@ -3735,31 +3809,15 @@ function godStartSuffer(god, s) {
   setAnimState(god, "suffer");
   freeze(god, 22);
   playSoundAt(god.dimension, "mob.evocation_illager.prepare_summon", god.location, 3);
-  const sentinelMode = Math.random() < 0.5;
-  // the Crystal Sentinel variant runs on its own long 50s cooldown
-  s.cdSuffer = sentinelMode ? SENTINEL_SUFFER_COOLDOWN : SUFFER_COOLDOWN;
-  if (sentinelMode) {
-    actionbarNearby(god, 50, "§f❖ CRYSTAL SENTINELS — destroy them before they fire!");
-    const count = SUFFER_SENTINEL_MIN + Math.floor(Math.random() * (SUFFER_SENTINEL_MAX - SUFFER_SENTINEL_MIN + 1));
-    for (let i = 0; i < count; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const r = 4 + Math.random() * 12;
-      const x = god.location.x + Math.cos(a) * r;
-      const z = god.location.z + Math.sin(a) * r;
-      const y = groundY(god.dimension, x, god.location.y, z) + 1.5;
-      // stagger each sentinel by 0.6s (12 ticks) so their beams fire one at a
-      // time instead of all on the same tick (where i-frames eat all but one)
-      spawnCrystal(god, { x, y, z }, "sentinel", null, null, i * 12);
-    }
-  } else {
-    actionbarNearby(god, 50, "§f❖ SUFFER — homing crystals inbound!");
-    for (let i = 0; i < SUFFER_HOMING_COUNT; i++) {
-      const a = (Math.PI * 2 * i) / SUFFER_HOMING_COUNT;
-      const pos = { x: god.location.x + Math.cos(a) * 2, y: god.location.y + 1.5 + Math.random() * 2, z: god.location.z + Math.sin(a) * 2 };
-      spawnCrystal(god, pos, "homing", null, null);
-    }
+  // Suffer is now always the homing-crystal barrage. The old Crystal Sentinel
+  // (beam-turret) variant has been retired — the god no longer fights at range.
+  s.cdSuffer = SUFFER_COOLDOWN;
+  actionbarNearby(god, 50, "§f❖ SUFFER — homing crystals inbound!");
+  for (let i = 0; i < SUFFER_HOMING_COUNT; i++) {
+    const a = (Math.PI * 2 * i) / SUFFER_HOMING_COUNT;
+    const pos = { x: god.location.x + Math.cos(a) * 2, y: god.location.y + 1.5 + Math.random() * 2, z: god.location.z + Math.sin(a) * 2 };
+    spawnCrystal(god, pos, "homing", null, null);
   }
-  if (s.stateTicks >= 0) { /* no-op */ }
 }
 
 // ---- Ability 4: White Pillars ----
