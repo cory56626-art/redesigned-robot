@@ -8,10 +8,13 @@
       "geometry": { "default": "geometry.ob_god" },
       "animations": {
         "idle": "animation.ob_god.idle",
-        "beams": "animation.ob_god.beams"
+        "walk": "animation.ob_god.walk"
       },
       "scripts": {
-        "animate": ["beams"]
+        "animate": [
+          { "walk": "query.modified_move_speed > 0.05" },
+          { "idle": "query.modified_move_speed <= 0.05" }
+        ]
       },
       "render_controllers": ["controller.render.default"],
       "spawn_egg": { "base_color": "#fff3a0", "overlay_color": "#ffffff" }
