@@ -9,15 +9,6 @@
       "is_experimental": false
     },
     "component_groups": {
-      "emerging": {
-        "minecraft:behavior.emerge": {
-          "duration": 7.0,
-          "on_done": {
-            "event": "minecraft:emerged",
-            "target": "self"
-          }
-        }
-      },
       "pushable": {
         "minecraft:pushable": {
           "is_pushable": true,
@@ -112,7 +103,9 @@
       "minecraft:heartbeat": {
         "interval": "2.0 - math.clamp(query.anger_level / 80 * 1.5, 0, 1.5)"
       },
-      "minecraft:movement": { "value": 0.0 },
+      "minecraft:movement": {
+        "value": 0.0
+      },
       "minecraft:movement.basic": {},
       "minecraft:jump.static": {},
       "minecraft:can_climb": {},
@@ -129,18 +122,6 @@
       },
       "minecraft:behavior.float": {
         "priority": 0
-      },
-      "minecraft:behavior.dig": {
-        "priority": 1,
-        "duration": 5.5,
-        "idle_time": 60.0,
-        "vibration_is_disturbance": true,
-        "suspicion_is_disturbance": true,
-        "digs_in_daylight": false,
-        "on_start": {
-          "event": "on_digging_event",
-          "target": "self"
-        }
       },
       "minecraft:behavior.roar": {
         "priority": 2,
@@ -165,21 +146,6 @@
         "priority": 4,
         "speed_multiplier": 1.2,
         "melee_fov": 360
-      },
-      "minecraft:behavior.investigate_suspicious_location": {
-        "priority": 5,
-        "speed_multiplier": 0.7
-      },
-      "minecraft:behavior.sniff": {
-        "priority": 6,
-        "duration": 4.16,
-        "sniffing_radius": 24.0,
-        "suspicion_radius_horizontal": 6.0,
-        "suspicion_radius_vertical": 20.0,
-        "cooldown_range": [
-          5.0,
-          10.0
-        ]
       },
       "minecraft:behavior.random_stroll": {
         "priority": 9,
@@ -210,7 +176,10 @@
           ]
         }
       },
-      "minecraft:follow_range": { "value": 30, "max": 30 },
+      "minecraft:follow_range": {
+        "value": 30,
+        "max": 30
+      },
       "minecraft:fire_immune": {},
       "minecraft:nameable": {},
       "minecraft:loot": {
@@ -218,34 +187,8 @@
       }
     },
     "events": {
-      "minecraft:spawn_emerging": {
-        "add": {
-          "component_groups": [
-            "emerging"
-          ]
-        }
-      },
-      "minecraft:emerged": {
-        "add": {
-          "component_groups": [
-            "pushable"
-          ]
-        },
-        "remove": {
-          "component_groups": [
-            "emerging"
-          ]
-        }
-      },
       "minecraft:entity_spawned": {
         "add": {
-          "component_groups": [
-            "pushable"
-          ]
-        }
-      },
-      "on_digging_event": {
-        "remove": {
           "component_groups": [
             "pushable"
           ]

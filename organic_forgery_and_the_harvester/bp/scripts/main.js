@@ -51,9 +51,10 @@ function handleAdaptiveHit(player, victim, itemStack) {
     player.dimension.playSound(`${SOUND}.adapt_complete`, victim.location, { volume: 1.8, pitch: 0.8 });
     for (let i = 0; i < 14; i++) victim.dimension.spawnParticle(i % 2 ? "minecraft:redstone_wire_dust_particle" : "minecraft:critical_hit_emitter", { x: victim.location.x, y: victim.location.y + 1.4, z: victim.location.z });
   }
-  if (stacks >= 6) addTrueDamage(victim, 6);
-  else if (stacks >= 3) addTrueDamage(victim, 3);
-  player.onScreenDisplay.setActionBar(`\xA7eWheel of Adaptation: \xA7f${target} \xA7c${stacks}/6 \xA77(${ADAPT_STANCE_NAMES[stance]})`);
+  const bonus = Math.round(12 * 0.35 * (stacks / 6));
+  if (bonus > 0) addTrueDamage(victim, bonus);
+  const pct = Math.round(35 * (stacks / 6));
+  player.onScreenDisplay.setActionBar(`\xA7eWheel of Adaptation: \xA7f${target} \xA7c${stacks}/6 \xA78(+${pct}% dmg) \xA77${ADAPT_STANCE_NAMES[stance]}`);
 }
 function kineticShieldBreaker(player, victim) {
   const hasShield = !!(victim.getComponent?.("minecraft:shield") || victim.getComponent?.("minecraft:is_blocking"));
@@ -349,6 +350,10 @@ function cooldownLeft(player, key, ticks) {
 function cooldownBar(elapsed, total) {
   const filled = Math.max(0, Math.min(10, Math.floor(elapsed / total * 10)));
   return `\xA7a${"|".repeat(filled)}\xA78${"|".repeat(10 - filled)}`;
+}
+function hudBar(frac, cf = "\xA7a", ce = "\xA78") {
+  const n = Math.max(0, Math.min(10, Math.round(frac * 10)));
+  return `${cf}${"█".repeat(n)}${ce}${"█".repeat(10 - n)}`;
 }
 function offhandType(player) {
   const eq = player.getComponent("minecraft:equippable");
@@ -738,24 +743,26 @@ function triggerSafeAdrenalineBlast(player) {
   const d = view(player);
   player.dimension.playSound(`${SOUND}.adrenaline_squeeze`, player.location, { volume: 1.2, pitch: 0.65 });
   player.onScreenDisplay.setActionBar("\xA7cAdrenaline gland swelling: \xA7f3 seconds\xA7c...");
+  player.setDynamicProperty("organic_gland_swell_start", system.currentTick);
   system.runTimeout(() => {
     if (!player.isValid) return;
-    const loc = { x: player.location.x + d.x * 2, y: player.location.y + 0.8 + d.y * 2, z: player.location.z + d.z * 2 };
-    player.dimension.spawnParticle("minecraft:large_explosion", loc);
-    for (let i = 0; i < 14; i++) player.dimension.spawnParticle(i % 2 ? "minecraft:redstone_wire_dust_particle" : "minecraft:critical_hit_emitter", { x: loc.x + (Math.random() - 0.5) * 4, y: loc.y + (Math.random() - 0.5) * 4, z: loc.z + (Math.random() - 0.5) * 4 });
-    player.dimension.playSound("random.explode", loc, { volume: 1.6, pitch: 0.75 });
+    player.setDynamicProperty("organic_gland_swell_start", 0);
     player.runCommand("effect @s speed 15 1 true");
     player.runCommand("effect @s strength 15 1 true");
     player.runCommand("effect @s jump_boost 15 1 true");
     player.runCommand("effect @s resistance 15 0 true");
     player.runCommand("effect @s regeneration 6 1 true");
+    const loc = { x: player.location.x + d.x * 2, y: player.location.y + 0.8 + d.y * 2, z: player.location.z + d.z * 2 };
+    player.dimension.spawnParticle("minecraft:huge_explosion_emitter", loc);
+    for (let i = 0; i < 18; i++) player.dimension.spawnParticle(i % 2 ? "minecraft:redstone_wire_dust_particle" : "minecraft:critical_hit_emitter", { x: loc.x + (Math.random() - 0.5) * 8, y: loc.y + (Math.random() - 0.5) * 8, z: loc.z + (Math.random() - 0.5) * 8 });
+    player.dimension.playSound("random.explode", loc, { volume: 1.8, pitch: 0.7 });
     for (const ent of player.dimension.getEntities({ location: loc, maxDistance: 4.5, excludeTypes: ["minecraft:item", "minecraft:xp_orb"] })) {
       if (ent.id === player.id) continue;
-      const dx = ent.location.x - loc.x, dz = ent.location.z - loc.z, dist = Math.max(0.5, Math.sqrt(dx * dx + dz * dz));
-      ent.runCommand(`damage @s ${Math.max(4, Math.floor(18 - dist * 3))} entity_explosion`);
+      const dx = ent.location.x - loc.x, dz = ent.location.z - loc.z, dist = Math.max(0.3, Math.sqrt(dx * dx + dz * dz));
+      ent.runCommand("damage @s 10 entity_explosion");
       if (!(ent instanceof Player)) ent.applyImpulse({ x: dx / dist * 0.9, y: 0.45, z: dz / dist * 0.9 });
     }
-    player.onScreenDisplay.setActionBar("\xA74Adrenaline overdose! \xA7cSpeed II \xA78\xB7 \xA7cStrength II \xA78\xB7 \xA7cResistance surge");
+    player.onScreenDisplay.setActionBar("\xA74Adrenaline overdose! \xA7cSpeed II \xA78\xB7 \xA7cStrength II \xA78\xB7 \xA7cResistance");
   }, 60);
 }
 world.afterEvents.itemUse.subscribe((e) => {
@@ -803,20 +810,59 @@ system.runInterval(() => {
     }
   }
 }, 10);
+function startAllyGrab(ally, target) {
+  ally.setDynamicProperty("ally_grab_cd", system.currentTick + 200);
+  ally.setDynamicProperty("ally_grabbing", 1);
+  ally.dimension.playSound(`${SOUND}.cremation_ally_scream`, ally.location, { volume: 1.5, pitch: 0.8 });
+  const targetId = target.id;
+  let ticks = 0;
+  const run = system.runInterval(() => {
+    ticks += 4;
+    const t = ally.isValid ? ally.dimension.getEntities({ location: ally.location, maxDistance: 10, excludeTypes: ["minecraft:item", "minecraft:xp_orb"] }).find((e) => e.id === targetId) : void 0;
+    if (!ally.isValid || !t || !t.isValid || ticks > 60) {
+      if (ally.isValid) ally.setDynamicProperty("ally_grabbing", 0);
+      if (t && t.isValid) {
+        const dx = t.location.x - ally.location.x, dz = t.location.z - ally.location.z, m = Math.max(0.1, Math.sqrt(dx * dx + dz * dz));
+        t.applyImpulse({ x: dx / m * 2.4, y: 0.6, z: dz / m * 2.4 });
+        t.runCommand("damage @s 8 entity_attack");
+        ally.dimension.playSound("mob.warden.sonic_boom", ally.location, { volume: 1, pitch: 1.2 });
+      }
+      system.clearRun?.(run);
+      return;
+    }
+    t.teleport?.({ x: ally.location.x, y: ally.location.y + 0.1, z: ally.location.z });
+    t.runCommand("effect @s slowness 1 255 true");
+    t.runCommand("effect @s weakness 1 255 true");
+    t.runCommand("damage @s 5 entity_attack");
+    applyBleed(t);
+    applySickly(t, 100, 3);
+    t.dimension.spawnParticle("minecraft:critical_hit_emitter", { x: t.location.x, y: t.location.y + 1, z: t.location.z });
+    ally.dimension.playSound("mob.zombie.attack_wood", ally.location, { volume: 0.8, pitch: 0.7 });
+  }, 4);
+}
 system.runInterval(() => {
   for (const dimName of ["overworld", "nether", "the_end"]) {
     const dim = world.getDimension(dimName);
     for (const ally of dim.getEntities({ type: CREMATION_ALLY })) {
       const adapted = ownerHasAdaptiveBlade(ally);
+      const wasAdapted = Number(ally.getDynamicProperty("is_adapted")) === 1;
       ally.setDynamicProperty("is_adapted", adapted ? 1 : 0);
-      if (adapted) {
-        ally.runCommand("effect @s speed 2 1 true");
-        ally.runCommand("effect @s strength 2 1 true");
-        if (system.currentTick % 20 === 0) ally.dimension.spawnParticle("minecraft:redstone_wire_dust_particle", { x: ally.location.x, y: ally.location.y + 2.1, z: ally.location.z });
-      } else {
+      if (adapted && !wasAdapted) {
+        try { ally.triggerEvent("organic:become_adapted"); } catch {}
+        ally.dimension.playSound(`${SOUND}.adapt_complete`, ally.location, { volume: 1.6, pitch: 0.7 });
+        for (let i = 0; i < 24; i++) ally.dimension.spawnParticle("minecraft:redstone_wire_dust_particle", { x: ally.location.x + (Math.random() - 0.5) * 1.4, y: ally.location.y + Math.random() * 2.4, z: ally.location.z + (Math.random() - 0.5) * 1.4 });
+        ally.onScreenDisplay?.setActionBar?.("");
+      } else if (!adapted && wasAdapted) {
+        try { ally.triggerEvent("organic:become_normal"); } catch {}
         ally.setDynamicProperty("ally_adapt_stacks", 0);
         ally.setDynamicProperty("ally_adapt_source", "");
       }
+      if (adapted) {
+        ally.runCommand("effect @s speed 2 1 true");
+        ally.runCommand("effect @s strength 2 2 true");
+        if (system.currentTick % 10 === 0) ally.dimension.spawnParticle("minecraft:redstone_wire_dust_particle", { x: ally.location.x, y: ally.location.y + 2.3, z: ally.location.z });
+      }
+      if (Number(ally.getDynamicProperty("ally_grabbing")) === 1) continue;
       const targetId = String(ally.getDynamicProperty("currentTarget") ?? "");
       if (!targetId) continue;
       const target = dim.getEntities({ location: ally.location, maxDistance: 24, excludeTypes: ["minecraft:item", "minecraft:xp_orb"] }).find((e) => e.id === targetId);
@@ -825,10 +871,15 @@ system.runInterval(() => {
       ally.setDynamicProperty("organic_order_y", target.location.y);
       ally.setDynamicProperty("organic_order_z", target.location.z);
       const dx = target.location.x - ally.location.x, dz = target.location.z - ally.location.z, m = Math.max(0.1, Math.sqrt(dx * dx + dz * dz));
-      ally.applyImpulse({ x: dx / m * 0.12, y: 0, z: dz / m * 0.12 });
+      ally.applyImpulse({ x: dx / m * (adapted ? 0.18 : 0.12), y: 0, z: dz / m * (adapted ? 0.18 : 0.12) });
+      if (adapted && m < 3 && !(target instanceof Player) && Number(ally.getDynamicProperty("ally_grab_cd") ?? 0) <= system.currentTick) {
+        startAllyGrab(ally, target);
+        continue;
+      }
       if (m < 2.3 && Number(ally.getDynamicProperty("ally_next_forced_hit") ?? 0) <= system.currentTick) {
         ally.setDynamicProperty("ally_next_forced_hit", system.currentTick + 20);
-        target.runCommand(`damage @s ${adapted ? 8 : 4} entity_attack`);
+        target.runCommand(`damage @s ${adapted ? 12 : 4} entity_attack`);
+        if (adapted && !(target instanceof Player)) applySickly(target, 120, 3);
       }
     }
   }
@@ -1105,32 +1156,7 @@ var anchorComponent = { onUse(e) {
   p.dimension.spawnParticle("minecraft:critical_hit_emitter", { x: loc.x + 0.5, y: loc.y + 0.5, z: loc.z + 0.5 });
   p.dimension.playSound(`${SOUND}.flesh_anchor_latch`, p.location, { volume: 1 });
 } };
-var glandComponent = { onUse(e) {
-  const p = e.source;
-  if (!(p instanceof Player) || !ready(p, "organic_gland_cd", 200)) return;
-  const token = system.currentTick;
-  p.setDynamicProperty("organic_gland_charge_start", token);
-  p.onScreenDisplay.setActionBar("\xA7cSqueeze for 5 seconds... overdose building.");
-  system.runTimeout(() => {
-    if (!p.isValid || Number(p.getDynamicProperty("organic_gland_charge_start")) !== token) return;
-    p.runCommand("effect @s speed 12 2 true");
-    p.runCommand("effect @s strength 12 1 true");
-    p.runCommand("effect @s resistance 12 0 true");
-    p.dimension.createExplosion?.(p.location, 2.2, { breaksBlocks: false, causesFire: false });
-    for (const e2 of p.dimension.getEntities({ location: p.location, maxDistance: 5, excludeTypes: ["minecraft:item", "minecraft:xp_orb"] })) if (!(e2 instanceof Player) && !e2.hasTag(`${NS}_homunculus`) && !e2.hasTag(`${NS}_player_ally`)) e2.runCommand("damage @s 6 magic");
-    let placed = 0;
-    for (let i = 0; i < 36 && placed < 6; i++) {
-      const loc = { x: Math.floor(p.location.x + Math.random() * 7 - 3), y: Math.floor(p.location.y - 1 + Math.random() * 3), z: Math.floor(p.location.z + Math.random() * 7 - 3) };
-      const b = p.dimension.getBlock(loc);
-      if (b && ["minecraft:air", "minecraft:grass", "minecraft:tallgrass", "minecraft:grass_block", "minecraft:dirt"].includes(b.typeId)) {
-        b.setType(ROT_BLOCK);
-        placed++;
-      }
-    }
-    p.dimension.playSound(`${SOUND}.adrenaline_squeeze`, p.location, { volume: 1.5, pitch: 0.6 });
-    clearOne(p, GLAND);
-  }, 100);
-} };
+var glandComponent = {};
 var chimeraShieldComponent = { onUse(e) {
   const p = e.source;
   if (!(p instanceof Player) || !p.isSneaking || !hasEmptyMainHand(p) || !isChimeraShieldEquipped(p) || !ready(p, "organic_chimera_shield_cd", COOLDOWN.shield)) return;
@@ -1217,18 +1243,18 @@ function ribCrackerSlam(player) {
 }
 world.afterEvents.itemUse.subscribe((e) => {
   const p = e.source;
-  if (p instanceof Player && e.itemStack?.typeId === RIB_CRACKER) {
-    p.setDynamicProperty("organic_rib_charge_start", system.currentTick);
-    p.dimension.playSound("block.bell.hit", p.location, { volume: 0.5, pitch: 0.6 });
-    p.onScreenDisplay.setActionBar("\xA78Rib-Cracker charging... \xA77hold and release to slam.");
-  }
-});
-world.afterEvents.itemReleaseAfterUse?.subscribe((e) => {
-  const p = e.source;
   if (!(p instanceof Player) || e.itemStack?.typeId !== RIB_CRACKER) return;
-  const start = Number(p.getDynamicProperty("organic_rib_charge_start") ?? 0);
-  p.setDynamicProperty("organic_rib_charge_start", 0);
-  if (start > 0 && system.currentTick - start >= 12 && ready(p, "organic_rib_slam_cd", 100)) ribCrackerSlam(p);
+  if (!ready(p, "organic_rib_slam_cd", 100)) return;
+  p.dimension.playSound("block.bell.hit", p.location, { volume: 0.6, pitch: 0.5 });
+  p.onScreenDisplay.setActionBar("\xA78Rib-Cracker \xA7ccharging\xA78 the slam...");
+  const token = system.currentTick;
+  p.setDynamicProperty("organic_rib_charge_start", token);
+  for (let i = 1; i <= 3; i++) system.runTimeout(() => {
+    if (p.isValid && selectedType(p) === RIB_CRACKER) p.dimension.spawnParticle("minecraft:redstone_wire_dust_particle", { x: p.location.x, y: p.location.y + 1.4, z: p.location.z });
+  }, i * 5);
+  system.runTimeout(() => {
+    if (p.isValid && selectedType(p) === RIB_CRACKER && Number(p.getDynamicProperty("organic_rib_charge_start")) === token) ribCrackerSlam(p);
+  }, 16);
 });
 function devourerEmergence(_mob) {
 }
@@ -1690,7 +1716,7 @@ system.runInterval(() => {
       const ratio = getHealthRatio(boss);
       if (phase === 1) {
         boss.applyImpulse({ x: Number(boss.getDynamicProperty("biomass_anchor_x") ?? boss.location.x) - boss.location.x, y: 0, z: Number(boss.getDynamicProperty("biomass_anchor_z") ?? boss.location.z) - boss.location.z });
-        if (system.currentTick % 100 === 0) for (let i = 0; i < 3; i++) boss.dimension.spawnEntity(GRAFTED_STALKER, { x: boss.location.x + Math.random() * 8 - 4, y: boss.location.y, z: boss.location.z + Math.random() * 8 - 4 });
+        if (system.currentTick % 200 === 0 && boss.dimension.getEntities({ type: GRAFTED_STALKER, location: boss.location, maxDistance: 22 }).length < 4) boss.dimension.spawnEntity(GRAFTED_STALKER, { x: boss.location.x + Math.random() * 6 - 3, y: boss.location.y, z: boss.location.z + Math.random() * 6 - 3 });
         if (ratio <= 0.5) {
           boss.setDynamicProperty("biomass_phase", 2);
           boss.dimension.playSound(`${SOUND}.biomass_hive_roar`, boss.location, { volume: 2.5, pitch: 0.55 });
@@ -1752,7 +1778,7 @@ world.afterEvents.entityHurt.subscribe((ev) => {
   const victim = ev.hurtEntity;
   if (!(victim instanceof Player) || !fullSet(victim, MEAT)) return;
   if (system.currentTick < Number(victim.getDynamicProperty("organic_parasitized_cd") ?? 0)) return;
-  victim.setDynamicProperty("organic_parasitized_cd", system.currentTick + 400);
+  victim.setDynamicProperty("organic_parasitized_cd", system.currentTick + 900);
   const dmg = Math.max(1, ev.damage ?? 1);
   victim.runCommand(`effect @s instant_health 1 ${Math.min(9, Math.ceil(dmg / 2))} true`);
   victim.runCommand("effect @s absorption 20 1 true");
@@ -1763,8 +1789,8 @@ world.afterEvents.entityHurt.subscribe((ev) => {
   const attacker = ev.damageSource.damagingEntity;
   const target = attacker && !(attacker instanceof Player) ? attacker : victim.dimension.getEntities({ location: victim.location, maxDistance: 5, excludeTypes: ["minecraft:item", "minecraft:xp_orb"] }).find((en) => hostileForBlade(en, victim));
   if (target?.isValid) {
-    target.runCommand("effect @s slowness 2 10 true");
-    target.runCommand("effect @s weakness 2 3 true");
+    target.runCommand("effect @s slowness 5 10 true");
+    target.runCommand("effect @s weakness 5 3 true");
     const dx = target.location.x - victim.location.x, dz = target.location.z - victim.location.z;
     for (let i = 1; i <= 6; i++) victim.dimension.spawnParticle("minecraft:redstone_wire_dust_particle", { x: victim.location.x + dx * i / 7, y: victim.location.y + 1, z: victim.location.z + dz * i / 7 });
   }
@@ -1942,42 +1968,28 @@ system.runInterval(() => {
       p.runCommand("effect @s hunger 2 0 true");
     }
     if (p.isSneaking && hasEmptyMainHand(p) && isChimeraShieldEquipped(p) && Number(p.getDynamicProperty("organic_shield_bash_sneak_lock") ?? 0) <= system.currentTick) triggerShieldBash(p);
-    const chargeStart = Number(p.getDynamicProperty("organic_gland_charge_start") ?? 0);
-    const charging = selectedType(p) === GLAND && Number(p.getDynamicProperty("organic_gland_charge") ?? 0) === chargeStart && chargeStart > 0 && system.currentTick - chargeStart <= 120;
     const showWellness = wearing > 0 || held !== void 0 && FLESH_ITEMS.has(held);
-    const parts = showWellness ? [`\xA7cWellness ${Math.floor(w)} ${rotTier(w)}`] : [];
-    if (charging) {
-      const elapsed = system.currentTick - chargeStart;
-      parts.push(`\xA74Gland Charge ${cooldownBar(elapsed, 100)}`);
-      p.dimension.spawnParticle("minecraft:redstone_wire_dust_particle", { x: p.location.x, y: p.location.y + 1, z: p.location.z });
-      if (elapsed >= 100) {
-        p.setDynamicProperty("organic_gland_charge", 0);
-        p.dimension.spawnParticle("minecraft:large_explosion", p.location);
-        for (let i = 0; i < 10; i++) system.runTimeout(() => p.isValid && p.dimension.spawnParticle(i % 2 ? "minecraft:redstone_wire_dust_particle" : "minecraft:knockback_roar_particle", { x: p.location.x, y: p.location.y + 0.8, z: p.location.z }), i * 2);
-        p.dimension.playSound("random.explode", p.location, { volume: 2, pitch: 0.55 });
-        rotArea(p, p.location, 4);
-        for (const ent of p.dimension.getEntities({ location: p.location, maxDistance: 7.8, excludeTypes: ["minecraft:item", "minecraft:xp_orb"] })) if (!(ent instanceof Player)) {
-          ent.runCommand("damage @s 32 entity_explosion entity @p");
-          applySickly(ent, 160);
-        }
-        p.runCommand("effect @s instant_health 1 0 true");
-      }
+    const parts = [];
+    if (showWellness) {
+      const tc = w >= 67 ? "\xA7a" : w >= 34 ? "\xA76" : "\xA75";
+      parts.push(`\xA7c❤ \xA7fWellness ${hudBar(w / 100, tc)} ${tc}${Math.floor(w)} \xA78${rotTier(w)}`);
     }
-    const heldName = held === GLAND ? ["Gland", cooldownLeft(p, "organic_gland_cd", COOLDOWN.gland), COOLDOWN.gland] : held === ANCHOR ? ["Anchor", cooldownLeft(p, "organic_anchor_cd", COOLDOWN.anchor), COOLDOWN.anchor] : held === FLAIL ? ["Flail", cooldownLeft(p, "organic_flail_cd", COOLDOWN.flail), COOLDOWN.flail] : held === SPITTER ? ["Spitter", cooldownLeft(p, "organic_spitter_cd", COOLDOWN.spitter), COOLDOWN.spitter] : held === CHIMERA_SHIELD || isChimeraShieldEquipped(p) ? ["Shield", cooldownLeft(p, "organic_chimera_shield_cd", COOLDOWN.shield), COOLDOWN.shield] : void 0;
+    const swellStart = Number(p.getDynamicProperty("organic_gland_swell_start") ?? 0);
+    if (swellStart > 0 && selectedType(p) === GLAND) {
+      parts.push(`\xA74☠ \xA7fGland ${hudBar(Math.min(1, (system.currentTick - swellStart) / 60), "\xA7c")} \xA7cswelling`);
+      p.dimension.spawnParticle("minecraft:redstone_wire_dust_particle", { x: p.location.x, y: p.location.y + 1, z: p.location.z });
+    }
+    const heldName = held === GLAND ? ["Gland", cooldownLeft(p, "organic_gland_cd", COOLDOWN.gland), COOLDOWN.gland] : held === ANCHOR ? ["Anchor", cooldownLeft(p, "organic_anchor_cd", COOLDOWN.anchor), COOLDOWN.anchor] : held === FLAIL ? ["Flail", cooldownLeft(p, "organic_flail_cd", COOLDOWN.flail), COOLDOWN.flail] : held === SPITTER ? ["Spitter", cooldownLeft(p, "organic_spitter_cd", COOLDOWN.spitter), COOLDOWN.spitter] : held === RIB_CRACKER ? ["Slam", cooldownLeft(p, "organic_rib_slam_cd", 100), 100] : held === CHIMERA_SHIELD || isChimeraShieldEquipped(p) ? ["Shield", cooldownLeft(p, "organic_chimera_shield_cd", COOLDOWN.shield), COOLDOWN.shield] : void 0;
     if (heldName) {
       const left = heldName[1], total = heldName[2];
-      parts.push(`\xA76${heldName[0]} ${left > 0 ? Math.ceil(left / 20) + "s" : "Ready"} ${cooldownBar(total - left, total)}`);
+      parts.push(left > 0 ? `\xA76⚡ \xA7f${heldName[0]} ${hudBar((total - left) / total, "\xA7e")} \xA7e${Math.ceil(left / 20)}s` : `\xA76⚡ \xA7f${heldName[0]} ${hudBar(1, "\xA7a")} \xA7aReady`);
     }
     if (hasItem(p, WAND)) {
       if (system.currentTick % 20 === 0) p.setDynamicProperty("organic_wand_points", Math.min(100, Number(p.getDynamicProperty("organic_wand_points") ?? 0) + 1));
-      const pts = Math.min(100, Number(p.getDynamicProperty("organic_wand_points") ?? 0));
-      const left = cooldownLeft(p, "organic_devourer_cd", COOLDOWN.devourer);
-      const active = left <= 0 && system.currentTick - Number(p.getDynamicProperty("organic_wand_last_damage") ?? -99999) <= 100;
-      const filled = Math.floor(pts / 10);
-      parts.push(`${active ? "\xA75" : "\xA78"}          Wand
-${active ? "\xA7d" : "\xA78"}          \u2502${"\u2588".repeat(filled)}${"\u2591".repeat(10 - filled)}\u2502 ${pts}/100${left > 0 ? " CD " + Math.ceil(left / 20) + "s" : pts >= 100 ? " SNEAK-USE" : ""}`);
+      const pts = Math.min(100, Number(p.getDynamicProperty("organic_wand_points") ?? 0)), rdy = pts >= 100;
+      parts.push(`${rdy ? "\xA7d" : "\xA75"}❉ \xA7fWand ${hudBar(pts / 100, rdy ? "\xA7d" : "\xA75")} ${pts}/100${rdy ? " \xA7dSNEAK-USE" : ""}`);
     }
-    if (parts.length) p.onScreenDisplay.setActionBar(parts.join("   \xA78|   "));
+    if (parts.length) p.onScreenDisplay.setActionBar(parts.join("  \xA78┃  "));
   }
 }, 10);
 system.runInterval(() => {

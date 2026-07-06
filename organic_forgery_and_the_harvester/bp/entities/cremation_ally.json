@@ -8,37 +8,141 @@
       "is_summonable": true
     },
     "components": {
-      "minecraft:type_family": { "family": ["player_ally", "cremation_ally", "mob"] },
-      "minecraft:nameable": {},
-      "minecraft:collision_box": { "width": 0.85, "height": 2.65 },
-      "minecraft:health": { "value": 60, "max": 60 },
-      "minecraft:attack": { "damage": 4 },
-      "minecraft:movement": { "value": 0.28 },
-      "minecraft:movement.basic": {},
-      "minecraft:navigation.walk": { "can_walk": true, "avoid_water": true, "can_path_over_water": false },
-      "minecraft:jump.static": {},
-      "minecraft:physics": { "has_gravity": true, "has_collision": true },
-      "minecraft:pushable": { "is_pushable": true, "is_pushable_by_piston": true },
-      "minecraft:scale": { "value": 1.18 },
-      "minecraft:damage_sensor": {
-        "triggers": [
-          { "on_damage": { "filters": { "test": "is_family", "subject": "other", "value": "player_ally" } }, "deals_damage": false }
+      "minecraft:type_family": {
+        "family": [
+          "player_ally",
+          "cremation_ally",
+          "mob"
         ]
       },
-      "minecraft:behavior.melee_box_attack": { "priority": 2, "speed_multiplier": 1.15, "track_target": true },
-      "minecraft:behavior.follow_owner": { "priority": 4, "speed_multiplier": 1.1, "start_distance": 3, "stop_distance": 2 },
-      "minecraft:behavior.hurt_by_target": { "priority": 1 },
+      "minecraft:nameable": {},
+      "minecraft:collision_box": {
+        "width": 0.85,
+        "height": 2.65
+      },
+      "minecraft:health": {
+        "value": 60,
+        "max": 60
+      },
+      "minecraft:attack": {
+        "damage": 4
+      },
+      "minecraft:movement": {
+        "value": 0.28
+      },
+      "minecraft:movement.basic": {},
+      "minecraft:navigation.walk": {
+        "can_walk": true,
+        "avoid_water": true,
+        "can_path_over_water": false
+      },
+      "minecraft:jump.static": {},
+      "minecraft:physics": {
+        "has_gravity": true,
+        "has_collision": true
+      },
+      "minecraft:pushable": {
+        "is_pushable": true,
+        "is_pushable_by_piston": true
+      },
+      "minecraft:scale": {
+        "value": 1.18
+      },
+      "minecraft:damage_sensor": {
+        "triggers": [
+          {
+            "on_damage": {
+              "filters": {
+                "test": "is_family",
+                "subject": "other",
+                "value": "player_ally"
+              }
+            },
+            "deals_damage": false
+          }
+        ]
+      },
+      "minecraft:behavior.melee_box_attack": {
+        "priority": 2,
+        "speed_multiplier": 1.15,
+        "track_target": true
+      },
+      "minecraft:behavior.follow_owner": {
+        "priority": 4,
+        "speed_multiplier": 1.1,
+        "start_distance": 3,
+        "stop_distance": 2
+      },
+      "minecraft:behavior.hurt_by_target": {
+        "priority": 1
+      },
       "minecraft:behavior.nearest_attackable_target": {
         "priority": 3,
         "within_radius": 24,
         "entity_types": [
-          { "filters": { "all_of": [ { "test": "is_family", "subject": "other", "value": "monster" }, { "test": "is_family", "subject": "other", "operator": "!=", "value": "player_ally" } ] }, "max_dist": 24 }
+          {
+            "filters": {
+              "all_of": [
+                {
+                  "test": "is_family",
+                  "subject": "other",
+                  "value": "monster"
+                },
+                {
+                  "test": "is_family",
+                  "subject": "other",
+                  "operator": "!=",
+                  "value": "player_ally"
+                }
+              ]
+            },
+            "max_dist": 24
+          }
         ],
         "must_see": false
       },
-      "minecraft:behavior.random_stroll": { "priority": 7, "speed_multiplier": 0.5 },
-      "minecraft:behavior.look_at_player": { "priority": 8, "look_distance": 8, "probability": 0.04 },
-      "minecraft:behavior.random_look_around": { "priority": 9 }
+      "minecraft:behavior.random_stroll": {
+        "priority": 7,
+        "speed_multiplier": 0.5
+      },
+      "minecraft:behavior.look_at_player": {
+        "priority": 8,
+        "look_distance": 8,
+        "probability": 0.04
+      },
+      "minecraft:behavior.random_look_around": {
+        "priority": 9
+      }
+    },
+    "component_groups": {
+      "organic:adapted": {
+        "minecraft:health": {
+          "value": 100,
+          "max": 100
+        },
+        "minecraft:attack": {
+          "damage": 8
+        },
+        "minecraft:knockback_resistance": {
+          "value": 0.6
+        }
+      }
+    },
+    "events": {
+      "organic:become_adapted": {
+        "add": {
+          "component_groups": [
+            "organic:adapted"
+          ]
+        }
+      },
+      "organic:become_normal": {
+        "remove": {
+          "component_groups": [
+            "organic:adapted"
+          ]
+        }
+      }
     }
   }
 }
