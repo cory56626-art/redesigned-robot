@@ -1,0 +1,36 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.ob_god.attack": {
+      "initial_state": "default",
+      "states": {
+        "default": {
+          "transitions": [
+            { "punch": "q.property('ob:attack_state') == 'punch'" },
+            { "fusion": "q.property('ob:attack_state') == 'fusion'" },
+            { "beams": "q.property('ob:attack_state') == 'beams'" },
+            { "suffer": "q.property('ob:attack_state') == 'suffer'" },
+            { "pillars": "q.property('ob:attack_state') == 'pillars'" },
+            { "starfire": "q.property('ob:attack_state') == 'starfire'" },
+            { "blades": "q.property('ob:attack_state') == 'blades'" },
+            { "chain": "q.property('ob:attack_state') == 'chain'" },
+            { "eruption": "q.property('ob:attack_state') == 'eruption'" },
+            { "meteor": "q.property('ob:attack_state') == 'meteor'" },
+            { "nova": "q.property('ob:attack_state') == 'nova'" }
+          ]
+        },
+        "punch": { "animations": ["punch_anim"], "blend_transition": 0.05, "transitions": [{ "default": "q.property('ob:attack_state') != 'punch'" }] },
+        "fusion": { "animations": ["fusion_anim"], "blend_transition": 0.08, "transitions": [{ "default": "q.property('ob:attack_state') != 'fusion'" }] },
+        "beams": { "animations": ["beams_anim"], "blend_transition": 0.1, "transitions": [{ "default": "q.property('ob:attack_state') != 'beams'" }] },
+        "suffer": { "animations": ["suffer_anim"], "blend_transition": 0.1, "transitions": [{ "default": "q.property('ob:attack_state') != 'suffer'" }] },
+        "pillars": { "animations": ["pillars_anim"], "blend_transition": 0.1, "transitions": [{ "default": "q.property('ob:attack_state') != 'pillars'" }] },
+        "starfire": { "animations": ["starfire_anim"], "blend_transition": 0.1, "transitions": [{ "default": "q.property('ob:attack_state') != 'starfire'" }] },
+        "blades": { "animations": ["blades_anim"], "blend_transition": 0.1, "transitions": [{ "default": "q.property('ob:attack_state') != 'blades'" }] },
+        "chain": { "animations": ["chain_anim"], "blend_transition": 0.05, "transitions": [{ "default": "q.property('ob:attack_state') != 'chain'" }] },
+        "eruption": { "animations": ["eruption_anim"], "blend_transition": 0.08, "transitions": [{ "default": "q.property('ob:attack_state') != 'eruption'" }] },
+        "meteor": { "animations": ["meteor_anim"], "blend_transition": 0.1, "transitions": [{ "default": "q.property('ob:attack_state') != 'meteor'" }] },
+        "nova": { "animations": ["nova_anim"], "blend_transition": 0.06, "transitions": [{ "default": "q.property('ob:attack_state') != 'nova'" }] }
+      }
+    }
+  }
+}

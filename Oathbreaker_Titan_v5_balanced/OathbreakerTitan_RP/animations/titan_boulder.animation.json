@@ -1,0 +1,13 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.ob_boulder.spin": {
+      "loop": true,
+      "bones": {
+        "rock": {
+          "rotation": ["q.life_time * 620", 0, "q.life_time * 250"]
+        }
+      }
+    }
+  }
+}

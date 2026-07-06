@@ -1,0 +1,17 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "ob:white_pillar",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/entity/molten_god" },
+      "geometry": { "default": "geometry.ob_pillar" },
+      "animations": {
+        "pulse": "animation.ob_pillar.pulse",
+        "rise": "animation.ob_pillar.rise"
+      },
+      "scripts": { "animate": ["rise", "pulse"] },
+      "render_controllers": ["controller.render.default"]
+    }
+  }
+}

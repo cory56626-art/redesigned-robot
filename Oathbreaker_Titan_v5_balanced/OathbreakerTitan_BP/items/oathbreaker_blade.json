@@ -1,0 +1,27 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:item": {
+    "description": {
+      "identifier": "ob:oathbreaker_blade",
+      "menu_category": { "category": "equipment" }
+    },
+    "components": {
+      "minecraft:icon": "ob_oathbreaker_blade",
+      "minecraft:display_name": { "value": "§4Oathbreaker Blade" },
+      "minecraft:hand_equipped": true,
+      "minecraft:glint": true,
+      "minecraft:max_stack_size": 1,
+      "minecraft:damage": 11,
+      "minecraft:durability": { "max_durability": 2031 },
+      "minecraft:enchantable": { "slot": "sword", "value": 14 },
+      "minecraft:repairable": {
+        "repair_items": [
+          {
+            "items": ["ob:titan_core"],
+            "repair_amount": 600
+          }
+        ]
+      }
+    }
+  }
+}

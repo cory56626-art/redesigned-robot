@@ -1,0 +1,18 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.ob_leviathan.attack": {
+      "initial_state": "default",
+      "states": {
+        "default": {
+          "transitions": [
+            { "bite": "q.property('ob:attack_state') == 'bite'" },
+            { "spew": "q.property('ob:attack_state') == 'spew'" }
+          ]
+        },
+        "bite": { "animations": ["bite_anim"], "blend_transition": 0.1, "transitions": [{ "default": "q.property('ob:attack_state') != 'bite'" }] },
+        "spew": { "animations": ["spew_anim"], "blend_transition": 0.1, "transitions": [{ "default": "q.property('ob:attack_state') != 'spew'" }] }
+      }
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "ob:molten_god",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/entity/molten_god" },
+      "geometry": { "default": "geometry.ob_god" },
+      "animations": {
+        "idle": "animation.ob_god.idle",
+        "walk": "animation.ob_god.walk",
+        "death": "animation.ob_titan.death",
+        "punch_anim": "animation.ob_god.punch",
+        "fusion_anim": "animation.ob_god.fusion",
+        "beams_anim": "animation.ob_god.beams",
+        "suffer_anim": "animation.ob_god.suffer",
+        "pillars_anim": "animation.ob_god.pillars",
+        "starfire_anim": "animation.ob_god.starfire",
+        "blades_anim": "animation.ob_god.blades",
+        "chain_anim": "animation.ob_god.chain",
+        "eruption_anim": "animation.ob_god.eruption",
+        "meteor_anim": "animation.ob_god.meteor",
+        "nova_anim": "animation.ob_god.nova",
+        "attack_ctrl": "controller.animation.ob_god.attack"
+      },
+      "scripts": {
+        "animate": [
+          { "idle": "q.property('ob:attack_state') == 'idle' && q.is_alive" },
+          { "walk": "q.modified_move_speed > 0.02 && q.is_alive" },
+          "attack_ctrl",
+          { "death": "!q.is_alive" }
+        ]
+      },
+      "render_controllers": ["controller.render.default"],
+      "spawn_egg": { "base_color": "#fbf6e6", "overlay_color": "#fff3a0" }
+    }
+  }
+}

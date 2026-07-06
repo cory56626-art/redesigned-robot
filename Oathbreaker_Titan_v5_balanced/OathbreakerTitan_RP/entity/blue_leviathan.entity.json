@@ -1,0 +1,27 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "ob:blue_leviathan",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/entity/blue_leviathan" },
+      "geometry": { "default": "geometry.ob_leviathan" },
+      "animations": {
+        "idle": "animation.ob_leviathan.idle",
+        "walk": "animation.ob_leviathan.walk",
+        "bite_anim": "animation.ob_leviathan.bite",
+        "spew_anim": "animation.ob_leviathan.spew",
+        "attack_ctrl": "controller.animation.ob_leviathan.attack"
+      },
+      "scripts": {
+        "animate": [
+          { "idle": "q.modified_move_speed <= 0.02 && q.is_alive" },
+          { "walk": "q.modified_move_speed > 0.02 && q.is_alive" },
+          "attack_ctrl"
+        ]
+      },
+      "render_controllers": ["controller.render.default"],
+      "spawn_egg": { "base_color": "#12285c", "overlay_color": "#3c78c8" }
+    }
+  }
+}

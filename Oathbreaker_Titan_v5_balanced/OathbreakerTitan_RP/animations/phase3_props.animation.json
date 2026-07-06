@@ -1,0 +1,51 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.ob_crystal.spin": {
+      "loop": true,
+      "bones": {
+        "crystal": {
+          "rotation": [0, "q.life_time * 160", 0],
+          "position": [0, "math.sin(q.life_time * 120) * 0.6", 0]
+        }
+      }
+    },
+    "animation.ob_pillar.pulse": {
+      "loop": true,
+      "bones": {
+        "cap": { "rotation": [0, "q.life_time * 90", 0] },
+        "pillar": { "scale": ["1", "1 + 0.02 * math.sin(q.life_time * 200)", "1"] }
+      }
+    },
+    "animation.ob_pillar.rise": {
+      "loop": "hold_on_last_frame",
+      "animation_length": 0.85,
+      "bones": {
+        "pillar": {
+          "position": {
+            "0.0": [0, -52, 0],
+            "0.6": [0, 3, 0],
+            "0.75": [0, -1.5, 0],
+            "0.85": [0, 0, 0]
+          }
+        },
+        "cap": {
+          "rotation": {
+            "0.0": [0, 0, 0],
+            "0.6": [0, 220, 0],
+            "0.85": [0, 180, 0]
+          }
+        }
+      }
+    },
+    "animation.ob_blade.hover": {
+      "loop": true,
+      "bones": {
+        "blade": {
+          "rotation": ["math.sin(q.life_time * 120) * 3", 0, "q.life_time * 60"],
+          "position": [0, "math.sin(q.life_time * 140) * 0.5", 0]
+        }
+      }
+    }
+  }
+}

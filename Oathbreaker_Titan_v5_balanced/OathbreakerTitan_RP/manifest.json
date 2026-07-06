@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Oathbreaker Titan v2 [RP]",
+    "description": "Models, textures and animations for the Oathbreaker Titan boss.",
+    "uuid": "b2169d4f-d046-48c7-80ed-857a3bc37ff0",
+    "version": [
+      3,
+      5,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      21,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "a23de13c-f1de-475c-8bd6-a601acb84dc0",
+      "version": [
+        3,
+        5,
+        0
+      ]
+    }
+  ]
+}
