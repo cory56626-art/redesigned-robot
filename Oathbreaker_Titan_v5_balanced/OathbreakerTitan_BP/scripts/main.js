@@ -3475,18 +3475,15 @@ const FUSION_BURN_DMG = 2;
 const SOLAR_COOLDOWN = 420;   // how often the god calls the clones in (~21s)
 const SOLAR_CLONES = 3;       // clones summoned per assault
 
-// ---- Blink Assault (the clones' melee) ----
-// A clone blinks in, winds up, punches, and blinks out. TWO ways to beat a
-// punch: step out of reach during the wind-up, OR hit the clone — a swatted
-// clone blinks away immediately instead of connecting.
-const BLINK_DURATION  = 200;  // each clone harasses for ~10s, then burns out
-const BLINK_WINDUP    = 8;    // telegraph ticks between reappearing and the punch
-const BLINK_LINGER    = 3;    // ticks it stands after punching before blinking out
-const BLINK_HIDE      = 14;   // hidden gap between a blink-out and the next strike
-const BLINK_HIDE_HIT  = 8;    // shorter gap after you swat it mid-strike
-const BLINK_RANGE     = 2.0;  // how close it reappears to you
-const BLINK_HIT_REACH = 2.4;  // must still be this close when the punch lands
-const BLINK_DAMAGE    = 5;    // per punch
+// ---- Molten Clones (chase-on-foot harassers) ----
+// They run you down at ~70% of the god's speed and punch in melee. The moment
+// a hit is traded (they hit you, OR you hit them) they vanish and reappear a
+// short run away, so they always have to chase you down again — never a free
+// repeat hit, never an unavoidable one.
+//   NOTE: speed (0.29) and punch damage (5) live on the solar_clone entity.
+const CLONE_LIFESPAN    = 200;  // each clone chases for ~10s, then burns out
+const REAPPEAR_DIST_MIN = 8;    // after a traded hit it warps this far off...
+const REAPPEAR_DIST_MAX = 12;   // ...then has to run you down again
 
 const SUFFER_COOLDOWN = 380;
 const SENTINEL_SUFFER_COOLDOWN = 1000; // sentinel variant only: 50s (20tps)
@@ -3643,18 +3640,9 @@ function godStartSolar(god, s) {
     const pos = { x: px, y: py, z: pz };
     try {
       const clone = god.dimension.spawnEntity(SOLAR_ID, pos);
-      // stagger each clone's cycle so they don't all punch on the same tick,
-      // and start hidden so they blink IN rather than standing around
-      const stagger = i * Math.floor((BLINK_WINDUP + BLINK_LINGER + BLINK_HIDE) / SOLAR_CLONES);
-      solars.set(clone.id, {
-        godId: god.id,
-        born: system.currentTick,
-        stage: "hidden",
-        timer: stagger,
-        strikeLoc: null,
-        interrupted: false
-      });
-      try { clone.addEffect("invisibility", stagger + 2, { amplifier: 0, showParticles: false }); } catch { }
+      // the clone chases on foot (speed lives on the entity); it only teleports
+      // to "reappear" once a hit is traded
+      solars.set(clone.id, { godId: god.id, born: system.currentTick, reappear: false });
       particle(god.dimension, "minecraft:huge_explosion_emitter", { x: px, y: py + 1, z: pz });
     } catch { }
   }
@@ -3662,99 +3650,52 @@ function godStartSolar(god, s) {
 
 const solars = new Map();
 
-// blink a clone out of its current strike: puff, go invisible, and warp off
-// to a holding spot. `gap` is how long it stays hidden before the next strike.
-function cloneBlinkOut(clone, cs, target, gap) {
-  const loc = clone.location;
-  particle(clone.dimension, "minecraft:huge_explosion_emitter", { x: loc.x, y: loc.y + 1, z: loc.z });
-  playSoundAt(clone.dimension, "mob.endermen.portal", loc, 1.3);
-  try { clone.addEffect("invisibility", gap + 2, { amplifier: 0, showParticles: false }); } catch { }
-  try {
+// after a clone trades a hit, it vanishes and reappears a short run away, so it
+// has to chase you down again — never a free repeat hit.
+function cloneReappear(clone, cs) {
+  const from = clone.location;
+  particle(clone.dimension, "minecraft:huge_explosion_emitter", { x: from.x, y: from.y + 1, z: from.z });
+  playSoundAt(clone.dimension, "mob.endermen.portal", from, 1.4);
+  const target = combatTargetFor(cs.godId, clone);
+  if (target) {
     const ang = Math.random() * Math.PI * 2;
-    const hx = target.location.x + Math.cos(ang) * 7;
-    const hz = target.location.z + Math.sin(ang) * 7;
-    const hy = groundY(clone.dimension, hx, target.location.y + 1, hz);
-    clone.teleport({ x: hx, y: hy, z: hz }, { facingLocation: target.location });
-  } catch { }
-  cs.strikeLoc = null;
-  cs.stage = "hidden";
-  cs.timer = gap;
+    const r = REAPPEAR_DIST_MIN + Math.random() * (REAPPEAR_DIST_MAX - REAPPEAR_DIST_MIN);
+    const x = target.location.x + Math.cos(ang) * r;
+    const z = target.location.z + Math.sin(ang) * r;
+    const y = groundY(clone.dimension, x, target.location.y + 1, z);
+    try { clone.teleport({ x, y, z }, { facingLocation: target.location }); } catch { }
+  }
+  const now = clone.location;
+  particle(clone.dimension, "minecraft:huge_explosion_emitter", { x: now.x, y: now.y + 1, z: now.z });
+  playSoundAt(clone.dimension, "mob.endermen.portal", now, 1.4);
 }
 
-// Blink Assault: each clone runs a hidden -> appear -> wind-up -> punch ->
-// blink-out loop. A punch can be beaten by stepping out of reach during the
-// wind-up, OR by hitting the clone (which blinks it out before it connects).
+// The clone chases on foot (movement speed + punch live on the entity). Script
+// only handles its ~10s lifespan and the vanish/reappear after a traded hit.
 function tickSolar(clone) {
   const cs = solars.get(clone.id);
   if (!cs) { try { clone.remove(); } catch { } return; }
 
   // burn out after ~10s in a puff instead of hanging around
-  if (system.currentTick - cs.born >= BLINK_DURATION) {
+  if (system.currentTick - cs.born >= CLONE_LIFESPAN) {
     try { particle(clone.dimension, "minecraft:huge_explosion_emitter", clone.location); } catch { }
-    try { clone.removeEffect("invisibility"); } catch { }
     try { clone.remove(); } catch { }
     solars.delete(clone.id);
     return;
   }
 
-  const target = combatTargetFor(cs.godId, clone);
-  if (!target) return;
-
-  // SWATTED: hit while it's visible and it blinks away at once — its punch is
-  // cancelled, so it's never a guaranteed hit.
-  if (cs.interrupted) {
-    cs.interrupted = false;
-    if (cs.stage !== "hidden") {
-      cloneBlinkOut(clone, cs, target, BLINK_HIDE_HIT);
-      tellVictim(target, "§e☀ You swat the clone — it blinks away!");
-      return;
-    }
-  }
-
-  cs.timer--;
-
-  // mid-stage upkeep (hold the wind-up pose on the spot)
-  if (cs.timer > 0) {
-    if (cs.stage === "windup" && cs.strikeLoc) {
-      try { clone.teleport(cs.strikeLoc, { facingLocation: target.location }); } catch { }
-      particle(clone.dimension, "minecraft:basic_flame_particle", { x: cs.strikeLoc.x, y: cs.strikeLoc.y + 1.4, z: cs.strikeLoc.z });
-    }
+  // it hit you, or you hit it → vanish and reappear a short run off
+  if (cs.reappear) {
+    cs.reappear = false;
+    cloneReappear(clone, cs);
     return;
   }
 
-  if (cs.stage === "hidden") {
-    // REAPPEAR next to the target
-    const ang = Math.random() * Math.PI * 2;
-    const px = target.location.x + Math.cos(ang) * BLINK_RANGE;
-    const pz = target.location.z + Math.sin(ang) * BLINK_RANGE;
-    const py = groundY(clone.dimension, px, target.location.y + 1, pz);
-    cs.strikeLoc = { x: px, y: py, z: pz };
-    try { clone.removeEffect("invisibility"); } catch { }
-    try { clone.teleport(cs.strikeLoc, { facingLocation: target.location }); } catch { }
-    particle(clone.dimension, "minecraft:huge_explosion_emitter", { x: px, y: py + 1, z: pz });
-    playSoundAt(clone.dimension, "mob.endermen.portal", cs.strikeLoc, 1.6);
-    cs.stage = "windup";
-    cs.timer = BLINK_WINDUP;
-    return;
+  // a trail of embers so the chaser is easy to read
+  const loc = clone.location;
+  if (system.currentTick % 4 === 0) {
+    particle(clone.dimension, "minecraft:basic_flame_particle", { x: loc.x, y: loc.y + 1.4, z: loc.z });
   }
-
-  if (cs.stage === "windup") {
-    // PUNCH — only connects if you're still in reach of the fixed spot
-    playSoundAt(clone.dimension, "mob.irongolem.throw", cs.strikeLoc, 1.0);
-    particle(clone.dimension, "minecraft:critical_hit_emitter", { x: cs.strikeLoc.x, y: cs.strikeLoc.y + 1, z: cs.strikeLoc.z });
-    let god = null; try { god = world.getEntity(cs.godId); } catch { }
-    if (cs.strikeLoc && distance(target.location, cs.strikeLoc) <= BLINK_HIT_REACH) {
-      godHurt(god ?? clone, target, BLINK_DAMAGE);
-      knockPlayer(target, norm2d(sub(target.location, cs.strikeLoc)), 0.4, 0.2);
-      tellVictim(target, "§e☀ A clone strikes from nowhere!");
-    }
-    cs.stage = "linger";
-    cs.timer = BLINK_LINGER;
-    return;
-  }
-
-  // linger -> blink out and reappear after the normal gap
-  cloneBlinkOut(clone, cs, target, BLINK_HIDE);
 }
 
 function nearestSolarTarget(from) {
@@ -4613,13 +4554,23 @@ function tickGod(god) {
   }
 }
 
-// ---- swat a Molten Clone and it blinks away (cancels its punch) ----
+// ---- a Molten Clone vanishes and reappears whenever a hit is traded ----
+// (you hit it, OR it hits you) — then it has to chase you down again
 try {
   world.afterEvents.entityHitEntity.subscribe((ev) => {
+    // you hit a clone
     const hit = ev.hitEntity;
-    if (!hit || hit.typeId !== SOLAR_ID) return;
-    const cs = solars.get(hit.id);
-    if (cs) cs.interrupted = true;
+    if (hit && hit.typeId === SOLAR_ID) {
+      const cs = solars.get(hit.id);
+      if (cs) cs.reappear = true;
+      return;
+    }
+    // a clone hit you
+    const atk = ev.damagingEntity;
+    if (atk && atk.typeId === SOLAR_ID) {
+      const cs = solars.get(atk.id);
+      if (cs) cs.reappear = true;
+    }
   });
 } catch { }
 try {
@@ -4628,7 +4579,7 @@ try {
     try { hit = ev.getEntityHit()?.entity; } catch { }
     if (!hit || hit.typeId !== SOLAR_ID) return;
     const cs = solars.get(hit.id);
-    if (cs) cs.interrupted = true;
+    if (cs) cs.reappear = true;
   });
 } catch { }
 
@@ -4636,6 +4587,11 @@ try {
 world.afterEvents.entityHurt.subscribe((ev) => {
   const hurt = ev.hurtEntity;
   const src = ev.damageSource?.damagingEntity;
+  // a clone landed a punch → it vanishes and reappears a short run off
+  if (src?.typeId === SOLAR_ID) {
+    const cs = solars.get(src.id);
+    if (cs) cs.reappear = true;
+  }
   if (src?.typeId === MOLTEN_GOD_ID && hurt && !isPlayer(hurt) && canFight(hurt)) {
     const s = getGodState(src);
     s.mobFoeId = hurt.id; s.mobFoeTick = system.currentTick;
