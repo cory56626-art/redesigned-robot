@@ -1,25 +1,52 @@
 // =========================================================================
 //  Overdrive Sculk — custom mob spawning & JavaScript-driven behaviors.
 //
-//  Infected mobs, tentacles, the Warden and the Infected Wither are all
-//  seeded from the growing frontier.  Tentacle attacking is handled here in
-//  script (not entity AI) so its reach can scale with the infection level.
+//  Populations are deliberately SMALL and level-scaled (a swarm of weak mobs
+//  is annoying, not scary).  Tentacle attacks and the infected mobs' ground
+//  seeding are both driven here in script so they can react to the player and
+//  to the infection level.
 // =========================================================================
 
 import { world, system } from "@minecraft/server";
 import {
-  MOB_ZOMBIE, MOB_SKELETON, MOB_CREEPER, TENTACLE_ID, hasFlag,
+  MOB_ZOMBIE, MOB_SKELETON, MOB_CREEPER, TENTACLE_ID,
+  INFECTED_MOBS, ALL_OVERDRIVE_ENTITIES, hasFlag, isAlive, distSq,
 } from "./config.js";
 
-// Soft population caps (per dimension) so the corruption's army never lags.
+// Hard per-dimension caps. Kept low on purpose; scaled DOWN further at low
+// levels by effCap() so early game is sparse and tense rather than swarmed.
 const CAPS = {
-  [MOB_ZOMBIE]: 14,
-  [MOB_SKELETON]: 9,
-  [MOB_CREEPER]: 7,
-  [TENTACLE_ID]: 24,
-  "minecraft:warden": 2,
+  [MOB_ZOMBIE]: 6,
+  [MOB_SKELETON]: 4,
+  [MOB_CREEPER]: 3,
+  [TENTACLE_ID]: 6,
+  "minecraft:warden": 1,
   "minecraft:wither": 1,
 };
+
+// A mob only spawns if a player is within this range of the chosen spot, so
+// the corruption's army appears where it matters and never piles up off-screen.
+const SPAWN_PLAYER_RANGE = 100;
+
+function effCap(type, level) {
+  const base = CAPS[type] ?? 3;
+  if (type === "minecraft:warden" || type === "minecraft:wither") return base;
+  // Ramp from ~1 at low levels to the full cap by Level 12.
+  return Math.max(1, Math.min(base, Math.ceil((base * level) / 12)));
+}
+
+function countType(dim, type) {
+  try { return dim.getEntities({ type }).length; } catch { return 0; }
+}
+
+function playerNear(dim, loc, range) {
+  const r2 = range * range;
+  for (const p of world.getAllPlayers()) {
+    if (p.dimension.id !== dim.id) continue;
+    if (distSq(p.location, loc) <= r2) return true;
+  }
+  return false;
+}
 
 // ------------------------------------------------------------------------- //
 //  Spawn placement                                                          //
@@ -42,15 +69,12 @@ function findSpawnSpot(infection) {
   return null;
 }
 
-function countType(dim, type) {
-  try { return dim.getEntities({ type }).length; } catch { return 0; }
-}
-
 function trySpawn(infection, type, probability) {
   if (Math.random() > probability) return;
   const spot = findSpawnSpot(infection);
   if (!spot) return;
-  if (countType(spot.dim, type) >= (CAPS[type] ?? 8)) return;
+  if (!playerNear(spot.dim, spot.loc, SPAWN_PLAYER_RANGE)) return;
+  if (countType(spot.dim, type) >= effCap(type, infection.level)) return;
   try {
     const e = spot.dim.spawnEntity(type, spot.loc);
     if (type !== TENTACLE_ID) {
@@ -60,20 +84,18 @@ function trySpawn(infection, type, probability) {
 }
 
 // ------------------------------------------------------------------------- //
-//  Periodic spawning (called on the slow ~5s cadence)                       //
+//  Periodic spawning (called on the slow ~10s cadence)                      //
 // ------------------------------------------------------------------------- //
 export function spawnTick(infection) {
   if (!infection.active) return;
   const lvl = infection.level;
 
-  if (hasFlag(lvl, "spawnZombie")) trySpawn(infection, MOB_ZOMBIE, 0.9);
-  if (hasFlag(lvl, "spawnSkeleton")) trySpawn(infection, MOB_SKELETON, 0.7);
-  if (hasFlag(lvl, "spawnCreeper")) trySpawn(infection, MOB_CREEPER, 0.6);
+  if (hasFlag(lvl, "spawnZombie")) trySpawn(infection, MOB_ZOMBIE, 0.5);
+  if (hasFlag(lvl, "spawnSkeleton")) trySpawn(infection, MOB_SKELETON, 0.4);
+  if (hasFlag(lvl, "spawnCreeper")) trySpawn(infection, MOB_CREEPER, 0.35);
 
   if (hasFlag(lvl, "tentacles")) {
-    const often = hasFlag(lvl, "tentaclesOften");
-    trySpawn(infection, TENTACLE_ID, often ? 0.9 : 0.5);
-    if (often && lvl >= 8) trySpawn(infection, TENTACLE_ID, 0.5); // a second, longer-reach one
+    trySpawn(infection, TENTACLE_ID, hasFlag(lvl, "tentaclesOften") ? 0.6 : 0.4);
   }
 
   // Level 11+: 5–10% chance to raise a Warden.
@@ -85,6 +107,7 @@ export function spawnTick(infection) {
 function trySpawnWarden(infection) {
   const spot = findSpawnSpot(infection);
   if (!spot) return;
+  if (!playerNear(spot.dim, spot.loc, SPAWN_PLAYER_RANGE)) return;
   if (countType(spot.dim, "minecraft:warden") >= CAPS["minecraft:warden"]) return;
   try {
     spot.dim.spawnEntity("minecraft:warden", spot.loc);
@@ -97,60 +120,59 @@ function trySpawnWarden(infection) {
 //  Infected Wither — the energy payoff boss                                 //
 // ------------------------------------------------------------------------- //
 export function spawnInfectedWither(infection) {
-  if (infection.level < 11) return false; // only once the corruption is potent
+  if (infection.level < 11) return false;
   const spot = findSpawnSpot(infection);
   if (!spot) return false;
   if (countType(spot.dim, "minecraft:wither") >= CAPS["minecraft:wither"]) return false;
+  return buffAsInfectedWither(spot.dim, { x: spot.loc.x, y: spot.loc.y + 1.5, z: spot.loc.z });
+}
+
+function buffAsInfectedWither(dim, loc) {
   try {
-    const w = spot.dim.spawnEntity("minecraft:wither", { x: spot.loc.x, y: spot.loc.y + 1.5, z: spot.loc.z });
+    const w = dim.spawnEntity("minecraft:wither", loc);
     w.addTag("overdrive_infected");
     try { w.nameTag = "§3§lInfected Wither"; } catch { /* ignore */ }
     try { w.addEffect("strength", 1000000, { amplifier: 1, showParticles: false }); } catch { /* ignore */ }
     try { w.addEffect("resistance", 1000000, { amplifier: 1, showParticles: false }); } catch { /* ignore */ }
     try { w.addEffect("regeneration", 1000000, { amplifier: 0, showParticles: false }); } catch { /* ignore */ }
     world.sendMessage("§3§l» §r§bThe corruption gives birth to an §lInfected Wither§r§b!");
-    try { spot.dim.playSound("mob.wither.spawn", spot.loc); } catch { /* ignore */ }
+    try { dim.playSound("mob.wither.spawn", loc); } catch { /* ignore */ }
     return true;
   } catch { return false; }
 }
 
 // ------------------------------------------------------------------------- //
 //  Tentacle attacks (JavaScript behavior, once per second)                  //
-//  Reach grows at Level 8+; targets mobs, and players too at Level 15.      //
+//  Lashes at any nearby mob AND player; reach + damage grow with level.     //
 // ------------------------------------------------------------------------- //
 export function tentacleAttackTick(infection) {
   if (!infection.active) return;
-  const reach = infection.level >= 8 ? 5.0 : infection.level >= 4 ? 3.8 : 3.0;
-  const dmg = infection.level >= 15 ? 7 : infection.level >= 8 ? 5 : 4;
-
-  const excludeFamilies = ["overdrive", "inanimate"];
-  if (infection.level < 15) excludeFamilies.push("player"); // players only at max aggression
+  const reach = infection.level >= 8 ? 6.0 : infection.level >= 4 ? 4.5 : 3.8;
+  const dmg = infection.level >= 15 ? 8 : infection.level >= 8 ? 5 : infection.level >= 4 ? 4 : 3;
 
   const handled = new Set();
   for (const player of world.getAllPlayers()) {
     let tentacles;
     try {
-      tentacles = player.dimension.getEntities({
-        type: TENTACLE_ID, location: player.location, maxDistance: 72,
-      });
+      tentacles = player.dimension.getEntities({ type: TENTACLE_ID, location: player.location, maxDistance: 80 });
     } catch { continue; }
 
     for (const t of tentacles) {
-      if (!t.isValid || handled.has(t.id)) continue;
+      if (!isAlive(t) || handled.has(t.id)) continue;
       handled.add(t.id);
 
       let victims;
       try {
         victims = t.dimension.getEntities({
           location: t.location, maxDistance: reach,
-          excludeFamilies,
+          excludeFamilies: ["overdrive", "inanimate"],
           excludeTypes: [TENTACLE_ID, "minecraft:item", "minecraft:xp_orb", "minecraft:arrow"],
         });
       } catch { continue; }
 
       let struck = false;
       for (const v of victims) {
-        if (!v.isValid) continue;
+        if (!isAlive(v)) continue;
         try {
           v.applyDamage(dmg, { cause: "entityAttack", damagingEntity: t });
           struck = true;
@@ -161,17 +183,78 @@ export function tentacleAttackTick(infection) {
         try {
           const dx = t.location.x - v.location.x;
           const dz = t.location.z - v.location.z;
-          v.applyKnockback(dx, dz, 0.35, 0.15);
+          v.applyKnockback(dx, dz, 0.5, 0.25);
         } catch { /* ignore */ }
       }
 
       try { t.setProperty("overdrive:striking", struck); } catch { /* ignore */ }
       if (struck) {
-        try { t.dimension.playSound("mob.warden.attack_impact", t.location, { volume: 0.6, pitch: 0.8 }); } catch { /* ignore */ }
+        try { t.dimension.playSound("mob.warden.attack_impact", t.location, { volume: 0.7, pitch: 0.7 }); } catch { /* ignore */ }
+        try { t.dimension.spawnParticle("minecraft:sculk_charge_pop_particle", t.location); } catch { /* ignore */ }
         system.runTimeout(() => {
-          try { if (t.isValid) t.setProperty("overdrive:striking", false); } catch { /* ignore */ }
+          try { if (isAlive(t)) t.setProperty("overdrive:striking", false); } catch { /* ignore */ }
         }, 8);
       }
     }
   }
+}
+
+// ------------------------------------------------------------------------- //
+//  Infected mobs seed the ground (once per second)                          //
+//  They spread the corruption as they roam — far more likely when no player  //
+//  is close, so the infection keeps taking ground even while you're away.    //
+// ------------------------------------------------------------------------- //
+export function infectedGroundTick(infection) {
+  if (!infection.active) return;
+
+  const handled = new Set();
+  for (const player of world.getAllPlayers()) {
+    let mobs;
+    try {
+      mobs = player.dimension.getEntities({ families: ["overdrive"], location: player.location, maxDistance: 96 });
+    } catch { continue; }
+
+    for (const m of mobs) {
+      if (!isAlive(m) || handled.has(m.id)) continue;
+      handled.add(m.id);
+      if (!INFECTED_MOBS.includes(m.typeId)) continue;
+
+      const near = distSq(m.location, player.location) < 16 * 16;
+      const chance = near ? 0.12 : 0.45; // aggressive ground-take when unattended
+      if (Math.random() > chance) continue;
+
+      const loc = m.location;
+      infection.convertAt(m.dimension, Math.floor(loc.x), Math.floor(loc.y) - 1, Math.floor(loc.z));
+    }
+  }
+}
+
+// ------------------------------------------------------------------------- //
+//  Test / admin helpers                                                     //
+// ------------------------------------------------------------------------- //
+export function spawnAt(dim, loc, type) {
+  try { return dim.spawnEntity(type, loc); } catch { return undefined; }
+}
+
+export function spawnTestWither(dim, loc) {
+  return buffAsInfectedWither(dim, { x: loc.x, y: loc.y + 2, z: loc.z });
+}
+
+export function clearOverdriveMobs() {
+  let removed = 0;
+  const done = new Set();
+  for (const p of world.getAllPlayers()) {
+    if (done.has(p.dimension.id)) continue;
+    done.add(p.dimension.id);
+    for (const type of ALL_OVERDRIVE_ENTITIES) {
+      let ents;
+      try { ents = p.dimension.getEntities({ type }); } catch { continue; }
+      for (const e of ents) {
+        try { e.remove(); removed++; } catch {
+          try { e.kill(); removed++; } catch { /* ignore */ }
+        }
+      }
+    }
+  }
+  return removed;
 }

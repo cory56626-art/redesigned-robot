@@ -12,7 +12,7 @@
         "controller": "controller.animation.overdrive.tentacle"
       },
       "scripts": {
-        "animate": ["controller"]
+        "animate": ["idle", "controller"]
       },
       "render_controllers": ["controller.render.default"]
     }

@@ -114,3 +114,23 @@ export function shuffle(arr) {
   }
   return arr;
 }
+
+// `Entity.isValid` is a method on older API versions and a property on newer
+// ones. This normalises both so guards behave the same everywhere.
+export function isAlive(e) {
+  if (!e) return false;
+  try {
+    return typeof e.isValid === "function" ? e.isValid() : !!e.isValid;
+  } catch {
+    return false;
+  }
+}
+
+export function distSq(a, b) {
+  const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+  return dx * dx + dy * dy + dz * dz;
+}
+
+// The Overdrive mob identifiers, grouped for iteration.
+export const INFECTED_MOBS = [MOB_ZOMBIE, MOB_SKELETON, MOB_CREEPER];
+export const ALL_OVERDRIVE_ENTITIES = [MOB_ZOMBIE, MOB_SKELETON, MOB_CREEPER, TENTACLE_ID, VINE_ID];

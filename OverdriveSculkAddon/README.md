@@ -99,20 +99,45 @@ Vine Grab chance ramps at the specified breakpoints: **25%** (L2), **30%** (L5),
 
 ---
 
-## Admin / debug commands
+## Admin / test commands
 
-Run these in chat (cheats on):
+Run these in chat (cheats on). `/scriptevent overdrive:help` prints the list
+in-game.
 
 | Command | Effect |
 |---------|--------|
+| `/scriptevent overdrive:help` | List every command |
 | `/scriptevent overdrive:status` | Print live stats (level, blocks, energy, interval, frontier) |
 | `/scriptevent overdrive:reset` | Wipe the infection state |
 | `/scriptevent overdrive:level <1-15>` | Jump straight to a level |
 | `/scriptevent overdrive:energy <n>` | Set the energy value |
+| `/scriptevent overdrive:addblocks <n>` | Add to the block count (test level triggers instantly) |
+| `/scriptevent overdrive:spread [n]` | Force `n` spread cycles right now (default 1) |
 | `/scriptevent overdrive:seedhere` | Plant sculk under every player (quick start) |
+| `/scriptevent overdrive:spawn <type>` | Spawn `zombie`/`skeleton`/`creeper`/`tentacle`/`vine`/`wither`/`warden` at you |
+| `/scriptevent overdrive:grab` | Force a Vine Grab pass on nearby mobs |
+| `/scriptevent overdrive:node` | Place an Overdrive Node at you |
+| `/scriptevent overdrive:fog <on\|off>` | Toggle the Overdrive Fog |
+| `/scriptevent overdrive:rumble` | Play the rumble now |
+| `/scriptevent overdrive:clearmobs` | Remove all Overdrive mobs (use if a test over-spawned) |
 
 State (level, block count, energy, frontier) is persisted in world dynamic
 properties, so an infection resumes after the world reloads.
+
+### Tuning notes (v1.1)
+
+* **Mob populations are small and level-scaled.** Caps are ~1 early and reach
+  their (already low) maximums by Level 12; mobs only spawn when a player is
+  within 100 blocks of the chosen spot. This replaces the earlier swarm.
+* **Infected mobs seed the ground** as they roam — much more aggressively when
+  no player is close — so the corruption keeps taking territory while you are
+  away, and the surface (not just underground) gets covered.
+* **Surface bias:** growth now creeps horizontally/upward ~70% of the time so
+  the infection is clearly visible above ground, while still burrowing down.
+* **Tentacles lash at players *and* mobs** (script-driven, reach/damage scale
+  with level) and always play their idle sway.
+* **All custom mobs are animated** via custom geometry + Molang walk/idle
+  animations (legs/arms swing when moving, subtle idle sway when still).
 
 ---
 

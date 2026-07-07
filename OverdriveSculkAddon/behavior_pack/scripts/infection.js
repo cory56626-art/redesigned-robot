@@ -13,16 +13,23 @@ import {
   PROTECTED_BLOCKS, levelData, hasFlag, randInt, shuffle, shortDimId,
 } from "./config.js";
 
-// Directions the infection can creep into. Includes a few diagonals so the
-// growth reads as organic rather than a perfect cube.
-const GROW_DIRS = [
+// Directions the infection can creep into, split by tier so growth can be
+// biased to crawl ACROSS the surface (horizontal + up) before burrowing down.
+const HORIZ_DIRS = [
   { x: 1, y: 0, z: 0 }, { x: -1, y: 0, z: 0 },
-  { x: 0, y: 1, z: 0 }, { x: 0, y: -1, z: 0 },
   { x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: -1 },
   { x: 1, y: 0, z: 1 }, { x: -1, y: 0, z: -1 },
   { x: 1, y: 0, z: -1 }, { x: -1, y: 0, z: 1 },
-  { x: 0, y: 1, z: 1 }, { x: 0, y: -1, z: -1 },
 ];
+const UP_DIRS = [
+  { x: 0, y: 1, z: 0 }, { x: 1, y: 1, z: 0 }, { x: -1, y: 1, z: 0 },
+  { x: 0, y: 1, z: 1 }, { x: 0, y: 1, z: -1 },
+];
+const DOWN_DIRS = [
+  { x: 0, y: -1, z: 0 }, { x: 0, y: -1, z: 1 }, { x: 0, y: -1, z: -1 },
+  { x: 1, y: -1, z: 0 }, { x: -1, y: -1, z: 0 },
+];
+const GROW_DIRS = [...HORIZ_DIRS, ...UP_DIRS, ...DOWN_DIRS];
 
 export class Infection {
   constructor() {
@@ -130,7 +137,19 @@ export class Infection {
   /** Try to convert one neighbour of a frontier block. Returns the new sculk
    *  position, or null if the block is fully surrounded / in an unloaded chunk. */
   tryGrowFrom(dim, pos, allowWater) {
-    const dirs = shuffle(GROW_DIRS.slice());
+    // 70% of the time creep horizontally/upward first so the corruption is
+    // clearly visible on the surface; otherwise grow in a fully random order
+    // (this keeps the "cool" underground burrowing the player noticed).
+    let dirs;
+    if (Math.random() < 0.7) {
+      dirs = [
+        ...shuffle(HORIZ_DIRS.slice()),
+        ...shuffle(UP_DIRS.slice()),
+        ...shuffle(DOWN_DIRS.slice()),
+      ];
+    } else {
+      dirs = shuffle(GROW_DIRS.slice());
+    }
     const range = dim.heightRange;
     for (const dd of dirs) {
       const loc = { x: pos.x + dd.x, y: pos.y + dd.y, z: pos.z + dd.z };
@@ -142,6 +161,19 @@ export class Infection {
       return { d: pos.d, x: loc.x, y: loc.y, z: loc.z };
     }
     return null;
+  }
+
+  /** Convert a specific block to sculk and fold it into the frontier. Used by
+   *  infected mobs seeding the ground as they roam. Returns true on success. */
+  convertAt(dim, x, y, z) {
+    let b;
+    try { b = dim.getBlock({ x, y, z }); } catch { return false; }
+    if (!this.isConvertible(b, false)) return false;
+    try { b.setType(BLOCK_ID); } catch { return false; }
+    this.frontier.push({ d: shortDimId(dim.id), x, y, z });
+    this.blockCount++;
+    this._prune();
+    return true;
   }
 
   /** Perform one spread cycle. Returns an array of newly reached level numbers. */

@@ -8,7 +8,7 @@
 
 import { world, system } from "@minecraft/server";
 import {
-  VINE_ID, BLOCK_ID, ENERGY_PER_GRAB, vineChanceForLevel, randInt,
+  VINE_ID, BLOCK_ID, ENERGY_PER_GRAB, vineChanceForLevel, randInt, isAlive,
 } from "./config.js";
 
 // Mobs we never grab: players, projectiles, drops, and the corruption's own.
@@ -50,7 +50,7 @@ export function runVineGrab(infection) {
 
     for (const mob of candidates) {
       if (grabs >= MAX_GRABS_PER_SECOND) break;
-      if (!mob.isValid || seen.has(mob.id)) continue;
+      if (!isAlive(mob) || seen.has(mob.id)) continue;
       seen.add(mob.id);
 
       if (!isStandingOnSculk(dim, mob)) continue;
@@ -89,11 +89,11 @@ function grab(dim, mob, infection) {
   try { mob.addEffect("slowness", 40, { amplifier: 4, showParticles: false }); } catch { /* ignore */ }
   system.runTimeout(() => {
     try {
-      if (!mob.isValid) return;
+      if (!isAlive(mob)) return;
       mob.teleport({ x: loc.x, y: loc.y - drop, z: loc.z });
     } catch { /* ignore */ }
   }, 4);
   system.runTimeout(() => {
-    try { if (mob.isValid) mob.kill(); } catch { /* ignore */ }
+    try { if (isAlive(mob)) mob.kill(); } catch { /* ignore */ }
   }, 12);
 }

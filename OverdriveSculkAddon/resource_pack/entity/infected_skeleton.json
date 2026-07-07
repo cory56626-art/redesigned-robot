@@ -5,14 +5,13 @@
       "identifier": "overdrive:infected_skeleton",
       "materials": { "default": "entity_alphatest" },
       "textures": { "default": "textures/entity/infected_skeleton" },
-      "geometry": { "default": "geometry.humanoid.custom" },
+      "geometry": { "default": "geometry.overdrive.humanoid" },
       "spawn_egg": { "base_color": "#4a5a5a", "overlay_color": "#8cffef" },
       "animations": {
-        "humanoid_base_pose": "animation.humanoid.base_pose",
-        "move": "animation.humanoid.move"
+        "moving": "animation.overdrive.biped"
       },
       "scripts": {
-        "animate": ["humanoid_base_pose", "move"]
+        "animate": ["moving"]
       },
       "render_controllers": ["controller.render.default"]
     }

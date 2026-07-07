@@ -5,7 +5,6 @@
       "initial_state": "idle",
       "states": {
         "idle": {
-          "animations": ["idle"],
           "transitions": [
             { "attack": "query.property('overdrive:striking')" }
           ]
