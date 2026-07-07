@@ -35,6 +35,11 @@ function countType(dim, type) {
   try { return dim.getEntities({ type }).length; } catch { return 0; }
 }
 
+// Per-tentacle strike cooldown (tick when each may attack again) so a tentacle
+// bites periodically instead of draining you every single second.
+const tentacleNextStrike = new Map();
+const TENTACLE_COOLDOWN_TICKS = 30; // 1.5s
+
 // Players in creative or spectator are never valid targets — they're testing.
 function creativeAndSpectatorIds() {
   const ids = new Set();
@@ -171,6 +176,8 @@ export function tentacleAttackTick(infection) {
   const dmg = infection.level >= 15 ? 8 : infection.level >= 8 ? 5 : infection.level >= 4 ? 4 : 3;
 
   const protectedPlayers = creativeAndSpectatorIds();
+  const now = system.currentTick;
+  if (tentacleNextStrike.size > 256) tentacleNextStrike.clear(); // bound memory
 
   const handled = new Set();
   for (const player of world.getAllPlayers()) {
@@ -182,6 +189,8 @@ export function tentacleAttackTick(infection) {
     for (const t of tentacles) {
       if (!isAlive(t) || handled.has(t.id)) continue;
       handled.add(t.id);
+      // Respect the per-tentacle cooldown so it bites, not drains.
+      if ((tentacleNextStrike.get(t.id) ?? 0) > now) continue;
 
       let victims;
       try {
@@ -202,16 +211,13 @@ export function tentacleAttackTick(infection) {
         } catch {
           try { v.applyDamage(dmg); struck = true; } catch { /* ignore */ }
         }
-        // Yank the victim toward the tentacle (best-effort across API versions).
-        try {
-          const dx = t.location.x - v.location.x;
-          const dz = t.location.z - v.location.z;
-          v.applyKnockback(dx, dz, 0.5, 0.25);
-        } catch { /* ignore */ }
+        // Note: deliberately NO pull-toward knockback — it trapped players
+        // against the immovable tentacle. You can always walk away now.
       }
 
       try { t.setProperty("overdrive:striking", struck); } catch { /* ignore */ }
       if (struck) {
+        tentacleNextStrike.set(t.id, now + TENTACLE_COOLDOWN_TICKS);
         try { t.dimension.playSound("mob.warden.attack_impact", t.location, { volume: 0.7, pitch: 0.7 }); } catch { /* ignore */ }
         try { t.dimension.spawnParticle("minecraft:sculk_charge_pop_particle", t.location); } catch { /* ignore */ }
         system.runTimeout(() => {

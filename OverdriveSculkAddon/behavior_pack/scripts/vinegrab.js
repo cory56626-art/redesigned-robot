@@ -53,6 +53,9 @@ export function runVineGrab(infection) {
       if (!isAlive(mob) || seen.has(mob.id)) continue;
       seen.add(mob.id);
 
+      // Never grab players (the excludeTypes query already skips them; this is
+      // an explicit backstop so a player can never be dragged/suffocated).
+      if (mob.typeId === "minecraft:player") continue;
       if (!isStandingOnSculk(dim, mob)) continue;
       if (Math.random() >= chance) continue;
 
