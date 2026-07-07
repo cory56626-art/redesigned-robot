@@ -184,6 +184,10 @@
       "minecraft:nameable": {},
       "minecraft:loot": {
         "table": "loot_tables/com/organic_forgery_and_the_harvester_kse6cimp/biomass_hive.json"
+      },
+      "minecraft:boss": {
+        "should_darken_sky": false,
+        "hud_range": 55
       }
     },
     "events": {

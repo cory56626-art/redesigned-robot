@@ -98,22 +98,65 @@
     "com_organic_forgery_and_the_harvester_kse6cimp:tendon_dagger": {
       "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/tendon_dagger"
     },
-    "com_organic_forgery_and_the_harvester_kse6cimp:adaptive_arm_blade": { "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/adaptive_arm_blade" },
-    "com_organic_forgery_and_the_harvester_kse6cimp:fractured_arm_blade": { "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/fractured_arm_blade" },
-    "com_organic_forgery_and_the_harvester_kse6cimp:chitin_helm": { "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/chitin_helm" },
-    "com_organic_forgery_and_the_harvester_kse6cimp:chitin_carapace": { "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/chitin_carapace" },
-    "com_organic_forgery_and_the_harvester_kse6cimp:chitin_leggings": { "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/chitin_leggings" },
-    "com_organic_forgery_and_the_harvester_kse6cimp:chitin_boots": { "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/chitin_boots" },
-    "com_organic_forgery_and_the_harvester_kse6cimp:meat_sack_hood": { "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/meat_sack_hood" },
-    "com_organic_forgery_and_the_harvester_kse6cimp:meat_sack_torso": { "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/meat_sack_torso" },
-    "com_organic_forgery_and_the_harvester_kse6cimp:meat_sack_leggings": { "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/meat_sack_leggings" },
-    "com_organic_forgery_and_the_harvester_kse6cimp:meat_sack_boots": { "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/meat_sack_boots"
+    "com_organic_forgery_and_the_harvester_kse6cimp:adaptive_arm_blade": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/adaptive_arm_blade"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:fractured_arm_blade": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/fractured_arm_blade"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:chitin_helm": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/chitin_helm"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:chitin_carapace": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/chitin_carapace"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:chitin_leggings": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/chitin_leggings"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:chitin_boots": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/chitin_boots"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:meat_sack_hood": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/meat_sack_hood"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:meat_sack_torso": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/meat_sack_torso"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:meat_sack_leggings": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/meat_sack_leggings"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:meat_sack_boots": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/meat_sack_boots"
     },
     "com_organic_forgery_and_the_harvester_kse6cimp_chimera:chimera_uv": {
       "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/shields/chimera/entity/chimera_uv"
     },
     "com_organic_forgery_and_the_harvester_kse6cimp_chimera:chimera_icon": {
       "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/shields/chimera/items/chimera_icon"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:hive_core": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/hive_core"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:marrow_reaver": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/marrow_reaver"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:chimeric_talon": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/chimeric_talon"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:ossuary_maul": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/ossuary_maul"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:apex_helm": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/apex_helm"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:apex_plastron": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/apex_plastron"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:apex_greaves": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/apex_greaves"
+    },
+    "com_organic_forgery_and_the_harvester_kse6cimp:apex_treads": {
+      "textures": "textures/com/organic_forgery_and_the_harvester_kse6cimp/items/apex_treads"
     }
   }
 }
