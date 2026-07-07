@@ -3,11 +3,35 @@
   "minecraft:client_entity": {
     "description": {
       "identifier": "com_organic_forgery_and_the_harvester_kse6cimp:cremation_ally",
-      "materials": { "default": "entity_alphatest" },
-      "textures": { "default": "textures/com/organic_forgery_and_the_harvester_kse6cimp/entity/cremation_ally/cremation_ally" },
-      "geometry": { "default": "geometry.cremation_ally" },
-      "spawn_egg": { "base_color": "#241018", "overlay_color": "#b46a3c" },
-      "render_controllers": ["controller.render.com_organic_forgery_and_the_harvester_kse6cimp.cremation_ally"]
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/com/organic_forgery_and_the_harvester_kse6cimp/entity/cremation_ally/cremation_ally",
+        "ascended": "textures/com/organic_forgery_and_the_harvester_kse6cimp/entity/cremation_ally/cremation_ally_ascended"
+      },
+      "geometry": {
+        "default": "geometry.cremation_ally"
+      },
+      "animations": {
+        "idle": "animation.organic_cremation_ally.idle",
+        "walk": "animation.organic_cremation_ally.walk"
+      },
+      "scripts": {
+        "animate": [
+          "idle",
+          {
+            "walk": "query.modified_move_speed"
+          }
+        ]
+      },
+      "spawn_egg": {
+        "base_color": "#241018",
+        "overlay_color": "#b46a3c"
+      },
+      "render_controllers": [
+        "controller.render.com_organic_forgery_and_the_harvester_kse6cimp.cremation_ally"
+      ]
     }
   }
 }

@@ -1,0 +1,71 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.organic_cremation_ally.idle": {
+      "loop": true,
+      "bones": {
+        "head": {
+          "rotation": [
+            "math.sin(query.anim_time * 90) * 3",
+            "math.cos(query.anim_time * 60) * 5",
+            0
+          ]
+        },
+        "body": {
+          "rotation": [
+            "2 + math.sin(query.anim_time * 45) * 1.5",
+            0,
+            0
+          ]
+        },
+        "arm_right": {
+          "rotation": [
+            0,
+            0,
+            "3 + math.sin(query.anim_time * 90) * 2.5"
+          ]
+        },
+        "arm_left": {
+          "rotation": [
+            0,
+            0,
+            "-3 - math.sin(query.anim_time * 90) * 2.5"
+          ]
+        }
+      }
+    },
+    "animation.organic_cremation_ally.walk": {
+      "loop": true,
+      "bones": {
+        "leg_right": {
+          "rotation": [
+            "math.cos(query.modified_distance_moved * 38.17) * 45",
+            0,
+            0
+          ]
+        },
+        "leg_left": {
+          "rotation": [
+            "math.cos(query.modified_distance_moved * 38.17 + 180) * 45",
+            0,
+            0
+          ]
+        },
+        "arm_right": {
+          "rotation": [
+            "math.cos(query.modified_distance_moved * 38.17 + 180) * 40",
+            0,
+            0
+          ]
+        },
+        "arm_left": {
+          "rotation": [
+            "math.cos(query.modified_distance_moved * 38.17) * 40",
+            0,
+            0
+          ]
+        }
+      }
+    }
+  }
+}
