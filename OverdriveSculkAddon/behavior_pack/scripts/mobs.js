@@ -9,8 +9,8 @@
 
 import { world, system } from "@minecraft/server";
 import {
-  MOB_ZOMBIE, MOB_SKELETON, MOB_CREEPER, TENTACLE_ID,
-  INFECTED_MOBS, ALL_OVERDRIVE_ENTITIES, hasFlag, isAlive, distSq,
+  BLOCK_ID, MOB_ZOMBIE, MOB_SKELETON, MOB_CREEPER, TENTACLE_ID,
+  INFECTED_MOBS, ALL_OVERDRIVE_ENTITIES, hasFlag, isAlive, distSq, randInt,
 } from "./config.js";
 
 // Hard per-dimension caps. Kept low on purpose; scaled DOWN further at low
@@ -24,10 +24,6 @@ const CAPS = {
   "minecraft:wither": 1,
 };
 
-// A mob only spawns if a player is within this range of the chosen spot, so
-// the corruption's army appears where it matters and never piles up off-screen.
-const SPAWN_PLAYER_RANGE = 100;
-
 function effCap(type, level) {
   const base = CAPS[type] ?? 3;
   if (type === "minecraft:warden" || type === "minecraft:wither") return base;
@@ -39,31 +35,55 @@ function countType(dim, type) {
   try { return dim.getEntities({ type }).length; } catch { return 0; }
 }
 
-function playerNear(dim, loc, range) {
-  const r2 = range * range;
+// Players in creative or spectator are never valid targets — they're testing.
+function creativeAndSpectatorIds() {
+  const ids = new Set();
   for (const p of world.getAllPlayers()) {
-    if (p.dimension.id !== dim.id) continue;
-    if (distSq(p.location, loc) <= r2) return true;
+    let gm;
+    try { gm = p.getGameMode(); } catch { /* older API */ }
+    if (gm === undefined) {
+      try {
+        if (p.matches({ gameMode: "creative" })) gm = "creative";
+        else if (p.matches({ gameMode: "spectator" })) gm = "spectator";
+      } catch { /* ignore */ }
+    }
+    if (gm === "creative" || gm === "spectator") ids.add(p.id);
   }
-  return false;
+  return ids;
 }
 
 // ------------------------------------------------------------------------- //
 //  Spawn placement                                                          //
+//  Look for real Overdrive Sculk with air above, in a ring around a random   //
+//  player. Tying spawns to the player + actual infected blocks means the     //
+//  corruption's army reliably appears wherever it has reached you.           //
 // ------------------------------------------------------------------------- //
-function findSpawnSpot(infection) {
-  for (let tries = 0; tries < 8; tries++) {
-    const f = infection.randomFrontier();
-    if (!f) return null;
-    let dim;
-    try { dim = world.getDimension(f.d); } catch { continue; }
-    let b1, b2;
-    try {
-      b1 = dim.getBlock({ x: f.x, y: f.y + 1, z: f.z });
-      b2 = dim.getBlock({ x: f.x, y: f.y + 2, z: f.z });
-    } catch { continue; }
-    if (b1 && b2 && b1.isAir && b2.isAir) {
-      return { dim, loc: { x: f.x + 0.5, y: f.y + 1, z: f.z + 0.5 } };
+function findSpawnSpot() {
+  const players = world.getAllPlayers();
+  if (players.length === 0) return null;
+  const p = players[randInt(0, players.length - 1)];
+  const dim = p.dimension;
+  const px = Math.floor(p.location.x);
+  const py = Math.floor(p.location.y);
+  const pz = Math.floor(p.location.z);
+
+  for (let i = 0; i < 24; i++) {
+    // A ring 4–24 blocks out so mobs erupt near you, not on top of you.
+    const ang = Math.random() * Math.PI * 2;
+    const r = 4 + Math.random() * 20;
+    const bx = px + Math.round(Math.cos(ang) * r);
+    const bz = pz + Math.round(Math.sin(ang) * r);
+    for (let oy = 8; oy >= -8; oy--) {
+      const y = py + oy;
+      let base, a1, a2;
+      try {
+        base = dim.getBlock({ x: bx, y, z: bz });
+        a1 = dim.getBlock({ x: bx, y: y + 1, z: bz });
+        a2 = dim.getBlock({ x: bx, y: y + 2, z: bz });
+      } catch { continue; }
+      if (base && a1 && a2 && base.typeId === BLOCK_ID && a1.isAir && a2.isAir) {
+        return { dim, loc: { x: bx + 0.5, y: y + 1, z: bz + 0.5 } };
+      }
     }
   }
   return null;
@@ -71,9 +91,8 @@ function findSpawnSpot(infection) {
 
 function trySpawn(infection, type, probability) {
   if (Math.random() > probability) return;
-  const spot = findSpawnSpot(infection);
+  const spot = findSpawnSpot();
   if (!spot) return;
-  if (!playerNear(spot.dim, spot.loc, SPAWN_PLAYER_RANGE)) return;
   if (countType(spot.dim, type) >= effCap(type, infection.level)) return;
   try {
     const e = spot.dim.spawnEntity(type, spot.loc);
@@ -105,9 +124,8 @@ export function spawnTick(infection) {
 }
 
 function trySpawnWarden(infection) {
-  const spot = findSpawnSpot(infection);
+  const spot = findSpawnSpot();
   if (!spot) return;
-  if (!playerNear(spot.dim, spot.loc, SPAWN_PLAYER_RANGE)) return;
   if (countType(spot.dim, "minecraft:warden") >= CAPS["minecraft:warden"]) return;
   try {
     spot.dim.spawnEntity("minecraft:warden", spot.loc);
@@ -121,7 +139,7 @@ function trySpawnWarden(infection) {
 // ------------------------------------------------------------------------- //
 export function spawnInfectedWither(infection) {
   if (infection.level < 11) return false;
-  const spot = findSpawnSpot(infection);
+  const spot = findSpawnSpot();
   if (!spot) return false;
   if (countType(spot.dim, "minecraft:wither") >= CAPS["minecraft:wither"]) return false;
   return buffAsInfectedWither(spot.dim, { x: spot.loc.x, y: spot.loc.y + 1.5, z: spot.loc.z });
@@ -147,8 +165,12 @@ function buffAsInfectedWither(dim, loc) {
 // ------------------------------------------------------------------------- //
 export function tentacleAttackTick(infection) {
   if (!infection.active) return;
-  const reach = infection.level >= 8 ? 6.0 : infection.level >= 4 ? 4.5 : 3.8;
+  // Melee reach only — you have to be right next to a tentacle. It grows a
+  // little at Level 8 ("longer reach") but never becomes a ranged sniper.
+  const reach = infection.level >= 8 ? 2.8 : infection.level >= 4 ? 2.3 : 1.9;
   const dmg = infection.level >= 15 ? 8 : infection.level >= 8 ? 5 : infection.level >= 4 ? 4 : 3;
+
+  const protectedPlayers = creativeAndSpectatorIds();
 
   const handled = new Set();
   for (const player of world.getAllPlayers()) {
@@ -173,6 +195,7 @@ export function tentacleAttackTick(infection) {
       let struck = false;
       for (const v of victims) {
         if (!isAlive(v)) continue;
+        if (protectedPlayers.has(v.id)) continue; // never touch creative/spectator
         try {
           v.applyDamage(dmg, { cause: "entityAttack", damagingEntity: t });
           struck = true;

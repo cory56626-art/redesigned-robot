@@ -137,19 +137,8 @@ export class Infection {
   /** Try to convert one neighbour of a frontier block. Returns the new sculk
    *  position, or null if the block is fully surrounded / in an unloaded chunk. */
   tryGrowFrom(dim, pos, allowWater) {
-    // 70% of the time creep horizontally/upward first so the corruption is
-    // clearly visible on the surface; otherwise grow in a fully random order
-    // (this keeps the "cool" underground burrowing the player noticed).
-    let dirs;
-    if (Math.random() < 0.7) {
-      dirs = [
-        ...shuffle(HORIZ_DIRS.slice()),
-        ...shuffle(UP_DIRS.slice()),
-        ...shuffle(DOWN_DIRS.slice()),
-      ];
-    } else {
-      dirs = shuffle(GROW_DIRS.slice());
-    }
+    // Fully random direction: spreads and burrows freely in every direction.
+    const dirs = shuffle(GROW_DIRS.slice());
     const range = dim.heightRange;
     for (const dd of dirs) {
       const loc = { x: pos.x + dd.x, y: pos.y + dd.y, z: pos.z + dd.z };

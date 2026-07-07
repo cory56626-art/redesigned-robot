@@ -124,18 +124,20 @@ in-game.
 State (level, block count, energy, frontier) is persisted in world dynamic
 properties, so an infection resumes after the world reloads.
 
-### Tuning notes (v1.1)
+### Tuning notes (v1.2)
 
-* **Mob populations are small and level-scaled.** Caps are ~1 early and reach
-  their (already low) maximums by Level 12; mobs only spawn when a player is
-  within 100 blocks of the chosen spot. This replaces the earlier swarm.
+* **Growth spreads freely in every direction** (fully random), burrowing
+  underground and creeping outward — the full 50–70 blocks/second at Level 15.
+* **Mobs spawn on real sculk near you.** The spawner scans a 4–24 block ring
+  around a player for Overdrive Sculk with air above, so the army reliably
+  erupts wherever the corruption has reached you (fixes the "L15 spawns
+  nothing" case). Populations stay small and level-scaled — caps ~1 early,
+  reaching their low maximums by Level 12.
+* **Tentacles are melee only.** Attack reach is 1.9–2.8 blocks (grows slightly
+  at Level 8), so you must be right next to one — no more cross-room hits.
+  Creative/spectator players are never targeted.
 * **Infected mobs seed the ground** as they roam — much more aggressively when
-  no player is close — so the corruption keeps taking territory while you are
-  away, and the surface (not just underground) gets covered.
-* **Surface bias:** growth now creeps horizontally/upward ~70% of the time so
-  the infection is clearly visible above ground, while still burrowing down.
-* **Tentacles lash at players *and* mobs** (script-driven, reach/damage scale
-  with level) and always play their idle sway.
+  no player is close — so the corruption keeps taking territory while away.
 * **All custom mobs are animated** via custom geometry + Molang walk/idle
   animations (legs/arms swing when moving, subtle idle sway when still).
 

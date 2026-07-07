@@ -231,8 +231,9 @@ def main():
               64, 32, sculk_texture(64, 303, DARK, CREEP_MID, CREEP_VEIN, GLOW, vein_density=1.2))
     write_png(os.path.join(RP, "textures/entity/overdrive_tentacle.png"),
               32, 32, sculk_texture(32, 404, DARK, PURPLE_MID, PURPLE_VEIN, GLOW, vein_density=1.6))
+    # 16 wide x 32 tall: two stacked frames give exactly 512 px for the 16x32 PNG.
     write_png(os.path.join(RP, "textures/entity/overdrive_vine.png"),
-              16, 32, sculk_texture(16, 505, DARK, TEAL, CYAN, GLOW, vein_density=2.0))
+              16, 32, sculk_texture(16, 505, DARK, TEAL, CYAN, GLOW, frames=2, vein_density=2.0))
 
     # Pack icons.
     icon = pack_icon(128, 900)
