@@ -186,8 +186,8 @@
         "height": 0.9
       },
       "minecraft:health": {
-        "value": 16,
-        "max": 16
+        "value": 45,
+        "max": 45
       },
       "minecraft:hurt_on_condition": {
         "damage_conditions": [
@@ -209,7 +209,7 @@
       "minecraft:jump.static": {},
       "minecraft:can_climb": {},
       "minecraft:attack": {
-        "damage": 2
+        "damage": 7
       },
       "minecraft:despawn": {
         "despawn_from_distance": {}

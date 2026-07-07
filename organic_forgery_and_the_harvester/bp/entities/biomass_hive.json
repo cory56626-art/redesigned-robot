@@ -25,7 +25,7 @@
         "on_death": "query.last_hit_by_player ? 5 : 0"
       },
       "minecraft:attack": {
-        "damage": 12
+        "damage": 20
       },
       "minecraft:vibration_listener": {},
       "minecraft:vibration_damper": {},
@@ -114,8 +114,8 @@
         "height": 2.9
       },
       "minecraft:health": {
-        "value": 300,
-        "max": 300
+        "value": 600,
+        "max": 600
       },
       "minecraft:knockback_resistance": {
         "value": 1.0

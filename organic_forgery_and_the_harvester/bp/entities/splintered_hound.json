@@ -214,8 +214,8 @@
       },
       "com_organic_forgery_and_the_harvester_kse6cimp:splintered_hound_increased_max_health": {
         "minecraft:health": {
-          "value": 40,
-          "max": 40
+          "value": 70,
+          "max": 70
         }
       },
       "minecraft:on_tame_collar_color": {
@@ -226,7 +226,7 @@
       "com_organic_forgery_and_the_harvester_kse6cimp:splintered_hound_tame": {
         "minecraft:is_tamed": {},
         "minecraft:attack": {
-          "damage": 4
+          "damage": 10
         },
         "minecraft:behavior.teleport_to_owner": {
           "priority": 1,
@@ -507,8 +507,8 @@
         "height": 0.8
       },
       "minecraft:health": {
-        "value": 8,
-        "max": 8
+        "value": 28,
+        "max": 28
       },
       "minecraft:hurt_on_condition": {
         "damage_conditions": [
@@ -535,7 +535,7 @@
       "minecraft:jump.static": {},
       "minecraft:can_climb": {},
       "minecraft:attack": {
-        "damage": 3
+        "damage": 7
       },
       "minecraft:healable": {
         "items": [

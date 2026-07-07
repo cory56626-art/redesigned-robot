@@ -774,6 +774,23 @@ function ownerHasAdaptiveBlade(ally) {
   const p = world.getPlayers().find((pl) => pl.name === owner && pl.dimension.id === ally.dimension.id);
   return !!p && hasItem(p, ADAPTIVE_ARM_BLADE);
 }
+var ALLY_ULT_DURATION = 500;
+var ALLY_ULT_COOLDOWN = 1800;
+function triggerAllyUlt(p, ally) {
+  const cdLeft = cooldownLeft(p, "organic_ally_ult_cd", ALLY_ULT_COOLDOWN);
+  if (cdLeft > 0) {
+    p.dimension.playSound(`${SOUND}.cremation_wand_error`, p.location, { volume: 0.8, pitch: 0.6 });
+    p.onScreenDisplay.setActionBar(`\xA7cAlly Ascension recharging: \xA7f${Math.ceil(cdLeft / 20)}s`);
+    return;
+  }
+  p.setDynamicProperty("organic_ally_ult_cd", system.currentTick);
+  ally.setDynamicProperty("ally_ult_until", system.currentTick + ALLY_ULT_DURATION);
+  ally.setDynamicProperty("ally_grab_cd", 0);
+  p.dimension.playSound(`${SOUND}.adapt_complete`, ally.location, { volume: 1.6, pitch: 0.7 });
+  p.dimension.playSound("mob.warden.roar", ally.location, { volume: 1.2, pitch: 1.3 });
+  for (let i = 0; i < 40; i++) ally.dimension.spawnParticle("minecraft:redstone_wire_dust_particle", { x: ally.location.x + (Math.random() - 0.5) * 1.6, y: ally.location.y + Math.random() * 3, z: ally.location.z + (Math.random() - 0.5) * 1.6 });
+  p.onScreenDisplay.setActionBar("\xA75\xA7lYOUR CREMATION ALLY ASCENDS! \xA7r\xA7d25s of carnage.");
+}
 world.afterEvents.entityHurt.subscribe((e) => {
   const v = e.hurtEntity;
   if (v?.typeId !== CREMATION_ALLY || !Number(v.getDynamicProperty("is_adapted"))) return;
@@ -787,19 +804,6 @@ world.afterEvents.entityHurt.subscribe((e) => {
   v.runCommand(`effect @s resistance 6 ${amp} true`);
   v.dimension.spawnParticle("minecraft:critical_hit_emitter", { x: v.location.x, y: v.location.y + 1.4, z: v.location.z });
   if (stacks >= 4) v.dimension.playSound(`${SOUND}.adapt_complete`, v.location, { volume: 0.8, pitch: 1.1 });
-});
-world.beforeEvents.playerInteractWithEntity?.subscribe((e) => {
-  const p = e.player ?? e.source;
-  const target = e.target ?? e.targetEntity;
-  if (!(p instanceof Player) || !(target instanceof Entity) || selectedType(p) !== WAND) return;
-  for (const ally of p.dimension.getEntities({ type: CREMATION_ALLY, location: p.location, maxDistance: 32 })) {
-    if (String(ally.getDynamicProperty("organic_owner") ?? "") !== p.name) continue;
-    ally.setDynamicProperty("currentTarget", target.id);
-    ally.setDynamicProperty("organic_order_x", target.location.x);
-    ally.setDynamicProperty("organic_order_y", target.location.y);
-    ally.setDynamicProperty("organic_order_z", target.location.z);
-    ally.dimension.playSound("mob.blaze.shoot", ally.location, { volume: 0.7, pitch: 1.4 });
-  }
 });
 system.runInterval(() => {
   for (const dimName of ["overworld", "nether", "the_end"]) {
@@ -844,7 +848,7 @@ system.runInterval(() => {
   for (const dimName of ["overworld", "nether", "the_end"]) {
     const dim = world.getDimension(dimName);
     for (const ally of dim.getEntities({ type: CREMATION_ALLY })) {
-      const adapted = ownerHasAdaptiveBlade(ally);
+      const adapted = Number(ally.getDynamicProperty("ally_ult_until") ?? 0) > system.currentTick;
       const wasAdapted = Number(ally.getDynamicProperty("is_adapted")) === 1;
       ally.setDynamicProperty("is_adapted", adapted ? 1 : 0);
       if (adapted && !wasAdapted) {
@@ -864,21 +868,33 @@ system.runInterval(() => {
       }
       if (Number(ally.getDynamicProperty("ally_grabbing")) === 1) continue;
       const targetId = String(ally.getDynamicProperty("currentTarget") ?? "");
-      if (!targetId) continue;
-      const target = dim.getEntities({ location: ally.location, maxDistance: 24, excludeTypes: ["minecraft:item", "minecraft:xp_orb"] }).find((e) => e.id === targetId);
+      let target = targetId ? dim.getEntities({ location: ally.location, maxDistance: 48, excludeTypes: ["minecraft:item", "minecraft:xp_orb"] }).find((e) => e.id === targetId) : void 0;
+      const commanded = !!target;
+      if (target && (target instanceof Player || target.id === ally.id)) { ally.setDynamicProperty("currentTarget", ""); target = void 0; }
+      if (!target && adapted) {
+        let best, bestD = 1e9;
+        for (const e of dim.getEntities({ location: ally.location, maxDistance: 18, families: ["monster"] })) {
+          if (e.id === ally.id || e instanceof Player || e.typeId === CREMATION_ALLY || e.hasTag(`${NS}_homunculus`) || e.hasTag(`${NS}_player_ally`)) continue;
+          const d2 = (e.location.x - ally.location.x) ** 2 + (e.location.z - ally.location.z) ** 2;
+          if (d2 < bestD) { bestD = d2; best = e; }
+        }
+        target = best;
+      }
       if (!target) continue;
       ally.setDynamicProperty("organic_order_x", target.location.x);
       ally.setDynamicProperty("organic_order_y", target.location.y);
       ally.setDynamicProperty("organic_order_z", target.location.z);
       const dx = target.location.x - ally.location.x, dz = target.location.z - ally.location.z, m = Math.max(0.1, Math.sqrt(dx * dx + dz * dz));
-      ally.applyImpulse({ x: dx / m * (adapted ? 0.18 : 0.12), y: 0, z: dz / m * (adapted ? 0.18 : 0.12) });
-      if (adapted && m < 3 && !(target instanceof Player) && Number(ally.getDynamicProperty("ally_grab_cd") ?? 0) <= system.currentTick) {
+      const chase = adapted ? 0.5 : 0.34;
+      ally.applyImpulse({ x: dx / m * chase, y: m > 6 ? 0.02 : 0, z: dz / m * chase });
+      if (commanded && m > 14) ally.teleport?.({ x: target.location.x - dx / m * 2, y: target.location.y, z: target.location.z - dz / m * 2 });
+      if (adapted && m < 3.4 && !(target instanceof Player) && Number(ally.getDynamicProperty("ally_grab_cd") ?? 0) <= system.currentTick) {
         startAllyGrab(ally, target);
         continue;
       }
-      if (m < 2.3 && Number(ally.getDynamicProperty("ally_next_forced_hit") ?? 0) <= system.currentTick) {
-        ally.setDynamicProperty("ally_next_forced_hit", system.currentTick + 20);
-        target.runCommand(`damage @s ${adapted ? 12 : 4} entity_attack`);
+      if (m < 3.4 && Number(ally.getDynamicProperty("ally_next_forced_hit") ?? 0) <= system.currentTick) {
+        ally.setDynamicProperty("ally_next_forced_hit", system.currentTick + 16);
+        target.runCommand(`damage @s ${adapted ? 14 : 5} entity_attack`);
         if (adapted && !(target instanceof Player)) applySickly(target, 120, 3);
       }
     }
@@ -1115,9 +1131,10 @@ var cremationWandComponent = { onUse(e) {
   if (!(p instanceof Player)) return;
   const ally = p.dimension.getEntities({ location: p.location, maxDistance: 64, type: CREMATION_ALLY }).find((a) => a.getDynamicProperty("organic_owner") === p.name);
   if (ally) {
+    if (p.isSneaking && hasItem(p, ADAPTIVE_ARM_BLADE)) { triggerAllyUlt(p, ally); return; }
     const target = rayMob(p, 32);
     if (target && !(target instanceof Player) && target.id !== ally.id) {
-      ally.setDynamicProperty("organic_order_target", target.id);
+      ally.setDynamicProperty("currentTarget", target.id);
       ally.setDynamicProperty("organic_order_x", target.location.x);
       ally.setDynamicProperty("organic_order_y", target.location.y);
       ally.setDynamicProperty("organic_order_z", target.location.z);
@@ -1663,14 +1680,21 @@ world.beforeEvents.playerInteractWithEntity.subscribe((event) => {
   if (held === WAND) {
     event.cancel = true;
     system.run(() => {
+      if (target.typeId === CREMATION_ALLY && target.getDynamicProperty("organic_owner") === player.name) {
+        if (player.isSneaking && hasItem(player, ADAPTIVE_ARM_BLADE)) triggerAllyUlt(player, target);
+        else player.onScreenDisplay.setActionBar("\xA77Sneak + hold the Adaptive Arm-Blade, then use the Wand to unleash the Ascension.");
+        return;
+      }
+      let marked = false;
       for (const a of player.dimension.getEntities({ location: player.location, maxDistance: 64, type: CREMATION_ALLY })) if (a.getDynamicProperty("organic_owner") === player.name) {
-        a.setDynamicProperty("organic_order_target", target.id);
+        a.setDynamicProperty("currentTarget", target.id);
         a.setDynamicProperty("organic_order_x", target.location.x);
         a.setDynamicProperty("organic_order_y", target.location.y);
         a.setDynamicProperty("organic_order_z", target.location.z);
+        marked = true;
       }
       player.dimension.playSound(`${SOUND}.cremation_command_screech`, player.location, { volume: 1, pitch: 1.1 });
-      player.onScreenDisplay.setActionBar("\xA75The Cremation Ally marks your prey.");
+      player.onScreenDisplay.setActionBar(marked ? "\xA75The Cremation Ally marks your prey." : "\xA77Summon a Cremation Ally first.");
     });
     return;
   }
