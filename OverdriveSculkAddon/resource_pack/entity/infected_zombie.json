@@ -1,0 +1,20 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "overdrive:infected_zombie",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/entity/infected_zombie" },
+      "geometry": { "default": "geometry.humanoid.custom" },
+      "spawn_egg": { "base_color": "#0e4a57", "overlay_color": "#1ce0d0" },
+      "animations": {
+        "humanoid_base_pose": "animation.humanoid.base_pose",
+        "move": "animation.humanoid.move"
+      },
+      "scripts": {
+        "animate": ["humanoid_base_pose", "move"]
+      },
+      "render_controllers": ["controller.render.default"]
+    }
+  }
+}

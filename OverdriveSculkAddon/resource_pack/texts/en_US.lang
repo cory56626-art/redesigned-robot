@@ -1,0 +1,19 @@
+## Block names
+tile.overdrive:overdrive_sculk.name=Overdrive Sculk
+tile.overdrive:overdrive_node.name=Overdrive Node
+
+## Item group
+itemGroup.name.sculk=Overdrive Sculk
+
+## Entity names
+entity.overdrive:infected_zombie.name=Infected Sculked Zombie
+entity.overdrive:infected_skeleton.name=Infected Skeleton
+entity.overdrive:infected_creeper.name=Infected Creeper
+entity.overdrive:tentacle.name=Overdrive Tentacle
+entity.overdrive:overdrive_vine.name=Overdrive Vine
+
+## Spawn eggs
+item.spawn_egg.entity.overdrive:infected_zombie.name=Spawn Infected Sculked Zombie
+item.spawn_egg.entity.overdrive:infected_skeleton.name=Spawn Infected Skeleton
+item.spawn_egg.entity.overdrive:infected_creeper.name=Spawn Infected Creeper
+item.spawn_egg.entity.overdrive:tentacle.name=Spawn Overdrive Tentacle

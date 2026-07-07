@@ -1,0 +1,19 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "overdrive:infected_creeper",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/entity/infected_creeper" },
+      "geometry": { "default": "geometry.creeper" },
+      "spawn_egg": { "base_color": "#0e4a57", "overlay_color": "#3cff82" },
+      "animations": {
+        "leg_movement": "animation.creeper.leg_movement"
+      },
+      "scripts": {
+        "animate": ["leg_movement"]
+      },
+      "render_controllers": ["controller.render.default"]
+    }
+  }
+}

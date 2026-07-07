@@ -1,0 +1,25 @@
+{
+  "format_version": "1.12.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.overdrive.vine",
+        "texture_width": 16,
+        "texture_height": 32,
+        "visible_bounds_width": 2,
+        "visible_bounds_height": 3,
+        "visible_bounds_offset": [0, 1, 0]
+      },
+      "bones": [
+        {
+          "name": "root",
+          "pivot": [0, 0, 0],
+          "cubes": [
+            { "origin": [-1, 0, -1], "size": [2, 16, 2], "uv": [0, 0] },
+            { "origin": [-2, 6, -2], "size": [4, 4, 4], "uv": [8, 0] }
+          ]
+        }
+      ]
+    }
+  ]
+}

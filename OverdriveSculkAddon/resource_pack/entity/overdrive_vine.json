@@ -1,0 +1,18 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "overdrive:overdrive_vine",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/entity/overdrive_vine" },
+      "geometry": { "default": "geometry.overdrive.vine" },
+      "animations": {
+        "grab": "animation.overdrive.vine.grab"
+      },
+      "scripts": {
+        "animate": ["grab"]
+      },
+      "render_controllers": ["controller.render.default"]
+    }
+  }
+}

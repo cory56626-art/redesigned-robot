@@ -1,0 +1,11 @@
+{
+  "format_version": [1, 1, 0],
+  "overdrive:overdrive_sculk": {
+    "textures": "overdrive_sculk",
+    "sound": "sculk"
+  },
+  "overdrive:overdrive_node": {
+    "textures": "overdrive_node",
+    "sound": "sculk_shrieker"
+  }
+}

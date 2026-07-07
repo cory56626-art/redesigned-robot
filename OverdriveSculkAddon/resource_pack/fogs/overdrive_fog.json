@@ -1,0 +1,22 @@
+{
+  "format_version": "1.16.100",
+  "minecraft:fog_settings": {
+    "description": {
+      "identifier": "overdrive:overdrive_fog"
+    },
+    "distance": {
+      "air": {
+        "fog_start": 0.5,
+        "fog_end": 18.0,
+        "fog_color": "#0a3d44",
+        "render_distance_type": "fixed"
+      },
+      "weather": {
+        "fog_start": 0.5,
+        "fog_end": 14.0,
+        "fog_color": "#0a3d44",
+        "render_distance_type": "fixed"
+      }
+    }
+  }
+}

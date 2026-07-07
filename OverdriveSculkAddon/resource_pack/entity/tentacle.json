@@ -1,0 +1,20 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "overdrive:tentacle",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/entity/overdrive_tentacle" },
+      "geometry": { "default": "geometry.overdrive.tentacle" },
+      "animations": {
+        "idle": "animation.overdrive.tentacle.idle",
+        "attack": "animation.overdrive.tentacle.attack",
+        "controller": "controller.animation.overdrive.tentacle"
+      },
+      "scripts": {
+        "animate": ["controller"]
+      },
+      "render_controllers": ["controller.render.default"]
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.overdrive.tentacle": {
+      "initial_state": "idle",
+      "states": {
+        "idle": {
+          "animations": ["idle"],
+          "transitions": [
+            { "attack": "query.property('overdrive:striking')" }
+          ]
+        },
+        "attack": {
+          "animations": ["attack"],
+          "blend_transition": 0.1,
+          "transitions": [
+            { "idle": "!query.property('overdrive:striking')" }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+[
+  {
+    "flipbook_texture": "textures/blocks/overdrive_sculk",
+    "atlas_tile": "overdrive_sculk",
+    "ticks_per_frame": 10,
+    "frames": [0, 1, 2, 3, 2, 1],
+    "blend_frames": true
+  }
+]
