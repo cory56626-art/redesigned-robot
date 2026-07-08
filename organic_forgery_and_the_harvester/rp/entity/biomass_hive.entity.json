@@ -3,11 +3,30 @@
   "minecraft:client_entity": {
     "description": {
       "identifier": "com_organic_forgery_and_the_harvester_kse6cimp:biomass_hive",
-      "materials": { "default": "entity_alphatest" },
-      "textures": { "default": "textures/com/organic_forgery_and_the_harvester_kse6cimp/entity/biomass_hive/biomass_hive" },
-      "geometry": { "default": "geometry.com_organic_forgery_and_the_harvester_kse6cimp.biomass_hive" },
-      "spawn_egg": { "base_color": "#2a0f14", "overlay_color": "#6ad0b0" },
-      "render_controllers": ["controller.render.com_organic_forgery_and_the_harvester_kse6cimp.biomass_hive"]
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/com/organic_forgery_and_the_harvester_kse6cimp/entity/biomass_hive/biomass_hive"
+      },
+      "geometry": {
+        "default": "geometry.com_organic_forgery_and_the_harvester_kse6cimp.biomass_hive"
+      },
+      "animations": {
+        "idle": "animation.organic_biomass_hive.idle"
+      },
+      "scripts": {
+        "animate": [
+          "idle"
+        ]
+      },
+      "spawn_egg": {
+        "base_color": "#2a0f14",
+        "overlay_color": "#e08a2e"
+      },
+      "render_controllers": [
+        "controller.render.com_organic_forgery_and_the_harvester_kse6cimp.biomass_hive"
+      ]
     }
   }
 }

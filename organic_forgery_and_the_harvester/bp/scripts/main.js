@@ -1815,45 +1815,48 @@ system.runInterval(() => {
         boss.setDynamicProperty("biomass_phase", phase);
         boss.dimension.playSound(`${SOUND}.biomass_hive_roar`, boss.location, { volume: 2.5, pitch: phase === 2 ? 0.55 : 0.4 });
         for (const pl of boss.dimension.getPlayers({ location: boss.location, maxDistance: 40 })) flash(pl, phase === 2 ? "\xA75The Hive convulses — acid glands rupture!" : "\xA74\xA7lTHE HIVE ENRAGES!");
-        if (phase === 3) boss.runCommand("effect @s speed 999999 2 true");
       }
-      if (phase === 1) boss.applyImpulse({ x: Number(boss.getDynamicProperty("biomass_anchor_x") ?? boss.location.x) - boss.location.x, y: 0, z: Number(boss.getDynamicProperty("biomass_anchor_z") ?? boss.location.z) - boss.location.z });
-      if (system.currentTick % 200 === 0 && boss.dimension.getEntities({ type: GRAFTED_STALKER, location: boss.location, maxDistance: 22 }).length < 4) boss.dimension.spawnEntity(GRAFTED_STALKER, { x: boss.location.x + Math.random() * 6 - 3, y: boss.location.y, z: boss.location.z + Math.random() * 6 - 3 });
-      if (phase >= 2) {
-        if (system.currentTick % 60 === 0) {
-          const target = boss.dimension.getPlayers({ location: boss.location, maxDistance: 24 })[0];
-          if (target) {
-            const dx = target.location.x - boss.location.x, dz = target.location.z - boss.location.z, m = Math.max(0.1, Math.sqrt(dx * dx + dz * dz));
-            boss.applyImpulse({ x: dx / m * 1.6, y: 0.15, z: dz / m * 1.6 });
+      const players = boss.dimension.getPlayers({ location: boss.location, maxDistance: 34 });
+      if (system.currentTick % 200 === 0 && players.length && boss.dimension.getEntities({ type: GRAFTED_STALKER, location: boss.location, maxDistance: 22 }).length < 4) boss.dimension.spawnEntity(GRAFTED_STALKER, { x: boss.location.x + Math.random() * 6 - 3, y: boss.location.y, z: boss.location.z + Math.random() * 6 - 3 });
+      const mortarEvery = phase === 1 ? 120 : phase === 2 ? 100 : 60;
+      if (players.length && system.currentTick % mortarEvery === 0) {
+        boss.dimension.playSound("mob.slime.big", boss.location, { volume: 1.8, pitch: 0.45 });
+        for (let i = 0; i < 6; i++) boss.dimension.spawnParticle("minecraft:mobspell_emitter", { x: boss.location.x + (Math.random() - 0.5) * 2, y: boss.location.y + 3.6, z: boss.location.z + (Math.random() - 0.5) * 2 });
+        for (let i = 0; i < 2 + phase; i++) {
+          const t = players[i % players.length];
+          const dx = t.location.x - boss.location.x + (Math.random() - 0.5) * 4, dz = t.location.z - boss.location.z + (Math.random() - 0.5) * 4, m = Math.max(0.5, Math.sqrt(dx * dx + dz * dz));
+          const sp = Math.min(1.6, 0.4 + m * 0.05);
+          const g = boss.dimension.spawnEntity(BILE_GLOB, { x: boss.location.x, y: boss.location.y + 4, z: boss.location.z });
+          g.setDynamicProperty("organic_birth", system.currentTick);
+          g.setDynamicProperty("organic_owner_id", boss.id);
+          g.setDynamicProperty("organic_vx", dx / m * sp);
+          g.setDynamicProperty("organic_vy", 0.65);
+          g.setDynamicProperty("organic_vz", dz / m * sp);
+        }
+      }
+      if (system.currentTick % 160 === 40) {
+        const close = boss.dimension.getEntities({ location: boss.location, maxDistance: 6, excludeTypes: ["minecraft:item", "minecraft:xp_orb", BILE_GLOB] }).filter((en) => en.id !== boss.id && en.typeId !== GRAFTED_STALKER);
+        if (close.length) {
+          boss.dimension.playSound("mob.warden.sonic_boom", boss.location, { volume: 1.6, pitch: 1.1 });
+          for (let i = 0; i < 20; i++) boss.dimension.spawnParticle("minecraft:knockback_roar_particle", { x: boss.location.x + Math.cos(i / 20 * 6.283) * 3, y: boss.location.y + 0.4, z: boss.location.z + Math.sin(i / 20 * 6.283) * 3 });
+          for (const en of close) {
+            const dx = en.location.x - boss.location.x, dz = en.location.z - boss.location.z, m = Math.max(0.1, Math.sqrt(dx * dx + dz * dz));
+            en.applyKnockback?.({ x: dx / m * 2.6, z: dz / m * 2.6 }, 0.55);
+            try { en.runCommand("damage @s 6 entity_attack"); } catch {}
+            if (en instanceof Player) flash(en, "\xA75The Hive's bulk heaves you away!");
           }
         }
-        if (system.currentTick % 160 === 0) {
-          const targets = boss.dimension.getPlayers({ location: boss.location, maxDistance: 24 });
-          if (targets.length) {
-            boss.dimension.playSound("mob.slime.big", boss.location, { volume: 1.6, pitch: 0.5 });
-            for (let i = 0; i < 5; i++) {
-              const t = targets[i % targets.length];
-              const dx = t.location.x - boss.location.x + (Math.random() - 0.5) * 5, dz = t.location.z - boss.location.z + (Math.random() - 0.5) * 5, m = Math.max(0.5, Math.sqrt(dx * dx + dz * dz));
-              const g = boss.dimension.spawnEntity(BILE_GLOB, { x: boss.location.x, y: boss.location.y + 3.2, z: boss.location.z });
-              g.setDynamicProperty("organic_birth", system.currentTick);
-              g.setDynamicProperty("organic_owner_id", boss.id);
-              g.setDynamicProperty("organic_vx", dx / m * 1.05);
-              g.setDynamicProperty("organic_vy", 0.6);
-              g.setDynamicProperty("organic_vz", dz / m * 1.05);
-            }
-          }
-        }
-        if (system.currentTick % 160 === 20) for (let x = -3; x < 3; x++) for (let z = -3; z < 3; z++) {
-          const b = dim.getBlock({ x: Math.floor(boss.location.x) + x, y: Math.floor(boss.location.y) - 1, z: Math.floor(boss.location.z) + z });
-          if (b && b.typeId !== "minecraft:bedrock") b.setType(ROT_BLOCK);
-        }
+      }
+      if (phase >= 2 && system.currentTick % 160 === 20) for (let x = -3; x < 3; x++) for (let z = -3; z < 3; z++) {
+        const b = dim.getBlock({ x: Math.floor(boss.location.x) + x, y: Math.floor(boss.location.y) - 1, z: Math.floor(boss.location.z) + z });
+        if (b && b.typeId !== "minecraft:bedrock") b.setType(ROT_BLOCK);
       }
       if (phase === 3 && system.currentTick % 240 === 0) {
         boss.dimension.playSound("mob.warden.sonic_boom", boss.location, { volume: 2, pitch: 0.7 });
         for (let i = 0; i < 24; i++) boss.dimension.spawnParticle("minecraft:knockback_roar_particle", { x: boss.location.x + Math.cos(i / 24 * 6.283) * 4, y: boss.location.y + 0.3, z: boss.location.z + Math.sin(i / 24 * 6.283) * 4 });
-        for (const pl of boss.dimension.getPlayers({ location: boss.location, maxDistance: 9 })) {
+        for (const pl of boss.dimension.getPlayers({ location: boss.location, maxDistance: 12 })) {
           const dx = boss.location.x - pl.location.x, dz = boss.location.z - pl.location.z, m = Math.max(0.1, Math.sqrt(dx * dx + dz * dz));
-          pl.applyKnockback({ x: dx / m * 1.6, z: dz / m * 1.6 }, 0.25);
+          pl.applyKnockback({ x: dx / m * 1.9, z: dz / m * 1.9 }, 0.25);
           pl.runCommand("damage @s 8 entity_attack");
           pl.runCommand("effect @s slowness 3 1 true");
           flash(pl, "\xA74The Hive drags you into its convulsing mass!");
@@ -2223,17 +2226,22 @@ system.runInterval(() => {
 world.afterEvents.entityHitEntity.subscribe((e) => {
   const p = e.damagingEntity, victim = e.hitEntity;
   if (!(p instanceof Player) || !(victim instanceof Entity) || selectedType(p) !== MARROW_REAVER) return;
-  const dir = view(p);
-  let cleaved = 0;
-  for (const ent of p.dimension.getEntities({ location: p.location, maxDistance: 3.5, excludeTypes: ["minecraft:item", "minecraft:xp_orb"] })) {
-    if (ent.id === p.id || ent.id === victim.id || ent instanceof Player || ent.hasTag(`${NS}_homunculus`) || ent.hasTag(`${NS}_player_ally`)) continue;
-    const dx = ent.location.x - p.location.x, dz = ent.location.z - p.location.z;
-    if (dx * dir.x + dz * dir.z <= 0) continue;
-    ent.runCommand("damage @s 8 entity_attack");
-    ent.dimension.spawnParticle("minecraft:critical_hit_emitter", { x: ent.location.x, y: ent.location.y + 1.1, z: ent.location.z });
-    cleaved++;
-  }
-  if (cleaved > 0) p.dimension.playSound(`${SOUND}.bleed_slice`, p.location, { volume: 1, pitch: 0.7 });
+  system.run(() => {
+    if (!p.isValid || !victim.isValid) return;
+    const loc = victim.location;
+    let cleaved = 0;
+    for (const ent of victim.dimension.getEntities({ location: loc, maxDistance: 4, excludeTypes: ["minecraft:item", "minecraft:xp_orb"] })) {
+      if (ent.id === p.id || ent.id === victim.id || ent instanceof Player || cleaved >= 6 || ent.hasTag(`${NS}_homunculus`) || ent.hasTag(`${NS}_player_ally`)) continue;
+      cleaved++;
+      ent.runCommand("damage @s 8 entity_attack");
+      const dx = ent.location.x - p.location.x, dz = ent.location.z - p.location.z, dm = Math.max(0.1, Math.sqrt(dx * dx + dz * dz));
+      ent.applyKnockback?.({ x: dx / dm * 0.6, z: dz / dm * 0.6 }, 0.2);
+      ent.dimension.spawnParticle("minecraft:critical_hit_emitter", { x: ent.location.x, y: ent.location.y + 1.1, z: ent.location.z });
+    }
+    for (let i = 0; i < 10; i++) p.dimension.spawnParticle("minecraft:critical_hit_emitter", { x: loc.x + Math.cos(i / 10 * 6.283) * 2.2, y: loc.y + 1, z: loc.z + Math.sin(i / 10 * 6.283) * 2.2 });
+    p.dimension.playSound(`${SOUND}.bleed_slice`, p.location, { volume: 1, pitch: 0.7 });
+    if (cleaved > 0) flash(p, `\xA74Reaver cleaves \xA7f${cleaved + 1}\xA74 foes.`);
+  });
 });
 world.afterEvents.entityDie.subscribe((e) => {
   const killer = e.damageSource?.damagingEntity;
@@ -2250,13 +2258,13 @@ var chimericTalonComponent = { onUse(e) {
   if (!(p instanceof Player) || !ready(p, "organic_talon_lunge_cd", 160)) return;
   const dir = view(p);
   p.dimension.playSound(`${SOUND}.adapt_click`, p.location, { volume: 1.4, pitch: 1.3 });
-  p.applyKnockback({ x: dir.x * 3.2, z: dir.z * 3.2 }, 0.22);
-  p.setDynamicProperty("organic_anchor_fall_cancel", system.currentTick + 100);
+  p.applyKnockback({ x: dir.x * 5, z: dir.z * 5 }, 0.28);
+  p.setDynamicProperty("organic_anchor_fall_cancel", system.currentTick + 140);
   const hitIds = /* @__PURE__ */ new Set();
   let steps = 0;
   const run = system.runInterval(() => {
     steps++;
-    if (!p.isValid || steps > 8) { system.clearRun?.(run); return; }
+    if (!p.isValid || steps > 12) { system.clearRun?.(run); return; }
     p.dimension.spawnParticle("minecraft:critical_hit_emitter", { x: p.location.x, y: p.location.y + 1, z: p.location.z });
     for (const ent of p.dimension.getEntities({ location: p.location, maxDistance: 2.2, excludeTypes: ["minecraft:item", "minecraft:xp_orb"] })) {
       if (ent.id === p.id || ent instanceof Player || hitIds.has(ent.id) || ent.hasTag(`${NS}_homunculus`) || ent.hasTag(`${NS}_player_ally`)) continue;

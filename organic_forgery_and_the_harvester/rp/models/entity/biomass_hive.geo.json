@@ -6,11 +6,11 @@
         "identifier": "geometry.com_organic_forgery_and_the_harvester_kse6cimp.biomass_hive",
         "texture_width": 128,
         "texture_height": 128,
-        "visible_bounds_width": 4,
-        "visible_bounds_height": 5.5,
+        "visible_bounds_width": 6,
+        "visible_bounds_height": 6,
         "visible_bounds_offset": [
           0,
-          2.25,
+          2,
           0
         ]
       },
@@ -21,275 +21,247 @@
             0,
             0,
             0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -13,
+                0,
+                -10
+              ],
+              "size": [
+                26,
+                9,
+                20
+              ],
+              "uv": [
+                0,
+                0
+              ]
+            },
+            {
+              "origin": [
+                -14,
+                5,
+                -5
+              ],
+              "size": [
+                2,
+                12,
+                2
+              ],
+              "uv": [
+                92,
+                0
+              ]
+            },
+            {
+              "origin": [
+                -14,
+                5,
+                3
+              ],
+              "size": [
+                2,
+                12,
+                2
+              ],
+              "uv": [
+                104,
+                0
+              ]
+            },
+            {
+              "origin": [
+                12,
+                5,
+                -5
+              ],
+              "size": [
+                2,
+                12,
+                2
+              ],
+              "uv": [
+                92,
+                20
+              ]
+            },
+            {
+              "origin": [
+                12,
+                5,
+                3
+              ],
+              "size": [
+                2,
+                12,
+                2
+              ],
+              "uv": [
+                104,
+                20
+              ]
+            }
           ]
         },
         {
-          "name": "body",
+          "name": "mass_mid",
           "parent": "root",
           "pivot": [
             0,
-            21,
+            9,
             0
           ],
           "cubes": [
             {
               "origin": [
-                -9,
-                13,
-                -4
+                -10,
+                9,
+                -8
               ],
               "size": [
+                20,
+                9,
+                16
+              ],
+              "uv": [
+                0,
+                29
+              ]
+            }
+          ]
+        },
+        {
+          "name": "torso",
+          "parent": "mass_mid",
+          "pivot": [
+            0,
+            18,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -7,
                 18,
-                21,
-                11
+                -6
+              ],
+              "size": [
+                14,
+                9,
+                12
               ],
               "uv": [
                 0,
-                0
+                54
               ]
-            }
-          ]
-        },
-        {
-          "name": "right_ribcage",
-          "parent": "body",
-          "pivot": [
-            -7,
-            23,
-            -4
-          ],
-          "cubes": [
+            },
             {
               "origin": [
-                -9,
-                13,
-                -4.1
+                -3,
+                20,
+                -7.5
               ],
               "size": [
-                9,
-                21,
-                0
+                6,
+                5,
+                2
               ],
               "uv": [
-                90,
-                11
+                54,
+                54
               ]
-            }
-          ]
-        },
-        {
-          "name": "left_ribcage",
-          "parent": "body",
-          "pivot": [
-            7,
-            23,
-            -4
-          ],
-          "cubes": [
-            {
-              "origin": [
-                0,
-                13,
-                -4.1
-              ],
-              "size": [
-                9,
-                21,
-                0
-              ],
-              "uv": [
-                90,
-                11
-              ],
-              "mirror": true
             }
           ]
         },
         {
           "name": "head",
-          "parent": "body",
+          "parent": "torso",
           "pivot": [
             0,
-            34,
+            27,
             0
           ],
           "cubes": [
             {
               "origin": [
-                -8,
-                34,
-                -5
+                -5,
+                27,
+                -5.5
               ],
               "size": [
-                16,
-                16,
+                10,
+                8,
                 10
               ],
               "uv": [
                 0,
-                32
+                75
               ]
             }
           ]
         },
         {
-          "name": "right_tendril",
-          "parent": "head",
+          "name": "tendril_l",
+          "parent": "torso",
           "pivot": [
-            -8,
-            46,
+            -9.5,
+            26,
             0
           ],
-          "cubes": [
-            {
-              "origin": [
-                -24,
-                43,
-                0
-              ],
-              "size": [
-                16,
-                16,
-                0
-              ],
-              "uv": [
-                52,
-                32
-              ]
-            }
-          ]
-        },
-        {
-          "name": "left_tendril",
-          "parent": "head",
-          "pivot": [
-            8,
-            46,
-            0
+          "rotation": [
+            0,
+            0,
+            -18
           ],
           "cubes": [
             {
               "origin": [
-                8,
-                43,
-                0
+                -11,
+                26,
+                -1.5
               ],
               "size": [
-                16,
-                16,
-                0
-              ],
-              "uv": [
-                58,
-                0
-              ]
-            }
-          ]
-        },
-        {
-          "name": "right_arm",
-          "parent": "body",
-          "pivot": [
-            -13,
-            34,
-            1
-          ],
-          "cubes": [
-            {
-              "origin": [
-                -17,
-                6,
-                -3
-              ],
-              "size": [
-                8,
-                28,
-                8
-              ],
-              "uv": [
-                44,
-                50
-              ]
-            }
-          ]
-        },
-        {
-          "name": "left_arm",
-          "parent": "body",
-          "pivot": [
-            13,
-            34,
-            1
-          ],
-          "cubes": [
-            {
-              "origin": [
-                9,
-                6,
-                -3
-              ],
-              "size": [
-                8,
-                28,
-                8
-              ],
-              "uv": [
-                0,
-                58
-              ]
-            }
-          ]
-        },
-        {
-          "name": "right_leg",
-          "parent": "root",
-          "pivot": [
-            -5.9,
-            13,
-            0
-          ],
-          "cubes": [
-            {
-              "origin": [
-                -9,
-                0,
-                -3
-              ],
-              "size": [
-                6,
-                13,
-                6
-              ],
-              "uv": [
-                76,
-                48
-              ]
-            }
-          ]
-        },
-        {
-          "name": "left_leg",
-          "parent": "root",
-          "pivot": [
-            5.9,
-            13,
-            0
-          ],
-          "cubes": [
-            {
-              "origin": [
                 3,
-                0,
-                -3
-              ],
-              "size": [
-                6,
-                13,
-                6
+                16,
+                3
               ],
               "uv": [
-                76,
-                76
+                116,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "tendril_r",
+          "parent": "torso",
+          "pivot": [
+            9.5,
+            26,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            18
+          ],
+          "cubes": [
+            {
+              "origin": [
+                8,
+                26,
+                -1.5
+              ],
+              "size": [
+                3,
+                16,
+                3
+              ],
+              "uv": [
+                116,
+                20
               ]
             }
           ]
