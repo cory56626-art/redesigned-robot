@@ -1,0 +1,26 @@
+{
+  "name": "aurel-ide",
+  "version": "1.0.0",
+  "description": "Aurel — a multi-agent AI coding assistant with an isolated sandbox, live model switching across providers, and a Cursor-style workspace.",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "ai",
+    "coding-assistant",
+    "multi-agent",
+    "sandbox",
+    "ide"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "undici": "^6.27.0"
+  }
+}

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Aurel — Multi-Agent AI Coding Assistant</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%237c8bff'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='%230b0d14' font-family='monospace' font-weight='bold'%3EA%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <!-- Auth gate -->
+  <div id="auth">
+    <div class="auth-card">
+      <div class="brand-lg"><div class="mark">◈</div><div class="n">AUREL</div></div>
+      <div class="tag">A multi-agent coding workspace with an isolated sandbox and live model switching.</div>
+      <form id="auth-form">
+        <div id="name-field" style="display:none">
+          <label>Name</label>
+          <input id="auth-name" type="text" autocomplete="name" placeholder="Ada Lovelace" />
+        </div>
+        <label>Email</label>
+        <input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com" required />
+        <label>Password</label>
+        <input id="auth-password" type="password" autocomplete="current-password" placeholder="••••••••" required />
+        <button class="primary" type="submit" id="auth-submit">Sign in</button>
+      </form>
+      <div class="auth-err" id="auth-err"></div>
+      <div class="swap" id="auth-swap">New here? <a id="auth-toggle">Create an account</a></div>
+      <div class="skip"><a id="auth-skip">Continue as guest →</a></div>
+    </div>
+  </div>
+
+  <!-- Main app -->
+  <div id="app">
+    <div class="topbar">
+      <div class="brand"><span class="mark">◈</span><span>AUREL</span></div>
+      <div class="proj" id="project-switch"><span id="project-name">Project</span><span style="font-size:9px">▾</span></div>
+      <div class="grow"></div>
+      <button class="tb-btn" id="btn-theme" title="Toggle theme">◐ Theme</button>
+      <button class="tb-btn" id="btn-account" title="Account"><span id="account-label">Guest</span></button>
+    </div>
+
+    <div class="workbench">
+      <!-- activity rail -->
+      <nav class="rail" id="rail"></nav>
+
+      <!-- context sidebar -->
+      <aside class="sidebar" id="sidebar">
+        <div class="side-head"><span id="side-title">Explorer</span><span class="actions" id="side-actions"></span></div>
+        <div class="side-body" id="side-body"></div>
+      </aside>
+      <div class="resizer" id="resize-side"></div>
+
+      <!-- main editor + dock -->
+      <div class="main">
+        <div class="editor-region" id="editor-region">
+          <!-- editor panes injected here -->
+          <div class="pane" id="pane-primary">
+            <div class="tabs" id="tabs-primary"></div>
+            <div class="editor-host" id="host-primary">
+              <div class="views" id="views-primary" style="position:absolute;inset:0"></div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-dock" id="dock">
+          <div class="dock-tabs" id="dock-tabs">
+            <button class="dock-tab active" data-dock="terminal">Terminal</button>
+            <button class="dock-tab" data-dock="logs">Logs</button>
+            <button class="dock-tab" data-dock="changes">Changes</button>
+            <div class="dock-actions" id="dock-actions"></div>
+          </div>
+          <div class="dock-body" id="dock-body"></div>
+        </div>
+      </div>
+
+      <!-- chat -->
+      <div class="resizer" id="resize-chat"></div>
+      <section class="chatcol" id="chatcol">
+        <div class="chat-head">
+          <span class="title">Chat</span>
+          <div class="grow" style="flex:1"></div>
+          <button class="icon-btn" id="btn-new-chat" title="New conversation">✚</button>
+        </div>
+        <div class="chat-scroll" id="chat-scroll"></div>
+        <div class="composer" id="composer"></div>
+      </section>
+    </div>
+
+    <div class="statusbar idle" id="statusbar">
+      <span class="si" id="sb-model">no model</span>
+      <span class="si" id="sb-effort"></span>
+      <span class="si" id="sb-subagents"></span>
+      <span class="grow"></span>
+      <span class="si" id="sb-sandbox"></span>
+      <span class="si" id="sb-task"></span>
+      <span class="si" id="sb-providers"></span>
+    </div>
+  </div>
+
+  <!-- overlays -->
+  <div class="overlay" id="overlay"></div>
+  <div id="toasts"></div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
