@@ -14,10 +14,10 @@ import {
 } from "./config.js";
 import { Infection } from "./infection.js";
 import * as effects from "./effects.js";
-import { runVineGrab } from "./vinegrab.js";
+import { runVineGrab, updatePlayerGrabs } from "./vinegrab.js";
 import {
-  spawnTick, tentacleAttackTick, infectedGroundTick, spawnInfectedWither,
-  spawnAt, spawnTestWither, clearOverdriveMobs,
+  spawnTick, tentacleAttackTick, infectedGroundTick,
+  spawnAt, clearOverdriveMobs,
 } from "./mobs.js";
 
 const infection = new Infection();
@@ -78,12 +78,7 @@ system.runInterval(() => {
 
   // ---- Once-per-second systems (every other base tick) ----------------- //
   if (baseTicks % 2 === 0) {
-    let thresholds = 0;
-    try { thresholds = runVineGrab(infection); } catch (e) { console.warn("[Overdrive] vine: " + e); }
-    if (thresholds > 0 && infection.level >= 11 && Math.random() < 0.5) {
-      try { spawnInfectedWither(infection); } catch { /* ignore */ }
-    }
-
+    try { runVineGrab(infection); } catch (e) { console.warn("[Overdrive] vine: " + e); }
     try { tentacleAttackTick(infection); } catch (e) { console.warn("[Overdrive] tentacle: " + e); }
     try { infectedGroundTick(infection); } catch (e) { console.warn("[Overdrive] ground: " + e); }
     try { effects.updateFog(infection); } catch { /* ignore */ }
@@ -102,6 +97,12 @@ system.runInterval(() => {
   }
 }, BASE_TICK_TICKS);
 
+// Fast loop (every 2 ticks) for the player Vine Grab struggle, so jumps are
+// detected responsively. Returns immediately when nobody is grabbed.
+system.runInterval(() => {
+  try { updatePlayerGrabs(infection); } catch (e) { console.warn("[Overdrive] grab: " + e); }
+}, 2);
+
 // ------------------------------------------------------------------------- //
 //  Admin / test commands                                                    //
 // ------------------------------------------------------------------------- //
@@ -114,8 +115,8 @@ const HELP = [
   "§baddblocks <n> §7- add to the block count (test level triggers)",
   "§bspread [n] §7- force n spread cycles now (default 1)",
   "§bseedhere §7- plant sculk under every player",
-  "§bspawn <zombie|skeleton|creeper|tentacle|vine|wither|warden> §7- spawn at you",
-  "§bgrab §7- force a Vine Grab on the nearest mob",
+  "§bspawn <zombie|skeleton|creeper|tentacle|vine> §7- spawn at you",
+  "§bgrab §7- force a Vine Grab pass (grabs you if on sculk)",
   "§bnode §7- place an Overdrive Node at you",
   "§bfog <on|off> §7- toggle Overdrive Fog",
   "§brumble §7- play the rumble now",
@@ -124,7 +125,7 @@ const HELP = [
 
 const SPAWN_ALIASES = {
   zombie: MOB_ZOMBIE, skeleton: MOB_SKELETON, creeper: MOB_CREEPER,
-  tentacle: TENTACLE_ID, vine: VINE_ID, warden: "minecraft:warden",
+  tentacle: TENTACLE_ID, vine: VINE_ID,
 };
 
 function actorOf(ev) {
@@ -221,13 +222,11 @@ system.afterEvents.scriptEventReceive.subscribe((ev) => {
       if (!actor) break;
       const key = arg.toLowerCase();
       const loc = { x: actor.location.x, y: actor.location.y, z: actor.location.z };
-      if (key === "wither") {
-        spawnTestWither(actor.dimension, loc);
-      } else if (SPAWN_ALIASES[key]) {
+      if (SPAWN_ALIASES[key]) {
         const e = spawnAt(actor.dimension, loc, SPAWN_ALIASES[key]);
         world.sendMessage(e ? `§b[Overdrive] §3Spawned §b${key}§3.` : `§c[Overdrive] Failed to spawn ${key}.`);
       } else {
-        world.sendMessage("§c[Overdrive] Unknown type. Try: zombie, skeleton, creeper, tentacle, vine, wither, warden.");
+        world.sendMessage("§c[Overdrive] Unknown type. Try: zombie, skeleton, creeper, tentacle, vine.");
       }
       break;
     }

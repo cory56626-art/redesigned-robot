@@ -20,13 +20,10 @@ const CAPS = {
   [MOB_SKELETON]: 4,
   [MOB_CREEPER]: 3,
   [TENTACLE_ID]: 6,
-  "minecraft:warden": 1,
-  "minecraft:wither": 1,
 };
 
 function effCap(type, level) {
   const base = CAPS[type] ?? 3;
-  if (type === "minecraft:warden" || type === "minecraft:wither") return base;
   // Ramp from ~1 at low levels to the full cap by Level 12.
   return Math.max(1, Math.min(base, Math.ceil((base * level) / 12)));
 }
@@ -121,47 +118,7 @@ export function spawnTick(infection) {
   if (hasFlag(lvl, "tentacles")) {
     trySpawn(infection, TENTACLE_ID, hasFlag(lvl, "tentaclesOften") ? 0.6 : 0.4);
   }
-
-  // Level 11+: 5–10% chance to raise a Warden.
-  if (hasFlag(lvl, "wardenChance") && Math.random() < (0.05 + Math.min(0.05, (lvl - 11) * 0.01))) {
-    trySpawnWarden(infection);
-  }
-}
-
-function trySpawnWarden(infection) {
-  const spot = findSpawnSpot();
-  if (!spot) return;
-  if (countType(spot.dim, "minecraft:warden") >= CAPS["minecraft:warden"]) return;
-  try {
-    spot.dim.spawnEntity("minecraft:warden", spot.loc);
-    world.sendMessage("§3A §bWarden §3claws its way out of the Overdrive Sculk...");
-    try { spot.dim.playSound("mob.warden.emerge", spot.loc); } catch { /* ignore */ }
-  } catch { /* ignore */ }
-}
-
-// ------------------------------------------------------------------------- //
-//  Infected Wither — the energy payoff boss                                 //
-// ------------------------------------------------------------------------- //
-export function spawnInfectedWither(infection) {
-  if (infection.level < 11) return false;
-  const spot = findSpawnSpot();
-  if (!spot) return false;
-  if (countType(spot.dim, "minecraft:wither") >= CAPS["minecraft:wither"]) return false;
-  return buffAsInfectedWither(spot.dim, { x: spot.loc.x, y: spot.loc.y + 1.5, z: spot.loc.z });
-}
-
-function buffAsInfectedWither(dim, loc) {
-  try {
-    const w = dim.spawnEntity("minecraft:wither", loc);
-    w.addTag("overdrive_infected");
-    try { w.nameTag = "§3§lInfected Wither"; } catch { /* ignore */ }
-    try { w.addEffect("strength", 1000000, { amplifier: 1, showParticles: false }); } catch { /* ignore */ }
-    try { w.addEffect("resistance", 1000000, { amplifier: 1, showParticles: false }); } catch { /* ignore */ }
-    try { w.addEffect("regeneration", 1000000, { amplifier: 0, showParticles: false }); } catch { /* ignore */ }
-    world.sendMessage("§3§l» §r§bThe corruption gives birth to an §lInfected Wither§r§b!");
-    try { dim.playSound("mob.wither.spawn", loc); } catch { /* ignore */ }
-    return true;
-  } catch { return false; }
+  // Wither and Warden are intentionally never summoned by the infection.
 }
 
 // ------------------------------------------------------------------------- //
@@ -263,10 +220,6 @@ export function infectedGroundTick(infection) {
 // ------------------------------------------------------------------------- //
 export function spawnAt(dim, loc, type) {
   try { return dim.spawnEntity(type, loc); } catch { return undefined; }
-}
-
-export function spawnTestWither(dim, loc) {
-  return buffAsInfectedWither(dim, { x: loc.x, y: loc.y + 2, z: loc.z });
 }
 
 export function clearOverdriveMobs() {

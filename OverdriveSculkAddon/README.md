@@ -78,14 +78,20 @@ Once per second, any mob standing on Overdrive Sculk can be seized:
 Vine Grab chance ramps at the specified breakpoints: **25%** (L2), **30%** (L5),
 **35%** (L9), **40%** (L15).
 
+**Mobs** caught by a grab are dragged down and killed. **Players** are instead
+**rooted in a struggle**: slowed, slowly damaged (2–3/s), and must **spam jump
+to tear free** (4–8 jumps depending on level). It never instantly kills you, and
+creative/spectator players are never grabbed.
+
 ### Custom mobs (JavaScript behaviors)
 
 * **Infected Sculked Zombie**, **Infected Skeleton**, **Infected Creeper** —
-  custom entities spawned from the frontier with corrupted-sculk skins.
-* **Tentacle** — anchored to the sculk; its attacks are driven **in script**, so
-  reach scales with the infection level (longer at L8+, hits players at L15).
+  custom entities spawned near the player on real sculk, with corrupted skins.
+* **Tentacle** — anchored to the sculk; melee-only attacks driven **in script**
+  (reach 1.9–2.8, grows slightly at L8), on a 1.5s cooldown.
 * **Overdrive Vine** — the self-cleaning grab entity.
-* **Infected Wither** — a buffed, tagged boss birthed by energy.
+
+> **Wither and Warden are never summoned** by the infection.
 
 ### Visuals & audio
 
