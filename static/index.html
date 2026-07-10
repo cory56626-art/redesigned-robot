@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BlockHost — free game server hosting</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%AE%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="logo">🎮</span>
+    <div>
+      <h1>BlockHost</h1>
+      <p class="tag">Your machine. Your servers. $0.</p>
+    </div>
+  </div>
+  <div id="sysinfo" class="sysinfo">loading system info…</div>
+</header>
+
+<main>
+  <!-- ======== create a server ======== -->
+  <section class="card" id="create-card">
+    <h2>Create a server</h2>
+
+    <label class="field-label">1 · Choose your game</label>
+    <div class="game-grid">
+      <button class="game-btn" data-game="minecraft" id="btn-minecraft">
+        <span class="game-icon">⛏️</span>
+        <span class="game-name">Minecraft</span>
+        <span class="game-sub">Java Edition</span>
+        <span class="platforms">Joinable from: PC · Mac · Linux</span>
+      </button>
+      <button class="game-btn" data-game="terraria" id="btn-terraria">
+        <span class="game-icon">🌳</span>
+        <span class="game-name">Terraria</span>
+        <span class="game-sub">Dedicated Server</span>
+        <span class="platforms">Joinable from: PC · Mac · Linux · Mobile*</span>
+      </button>
+    </div>
+    <p class="hint" id="platform-hint"></p>
+
+    <div id="config-panel" class="hidden">
+      <label class="field-label">2 · Configure it</label>
+
+      <div class="form-grid">
+        <div class="field">
+          <label for="f-name">Server name</label>
+          <input id="f-name" type="text" maxlength="60" placeholder="My Awesome Server">
+        </div>
+
+        <div class="field">
+          <label for="f-version">Game version</label>
+          <select id="f-version"></select>
+        </div>
+
+        <div class="field">
+          <label for="f-ram">RAM <b id="ram-val">2048 MB</b></label>
+          <input id="f-ram" type="range" min="256" max="8192" step="256" value="2048">
+        </div>
+
+        <div class="field">
+          <label for="f-cpu">CPU cores <b id="cpu-val">all</b></label>
+          <input id="f-cpu" type="range" min="0" max="8" step="1" value="0">
+        </div>
+
+        <div class="field">
+          <label for="f-duration">Keep it up for</label>
+          <select id="f-duration">
+            <option value="0">Until I stop it</option>
+            <option value="30">30 minutes</option>
+            <option value="60">1 hour</option>
+            <option value="180">3 hours</option>
+            <option value="360">6 hours</option>
+            <option value="720">12 hours</option>
+            <option value="1440">24 hours</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="f-players">Max players</label>
+          <input id="f-players" type="number" min="1" max="255" value="8">
+        </div>
+
+        <div class="field">
+          <label for="f-port">Port</label>
+          <input id="f-port" type="number" min="1024" max="65535" value="25565">
+        </div>
+
+        <div class="field">
+          <label for="f-seed">World seed <span class="opt">(optional)</span></label>
+          <input id="f-seed" type="text" maxlength="64" placeholder="random">
+        </div>
+      </div>
+
+      <p class="hint">💡 GPU: game servers only use CPU + RAM — no GPU needed, so there’s nothing to pick.</p>
+
+      <label class="eula hidden" id="eula-row">
+        <input type="checkbox" id="f-eula">
+        I accept the <a href="https://aka.ms/MinecraftEULA" target="_blank" rel="noopener">Minecraft EULA</a>
+      </label>
+
+      <button id="btn-create" class="primary big">🚀 Create server</button>
+      <p id="create-error" class="error hidden"></p>
+    </div>
+  </section>
+
+  <!-- ======== your servers ======== -->
+  <section class="card">
+    <h2>Your servers</h2>
+    <div id="server-list"><p class="hint">No servers yet — create one above!</p></div>
+  </section>
+
+  <!-- ======== console ======== -->
+  <section class="card hidden" id="console-card">
+    <h2>Console — <span id="console-title"></span></h2>
+    <pre id="console-out"></pre>
+    <div class="console-input">
+      <input id="console-cmd" type="text" placeholder="type a server command (e.g. say hello)">
+      <button id="btn-send" class="primary">Send</button>
+    </div>
+  </section>
+
+  <section class="card info">
+    <h2>How friends join</h2>
+    <ol>
+      <li>Start a server and wait for <b>READY</b> in the console.</li>
+      <li>People on your Wi-Fi join with <b><span class="lan-ip">…</span>:&lt;port&gt;</b>.</li>
+      <li>For friends on the internet, forward the port on your router to this machine, or run a free tunnel like <code>playit.gg</code> and share the address it gives you.</li>
+    </ol>
+    <p class="hint">*Terraria mobile/console use a different protocol — PC players can always join; mobile crossplay isn’t supported by the vanilla server.</p>
+  </section>
+</main>
+
+<footer>BlockHost is fully self-hosted and free — the machine running <code>server.py</code> does the hosting.</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
