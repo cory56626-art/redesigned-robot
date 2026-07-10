@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>💸 AI Money App</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">💸 AI Money App</div>
+      <div class="status" id="statusChips">
+        <span class="chip" id="chipAI">AI: …</span>
+        <span class="chip" id="chipStripe">Stripe: …</span>
+        <span class="chip" id="chipCash">Cash App: …</span>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="chat">💬 Money Coach</button>
+      <button class="tab" data-tab="getpaid">💳 Get Paid</button>
+      <button class="tab" data-tab="setup">⚙️ Setup</button>
+    </nav>
+
+    <!-- ── CHAT ─────────────────────────────────────────── -->
+    <section class="panel active" id="tab-chat">
+      <div class="chat" id="chat">
+        <div class="msg bot">
+          <div class="bubble">
+            Yo 👋 I'm your <b>Cash Coach</b>. Tell me what you're good at or what
+            you've got to sell, and I'll give you a real, do-it-today plan to make
+            money — then help you collect it with a Stripe or Cash App link.
+            <br /><br />What's your situation?
+          </div>
+        </div>
+      </div>
+      <form class="composer" id="chatForm">
+        <input id="chatInput" autocomplete="off" placeholder="e.g. I can design logos and edit videos…" />
+        <button type="submit">Send</button>
+      </form>
+    </section>
+
+    <!-- ── GET PAID ─────────────────────────────────────── -->
+    <section class="panel" id="tab-getpaid">
+      <div class="cards">
+        <!-- Stripe payment link -->
+        <div class="card">
+          <h3>🔗 Stripe payment link</h3>
+          <p class="muted">Make a link you can text/DM to anyone. They pay → money hits your Stripe.</p>
+          <label>What are they paying for?</label>
+          <input id="plName" placeholder="Logo design" />
+          <label>Amount (USD)</label>
+          <input id="plAmount" type="number" min="0.5" step="0.01" placeholder="50.00" />
+          <button id="plBtn">Create link</button>
+          <div class="result" id="plResult"></div>
+        </div>
+
+        <!-- Stripe invoice -->
+        <div class="card">
+          <h3>🧾 Stripe invoice (emailed)</h3>
+          <p class="muted">Stripe emails the customer a real invoice they can pay online.</p>
+          <label>Customer email</label>
+          <input id="invEmail" type="email" placeholder="client@email.com" />
+          <label>Description</label>
+          <input id="invDesc" placeholder="Website work — June" />
+          <label>Amount (USD)</label>
+          <input id="invAmount" type="number" min="0.5" step="0.01" placeholder="250.00" />
+          <button id="invBtn">Send invoice</button>
+          <div class="result" id="invResult"></div>
+        </div>
+
+        <!-- Cash App -->
+        <div class="card">
+          <h3>📱 Cash App request</h3>
+          <p class="muted">
+            Cash App has no API to auto-move money — this makes a real
+            <b>pay-me link/QR</b> to your $cashtag.
+          </p>
+          <label>Amount (USD, optional)</label>
+          <input id="cashAmount" type="number" min="1" step="1" placeholder="20" />
+          <button id="cashBtn">Make Cash App link</button>
+          <div class="result" id="cashResult"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── SETUP ────────────────────────────────────────── -->
+    <section class="panel" id="tab-setup">
+      <div class="card wide">
+        <h3>⚙️ How to hook up your real accounts</h3>
+        <ol class="setup">
+          <li>
+            <b>AI (already set up if the chip is green).</b> The app uses
+            <b>Mistral</b> and falls back to <b>OpenRouter</b>. Keys go in your
+            <code>.env</code> file: <code>MISTRAL_API_KEY</code> /
+            <code>OPEN_ROUTER_API_KEY</code>.
+          </li>
+          <li>
+            <b>Stripe (real money in).</b> Grab your secret key from
+            <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener">dashboard.stripe.com/apikeys</a>,
+            put it in <code>.env</code> as <code>STRIPE_SECRET_KEY</code>, restart.
+            Use <code>sk_test_…</code> to play safely, <code>sk_live_…</code> for real payments.
+          </li>
+          <li>
+            <b>Cash App.</b> Put your <code>$cashtag</code> in <code>.env</code> as
+            <code>CASHAPP_CASHTAG</code>. That's all Cash App allows — a payment link.
+          </li>
+        </ol>
+        <p class="warn">
+          ⚠️ Reality check: no app can legally "connect and generate money by itself."
+          Money comes from someone <b>paying you</b>. This app helps you get those
+          payments fast. Anything promising auto-profit from your Cash App is a scam.
+        </p>
+      </div>
+    </section>
+
+    <script src="app.js"></script>
+  </body>
+</html>
