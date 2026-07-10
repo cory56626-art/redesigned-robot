@@ -25,20 +25,19 @@ App or Stripe — anyone claiming that is running a scam. What this app really d
 > hit your loss limit as easily as your target. Only ever trade money you can
 > afford to lose. This is not financial advice.
 
-## 🚀 Run it
+## 🚀 Run it (no npm install needed)
 
-```bash
-# 1. install
-npm install
+This app has **zero dependencies** — it runs on plain Node 18+. You do **not**
+run `npm install`. Just:
 
-# 2. configure
-cp .env.example .env
-#   then edit .env and add your keys (see below)
-
-# 3. start
-npm start
-# open http://localhost:3000
 ```
+cp .env.example .env
+```
+Edit `.env`, add your keys (see below), then:
+```
+node server.js
+```
+Open http://localhost:3000.
 
 ### Keys you need in `.env`
 
@@ -58,19 +57,31 @@ switch to a **live** key (`sk_live_…`) when you're ready for real money.
 
 ## 🖥️ Hosting on your own server (incl. ISH)
 
-Any box with Node 18+ works:
+Any box with Node 18+ works. On **ISH** (iOS Alpine shell), run these **one line
+at a time**:
 
-```bash
-git clone <your-fork-url> && cd redesigned-robot
-npm install
-cp .env.example .env   # add your keys
-PORT=3000 npm start
 ```
-
-On **ISH** (iOS Alpine shell): `apk add nodejs npm`, then the same steps. It's
-slow but works for a personal instance. For always-on hosting use a small VPS,
-Railway, Render, Fly.io, etc. Keep it behind HTTPS if you use a **live** Stripe
-key.
+apk add nodejs
+```
+```
+apk add git
+```
+```
+git clone https://github.com/cory56626-art/redesigned-robot
+```
+```
+cd redesigned-robot
+```
+```
+cp .env.example .env
+```
+Edit `.env` and paste your keys, then:
+```
+node server.js
+```
+Open http://localhost:3000 in Safari. No `npm install`, no build step. For
+always-on hosting use a small VPS, Railway, Render, Fly.io, etc. Keep it behind
+HTTPS if you use a **live** Stripe key.
 
 ## 📁 What's inside
 

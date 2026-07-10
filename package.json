@@ -1,19 +1,13 @@
 {
   "name": "ai-money-app",
-  "version": "1.0.0",
-  "description": "Self-hostable AI money assistant with Mistral/OpenRouter chat and real Stripe payment collection.",
+  "version": "2.0.0",
+  "description": "Self-hostable AI money app: Alpaca trading bot + Mistral/OpenRouter coach + Stripe/Cash App collection. Zero dependencies — runs on plain Node.",
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node server.js"
   },
   "engines": {
     "node": ">=18"
-  },
-  "dependencies": {
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "stripe": "^16.12.0"
   }
 }
