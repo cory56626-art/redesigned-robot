@@ -45,6 +45,29 @@ async function loadSystem() {
     ram.max = Math.max(1024, SYSTEM.total_ram_mb - 1024); // leave 1 GB for the OS
     const cpu = $("f-cpu");
     cpu.max = SYSTEM.cpu_count;
+
+    // mark games this device can't host
+    const caps = SYSTEM.capabilities || {};
+    let anyOk = false;
+    for (const game of ["minecraft", "terraria"]) {
+      const cap = caps[game] || { ok: true };
+      if (cap.ok) { anyOk = true; continue; }
+      const btn = document.querySelector(`.game-btn[data-game="${game}"]`);
+      btn.classList.add("unavailable");
+      const tag = document.createElement("span");
+      tag.className = "unavail-tag";
+      tag.textContent = "⚠️ can't run on this device";
+      btn.appendChild(tag);
+    }
+    if (!anyOk) {
+      const note = $("device-note");
+      note.textContent =
+        "⚠️ The panel is running, but this device can't run the game servers " +
+        "themselves. Run server.py on any computer or VPS and open this same " +
+        "page from your phone — or see the README for free remote hosts " +
+        "(fps.ms for Terraria, Aternos for Minecraft).";
+      note.classList.remove("hidden");
+    }
   } catch (e) {
     $("sysinfo").textContent = "could not load system info: " + e.message;
   }
@@ -65,7 +88,10 @@ function pickGame(game) {
   document.querySelectorAll(".game-btn").forEach((b) =>
     b.classList.toggle("selected", b.dataset.game === game));
   $("config-panel").classList.remove("hidden");
-  $("platform-hint").textContent = GAME_INFO[game].hint;
+  const cap = (SYSTEM && SYSTEM.capabilities || {})[game] || { ok: true, reason: "" };
+  $("platform-hint").textContent =
+    GAME_INFO[game].hint + (cap.reason ? " ⚠️ " + cap.reason : "");
+  $("btn-create").disabled = !cap.ok;
   $("f-port").value = GAME_INFO[game].defaultPort;
   $("eula-row").classList.toggle("hidden", game !== "minecraft");
 

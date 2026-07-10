@@ -60,23 +60,78 @@ if Java is missing.
    `ngrok tcp <port>` and share the address it prints. No paid hosting
    needed.
 
-## A note about running this in iSH (iPhone terminal)
+## Running it on an iPhone (iSH / a-Shell / Termius)
 
-The panel itself runs fine in iSH (`apk add python3`, then
-`python3 server.py`), and you can open the UI in Safari at
-`http://localhost:8080`. **But** iSH emulates an x86 CPU very slowly and
-can't run Java or x86_64 binaries, so the *game servers themselves* won't
-run on an iPhone — that's a hardware limitation, not a BlockHost one.
+The panel runs on a phone, and it now **detects what the device can
+host** and says so right in the UI instead of failing mysteriously. Be
+aware up front: iPhones can't run Java or x86_64 binaries and iOS
+suspends backgrounded apps, so on a phone you get the panel — not the
+game servers themselves. For actually-free hosting from a phone, use a
+free remote host: **fps.ms** (Terraria, free, renew daily with one tap)
+or **Aternos** (Minecraft, free). Full remote control of BlockHost works
+great from a phone when `server.py` runs on any computer or VPS.
 
-To actually host games for free, run BlockHost on any of these instead:
+> **First**: this repo is currently private, so downloads from a phone
+> will ask for a login. Easiest fix: on github.com open the repo →
+> Settings → General → Danger Zone → **Change visibility → Public**.
+> (Or create a personal access token and use it as the clone password.)
 
-- an old laptop / desktop (Windows, macOS, Linux — anything with Python),
-- a Raspberry Pi (Minecraft works; use `paper` builds for speed),
-- a free-tier cloud VM (e.g. Oracle Cloud "Always Free" ARM VM).
+### iSH
 
-You can still *control* it from your phone: run the panel on the computer,
-then open `http://<computer-ip>:8080` in Safari on your phone. Full remote
-control — create, start, stop, console — from the couch.
+Run each of these one at a time:
+
+```
+apk update
+```
+
+```
+apk add python3 git
+```
+
+```
+git clone -b claude/game-server-hosting-app-hsl74v https://github.com/cory56626-art/redesigned-robot
+```
+
+```
+cd redesigned-robot
+```
+
+```
+python3 server.py
+```
+
+Then open Safari and go to `http://localhost:8080`. Tip: in iSH settings,
+allow Location access so iOS keeps iSH alive in the background longer.
+
+### a-Shell
+
+a-Shell has Python built in but no git; grab the code as an archive:
+
+```
+curl -Lo blockhost.tar.gz https://github.com/cory56626-art/redesigned-robot/archive/refs/heads/claude/game-server-hosting-app-hsl74v.tar.gz
+```
+
+```
+tar xzf blockhost.tar.gz
+```
+
+```
+cd redesigned-robot-claude-game-server-hosting-app-hsl74v
+```
+
+```
+python3 server.py
+```
+
+Then open `http://localhost:8080` in Safari. a-Shell's sandbox can't
+launch external programs, so expect the "panel-only" banner there.
+
+### Termius
+
+Termius has no local shell to run apps in — it's for connecting *to*
+servers. Use it to SFTP into a machine running BlockHost (or into a free
+host like fps.ms, whose panel gives you SFTP credentials) to manage world
+files from your phone.
 
 ## Verified working
 

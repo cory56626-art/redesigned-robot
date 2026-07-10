@@ -14,6 +14,7 @@ Python 3.8+ (Linux, macOS, Windows, a VPS, a Raspberry Pi, ...).
 
 import json
 import os
+import platform
 import re
 import shutil
 import socket
@@ -80,6 +81,61 @@ def java_version():
         return int(parts[1]) if parts[0] == "1" else int(parts[0])
     except (subprocess.SubprocessError, OSError, ValueError):
         return None
+
+
+_subprocess_ok = None
+
+
+def subprocess_ok():
+    """Whether this device can launch external programs at all.
+
+    iOS terminal apps (a-Shell, and Termius which has no local shell)
+    sandbox Python so it cannot spawn processes; the panel still serves
+    the UI there, but games can't be launched.
+    """
+    global _subprocess_ok
+    if _subprocess_ok is None:
+        try:
+            subprocess.run([sys.executable, "-c", "pass"], timeout=60,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            _subprocess_ok = True
+        except Exception:
+            _subprocess_ok = False
+    return _subprocess_ok
+
+
+def capabilities():
+    """Per-game: can this device actually run the server? If not, why not."""
+    if not subprocess_ok():
+        reason = ("This device can't launch programs (iOS sandbox). The panel "
+                  "works, but game servers can't run here — run server.py on a "
+                  "computer or VPS instead, or use a free remote host (see README).")
+        return {"minecraft": {"ok": False, "reason": reason},
+                "terraria": {"ok": False, "reason": reason}}
+    caps = {}
+    jv = java_version()
+    if jv is None:
+        caps["minecraft"] = {"ok": False,
+                             "reason": "Java isn't installed on this device — "
+                                       "Minecraft servers need it (21+ for recent versions)."}
+    elif jv < 21:
+        caps["minecraft"] = {"ok": True,
+                             "reason": f"Java {jv} found — Minecraft 1.20.5+ needs Java 21, "
+                                       "so only older versions will start."}
+    else:
+        caps["minecraft"] = {"ok": True, "reason": ""}
+
+    machine = platform.machine().lower()
+    if sys.platform.startswith("linux") and machine in ("x86_64", "amd64"):
+        caps["terraria"] = {"ok": True, "reason": ""}
+    elif sys.platform == "darwin" or os.name == "nt":
+        caps["terraria"] = {"ok": True, "reason": ""}
+    else:
+        caps["terraria"] = {"ok": False,
+                            "reason": "The official Terraria server only runs on x86_64 "
+                                      f"Linux, macOS or Windows — this device is "
+                                      f"'{machine or 'unknown'}', so it can't run it."}
+    return caps
 
 
 def lan_ip():
@@ -284,6 +340,9 @@ class Instance:
     def start(self):
         if self.proc and self.proc.poll() is None:
             raise RuntimeError("already running")
+        cap = capabilities().get(self.config["game"], {"ok": True, "reason": ""})
+        if not cap["ok"]:
+            raise RuntimeError(cap["reason"])
         if self.config["game"] == "minecraft" and not self.config.get("eula"):
             raise RuntimeError("Mojang EULA not accepted for this server")
         self.status, self.status_detail = "downloading", "preparing files"
@@ -458,6 +517,7 @@ class Manager:
             "java_ok": jv is not None,
             "lan_ip": lan_ip(),
             "panel_port": PANEL_PORT,
+            "capabilities": capabilities(),
             "notes": {
                 "gpu": "Game servers are CPU + RAM only — no GPU is used or needed.",
                 "java": None if jv else
@@ -609,6 +669,10 @@ def main():
     httpd = ThreadingHTTPServer(addr, Handler)
     ip = lan_ip()
     print("BlockHost is running.")
+    for game, cap in capabilities().items():
+        mark = "yes" if cap["ok"] else "NO"
+        extra = f" — {cap['reason']}" if cap["reason"] else ""
+        print(f"  can host {game}: {mark}{extra}")
     print(f"  On this device:   http://localhost:{PANEL_PORT}")
     print(f"  On your network:  http://{ip}:{PANEL_PORT}")
     print("Press Ctrl+C to quit (running game servers will be stopped).")
