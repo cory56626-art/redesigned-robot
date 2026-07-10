@@ -25,6 +25,21 @@ async function loadConfig() {
   const ca = document.getElementById("chipCash");
   ca.textContent = "Cash App: " + (CONFIG.cashtag ? CONFIG.cashtag : "not set");
   ca.className = "chip " + (CONFIG.cashtag ? "ok" : "bad");
+
+  const bt = document.getElementById("chipBot");
+  bt.textContent = "Bot: " + (CONFIG.alpaca ? (CONFIG.alpacaLive ? "LIVE 💰" : "paper") : "not set");
+  bt.className = "chip " + (CONFIG.alpaca ? "ok" : "bad");
+
+  const note = document.getElementById("botModeNote");
+  if (note) {
+    if (!CONFIG.alpaca) {
+      note.innerHTML = "⚠️ Alpaca not connected. Add your Alpaca keys to <code>.env</code> (see the Setup tab), then restart.";
+    } else if (CONFIG.alpacaLive) {
+      note.innerHTML = "🔴 <b>LIVE mode — this trades REAL money.</b> The bot can hit your loss limit instead of your target. No profit is guaranteed.";
+    } else {
+      note.innerHTML = "🟢 <b>Paper mode — practice money, zero risk.</b> Real prices, fake dollars, so you can watch it work first. Flip <code>ALPACA_LIVE=true</code> for real money.";
+    }
+  }
 }
 loadConfig();
 
@@ -128,4 +143,71 @@ document.getElementById("cashBtn").addEventListener("click", () => {
   const amount = document.getElementById("cashAmount").value;
   const url = amount ? `https://cash.app/$${tag}/${amount}` : `https://cash.app/$${tag}`;
   showLink(box, "Cash App pay link — send it to whoever owes you:", url);
+});
+
+// ── Money Bot ───────────────────────────────────────────
+let currentBotId = null;
+let botPoll = null;
+const money = (n) => (n == null ? "—" : "$" + Number(n).toFixed(2));
+
+function renderBot(b) {
+  document.getElementById("botStats").hidden = false;
+  document.getElementById("botLog").hidden = false;
+  document.getElementById("stStatus").textContent = b.status;
+  document.getElementById("stMode").textContent = b.mode;
+  document.getElementById("stPrice").textContent = money(b.lastPrice);
+
+  const pnlEl = document.getElementById("stPnl");
+  pnlEl.textContent = (b.pnl >= 0 ? "+" : "") + money(b.pnl).replace("$-", "-$");
+  pnlEl.className = b.pnl > 0 ? "up" : b.pnl < 0 ? "down" : "";
+
+  const log = document.getElementById("botLog");
+  log.innerHTML = b.log
+    .map((e) => {
+      const time = new Date(e.t).toLocaleTimeString();
+      let txt;
+      if (e.type === "buy") txt = `BUY ${money(e.amount)} @ ${money(e.price)}`;
+      else if (e.type === "sell") txt = `SELL @ ${money(e.price)}`;
+      else if (e.type === "hold") txt = `hold @ ${money(e.price)}`;
+      else if (e.type === "error") txt = `error: ${e.msg}`;
+      else txt = e.msg || e.type;
+      return `<div class="${e.type}">${time} — ${txt}</div>`;
+    })
+    .join("");
+
+  const running = b.status === "running";
+  document.getElementById("botStart").disabled = running;
+  document.getElementById("botStop").disabled = !running;
+  if (!running && botPoll) {
+    clearInterval(botPoll);
+    botPoll = null;
+  }
+}
+
+document.getElementById("botStart").addEventListener("click", async () => {
+  const body = {
+    symbol: document.getElementById("botSymbol").value,
+    stake: document.getElementById("botStake").value,
+    takeProfit: document.getElementById("botTarget").value,
+    maxLoss: document.getElementById("botLoss").value,
+  };
+  document.getElementById("botStart").disabled = true;
+  const { ok, data } = await post("/api/bot/start", body);
+  if (!ok) {
+    document.getElementById("botStart").disabled = false;
+    alert(data.error || "Could not start bot.");
+    return;
+  }
+  currentBotId = data.id;
+  renderBot(data);
+  botPoll = setInterval(async () => {
+    const res = await fetch("/api/bot/" + currentBotId);
+    if (res.ok) renderBot(await res.json());
+  }, 5000);
+});
+
+document.getElementById("botStop").addEventListener("click", async () => {
+  if (!currentBotId) return;
+  const { ok, data } = await post("/api/bot/" + currentBotId + "/stop", {});
+  if (ok) renderBot(data);
 });

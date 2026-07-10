@@ -13,17 +13,72 @@
         <span class="chip" id="chipAI">AI: …</span>
         <span class="chip" id="chipStripe">Stripe: …</span>
         <span class="chip" id="chipCash">Cash App: …</span>
+        <span class="chip" id="chipBot">Bot: …</span>
       </div>
     </header>
 
     <nav class="tabs">
-      <button class="tab active" data-tab="chat">💬 Money Coach</button>
+      <button class="tab active" data-tab="bot">🤖 Money Bot</button>
+      <button class="tab" data-tab="chat">💬 Money Coach</button>
       <button class="tab" data-tab="getpaid">💳 Get Paid</button>
       <button class="tab" data-tab="setup">⚙️ Setup</button>
     </nav>
 
+    <!-- ── MONEY BOT ────────────────────────────────────── -->
+    <section class="panel active" id="tab-bot">
+      <div class="card wide">
+        <h3>🤖 Auto Money Bot</h3>
+        <p class="muted">
+          Set your rules and let an AI trade crypto for you on
+          <b>Alpaca</b>. It stops automatically when it hits your profit target
+          <i>or</i> your loss limit. Crypto trades 24/7, so it runs while you sleep.
+        </p>
+        <p class="warn" id="botModeNote">
+          ⚠️ Checking mode… Real trading carries real risk — the bot can hit your
+          loss limit instead of your target. No profit is guaranteed.
+        </p>
+
+        <div class="botgrid">
+          <div>
+            <label>Coin</label>
+            <select id="botSymbol">
+              <option value="BTC/USD">Bitcoin (BTC)</option>
+              <option value="ETH/USD">Ethereum (ETH)</option>
+              <option value="LTC/USD">Litecoin (LTC)</option>
+              <option value="DOGE/USD">Dogecoin (DOGE)</option>
+            </select>
+          </div>
+          <div>
+            <label>Stake per trade (USD)</label>
+            <input id="botStake" type="number" min="1" step="1" value="10" />
+          </div>
+          <div>
+            <label>🎯 Win goal — stop when up this much ($)</label>
+            <input id="botTarget" type="number" min="1" step="1" value="1" />
+          </div>
+          <div>
+            <label>🛑 Loss limit — stop when down this much ($)</label>
+            <input id="botLoss" type="number" min="1" step="1" value="5" />
+          </div>
+        </div>
+
+        <div class="botbtns">
+          <button id="botStart">▶️ Start bot</button>
+          <button id="botStop" class="ghost" disabled>⏹ Stop</button>
+        </div>
+
+        <div class="botstats" id="botStats" hidden>
+          <div class="stat"><span>Status</span><b id="stStatus">—</b></div>
+          <div class="stat"><span>Mode</span><b id="stMode">—</b></div>
+          <div class="stat"><span>Price</span><b id="stPrice">—</b></div>
+          <div class="stat"><span>Profit / Loss</span><b id="stPnl">—</b></div>
+        </div>
+        <div class="botlog" id="botLog" hidden></div>
+      </div>
+    </section>
+
     <!-- ── CHAT ─────────────────────────────────────────── -->
-    <section class="panel active" id="tab-chat">
+    <section class="panel" id="tab-chat">
       <div class="chat" id="chat">
         <div class="msg bot">
           <div class="bubble">
@@ -104,6 +159,14 @@
           <li>
             <b>Cash App.</b> Put your <code>$cashtag</code> in <code>.env</code> as
             <code>CASHAPP_CASHTAG</code>. That's all Cash App allows — a payment link.
+          </li>
+          <li>
+            <b>Money Bot (Alpaca).</b> Cash App/Stripe can't trade, so the bot uses
+            <a href="https://alpaca.markets" target="_blank" rel="noopener">Alpaca</a>
+            (free signup). Create API keys, put them in <code>.env</code> as
+            <code>ALPACA_API_KEY_ID</code> and <code>ALPACA_API_SECRET_KEY</code>.
+            Leave <code>ALPACA_LIVE=false</code> to trade <b>practice money</b>; set it
+            to <code>true</code> only when you want <b>real money</b> traded.
           </li>
         </ol>
         <p class="warn">

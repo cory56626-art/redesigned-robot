@@ -106,3 +106,29 @@ a { color: #93b4ff; }
 }
 .result .err { color: var(--red); }
 .result .ok { color: var(--green); }
+
+/* Bot */
+.botgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-top: 8px; }
+.botgrid label { display: block; font-size: 13px; color: var(--muted); margin: 0 0 5px; }
+.botgrid input, .botgrid select {
+  width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--panel2); color: var(--text); font-size: 15px;
+}
+.botbtns { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.botbtns button { flex: 1; min-width: 130px; }
+button.ghost { background: var(--panel2); color: var(--text); border: 1px solid var(--line); }
+.botstats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 18px; }
+.stat { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.stat span { display: block; font-size: 12px; color: var(--muted); }
+.stat b { font-size: 18px; }
+.stat b.up { color: var(--green); }
+.stat b.down { color: var(--red); }
+.botlog {
+  margin-top: 14px; max-height: 260px; overflow-y: auto; font-size: 13px;
+  background: #0a0e14; border: 1px solid var(--line); border-radius: 12px; padding: 10px;
+}
+.botlog div { padding: 3px 4px; border-bottom: 1px solid #161d27; }
+.botlog .buy { color: #7ee0a0; }
+.botlog .sell { color: #ffcf8f; }
+.botlog .error { color: var(--red); }
+.botlog .finish { color: #c7b3ff; font-weight: 700; }

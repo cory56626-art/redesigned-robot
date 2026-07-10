@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import Stripe from "stripe";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { startBot, stopBot, botStatus, alpacaConfigured } from "./bot.js";
 
 dotenv.config();
 
@@ -183,6 +184,35 @@ app.post("/api/stripe/invoice", async (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────────
+//  AUTO MONEY BOT  — real AI trader on Alpaca (paper by default)
+// ────────────────────────────────────────────────────────────────
+app.post("/api/bot/start", (req, res) => {
+  if (!process.env.MISTRAL_API_KEY && !process.env.OPEN_ROUTER_API_KEY) {
+    return res.status(400).json({ error: "No AI key set — the bot needs an AI to make decisions." });
+  }
+  if (!alpacaConfigured()) {
+    return res.status(400).json({ error: "Alpaca not connected. Add ALPACA_API_KEY_ID and ALPACA_API_SECRET_KEY to your .env." });
+  }
+  try {
+    res.json(startBot(req.body || {}, callAI));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/bot/:id", (req, res) => {
+  const view = botStatus(req.params.id);
+  if (!view) return res.status(404).json({ error: "Bot not found (it may have cleared on restart)." });
+  res.json(view);
+});
+
+app.post("/api/bot/:id/stop", (req, res) => {
+  const view = stopBot(req.params.id);
+  if (!view) return res.status(404).json({ error: "Bot not found." });
+  res.json(view);
+});
+
+// ────────────────────────────────────────────────────────────────
 //  CONFIG  — tell the frontend what's actually wired up
 // ────────────────────────────────────────────────────────────────
 app.get("/api/config", (req, res) => {
@@ -190,6 +220,8 @@ app.get("/api/config", (req, res) => {
     ai: process.env.MISTRAL_API_KEY ? "mistral" : process.env.OPEN_ROUTER_API_KEY ? "openrouter" : "none",
     stripe: !!stripe,
     cashtag: process.env.CASHAPP_CASHTAG || null,
+    alpaca: alpacaConfigured(),
+    alpacaLive: process.env.ALPACA_LIVE === "true",
   });
 });
 

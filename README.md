@@ -7,19 +7,23 @@ VPS, whatever) and copy/fork it freely.
 
 ## 🧠 The honest part (read this)
 
-Money doesn't appear from nothing. This app doesn't "auto-generate" cash and
-**nothing legit can** — anyone claiming an app plugs into your Cash App and
-prints money is running a scam. What this app actually does:
+Money doesn't appear from nothing. No app "auto-generates" cash from your Cash
+App or Stripe — anyone claiming that is running a scam. What this app really does:
 
-- **AI coach** gives you real, do-it-today ways to earn (freelance gigs,
-  digital products, reselling, small services) and drafts your messages.
-- **Stripe** creates **real payment links and invoices** — when someone pays,
-  real money lands in your Stripe balance.
-- **Cash App** has **no public API**, so the only thing possible is a real
-  **pay-me link/QR** to your `$cashtag`.
+- **🤖 Money Bot** — an AI trading bot on **Alpaca** (a real brokerage). You set
+  a stake, a **profit target**, and a **loss limit**, hit go, and it trades
+  crypto on its own (24/7, so it runs while you sleep), stopping the instant it
+  hits your target *or* your loss limit. Real money, **real risk** — it can lose.
+  Defaults to Alpaca **paper mode** (practice money) so you can watch it first.
+- **💬 AI coach** — real, do-it-today ways to earn, and drafts your messages.
+- **💳 Stripe** — real payment links and invoices; when someone pays, money lands
+  in your Stripe balance.
+- **📱 Cash App** — no public API exists, so it just makes a real **pay-me
+  link/QR** to your `$cashtag`.
 
-So the money flow is real; it just comes from **people paying you**, which the
-app makes fast and easy.
+> ⚠️ **The bot does not guarantee profit. Most trading bots lose money.** It can
+> hit your loss limit as easily as your target. Only ever trade money you can
+> afford to lose. This is not financial advice.
 
 ## 🚀 Run it
 
@@ -44,6 +48,9 @@ npm start
 | `OPEN_ROUTER_API_KEY` | AI fallback | https://openrouter.ai/keys |
 | `STRIPE_SECRET_KEY` | Real payments in | https://dashboard.stripe.com/apikeys |
 | `CASHAPP_CASHTAG` | Your `$cashtag` for pay links | your Cash App profile |
+| `ALPACA_API_KEY_ID` | Money Bot trading | https://alpaca.markets |
+| `ALPACA_API_SECRET_KEY` | Money Bot trading | https://alpaca.markets |
+| `ALPACA_LIVE` | `false` = practice money, `true` = real money | you decide |
 
 The app runs even if some keys are missing — the status chips at the top show
 you what's connected. Use a Stripe **test** key (`sk_test_…`) to play safely;
