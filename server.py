@@ -208,6 +208,7 @@ class Instance:
         self.console_seq = 0      # id of the next line to be appended
         self.stop_timer = None
         self.started_at = None
+        self.crossplay_plugin_failed = False
         self.lock = threading.Lock()
 
     # ---------- console ----------
@@ -488,6 +489,7 @@ class Instance:
         threading.Thread(target=self._start_thread, daemon=True).start()
 
     def _start_thread(self):
+        self.crossplay_plugin_failed = False
         try:
             self.ensure_installed()
             self.status, self.status_detail = "starting", "launching process"
@@ -510,11 +512,28 @@ class Instance:
             self.status, self.status_detail = "error", str(e)
             self.log(f"[blockhost] ERROR: {e}")
 
+    CROSSPLAY_FAIL_MARKERS = (
+        "provided version of this plugin is outdated",
+        'Plugin "Crossplay" has thrown an exception',
+    )
+    CROSSPLAY_FAIL_MSG = (
+        "The Crossplay plugin does not support this Terraria version yet, so "
+        "TShock refused to start — this is why mobile still can't join. The "
+        "community plugin only supports 1.4.4.9 and hasn't been updated for "
+        "newer versions (github.com/Moneylover3246/Crossplay issue #76). Mobile "
+        "crossplay is not possible on this version until that plugin (or "
+        "Terraria's own official crossplay) is updated. Use a PC-only server "
+        "for now."
+    )
+
     def _pump_output(self):
         ready_markers = ("Done (", "Server started", "Listening on port")
         proc = self.proc
         for line in proc.stdout:
             self.log(line)
+            if any(m in line for m in self.CROSSPLAY_FAIL_MARKERS):
+                self.crossplay_plugin_failed = True
+                self.log("[blockhost] " + self.CROSSPLAY_FAIL_MSG)
             if self.status == "starting" and any(m in line for m in ready_markers):
                 self.status, self.status_detail = "running", ""
                 self.log("[blockhost] server is READY — players can join now.")
@@ -522,7 +541,10 @@ class Instance:
         if self.stop_timer:
             self.stop_timer.cancel()
             self.stop_timer = None
-        if self.status not in ("error",):
+        if self.crossplay_plugin_failed:
+            self.status = "error"
+            self.status_detail = self.CROSSPLAY_FAIL_MSG
+        elif self.status not in ("error",):
             self.status = "stopped"
             self.status_detail = f"exited with code {code}"
         self.started_at = None

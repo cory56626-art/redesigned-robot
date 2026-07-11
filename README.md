@@ -94,12 +94,24 @@ Prefer to do it by hand? The manual steps are:
    and place it in TShock's `ServerPlugins` folder.
 3. Restart TShock, load/create your world, then join from mobile as above.
 
-**Important caveats (either way):**
+**⚠️ Current status (July 2026): mobile crossplay is blocked on 1.4.5.6.**
+The Crossplay plugin only supports Terraria **1.4.4.9** and hard-refuses to
+load on 1.4.5.6 (TShock aborts with *"The provided version of this plugin is
+outdated"*). Since mobile devices are locked to the latest store version
+(1.4.5.6) and can't downgrade, there is currently **no way** to get a mobile
+player into a 1.4.5.6 server — not through BlockHost or any host. It's
+waiting on either the plugin author
+([Crossplay issue #76](https://github.com/Moneylover3246/Crossplay/issues/76))
+or Re-Logic's own official crossplay hotfix. BlockHost always fetches the
+newest plugin, so the crossplay toggle will start working automatically the
+day that update ships — and it now detects this failure and explains it in
+the console instead of dumping a stack trace.
+
+**Other caveats:**
 
 - Everything must be on the same Terraria version — TShock, the Crossplay
-  plugin, PC and mobile. If the plugin author hasn’t rebuilt Crossplay for
-  the newest Terraria version yet, mobile crossplay waits for that update.
-  If TShock logs that the plugin failed to load, that’s the cause.
+  plugin, PC and mobile. If TShock logs that the plugin failed to load,
+  that's the version mismatch above.
 - TShock ships as a self-contained build, but some platforms may still need
   the **.NET runtime** installed. If the crossplay server won’t launch,
   install .NET from [dotnet.microsoft.com](https://dotnet.microsoft.com/download).

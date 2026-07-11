@@ -110,6 +110,7 @@ function pickGame(game) {
   $("f-password").closest(".field").classList.toggle("hidden", !info.password);
   // mobile crossplay (TShock) — Terraria only
   $("crossplay-row").classList.toggle("hidden", game !== "terraria");
+  $("crossplay-warn").classList.toggle("hidden", game !== "terraria");
   if (game !== "terraria") $("f-crossplay").checked = false;
   // difficulty options are game-specific
   const dsel = $("f-difficulty");
