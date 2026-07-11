@@ -39,6 +39,7 @@ MC_MANIFEST_URL = "https://launchermeta.mojang.com/mc/game/version_manifest_v2.j
 # Vanilla dedicated-server builds published by Re-Logic. The zip contains
 # Windows, Mac and Linux builds; we launch the one matching this OS.
 TERRARIA_VERSIONS = {
+    "1.4.5.6": "1456",
     "1.4.4.9": "1449",
     "1.4.3.6": "1436",
     "1.4.2.3": "1423",

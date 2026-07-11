@@ -138,8 +138,8 @@ files from your phone.
 Tested end-to-end: a Minecraft 1.21.8 server was created through the API,
 downloaded from Mojang, launched, answered a real Minecraft protocol status
 ping (correct MOTD and player limit), accepted console commands, and shut
-down gracefully. A Terraria 1.4.4.9 server was downloaded from terraria.org,
-generated a world, and listened on its port.
+down gracefully. A Terraria 1.4.5.6 server (the current latest) was
+downloaded from terraria.org, generated a world, and listened on its port.
 
 ## Layout
 
