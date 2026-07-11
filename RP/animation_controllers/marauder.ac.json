@@ -1,0 +1,68 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.marauder.attack": {
+      "initial_state": "default",
+      "states": {
+        "default": {
+          "transitions": [
+            { "waltz": "q.property('mar:attack_state') == 'waltz'" },
+            { "flicker": "q.property('mar:attack_state') == 'flicker'" },
+            { "lance": "q.property('mar:attack_state') == 'lance'" },
+            { "riposte": "q.property('mar:attack_state') == 'riposte'" },
+            { "lunge": "q.property('mar:attack_state') == 'lunge'" },
+            { "eclipse": "q.property('mar:attack_state') == 'eclipse'" },
+            { "flurry": "q.property('mar:attack_state') == 'flurry'" },
+            { "transform": "q.property('mar:attack_state') == 'transform'" },
+            { "stunned": "q.property('mar:attack_state') == 'stunned'" }
+          ]
+        },
+        "waltz": {
+          "animations": ["waltz_anim"],
+          "blend_transition": 0.1,
+          "transitions": [{ "default": "q.property('mar:attack_state') != 'waltz'" }]
+        },
+        "flicker": {
+          "animations": ["flicker_anim"],
+          "blend_transition": 0.05,
+          "transitions": [{ "default": "q.property('mar:attack_state') != 'flicker'" }]
+        },
+        "lance": {
+          "animations": ["lance_anim"],
+          "blend_transition": 0.1,
+          "transitions": [{ "default": "q.property('mar:attack_state') != 'lance'" }]
+        },
+        "riposte": {
+          "animations": ["riposte_anim"],
+          "blend_transition": 0.08,
+          "transitions": [{ "default": "q.property('mar:attack_state') != 'riposte'" }]
+        },
+        "lunge": {
+          "animations": ["lunge_anim"],
+          "blend_transition": 0.12,
+          "transitions": [{ "default": "q.property('mar:attack_state') != 'lunge'" }]
+        },
+        "eclipse": {
+          "animations": ["eclipse_anim"],
+          "blend_transition": 0.15,
+          "transitions": [{ "default": "q.property('mar:attack_state') != 'eclipse'" }]
+        },
+        "flurry": {
+          "animations": ["flurry_anim"],
+          "blend_transition": 0.1,
+          "transitions": [{ "default": "q.property('mar:attack_state') != 'flurry'" }]
+        },
+        "transform": {
+          "animations": ["transform_anim"],
+          "blend_transition": 0.2,
+          "transitions": [{ "default": "q.property('mar:attack_state') != 'transform'" }]
+        },
+        "stunned": {
+          "animations": ["idle"],
+          "blend_transition": 0.2,
+          "transitions": [{ "default": "q.property('mar:attack_state') != 'stunned'" }]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "mar:marauder",
+      "is_spawnable": true,
+      "is_summonable": true,
+      "is_experimental": false,
+      "properties": {
+        "mar:attack_state": {
+          "type": "enum",
+          "values": [
+            "idle",
+            "waltz",
+            "flicker",
+            "lance",
+            "riposte",
+            "lunge",
+            "eclipse",
+            "flurry",
+            "transform",
+            "stunned"
+          ],
+          "default": "idle",
+          "client_sync": true
+        },
+        "mar:frenzied": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        }
+      }
+    },
+    "component_groups": {
+      "mar:phase2_stats": {
+        "minecraft:movement": { "value": 0.52 }
+      }
+    },
+    "components": {
+      "minecraft:type_family": {
+        "family": ["mar_rival", "monster", "mob"]
+      },
+      "minecraft:scale": { "value": 0.55 },
+      "minecraft:collision_box": { "width": 0.7, "height": 2.1 },
+      "minecraft:health": { "value": 500, "max": 500 },
+      "minecraft:movement": { "value": 0.45 },
+      "minecraft:navigation.walk": { "can_walk": true, "avoid_water": true },
+      "minecraft:movement.basic": {},
+      "minecraft:jump.static": {},
+      "minecraft:physics": {},
+      "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": true },
+      "minecraft:knockback_resistance": { "value": 1.0 },
+      "minecraft:persistent": {},
+      "minecraft:attack": { "damage": 7 },
+      "minecraft:boss": { "should_darken_sky": false, "hud_range": 60 },
+      "minecraft:follow_range": { "value": 48, "max": 48 },
+      "minecraft:experience_reward": { "on_death": "100" },
+      "minecraft:breathable": { "breathes_water": true },
+      "minecraft:fire_immune": {},
+      "minecraft:damage_sensor": {
+        "triggers": [
+          { "cause": "fall", "deals_damage": false },
+          { "cause": "drowning", "deals_damage": false }
+        ]
+      },
+      "minecraft:behavior.hurt_by_target": { "priority": 1 },
+      "minecraft:behavior.nearest_prioritized_attackable_target": {
+        "priority": 2,
+        "must_see": false,
+        "reselect_targets": true,
+        "within_radius": 48,
+        "entity_types": [
+          {
+            "filters": {
+              "all_of": [
+                { "test": "is_family", "subject": "other", "value": "ob_titan" }
+              ]
+            },
+            "max_dist": 48,
+            "priority": 0
+          },
+          {
+            "filters": {
+              "all_of": [
+                { "test": "is_family", "subject": "other", "value": "player" }
+              ]
+            },
+            "max_dist": 48,
+            "priority": 1
+          }
+        ]
+      },
+      "minecraft:behavior.melee_box_attack": {
+        "priority": 3,
+        "cooldown_time": 0.6,
+        "speed_multiplier": 1.3,
+        "horizontal_reach": 0.9
+      },
+      "minecraft:behavior.look_at_player": { "priority": 7, "look_distance": 14 },
+      "minecraft:behavior.random_look_around": { "priority": 8 }
+    },
+    "events": {
+      "mar:enter_phase2": {
+        "add": { "component_groups": ["mar:phase2_stats"] },
+        "set_property": { "mar:frenzied": true }
+      }
+    }
+  }
+}

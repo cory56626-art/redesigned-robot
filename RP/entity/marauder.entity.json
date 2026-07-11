@@ -1,0 +1,44 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "mar:marauder",
+      "materials": { "default": "entity_alphatest" },
+      "textures": {
+        "default": "textures/entity/marauder",
+        "frenzied": "textures/entity/marauder_frenzied"
+      },
+      "geometry": {
+        "default": "geometry.marauder",
+        "frenzied": "geometry.marauder_beast"
+      },
+      "animations": {
+        "idle": "animation.marauder.idle",
+        "walk": "animation.marauder.walk",
+        "death": "animation.marauder.death",
+        "waltz_anim": "animation.marauder.waltz",
+        "flicker_anim": "animation.marauder.flicker",
+        "lance_anim": "animation.marauder.lance",
+        "riposte_anim": "animation.marauder.riposte",
+        "lunge_anim": "animation.marauder.lunge",
+        "eclipse_anim": "animation.marauder.eclipse",
+        "flurry_anim": "animation.marauder.flurry",
+        "transform_anim": "animation.marauder.transform",
+        "attack_ctrl": "controller.animation.marauder.attack"
+      },
+      "scripts": {
+        "animate": [
+          { "idle": "q.property('mar:attack_state') == 'idle' && q.is_alive" },
+          { "walk": "q.modified_move_speed > 0.02 && q.is_alive" },
+          "attack_ctrl",
+          { "death": "!q.is_alive" }
+        ]
+      },
+      "render_controllers": ["controller.render.marauder"],
+      "spawn_egg": {
+        "base_color": "#5a0d14",
+        "overlay_color": "#d4af37"
+      }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "The Marauder [RP]",
+    "description": "Models, textures and animations for The Marauder rival boss.",
+    "uuid": "d4f0a3b5-2e67-4a9d-b144-4c3d5e6f7081",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 0]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "e5a1b4c6-3f78-4bae-c255-5d4e6f708192",
+      "version": [1, 0, 0]
+    }
+  ]
+}
