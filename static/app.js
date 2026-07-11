@@ -13,11 +13,19 @@ const GAME_INFO = {
     defaultPort: 25565,
     hint: "Minecraft Java Edition — friends on PC, Mac or Linux join via Multiplayer → Direct Connect. " +
           "Needs Java installed on this host (21+ for recent versions).",
+    difficulties: [["peaceful", "Peaceful"], ["easy", "Easy"], ["normal", "Normal"], ["hard", "Hard"]],
+    defaultDifficulty: "normal",
+    worldSize: false,   // Minecraft worlds are effectively infinite
+    password: false,    // Java Edition uses account auth, not a server password
   },
   terraria: {
     defaultPort: 7777,
     hint: "Terraria dedicated server — friends join via Multiplayer → Join via IP. " +
-          "No Java needed; the official server binary runs directly.",
+          "Mobile players (1.4.5+) can join too via crossplay.",
+    difficulties: [["classic", "Classic"], ["expert", "Expert"], ["master", "Master"], ["journey", "Journey"]],
+    defaultDifficulty: "classic",
+    worldSize: true,
+    password: true,
   },
 };
 
@@ -95,6 +103,22 @@ function pickGame(game) {
   $("f-port").value = GAME_INFO[game].defaultPort;
   $("eula-row").classList.toggle("hidden", game !== "minecraft");
 
+  const info = GAME_INFO[game];
+  // world size — Terraria only
+  $("field-worldsize").classList.toggle("hidden", !info.worldSize);
+  // password — Terraria only (Minecraft Java authenticates via accounts)
+  $("f-password").closest(".field").classList.toggle("hidden", !info.password);
+  // difficulty options are game-specific
+  const dsel = $("f-difficulty");
+  dsel.innerHTML = "";
+  for (const [val, label] of info.difficulties) {
+    const o = document.createElement("option");
+    o.value = val;
+    o.textContent = label;
+    if (val === info.defaultDifficulty) o.selected = true;
+    dsel.appendChild(o);
+  }
+
   const sel = $("f-version");
   sel.innerHTML = "";
   const list = VERSIONS[game] || [];
@@ -143,6 +167,9 @@ async function createServer() {
         max_players: +$("f-players").value,
         port: +$("f-port").value,
         seed: $("f-seed").value,
+        world_size: +$("f-worldsize").value,
+        difficulty: $("f-difficulty").value,
+        password: $("f-password").value,
         eula: $("f-eula").checked,
       }),
     });
@@ -157,6 +184,10 @@ async function createServer() {
 }
 
 /* ---------- server list ---------- */
+
+function sizeName(n) {
+  return { 1: "small", 2: "medium", 3: "large" }[n] || "medium";
+}
 
 function fmtRemaining(stopsAt) {
   const s = Math.max(0, Math.round(stopsAt - Date.now() / 1000));
@@ -186,10 +217,12 @@ async function refreshServers() {
           ${s.game} ${s.version} · ${s.ram_mb} MB RAM ·
           ${s.cpu_cores ? s.cpu_cores + " cores" : "all cores"} ·
           ${s.max_players} players ·
+          ${s.difficulty ? escapeHtml(s.difficulty) + (s.game === "terraria" ? " · " + sizeName(s.world_size) : "") + " · " : ""}
+          ${s.password ? "🔒 password · " : ""}
           ${s.duration_min ? s.duration_min + " min limit" : "runs until stopped"}
           ${running && s.stops_at ? " · ⏳ " + fmtRemaining(s.stops_at) : ""}
         </div>
-        ${running ? `<div class="addr">join at ${addr}</div>` : ""}
+        ${running ? `<div class="addr">join at ${addr}${s.game === "terraria" ? " (PC & mobile)" : ""}</div>` : ""}
         ${s.status === "error" ? `<div class="error">${escapeHtml(s.status_detail)}</div>` : ""}
       </div>
       <span class="badge ${s.status}">${s.status}</span>

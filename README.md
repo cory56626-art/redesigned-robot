@@ -28,6 +28,10 @@ starts.
   Re-Logic builds for Terraria.
 - **Configure resources**: RAM slider, CPU core limit, max players, port,
   world seed. (GPU? Game servers don't use one — it's CPU + RAM only.)
+- **World options**: world size (Terraria: small / medium / large),
+  difficulty (Terraria: classic / expert / master / journey — Minecraft:
+  peaceful / easy / normal / hard), and an optional server **password**
+  (Terraria).
 - **Choose uptime**: run until you stop it, or auto-stop after
   30 min / 1 h / 3 h / 6 h / 12 h / 24 h.
 - **Live console**: watch server logs in real time and send commands
@@ -59,6 +63,27 @@ if Java is missing.
    machine, or use a free tunnel such as [playit.gg](https://playit.gg) or
    `ngrok tcp <port>` and share the address it prints. No paid hosting
    needed.
+
+### Terraria mobile players ("connecting to session…" forever)
+
+Since the 1.4.5 update (Jan 2026) mobile players **can** join a PC
+dedicated server via official crossplay — but two things have to be true,
+and if either is off the mobile client just hangs on *"connecting to
+session…"* with no error:
+
+1. **Matching versions.** The server and every mobile client must be on
+   the *same* 1.4.5.x build. BlockHost now defaults Terraria to the
+   current **1.4.5.6**, which matches the current mobile release. (An
+   older server build — e.g. 1.4.4.9 — is the most common cause of the
+   endless "connecting" hang.)
+2. **The port must be reachable.** On the same Wi-Fi it just works. From
+   cellular / a different network, the port has to be open. BlockHost now
+   writes `upnp=1` into the Terraria config so the server asks your router
+   to open the port automatically; if your router blocks UPnP, use a
+   tunnel like [playit.gg](https://playit.gg) instead.
+
+On mobile: **Multiplayer → Join via IP →** type the address shown on the
+server card (and the password if you set one).
 
 ## Running it on an iPhone (iSH / a-Shell / Termius)
 

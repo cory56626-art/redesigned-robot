@@ -95,6 +95,27 @@
           <label for="f-seed">World seed <span class="opt">(optional)</span></label>
           <input id="f-seed" type="text" maxlength="64" placeholder="random">
         </div>
+
+        <div class="field" id="field-worldsize">
+          <label for="f-worldsize">World size</label>
+          <select id="f-worldsize">
+            <option value="1">Small</option>
+            <option value="2" selected>Medium</option>
+            <option value="3">Large</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="f-difficulty">Difficulty</label>
+          <select id="f-difficulty"></select>
+        </div>
+
+        <div class="field">
+          <label for="f-password">
+            Password <span class="opt" id="pw-opt">(optional)</span>
+          </label>
+          <input id="f-password" type="text" maxlength="60" placeholder="leave blank for none">
+        </div>
       </div>
 
       <p class="hint">💡 GPU: game servers only use CPU + RAM — no GPU needed, so there’s nothing to pick.</p>

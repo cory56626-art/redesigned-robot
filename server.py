@@ -46,6 +46,11 @@ TERRARIA_VERSIONS = {
 }
 TERRARIA_ZIP_URL = "https://terraria.org/api/download/pc-dedicated-server/terraria-server-{build}.zip"
 
+# Terraria world difficulty -> serverconfig.txt numeric value
+TERRARIA_DIFFICULTY = {"classic": 0, "expert": 1, "master": 2, "journey": 3}
+# Minecraft difficulty keys accepted in server.properties
+MC_DIFFICULTY = {"peaceful", "easy", "normal", "hard"}
+
 USER_AGENT = "BlockHost/1.0 (self-hosted game server panel)"
 
 
@@ -181,6 +186,7 @@ class Instance:
 
     def to_dict(self):
         d = dict(self.config)
+        d["password"] = bool(self.config.get("password"))  # don't leak the value
         d["status"] = self.status
         d["status_detail"] = self.status_detail
         d["started_at"] = self.started_at
@@ -239,6 +245,7 @@ class Instance:
         with open(os.path.join(self.dir, "eula.txt"), "w") as f:
             f.write("eula=%s\n" % ("true" if self.config.get("eula") else "false"))
 
+        diff = self.config.get("difficulty", "")
         props = {
             "server-port": str(self.config["port"]),
             "max-players": str(self.config["max_players"]),
@@ -246,6 +253,7 @@ class Instance:
             "enable-command-block": "true",
             "online-mode": "true",
             "level-seed": self.config.get("seed", ""),
+            "difficulty": diff if diff in MC_DIFFICULTY else "normal",
         }
         prop_path = os.path.join(self.dir, "server.properties")
         existing = {}
@@ -301,16 +309,26 @@ class Instance:
 
         world_dir = os.path.join(self.dir, "worlds")
         os.makedirs(world_dir, exist_ok=True)
+        # world size: 1 small, 2 medium, 3 large ; difficulty: 0 classic .. 3 journey
+        size = int(self.config.get("world_size") or 2)
+        difficulty = TERRARIA_DIFFICULTY.get(self.config.get("difficulty", ""), 0)
         cfg = [
             f"world={os.path.join(world_dir, 'world.wld')}",
-            "autocreate=2",                     # medium world if it doesn't exist yet
+            f"autocreate={size}",               # only used if the world doesn't exist yet
+            f"difficulty={difficulty}",
             f"worldname={self.config['name']}",
             f"port={self.config['port']}",
             f"maxplayers={self.config['max_players']}",
             f"worldpath={world_dir}",
+            # crossplay + reachability: mobile clients (1.4.5+) can only join if the
+            # port is actually reachable — upnp asks the router to open it automatically.
+            "upnp=1",
             "npcstream=60",
             "priority=1",
         ]
+        password = str(self.config.get("password") or "")
+        if password:
+            cfg.append(f"password={password}")
         seed = self.config.get("seed", "")
         if seed:
             cfg.append(f"seed={seed}")
@@ -470,6 +488,21 @@ class Manager:
         port = int(data.get("port") or (25565 if game == "minecraft" else 7777))
         if not (1024 <= port <= 65535):
             raise ValueError("port must be between 1024 and 65535")
+
+        # world size (Terraria only): 1 small, 2 medium, 3 large
+        world_size = max(1, min(int(data.get("world_size") or 2), 3))
+        # difficulty: a per-game key, validated against that game's allowed set
+        difficulty = str(data.get("difficulty") or "").strip().lower()
+        if game == "terraria":
+            if difficulty and difficulty not in TERRARIA_DIFFICULTY:
+                raise ValueError("difficulty must be classic, expert, master or journey")
+            difficulty = difficulty or "classic"
+        else:
+            if difficulty and difficulty not in MC_DIFFICULTY:
+                raise ValueError("difficulty must be peaceful, easy, normal or hard")
+            difficulty = difficulty or "normal"
+        # password (Terraria serverconfig password; Minecraft Java has no such field)
+        password = str(data.get("password") or "")[:60]
         with self.lock:
             used = {i.config["port"] for i in self.instances.values()}
             if port in used:
@@ -485,6 +518,9 @@ class Manager:
                 "port": port,
                 "max_players": max(1, min(int(data.get("max_players") or 8), 255)),
                 "seed": str(data.get("seed") or "")[:64],
+                "world_size": world_size,
+                "difficulty": difficulty,
+                "password": password if game == "terraria" else "",
                 "eula": bool(data.get("eula")),
                 "created_at": time.time(),
             }
