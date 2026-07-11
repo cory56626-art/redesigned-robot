@@ -1,0 +1,22 @@
+{
+	"format_version": "1.21.0",
+	"minecraft:client_entity": {
+		"description": {
+			"identifier": "pntmc:king_ambient",
+			"materials": {
+				"default": "entity_alphatest"
+			},
+			"textures": {
+				"default": ""
+			},
+			"geometry": {
+				"default": "geometry.pntmc_king_ambient"
+			},
+			"render_controllers": ["controller.render.default"],
+			"spawn_egg": {
+				"base_color": "#ffffff",
+				"overlay_color": "#000000"
+			}
+		}
+	}
+}

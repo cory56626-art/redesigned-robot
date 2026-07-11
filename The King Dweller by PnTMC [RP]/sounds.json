@@ -1,0 +1,18 @@
+{
+  "entity_sounds": {
+    "entities": {
+      "pntmc:king": {
+        "volume": 100.0,
+        "pitch": [
+          1.0,
+          1.0
+        ],
+        "events": {
+          "step": "pntmc:king_steps",
+          "death": "pntmc:king_death",
+          "hurt": "pntmc:dweller_hurt"
+        }
+      }
+    }
+  }
+}

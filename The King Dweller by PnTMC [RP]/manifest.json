@@ -1,0 +1,31 @@
+{
+	"format_version": 2,
+	"metadata": {
+		"authors": ["PnTMC"],
+		"url": "https://www.youtube.com/@PnTMCvn",
+		"product_type": "addon"
+	},
+	"header": {
+		"name": "The King Dweller MCPE/BE by PnTMC [RP] 1.21.0+ (1.21.0 - 1.21.100+)",
+		"description": "Add-ON made by PnTMC , DO NOT REUP | The King Dweller Java Edition Made by Flamc04 | The King Dweller BE , PE Made by PnTMC",
+		"min_engine_version": [1, 21, 0],
+		"uuid": "5ca3c07f-8dd5-4ece-9919-160647754c31",
+		"version": [1, 1, 0]
+	},
+	"modules": [
+		{
+			"type": "resources",
+			"uuid": "f5aeb76c-945a-4943-9e3a-649d9568678c",
+			"version": [1, 1, 0]
+		}
+	],
+	"dependencies": [
+		{
+			"uuid": "1958fe75-78ce-48bd-bb03-b2688922e559",
+			"version": [1, 1, 0]
+		}
+	],
+	"capabilities": [
+		"pbr"
+	]
+}

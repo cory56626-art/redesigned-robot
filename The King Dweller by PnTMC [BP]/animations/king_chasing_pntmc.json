@@ -1,0 +1,24 @@
+{
+    "format_version": "1.10.0",
+    "animations": {
+        "animation.king.chase_behavior_coded_by_pntmc": {
+            "timeline": {
+                "0": [
+                    "/playsound pntmc:king_chase1 @a[r=30] ~~~ 0.5 1.0 0.5"
+                ],
+                "15": [
+                    "/playsound pntmc:king_chase2 @a[r=30] ~~~ 0.5 1.0 0.5"
+                ],
+                "25": [
+                    "/playsound pntmc:king_chase3 @a[r=30] ~~~ 0.5 1.0 0.5"
+                ],
+                "36": [
+                    "/playsound pntmc:king_chase4 @a[r=30] ~~~ 0.5 1.0 0.5"
+                ],
+                "43": []
+            },
+            "animation_length": 44,
+            "loop": true
+        }
+    }
+}

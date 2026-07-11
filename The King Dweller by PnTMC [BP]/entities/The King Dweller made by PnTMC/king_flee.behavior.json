@@ -1,0 +1,119 @@
+{
+  "format_version": "1.16.0",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "pntmc:king_flee",
+      "is_spawnable": false,
+      "is_summonable": false,
+      "is_experimental": false
+    },
+    "component_groups": {
+      "pntmc:despawn": {
+        "minecraft:instant_despawn": {}
+      }
+    },
+    "components": {
+      "minecraft:type_family": {
+        "family": [ "pntmc", "mob", "king" ]
+      },
+      "minecraft:collision_box": {
+        "height": 0.9,
+        "width": 0.5
+      },
+      "minecraft:custom_hit_test":{
+        "hitboxes": [
+          {
+            "height": 4.0,
+            "width": 2.0,
+            "pivot": [ 0, 2, 0 ]
+          }
+        ]
+      },
+      "minecraft:health": {
+        "value": 80,
+        "max": 80
+      },
+      "minecraft:movement": {
+        "value": 0.5
+      },
+      "minecraft:timer": {
+        "time": 3,
+        "looping": false,
+        "time_down_event": {
+          "event": "pntmc:despawn",
+          "target": "self"
+        }
+      },
+      "minecraft:navigation.walk": {
+        "can_swim": true,
+        "avoid_damage_blocks": false,
+        "can_walk_in_lava": true
+      },
+      "minecraft:movement.basic": {},
+      "minecraft:jump.static": {},
+      "minecraft:can_climb": {},
+      "minecraft:damage_sensor": {
+        "triggers": [
+          {
+            "cause": "contact",
+            "deals_damage": true
+          },
+          {
+            "cause": "magma",
+            "deals_damage": true
+          },
+          {
+            "cause": "fall",
+            "deals_damage": false
+          }
+        ]
+      },
+      "minecraft:knockback_resistance": {
+        "value": 1
+      },
+      "minecraft:behavior.hurt_by_target": {
+        "priority": 3
+      },
+      "minecraft:behavior.avoid_mob_type": {
+        "priority": 3,
+        "entity_types": [
+          {
+            "filters": {
+              "test": "is_family",
+              "subject": "other",
+              "value": "player"
+            },
+            "max_dist": 64,
+            "walk_speed_multiplier": 1,
+            "sprint_speed_multiplier": 1
+          }
+        ],
+        "max_dist": 64,
+        "walk_speed_multiplier": 1,
+        "sprint_speed_multiplier": 1
+      },
+      "minecraft:persistent": {
+      },
+      "minecraft:physics": {
+      },
+      "minecraft:pushable": {
+        "is_pushable": true,
+        "is_pushable_by_piston": true
+      },
+      "minecraft:follow_range": {
+        "value": 200
+      },
+      "minecraft:conditional_bandwidth_optimization": {
+      }
+    },
+    "events": {
+      "pntmc:despawn": {
+        "add": {
+          "component_groups": [
+            "pntmc:despawn"
+          ]
+        }
+      }
+    }
+  }
+}

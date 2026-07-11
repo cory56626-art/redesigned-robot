@@ -1,0 +1,81 @@
+{
+	"format_version": "1.14.0",
+	"sound_definitions": {
+        "pntmc:king_steps": {
+            "category": "hostile",
+            "sounds": [
+                "sounds/pntmcking/chase_step_1",
+                "sounds/pntmcking/chase_step_2",
+                "sounds/pntmcking/chase_step_3",
+                "sounds/pntmcking/chase_step_4"
+            ]
+        },
+        "pntmc:dweller_hurt": {
+            "category": "hostile",
+            "sounds": [
+                "sounds/pntmcking/dweller_hurt_1",
+                "sounds/pntmcking/dweller_hurt_2",
+                "sounds/pntmcking/dweller_hurt_3",
+                "sounds/pntmcking/dweller_hurt_4"
+            ]
+        },
+        "pntmc:king_death": {
+            "category": "hostile",
+            "sounds": [
+                "sounds/pntmcking/dweller_death"
+            ]
+        },
+        "pntmc:king_chase1": {
+            "category": "music",
+            "sounds": [
+                "sounds/pntmcking/chase_1"
+            ]
+        },
+        "pntmc:king_chase2": {
+            "category": "music",
+            "sounds": [
+                "sounds/pntmcking/chase_2"
+            ]
+        },
+        "pntmc:king_chase3": {
+            "category": "music",
+            "sounds": [
+                "sounds/pntmcking/chase_3"
+            ]
+        },
+        "pntmc:king_chase4": {
+            "category": "music",
+            "sounds": [
+                "sounds/pntmcking/chase_4"
+            ]
+        },
+        "pntmc:king_flee": {
+            "category": "music",
+            "sounds": [
+                "sounds/pntmcking/flee_1",
+                "sounds/pntmcking/flee_2"
+            ]
+        },
+        "pntmc:king_disappear": {
+            "category": "hostile",
+            "sounds": [
+                "sounds/pntmcking/disappear"
+            ]
+        },
+        "pntmc:king_spotted": {
+            "category": "music",
+            "sounds": [
+                "sounds/pntmcking/spotted"
+            ]
+        },
+        "pntmc:king_ambient": {
+            "category": "music",
+            "sounds": [
+                "sounds/pntmcking/cavenoise_1",
+                "sounds/pntmcking/cavenoise_2",
+                "sounds/pntmcking/cavenoise_3",
+                "sounds/pntmcking/cavenoise_4"
+            ]
+        }
+	}
+}

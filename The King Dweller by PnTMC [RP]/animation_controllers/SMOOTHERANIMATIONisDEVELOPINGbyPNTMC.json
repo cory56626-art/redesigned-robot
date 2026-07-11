@@ -1,0 +1,121 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.pntmc_king": {
+      "initial_state": "calm_idle",
+      "states": {
+        "calm_idle": {
+          "animations": ["calm_idle"],
+          "transitions": [
+            { "calm_move": "query.modified_move_speed < 0.75 && query.modified_move_speed > 0.02 && !query.is_sheared && !query.is_ignited" },
+            { "run_idle": "query.modified_move_speed < 0.02 && query.mark_variant == 2 && !query.is_sheared && !query.is_ignited && !query.is_saddled" },
+            { "run": "query.modified_move_speed > 0.75 && !query.is_sheared && !query.is_ignited" },
+            { "crawl": "query.is_ignited && query.is_sheared && !query.is_saddled || query.is_ignited && !query.is_sheared && !query.is_saddled" },
+            { "crouch_idle": "query.modified_move_speed < 0.02 && query.is_sheared && !query.is_ignited && !query.is_saddled" },
+            { "crouch_run": "query.modified_move_speed > 0.02 && query.is_sheared && !query.is_ignited && !query.is_saddled" },
+            { "spotted": "query.modified_move_speed < 0.02 && query.is_saddled" }
+          ],
+          "blend_transition": 0.3
+        },
+
+        "calm_move": {
+          "animations": ["calm_move"],
+          "transitions": [
+            { "calm_idle": "query.modified_move_speed < 0.02 && query.mark_variant == 1 && !query.is_sheared && !query.is_ignited && !query.is_saddled" },
+            { "run_idle": "query.modified_move_speed < 0.02 && query.mark_variant == 2 && !query.is_sheared && !query.is_ignited && !query.is_saddled" },
+            { "run": "query.modified_move_speed > 0.75 && !query.is_sheared && !query.is_ignited" },
+            { "crawl": "query.is_ignited && query.is_sheared && !query.is_saddled || query.is_ignited && !query.is_sheared && !query.is_saddled" },
+            { "crouch_idle": "query.modified_move_speed < 0.02 && query.is_sheared && !query.is_ignited && !query.is_saddled" },
+            { "crouch_run": "query.modified_move_speed > 0.02 && query.is_sheared && !query.is_ignited && !query.is_saddled" },
+            { "spotted": "query.modified_move_speed < 0.02 && query.is_saddled" }
+          ],
+          "blend_transition": 0.3
+        },
+
+        "run_idle": {
+          "animations": ["run_idle"],
+          "transitions": [
+            { "calm_idle": "query.modified_move_speed < 0.02 && query.mark_variant == 1" },
+            { "calm_move": "query.modified_move_speed < 0.75 && query.modified_move_speed > 0.02" },
+            { "run": "query.modified_move_speed > 0.75" },
+            { "crawl": "query.is_ignited" },
+            { "crouch_idle": "query.modified_move_speed < 0.02 && query.is_sheared" },
+            { "crouch_run": "query.modified_move_speed > 0.02 && query.is_sheared" },
+            { "spotted": "query.modified_move_speed < 0.02 && query.is_saddled" }
+          ],
+          "blend_transition": 0.3
+        },
+
+        "run": {
+          "animations": ["run"],
+          "transitions": [
+            { "calm_idle": "query.modified_move_speed < 0.02 && query.mark_variant == 1" },
+            { "calm_move": "query.modified_move_speed < 0.75 && query.modified_move_speed > 0.02" },
+            { "run_idle": "query.modified_move_speed < 0.02 && query.mark_variant == 2" },
+            { "crawl": "query.is_ignited" },
+            { "crouch_idle": "query.modified_move_speed < 0.02 && query.is_sheared" },
+            { "crouch_run": "query.modified_move_speed > 0.02 && query.is_sheared" },
+            { "spotted": "query.modified_move_speed < 0.02 && query.is_saddled" }
+          ],
+          "blend_transition": 0.3
+        },
+
+        "crawl": {
+          "animations": ["crawl"],
+          "transitions": [
+            { "calm_idle": "query.modified_move_speed < 0.02 && query.mark_variant == 1" },
+            { "calm_move": "query.modified_move_speed < 0.75 && query.modified_move_speed > 0.02" },
+            { "run_idle": "query.modified_move_speed < 0.02 && query.mark_variant == 2" },
+            { "run": "query.modified_move_speed > 0.75" },
+            { "crouch_idle": "query.modified_move_speed < 0.02 && query.is_sheared" },
+            { "crouch_run": "query.modified_move_speed > 0.02 && query.is_sheared" },
+            { "spotted": "query.modified_move_speed < 0.02 && query.is_saddled" }
+          ],
+          "blend_transition": 0.3
+        },
+
+        "crouch_idle": {
+          "animations": ["crouch_idle"],
+          "transitions": [
+            { "calm_idle": "query.modified_move_speed < 0.02 && query.mark_variant == 1" },
+            { "calm_move": "query.modified_move_speed < 0.75 && query.modified_move_speed > 0.02" },
+            { "run_idle": "query.modified_move_speed < 0.02 && query.mark_variant == 2" },
+            { "run": "query.modified_move_speed > 0.75" },
+            { "crawl": "query.is_ignited" },
+            { "crouch_run": "query.modified_move_speed > 0.02 && query.is_sheared" },
+            { "spotted": "query.modified_move_speed < 0.02 && query.is_saddled" }
+          ],
+          "blend_transition": 0.3
+        },
+
+        "crouch_run": {
+          "animations": ["crouch_run"],
+          "transitions": [
+            { "calm_idle": "query.modified_move_speed < 0.02 && query.mark_variant == 1" },
+            { "calm_move": "query.modified_move_speed < 0.75 && query.modified_move_speed > 0.02" },
+            { "run_idle": "query.modified_move_speed < 0.02 && query.mark_variant == 2" },
+            { "run": "query.modified_move_speed > 0.75" },
+            { "crawl": "query.is_ignited" },
+            { "crouch_idle": "query.modified_move_speed < 0.02 && query.is_sheared" },
+            { "spotted": "query.modified_move_speed < 0.02 && query.is_saddled" }
+          ],
+          "blend_transition": 0.3
+        },
+
+        "spotted": {
+          "animations": ["spotted"],
+          "transitions": [
+            { "calm_idle": "query.modified_move_speed < 0.02 && query.mark_variant == 1" },
+            { "calm_move": "query.modified_move_speed < 0.75 && query.modified_move_speed > 0.02" },
+            { "run_idle": "query.modified_move_speed < 0.02 && query.mark_variant == 2" },
+            { "run": "query.modified_move_speed > 0.75" },
+            { "crawl": "query.is_ignited" },
+            { "crouch_idle": "query.modified_move_speed < 0.02 && query.is_sheared" },
+            { "crouch_run": "query.modified_move_speed > 0.02 && query.is_sheared" }
+          ],
+          "blend_transition": 0.3
+        }
+      }
+    }
+  }
+}

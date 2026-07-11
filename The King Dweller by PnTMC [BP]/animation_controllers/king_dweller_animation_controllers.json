@@ -1,0 +1,238 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.king_calm_idle_PNTMC": {
+      "states": {
+        "pntmc": {
+          "transitions": [
+            {
+              "pntmc1": "query.modified_move_speed < 0.75 && query.modified_move_speed > 0.02"
+            }
+          ],
+          "on_entry": [
+          ]
+        },
+        "pntmc1": {
+          "transitions": [
+            {
+              "pntmc": "!query.has_target"
+            }
+          ],
+          "on_entry": [
+            "/event entity @s pntmc:calm_idle"
+          ]
+        }
+      }
+    },
+    "controller.animation.king_run_idle_PNTMC": {
+      "states": {
+        "pntmc": {
+          "transitions": [
+            {
+              "pntmc1": "query.modified_move_speed > 0.75"
+            }
+          ],
+          "on_entry": [
+          ]
+        },
+        "pntmc1": {
+          "transitions": [
+            {
+              "pntmc": "!query.has_target"
+            }
+          ],
+          "on_entry": [
+            "/event entity @s pntmc:run_idle"
+          ]
+        }
+      }
+    },
+    "controller.animation.king_disappear_akp_PNTMC": {
+      "states": {
+        "pntmc": {
+          "transitions": [
+            {
+              "pntmc1": "!query.has_target && query.life_time > 5"
+            }
+          ],
+          "on_entry": [
+          ]
+        },
+        "pntmc1": {
+          "transitions": [
+            {
+              "pntmc": "!query.has_target"
+            }
+          ],
+          "on_entry": [
+            "/function king_disappear_pntmc"
+          ]
+        }
+      }
+    },
+    "controller.animation.king_disappear_timer_PNTMC": {
+      "states": {
+        "pntmc": {
+          "transitions": [
+            {
+              "pntmc1": "query.life_time > 100"
+            }
+          ],
+          "on_entry": [
+          ]
+        },
+        "pntmc1": {
+          "transitions": [
+            {
+              "pntmc": "!query.has_target"
+            }
+          ],
+          "on_entry": [
+            "/function king_disappear_pntmc"
+          ]
+        }
+      }
+    },
+    "controller.animation.king_hastarget_PNTMC": {
+      "states": {
+        "pntmc": {
+          "transitions": [
+            {
+              "pntmc1": "query.has_target"
+            }
+          ],
+          "on_entry": [
+          ]
+        },
+        "pntmc1": {
+          "transitions": [
+            {
+              "pntmc": "!query.has_target"
+            }
+          ],
+          "on_entry": [
+            "/event entity @s pntmc:fleeorspotted"
+          ]
+        }
+      }
+    },
+    "controller.animation.king_specialcode_PNTMC": {
+      "states": {
+        "pntmc": {
+          "transitions": [
+            {
+              "pntmc1": "query.has_target && query.is_saddled"
+            }
+          ],
+          "on_entry": [
+            "/function king_specialcode_pntmc"
+          ]
+        },
+        "pntmc1": {
+          "transitions": [
+            {
+              "pntmc": "query.has_target && query.is_saddled"
+            }
+          ],
+          "on_entry": [
+            "/function king_specialcode_pntmc"
+          ]
+        }
+      }
+    },
+    "controller.animation.king_specialcode2_PNTMC": {
+      "states": {
+        "pntmc": {
+          "transitions": [
+            {
+              "pntmc1": "query.life_time > 40"
+            }
+          ],
+          "on_entry": [
+          ]
+        },
+        "pntmc1": {
+          "transitions": [
+            {
+              "pntmc": "!query.has_target"
+            }
+          ],
+          "on_entry": [
+            "/event entity @s pntmc:king_angry"
+          ]
+        }
+      }
+    },
+    "controller.animation.king_chase_PNTMC": {
+      "states": {
+        "pntmc": {
+          "transitions": [
+            {
+              "pntmc1": "query.has_target"
+            }
+          ],
+          "on_entry": [
+          ]
+        },
+        "pntmc1": {
+          "transitions": [
+            {
+              "pntmc": "!query.has_target"
+            }
+          ],
+          "on_entry": [
+            "/event entity @s pntmc:chase"
+          ]
+        }
+      }
+    },
+    "controller.animation.king_chasing_PNTMC": {
+      "states": {
+        "pntmc": {
+          "transitions": [
+            {
+              "pntmc1": "query.variant == 2 && !query.is_saddled"
+            }
+          ],
+          "on_entry": [
+            "/function king_death_pntmc"
+          ]
+        },
+        "pntmc1": {
+          "transitions": [
+            {
+              "pntmc": "!query.variant == 2"
+            }
+          ],
+          "animations": [
+            "king_chase_coded_by_pntmc"
+          ]
+        }
+      }
+    },
+    "controller.animation.king_ambient_PNTMC": {
+      "states": {
+        "pntmc": {
+          "transitions": [
+            {
+              "pntmc1": "query.has_target"
+            }
+          ],
+          "on_entry": [
+          ]
+        },
+        "pntmc1": {
+          "transitions": [
+            {
+              "pntmc": "query.has_target"
+            }
+          ],
+          "on_entry": [
+            "/playsound pntmc:king_ambient @a ~~~ 0.65 1.0 1.0",
+            "/event entity @s pntmc:despawn"
+          ]
+        }
+      }
+    }
+  }
+}

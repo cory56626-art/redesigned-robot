@@ -1,0 +1,39 @@
+{
+	"format_version": "1.21.0",
+	"minecraft:client_entity": {
+		"description": {
+			"identifier": "pntmc:king_flee",
+			"materials": {
+				"default": "entity_emissive_alpha"
+			},
+			"textures": {
+				"default": "textures/pntmcking/entity/pntmc_king_texture"
+			},
+			"geometry": {
+				"default": "geometry.pntmc_king"
+			},
+			"render_controllers": ["controller.render.default"],
+			"spawn_egg": {
+				"base_color": "#ffffff",
+				"overlay_color": "#7e0000"
+			},
+			"animations": {
+				"calm_idle": "animation.pntmc_king.calm_idle",
+				"calm_move": "animation.pntmc_king.calm_move",
+				"run_idle": "animation.pntmc_king.run_idle",
+				"run": "animation.pntmc_king.run",
+				"crawl": "animation.pntmc_king.crawl",
+				"crouch_idle": "animation.pntmc_king.crouch_idle",
+				"crouch_run": "animation.pntmc_king.crouch_run",
+				"spotted": "animation.pntmc_king.spotted",
+				"flee": "animation.pntmc_king.flee"
+			},
+			"scripts": {
+				"scale": "2.5",
+				"animate": [
+					"flee"
+				]
+			}
+		}
+	}
+}
