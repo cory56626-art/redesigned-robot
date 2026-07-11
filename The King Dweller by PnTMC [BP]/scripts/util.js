@@ -188,6 +188,10 @@ export function isValidMobTarget(entity) {
 	return true;
 }
 
+// Only used by the /scriptevent debug triggers (main.js), which are explicitly bypassing normal
+// gating anyway - "any nearby mob" is the right pool for a manual test command. The real
+// automatic ability triggering in abilities.js#tickKing uses findAbilityTarget() below instead,
+// which is deliberately more restrictive.
 export function findNearestMob(entity, maxDistance) {
 	let best;
 	let bestDist = Infinity;
@@ -206,6 +210,58 @@ export function findNearestMob(entity, maxDistance) {
 			best = c;
 		}
 	}
+	return best ? { mob: best, dist: bestDist } : undefined;
+}
+
+// The king still only *hunts* players proactively (see king.behavior.json's
+// nearest_attackable_target, back to a player-only filter) - it must not go out of its way to
+// pounce on/screech at/burrow-ambush a cow that never did anything to it. But it should still be
+// able to bring its full kit to bear against any mob that attacks it first, not just retaliate
+// with plain melee (minecraft:behavior.hurt_by_target already handles melee retaliation against
+// any attacker on its own, since that behavior has no entity_types filter).
+//
+// markProvoked() is called from main.js whenever anything lands a hit on the king; it remembers
+// that attacker for PROVOKE_DURATION_TICKS. findAbilityTarget() is what abilities.js#tickKing
+// polls each pass to decide who's eligible for automatic ability triggering: any nearby player
+// (the normal hunting behavior), plus the currently-remembered attacker even when it isn't a
+// player. A mob that never attacked the king is never a candidate here, no matter how close it
+// stands.
+const PROVOKE_DURATION_TICKS = 15 * TPS;
+const PROVOKE_MAX_WINDOW = PROVOKE_DURATION_TICKS + 20;
+
+export function markProvoked(king, attacker, now) {
+	setProp(king, 'pntmc:provokedId', attacker.id);
+	setProp(king, 'pntmc:provokedUntil', now + PROVOKE_DURATION_TICKS);
+}
+
+export function findAbilityTarget(king, maxDistance, now) {
+	let best;
+	let bestDist = Infinity;
+
+	let players = [];
+	try {
+		players = king.dimension.getPlayers({ location: king.location, maxDistance });
+	} catch (e) {}
+	for (const p of players) {
+		if (!isValidMobTarget(p)) continue;
+		const d = distance(king.location, p.location);
+		if (d < bestDist) {
+			bestDist = d;
+			best = p;
+		}
+	}
+
+	if (readFutureTick(king, 'pntmc:provokedUntil', now, PROVOKE_MAX_WINDOW) > 0) {
+		const attacker = getEntityById(getStr(king, 'pntmc:provokedId', ''));
+		if (attacker && isValidMobTarget(attacker)) {
+			const d = distance(king.location, attacker.location);
+			if (d <= maxDistance && d < bestDist) {
+				bestDist = d;
+				best = attacker;
+			}
+		}
+	}
+
 	return best ? { mob: best, dist: bestDist } : undefined;
 }
 

@@ -12,7 +12,7 @@ import {
 	debugTriggerEnrage,
 } from './abilities.js';
 import { tickBleeds, registerBleedCureHooks } from './bleed.js';
-import { getDimensions, isEntityUsable, isValidMobTarget, distance } from './util.js';
+import { getDimensions, isEntityUsable, isValidMobTarget, distance, markProvoked } from './util.js';
 
 const TICK_INTERVAL = 2;
 
@@ -32,15 +32,27 @@ function getKings() {
 	return kings;
 }
 
-// Melee widened to "any mob" at the BP level (nearest_attackable_target no longer filters to
-// player); this is the matching script-side widening so the grab that can piggyback on a
-// landed melee hit isn't restricted to players either.
 world.afterEvents.entityHitEntity.subscribe((ev) => {
 	const attacker = ev.damagingEntity;
 	const victim = ev.hitEntity;
-	if (!attacker || attacker.typeId !== 'pntmc:king') return;
-	if (!isValidMobTarget(victim)) return;
-	tryStartGrabOnHit(attacker, victim, system.currentTick);
+
+	// The king lands a melee hit: it only ever swings at what its AI actually targeted, which
+	// is players (nearest_attackable_target) or whatever provoked it
+	// (minecraft:behavior.hurt_by_target, unrestricted by design) - so victim is already
+	// correctly scoped without re-checking who "should" be attackable here. This is the entry
+	// point for a possible Grab.
+	if (attacker && attacker.typeId === 'pntmc:king' && isValidMobTarget(victim)) {
+		tryStartGrabOnHit(attacker, victim, system.currentTick);
+	}
+
+	// The king takes a hit from anything: the king still only *hunts* players on its own, but
+	// remembering whoever just attacked it lets abilities.js#tickKing also treat that attacker
+	// as a valid target for the rest of the kit (not just plain melee retaliation, which
+	// hurt_by_target already handles by itself) for a little while - see
+	// util.js#findAbilityTarget.
+	if (victim && victim.typeId === 'pntmc:king' && isValidMobTarget(attacker)) {
+		markProvoked(victim, attacker, system.currentTick);
+	}
 });
 
 world.afterEvents.entityDie.subscribe((ev) => {

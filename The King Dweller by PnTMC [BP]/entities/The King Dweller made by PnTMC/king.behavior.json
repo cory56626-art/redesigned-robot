@@ -225,8 +225,7 @@
 					{
 					  "test": "is_family",
 					  "subject": "other",
-					  "operator": "!=",
-					  "value": "pntmc"
+					  "value": "player"
 					}
 				  ]
 				},

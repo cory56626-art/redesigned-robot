@@ -12,6 +12,7 @@ import {
 	findGroundY,
 	hasLineOfSight,
 	findNearestMob,
+	findAbilityTarget,
 	isValidMobTarget,
 	horizontalDir,
 	normalizeHorizontal,
@@ -639,7 +640,7 @@ export function tickKing(king, now) {
 
 	tickEnrageAura(king, now);
 
-	const target = findNearestMob(king, 40);
+	const target = findAbilityTarget(king, 40, now);
 	updateBurrowTracking(king, target);
 
 	if (ab !== 'idle') {

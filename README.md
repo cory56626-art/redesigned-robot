@@ -5,7 +5,8 @@ original add-on — kept intact in both manifests). On top of the original pack:
 
 1. The King is now ~2x its previous visual size.
 2. It has a six-ability combat kit that turns it into a real boss fight.
-3. Every ability and its normal melee attack work on **any mob**, not just players.
+3. Every ability and its normal melee attack can be used on **any mob that attacks the king**,
+   not just players — the king still only *hunts* players on its own.
 4. Every ability has a `/scriptevent pntmc:<ability>` command to trigger it on demand for testing.
 
 Both packs keep their original UUIDs (so this updates in place over the original install) and
@@ -65,36 +66,52 @@ script-triggered animation overrides the entity's regular locomotion controller 
 plays, then hands control back — so none of the RP animation controllers needed new states or new
 Molang queries, and the client never needs to be told "which ability" is happening at all.
 
-## Any mob, not just players
+## Any mob that attacks the king (not automatic, not players-only)
 
-Two independent layers, both widened together so normal attacks and every ability agree on what
-counts as a valid target:
+The king must **not** go out of its way to pounce on/screech at/burrow-ambush a cow or a zombie
+that never did anything to it — it should keep hunting only players on its own, exactly like the
+original pack, but be able to bring its *full kit* to bear (not just a melee swing) against
+whatever actually attacks it. Three pieces make that true:
 
-- **BP (normal melee):** `minecraft:behavior.nearest_attackable_target`'s filter changed from
-  `is_family == player` to `is_family != pntmc`. That's the same four-entity family
-  (`pntmc:king`/`king_trigger`/`king_flee`/`king_ambient`) the pack already tags itself with, so
-  this reads as "attack anything except my own kind" rather than requiring a positive list of
-  every mob family that should count (which isn't a reliable enumeration — not every vanilla mob
-  shares a common tag like "monster" or "animal").
-- **Script (every ability):** `util.js#isValidMobTarget(entity)` is the matching script-side rule:
-  reject the pack's own four typeIds, then require `hasComponent('minecraft:health')`. Health is
-  the one component every actual creature and player has that item drops, XP orbs, arrows, boats,
-  minecarts, paintings, item frames, end crystals, TNT, and falling blocks don't — so it reliably
-  means "a living thing," without hardcoding a family list that could quietly miss a mob type.
-  Every ability's target search (`findNearestMob`, replacing the old player-only
-  `findNearestPlayer`) and every AOE damage loop (pounce landing, screech burst, burrow erupt) now
-  run through this same check, so a zombie, a villager, a cow, or a player are all equally valid
-  things to grab, pounce on, screech at, or ambush.
+- **BP (normal melee hunting): unchanged from the original pack.**
+  `minecraft:behavior.nearest_attackable_target`'s filter is back to `is_family == player` — the
+  king only proactively searches for and chases players, same as before this mod.
+- **BP (melee retaliation): already unrestricted, untouched.** `minecraft:behavior.hurt_by_target`
+  has no `entity_types` filter, so it was *always* the case — even in the original pack — that the
+  king would swing back at whatever damaged it, mob or player. That behavior alone already
+  satisfies "fight back if provoked" for plain melee; nothing needed to change there.
+- **Script (the ability kit): a short-lived "provoked" memory.** `main.js`'s `entityHitEntity`
+  listener now also fires when the *king* is the one hit — regardless of attacker type — and calls
+  `util.js#markProvoked(king, attacker, now)`, which remembers that attacker for 15 seconds.
+  `util.js#findAbilityTarget(king, maxDistance, now)` is what `abilities.js#tickKing` polls every
+  pass to decide who's eligible for automatic Pounce/Screech/Burrow triggering: any nearby player
+  (unchanged hunting behavior) **plus** the currently-remembered attacker, even when it isn't a
+  player. A mob that never landed a hit on the king is never a candidate here, no matter how close
+  it stands or how long it's watched. `isValidMobTarget(entity)` (reject the pack's own four
+  typeIds, then require `hasComponent('minecraft:health')` — the one thing every real creature has
+  that item drops/projectiles/boats/minecarts/etc. don't) is still the underlying "is this even a
+  legitimate creature" sanity check, now just gated behind provocation for anything non-player.
+  Grab doesn't need any of this — it only ever triggers off a melee hit the king already landed,
+  which by the two BP behaviors above is already correctly scoped to players-it's-hunting or
+  attackers-it's-retaliating-against.
+- AOE splash (pounce landing, screech burst, burrow erupt) still hits *any* valid mob caught in
+  the blast radius, not just the primary target — that's an incidental side effect of an ability
+  that was already legitimately triggered against a real target, the same way a ground-slam would
+  catch bystanders in any other game, not the king independently deciding to attack them.
 - A few pieces stay player-specific **by nature**, not by restriction, and degrade gracefully
   (existing try/catch no-ops) when the target isn't a player: the actionbar Bleed readout, the
   milk-bucket cure, `inputPermissions` movement-locking during a grab, and `/camerashake` during a
   screech. None of those exist on a generic mob, but none of them are load-bearing for the
-  mechanic to still work on one either — a grabbed zombie is still teleport-anchored and thrown or
-  bitten identically to a player, it just never gets an actionbar message.
-- Grab tracking changed from scanning `world.getPlayers()` every tick to a small in-memory
-  `Map<targetId, kingId>` (`abilities.js`'s `grabbedTargets`) populated on grab-start and consulted
-  by `reconcileGrabs()`, since the held target can now be any entity, not only one drawn from the
-  player list.
+  mechanic to still work on one either — a grabbed, provoking zombie is still teleport-anchored and
+  thrown or bitten identically to a player, it just never gets an actionbar message.
+- Grab tracking is a small in-memory `Map<targetId, kingId>` (`abilities.js`'s `grabbedTargets`)
+  populated on grab-start and consulted by `reconcileGrabs()`, rather than scanning
+  `world.getPlayers()` every tick, since the held target can now be any entity, not only a player.
+- The `/scriptevent` test commands (below) deliberately **bypass** the provoked requirement, the
+  same way they bypass chance/cooldown/range — they use the broader `findNearestMob` (any valid
+  mob nearby) rather than `findAbilityTarget`, since a manual test command shouldn't require first
+  provoking a mob just to verify an ability still works. They still refuse to fire while the king
+  is crawling/crouching/spotted.
 
 ## Script API version
 
@@ -133,7 +150,7 @@ All cooldowns shorten to ~60% and the global cooldown drops from 5s to 3s once e
 
 ### 1. Grab & Throw
 - **Trigger:** on a landed king melee hit against any valid mob target (`world.afterEvents.entityHitEntity`,
-  filtered through `isValidMobTarget` — see "Any mob, not just players" below), 25% chance, own
+  filtered through `isValidMobTarget` — see "Any mob that attacks the king" below), 25% chance, own
   30s cooldown.
 - **Flow:** `grab_windup` (0.4s, arms raise) → `grab_hold` (2s: the target is teleport-anchored to
   a fixed point in front of the king every tick, with movement input locked where the target is a
@@ -270,11 +287,15 @@ chat if run by a player.
 # hit it — registers at the new ~2x visual size. Dig a 1-block-tall, 1-wide tunnel and run
 # through it while chased; the king should still crawl through after you.
 
-# Any mob, not just players
+# Any mob that attacks the king (not automatic)
+/summon minecraft:cow ~5 ~ ~
+# the cow should be completely ignored - the king keeps hunting players only, exactly like the
+# original pack, and should never wander off to bother it.
 /summon minecraft:zombie ~5 ~ ~
-/summon minecraft:cow ~-5 ~ ~
-# let the king notice them - it should path to and melee whichever is nearest exactly like it
-# would a player, and every ability below should be able to target them too.
+# left alone, likewise ignored. But if it (or you, riding/commanding it, or just naturally as
+# zombies do) hits the king first, the king should turn and fight back - not just a melee swing,
+# the full kit (pounce/screech/burrow/grab) should be able to engage it for about 15s after that
+# hit, then it drops out of contention again if it stops attacking and nothing re-triggers it.
 
 # 2 & 3. Grab -> Throw or Bite -> Bleed (natural trigger)
 # Let the king melee you (or a mob) repeatedly until it grabs - held ~2s, then either thrown
@@ -341,6 +362,13 @@ Minecraft Bedrock itself isn't available in this environment, so verification to
    advanced through `tickKing`, not just the property being set), forced triggers still refusing
    to fire while the king is locked, the namespace filter silently ignoring non-`pntmc` script
    events, and a test command still working with no `sourceEntity` (command-block invocation).
-   All of the above passed — 67 checks across three simulation files. This does not replace an
-   in-game playtest — animation timing/feel, particle appearance, and exact knockback distances
-   should still be sanity-checked in a real world.
+   A fourth round covers the provoked-vs-automatic correction specifically: an unprovoked mob
+   standing right next to the king is never picked up by `findAbilityTarget` and `tickKing` never
+   fires an ability at it even across 60 ticks with every chance roll forced to succeed; calling
+   `markProvoked` after a simulated hit immediately makes that same mob a valid target and
+   `tickKing` does fire on the very next pass; the provocation expires on its own once the
+   remembered window elapses; and a nearby player remains a valid target with no provocation
+   needed at all, confirming the original hunting behavior is untouched. All of the above
+   passed — 73 checks across four simulation files. This does not replace an in-game playtest —
+   animation timing/feel, particle appearance, and exact knockback distances should still be
+   sanity-checked in a real world.
