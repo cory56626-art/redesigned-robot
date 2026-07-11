@@ -13,6 +13,8 @@
             { "lunge": "q.property('mar:attack_state') == 'lunge'" },
             { "eclipse": "q.property('mar:attack_state') == 'eclipse'" },
             { "flurry": "q.property('mar:attack_state') == 'flurry'" },
+            { "leap": "q.property('mar:attack_state') == 'leap'" },
+            { "flamewake": "q.property('mar:attack_state') == 'flamewake'" },
             { "transform": "q.property('mar:attack_state') == 'transform'" },
             { "stunned": "q.property('mar:attack_state') == 'stunned'" }
           ]
@@ -51,6 +53,16 @@
           "animations": ["flurry_anim"],
           "blend_transition": 0.1,
           "transitions": [{ "default": "q.property('mar:attack_state') != 'flurry'" }]
+        },
+        "leap": {
+          "animations": ["leap_anim"],
+          "blend_transition": 0.1,
+          "transitions": [{ "default": "q.property('mar:attack_state') != 'leap'" }]
+        },
+        "flamewake": {
+          "animations": ["flamewake_anim"],
+          "blend_transition": 0.08,
+          "transitions": [{ "default": "q.property('mar:attack_state') != 'flamewake'" }]
         },
         "transform": {
           "animations": ["transform_anim"],

@@ -6,8 +6,11 @@
 //  Phase 2 "The Frenzy" (<=50% HP): transforms — draws second blade,
 //         beast arm manifests. +Beast Lunge, Blood Eclipse, Feral Flurry,
 //         Rally (passive self-heal), Twin Waltz, Blood-Curse debuff.
-//  Designed as a rival to the Oathbreaker Titan (ob:oathbreaker_titan):
-//  she actively hunts the Titan; the Titan retaliates via hurt_by_target.
+//  Abyss-Watcher moves: Abyssal Leap (plunging slash, both phases) and
+//         Flame Wake (Phase 2 dash that leaves a burning trail).
+//  Standalone boss tuned to the same power tier as the Oathbreaker Titan.
+//  No built-in rivalry: she hunts players, and fights back against anything
+//  that strikes her (hurt_by_target) — abilities hit whatever she's fighting.
 // =====================================================================
 import {
   world,
@@ -16,7 +19,6 @@ import {
 } from "@minecraft/server";
 
 const MARAUDER_ID = "mar:marauder";
-const TITAN_ID = "ob:oathbreaker_titan";
 const STATE_PROP = "mar:attack_state";
 
 // ---------------------------------------------------------------------
@@ -90,6 +92,26 @@ const FLURRY_DAMAGE = 6;          // 6x5 = 30 burst, each dodgeable
 const FLURRY_HIT_INTERVAL = 8;
 const FLURRY_LENGTH = 50;
 
+// --- Abyssal Leap (Watcher's plunge — both phases) ---
+const LEAP_COOLDOWN = 260;
+const LEAP_TELEGRAPH = 8;         // crouch wind-up
+const LEAP_AIR_TICKS = 12;        // airtime along the arc
+const LEAP_ARC_HEIGHT = 3.5;
+const LEAP_DAMAGE_P1 = 12;
+const LEAP_DAMAGE_P2 = 15;
+const LEAP_RADIUS = 3.5;          // landing slam AoE
+const LEAP_LENGTH = 30;
+
+// --- Flame Wake (Phase 2 dash that leaves a burning trail) ---
+const WAKE_COOLDOWN = 320;
+const WAKE_TELEGRAPH = 6;
+const WAKE_DASH_TICKS = 12;
+const WAKE_STEP = 0.9;            // blocks per tick while dashing
+const WAKE_HIT_DAMAGE = 10;       // direct hit while she passes through
+const WAKE_TRAIL_SECONDS = 4;     // how long the fire trail lingers
+const WAKE_TRAIL_RADIUS = 1.2;
+const WAKE_LENGTH = 26;
+
 // --- Rally (Phase 2 passive self-heal) ---
 const RALLY_WINDOW_TICKS = 60;    // 3s after taking damage
 const RALLY_HEAL_FRACTION = 0.45;
@@ -121,6 +143,8 @@ function getState(marauder) {
       cdLunge: 0,
       cdEclipse: 0,
       cdFlurry: 0,
+      cdLeap: 0,
+      cdWake: 0,
       // rally
       lastHurtTick: -9999,
       // blood-curse tracking: targetId -> stacks
@@ -135,7 +159,13 @@ function getState(marauder) {
       riposteTriggered: false,
       // flurriness
       flurryHitsDone: 0,
-      nextFlurryHitTick: 0
+      nextFlurryHitTick: 0,
+      // abyssal leap
+      leapFrom: null,
+      leapTo: null,
+      // flame wake
+      wakeDir: null,
+      wakeHitIds: null
     };
     marauders.set(marauder.id, s);
   }
@@ -186,50 +216,53 @@ function isPlayer(p) {
   catch { return false; }
 }
 
-/** All valid targets of the Marauder within radius: players AND the rival Titan. */
-function victimsNearDim(dimension, location, maxDistance) {
+/** Survival/adventure players within radius (creative + spectator excluded). */
+function playersNear(dimension, location, maxDistance) {
   const out = [];
   try {
-    const ents = dimension.getEntities({
-      location,
-      maxDistance
-    });
+    const ents = dimension.getEntities({ location, maxDistance, type: "minecraft:player" });
     for (const e of ents) {
-      if (e.typeId === MARAUDER_ID) continue;
       if (!isAliveCombatant(e)) continue;
-      if (e.typeId === "minecraft:player") {
-        try {
-          const gm = typeof e.getGameMode === "function" ? e.getGameMode() : undefined;
-          if (gm === GameMode.creative || gm === GameMode.spectator) continue;
-        } catch { }
-        out.push(e);
-      } else if (e.typeId === TITAN_ID) {
-        out.push(e);
-      }
+      try {
+        const gm = typeof e.getGameMode === "function" ? e.getGameMode() : undefined;
+        if (gm === GameMode.creative || gm === GameMode.spectator) continue;
+      } catch { }
+      out.push(e);
     }
   } catch { /* keep ticking */ }
   return out;
 }
 
-/** Nearest priority target: prefer the rival Titan, else nearest player. */
-function nearestTarget(marauder, s) {
-  let best = null;
-  let bestD = 1e9;
+/** Everything an ability can hit near a point: players, plus whatever mob her
+ *  AI is currently fighting (anything that provoked her via hurt_by_target —
+ *  works against the Oathbreaker Titan or any other boss, no hardcoded ids). */
+function victimsNear(marauder, location, maxDistance) {
+  const out = playersNear(marauder.dimension, location, maxDistance);
   try {
-    // prefer the Titan if alive and in range
-    const titans = marauder.dimension.getEntities({ type: TITAN_ID });
-    for (const t of titans) {
-      if (!isAliveCombatant(t)) continue;
-      const d = distance(t.location, marauder.location);
-      if (d < bestD && d <= 48) { bestD = d; best = t; }
-    }
-    // then players
-    const players = victimsNearDim(marauder.dimension, marauder.location, 48);
-    for (const p of players) {
-      const d = distance(p.location, marauder.location);
-      if (d < bestD) { bestD = d; best = p; }
+    const t = marauder.target;
+    if (t && t.typeId !== "minecraft:player" && t.typeId !== MARAUDER_ID &&
+        isAliveCombatant(t) && distance(t.location, location) <= maxDistance) {
+      out.push(t);
     }
   } catch { /* keep ticking */ }
+  return out;
+}
+
+/** Current foe: whatever her AI is fighting (any provoked mob), else nearest player. */
+function nearestTarget(marauder, s) {
+  try {
+    const t = marauder.target;
+    if (t && t.typeId !== MARAUDER_ID && isAliveCombatant(t) &&
+        distance(t.location, marauder.location) <= 48) {
+      return t;
+    }
+  } catch { /* keep ticking */ }
+  let best = null;
+  let bestD = 1e9;
+  for (const p of playersNear(marauder.dimension, marauder.location, 48)) {
+    const d = distance(p.location, marauder.location);
+    if (d < bestD) { bestD = d; best = p; }
+  }
   return best;
 }
 
@@ -332,20 +365,16 @@ function knockback(target, dir, horizontal, vertical) {
 
 function titleNearby(marauder, radius, title, subtitle) {
   try {
-    for (const p of victimsNearDim(marauder.dimension, marauder.location, radius)) {
-      if (isPlayer(p)) {
-        try { p.onScreenDisplay.setTitle(title, { subtitle, fadeInDuration: 5, fadeOutDuration: 10 }); } catch { }
-      }
+    for (const p of playersNear(marauder.dimension, marauder.location, radius)) {
+      try { p.onScreenDisplay.setTitle(title, { subtitle, fadeInDuration: 5, fadeOutDuration: 10 }); } catch { }
     }
   } catch { }
 }
 
 function actionbarNearby(marauder, radius, text) {
   try {
-    for (const p of victimsNearDim(marauder.dimension, marauder.location, radius)) {
-      if (isPlayer(p)) {
-        try { p.onScreenDisplay.setActionBar(text); } catch { }
-      }
+    for (const p of playersNear(marauder.dimension, marauder.location, radius)) {
+      try { p.onScreenDisplay.setActionBar(text); } catch { }
     }
   } catch { }
 }
@@ -418,7 +447,7 @@ function tickWaltz(marauder, s) {
         z: marauder.location.z + Math.sin(a) * 3
       });
     }
-    for (const v of victimsNearDim(marauder.dimension, marauder.location, WALTZ_RANGE)) {
+    for (const v of victimsNear(marauder, marauder.location, WALTZ_RANGE)) {
       const to = norm2d(sub(v.location, marauder.location));
       const dot = fwd.x * to.x + fwd.z * to.z;
       if (dot < WALTZ_ARC_DOT) continue;
@@ -469,7 +498,7 @@ function tickFlicker(marauder, s) {
   if (t >= FLICKER_TICKS) {
     // exit slash on whoever's now in front (repositioned behind them)
     const fwd = marauder.getViewDirection();
-    for (const v of victimsNearDim(marauder.dimension, marauder.location, WALTZ_RANGE)) {
+    for (const v of victimsNear(marauder, marauder.location, WALTZ_RANGE)) {
       const to = norm2d(sub(v.location, marauder.location));
       if (fwd.x * to.x + fwd.z * to.z < 0.2) continue;
       hurtTarget(marauder, v, FLICKER_EXIT_DAMAGE);
@@ -606,7 +635,7 @@ function tickLunge(marauder, s) {
       }, { facingLocation: addv(marauder.location, s.lungeDir) });
     } catch { }
     // claw rake on anyone in reach
-    for (const v of victimsNearDim(marauder.dimension, marauder.location, LUNGE_REACH)) {
+    for (const v of victimsNear(marauder, marauder.location, LUNGE_REACH)) {
       const to = norm2d(sub(v.location, marauder.location));
       if (s.lungeDir.x * to.x + s.lungeDir.z * to.z < 0.3) continue;
       hurtTarget(marauder, v, LUNGE_DAMAGE);
@@ -655,7 +684,7 @@ function tickEclipse(marauder, s) {
     const loc = marauder.location;
     playSoundAt(marauder.dimension, "random.explode", loc, 2.5);
     particle(marauder.dimension, "minecraft:knockback_roar_particle", { x: loc.x, y: loc.y + 0.5, z: loc.z });
-    for (const v of victimsNearDim(marauder.dimension, loc, ECLIPSE_RADIUS)) {
+    for (const v of victimsNear(marauder, loc, ECLIPSE_RADIUS)) {
       hurtTarget(marauder, v, ECLIPSE_DAMAGE);
       knockback(v, norm2d(sub(v.location, loc)), 1.3, 0.5);
       addCurse(marauder, v);
@@ -670,9 +699,10 @@ function tickEclipse(marauder, s) {
           x: px, y: loc.y, z: pz
         });
         try { pool.nameTag = "mar_blood_pool"; } catch { }
-        // register with the pool ticker (wither bite + cleanup after ECLIPSE_POOL_SECONDS)
+        // register with the hazard ticker (wither bite + cleanup after ECLIPSE_POOL_SECONDS)
         bloodPools.push({
           entity: pool,
+          owner: marauder,
           dimension: marauder.dimension,
           location: { x: px, y: loc.y, z: pz },
           expireTick: system.currentTick + ECLIPSE_POOL_SECONDS * 20
@@ -688,8 +718,17 @@ function tickEclipse(marauder, s) {
   if (t >= ECLIPSE_LENGTH) backToIdle(marauder, s);
 }
 
-// --- Blood pool ticker: lingering Eclipse pools wither anyone standing in them ---
+// --- Hazard ticker: Eclipse blood pools + Flame Wake fire trails ---
 const bloodPools = [];
+const flameTrail = [];
+
+/** Victims for a ground hazard: players, plus the owner's current foe if the owner lives. */
+function hazardVictims(owner, dimension, location, radius) {
+  try {
+    if (owner && isAliveCombatant(owner)) return victimsNear(owner, location, radius);
+  } catch { }
+  return playersNear(dimension, location, radius);
+}
 
 system.runInterval(() => {
   for (let i = bloodPools.length - 1; i >= 0; i--) {
@@ -705,9 +744,26 @@ system.runInterval(() => {
       y: p.location.y + 0.15,
       z: p.location.z + (Math.random() - 0.5) * 2
     });
-    // the bite: wither anyone (player or Titan) standing in the pool
-    for (const v of victimsNearDim(p.dimension, p.location, ECLIPSE_POOL_RADIUS)) {
+    // the bite: wither anyone standing in the pool
+    for (const v of hazardVictims(p.owner, p.dimension, p.location, ECLIPSE_POOL_RADIUS)) {
       try { v.addEffect("wither", 40, { amplifier: 1, showParticles: true }); } catch { }
+    }
+  }
+
+  for (let i = flameTrail.length - 1; i >= 0; i--) {
+    const f = flameTrail[i];
+    if (system.currentTick >= f.expireTick) {
+      flameTrail.splice(i, 1);
+      continue;
+    }
+    particle(f.dimension, "minecraft:basic_flame_particle", {
+      x: f.location.x + (Math.random() - 0.5),
+      y: f.location.y + 0.2,
+      z: f.location.z + (Math.random() - 0.5)
+    });
+    // linger in the wake and you burn
+    for (const v of hazardVictims(f.owner, f.dimension, f.location, WAKE_TRAIL_RADIUS)) {
+      try { v.setOnFire(2, true); } catch { }
     }
   }
 }, ECLIPSE_POOL_TICK_INTERVAL);
@@ -747,7 +803,7 @@ function tickFlurry(marauder, s) {
     s.nextFlurryHitTick += FLURRY_HIT_INTERVAL;
     const fwd = marauder.getViewDirection();
     playSoundAt(marauder.dimension, "mob.irongolem.throw", marauder.location, 1);
-    for (const v of victimsNearDim(marauder.dimension, marauder.location, WALTZ_RANGE)) {
+    for (const v of victimsNear(marauder, marauder.location, WALTZ_RANGE)) {
       const to = norm2d(sub(v.location, marauder.location));
       if (fwd.x * to.x + fwd.z * to.z < WALTZ_ARC_DOT) continue;
       hurtTarget(marauder, v, FLURRY_DAMAGE);
@@ -758,6 +814,112 @@ function tickFlurry(marauder, s) {
     });
   }
   if (t >= FLURRY_LENGTH) backToIdle(marauder, s);
+}
+
+// =====================================================================
+// ABILITY: Abyssal Leap (Watcher's plunging slash — both phases)
+// =====================================================================
+function startLeap(marauder, s, target) {
+  s.state = "leap";
+  s.stateTicks = 0;
+  s.cdLeap = LEAP_COOLDOWN;
+  s.leapFrom = { x: marauder.location.x, y: marauder.location.y, z: marauder.location.z };
+  s.leapTo = { x: target.location.x, y: target.location.y, z: target.location.z };
+  setAnimState(marauder, "leap");
+  faceTarget(marauder, target);
+  playSoundAt(marauder.dimension, "mob.evocation_illager.prepare_attack", marauder.location, 1.2);
+  actionbarNearby(marauder, 16, "§6She leaps — roll when the blade falls!");
+}
+
+function tickLeap(marauder, s) {
+  const t = s.stateTicks;
+  if (t < LEAP_TELEGRAPH) {
+    // crouch wind-up
+    freeze(marauder, 2);
+    return;
+  }
+  const air = t - LEAP_TELEGRAPH;
+  if (air <= LEAP_AIR_TICKS && s.leapFrom && s.leapTo) {
+    const f = air / LEAP_AIR_TICKS;
+    const arc = LEAP_ARC_HEIGHT * 4 * f * (1 - f);
+    try {
+      marauder.teleport({
+        x: s.leapFrom.x + (s.leapTo.x - s.leapFrom.x) * f,
+        y: s.leapFrom.y + (s.leapTo.y - s.leapFrom.y) * f + arc,
+        z: s.leapFrom.z + (s.leapTo.z - s.leapFrom.z) * f
+      }, { facingLocation: s.leapTo });
+    } catch { }
+    if (air > 0 && air % 3 === 0) {
+      particle(marauder.dimension, "minecraft:critical_hit_emitter", {
+        x: marauder.location.x, y: marauder.location.y + CHEST_Y, z: marauder.location.z
+      });
+    }
+    if (air === LEAP_AIR_TICKS) {
+      // the plunge lands
+      const dmg = s.frenzied ? LEAP_DAMAGE_P2 : LEAP_DAMAGE_P1;
+      playSoundAt(marauder.dimension, "mob.irongolem.hit", marauder.location, 2);
+      particle(marauder.dimension, "minecraft:knockback_roar_particle", {
+        x: marauder.location.x, y: marauder.location.y + 0.3, z: marauder.location.z
+      });
+      for (const v of victimsNear(marauder, marauder.location, LEAP_RADIUS)) {
+        hurtTarget(marauder, v, dmg);
+        knockback(v, norm2d(sub(v.location, marauder.location)), 1.1, 0.6);
+        if (s.frenzied) addCurse(marauder, v);
+      }
+    }
+  }
+  if (t >= LEAP_LENGTH) backToIdle(marauder, s);
+}
+
+// =====================================================================
+// ABILITY: Flame Wake (Phase 2 dash that leaves a burning trail)
+// =====================================================================
+function startFlameWake(marauder, s, target) {
+  s.state = "flamewake";
+  s.stateTicks = 0;
+  s.cdWake = WAKE_COOLDOWN;
+  s.wakeDir = norm2d(sub(target.location, marauder.location));
+  s.wakeHitIds = new Set();
+  setAnimState(marauder, "flamewake");
+  faceTarget(marauder, target);
+  playSoundAt(marauder.dimension, "fire.ignite", marauder.location, 1.5);
+  actionbarNearby(marauder, 16, "§6Flame Wake — clear the burning trail!");
+}
+
+function tickFlameWake(marauder, s) {
+  const t = s.stateTicks;
+  if (t < WAKE_TELEGRAPH) {
+    freeze(marauder, 2);
+    return;
+  }
+  const step = t - WAKE_TELEGRAPH;
+  if (step <= WAKE_DASH_TICKS && s.wakeDir) {
+    try {
+      marauder.teleport({
+        x: marauder.location.x + s.wakeDir.x * WAKE_STEP,
+        y: marauder.location.y,
+        z: marauder.location.z + s.wakeDir.z * WAKE_STEP
+      }, { facingLocation: addv(marauder.location, s.wakeDir) });
+    } catch { }
+    const loc = marauder.location;
+    flameTrail.push({
+      owner: marauder,
+      dimension: marauder.dimension,
+      location: { x: loc.x, y: loc.y, z: loc.z },
+      expireTick: system.currentTick + WAKE_TRAIL_SECONDS * 20
+    });
+    particle(marauder.dimension, "minecraft:basic_flame_particle", { x: loc.x, y: loc.y + 0.2, z: loc.z });
+    particle(marauder.dimension, "minecraft:lava_particle", { x: loc.x, y: loc.y + 0.1, z: loc.z });
+    // direct hit while she blazes through (once per victim per dash)
+    for (const v of victimsNear(marauder, loc, 2.0)) {
+      if (s.wakeHitIds.has(v.id)) continue;
+      s.wakeHitIds.add(v.id);
+      hurtTarget(marauder, v, WAKE_HIT_DAMAGE);
+      try { v.setOnFire(4, true); } catch { }
+      addCurse(marauder, v);
+    }
+  }
+  if (t >= WAKE_LENGTH) backToIdle(marauder, s);
 }
 
 // =====================================================================
@@ -783,6 +945,8 @@ function tickMarauder(marauder) {
   if (s.cdLunge > 0) s.cdLunge--;
   if (s.cdEclipse > 0) s.cdEclipse--;
   if (s.cdFlurry > 0) s.cdFlurry--;
+  if (s.cdLeap > 0) s.cdLeap--;
+  if (s.cdWake > 0) s.cdWake--;
 
   // Blood-Curse bookkeeping: prune stacks for targets that are gone or dead
   if (s.stateTicks % 100 === 0 && s.curseStacks.size > 0) {
@@ -802,6 +966,8 @@ function tickMarauder(marauder) {
     case "lunge": return tickLunge(marauder, s);
     case "eclipse": return tickEclipse(marauder, s);
     case "flurry": return tickFlurry(marauder, s);
+    case "leap": return tickLeap(marauder, s);
+    case "flamewake": return tickFlameWake(marauder, s);
     case "transform": {
       // mid-transform invuln waltz; ride out the animation, then idle
       if (s.stateTicks >= TRANSFORM_LENGTH) backToIdle(marauder, s);
@@ -848,13 +1014,18 @@ function tickMarauder(marauder) {
   // --- DECIDE NEXT MOVE ---
   // Phase 2 exclusive moves first
   if (s.frenzied) {
-    // Feral Flurry: occasional big combo
-    if (s.cdFlurry <= 0 && dist >= 3 && dist <= 14) { startFlurry(marauder, s, target); return; }
+    // Feral Flurry: occasional big combo (no min range — she rushes from anywhere close)
+    if (s.cdFlurry <= 0 && dist <= 14) { startFlurry(marauder, s, target); return; }
     // Blood Eclipse: close AoE
     if (s.cdEclipse <= 0 && dist <= ECLIPSE_RADIUS) { startEclipse(marauder, s); return; }
+    // Flame Wake: burning dash through the fight
+    if (s.cdWake <= 0 && dist >= 3 && dist <= 14) { startFlameWake(marauder, s, target); return; }
     // Beast Lunge: mid-range gap closer
-    if (s.cdLunge <= 0 && dist >= 5 && dist <= 20) { startLunge(marauder, s, target); return; }
+    if (s.cdLunge <= 0 && dist >= 4 && dist <= 20) { startLunge(marauder, s, target); return; }
   }
+
+  // Abyssal Leap (both phases): the Watcher's plunge, closes big gaps
+  if (s.cdLeap <= 0 && dist >= 6 && dist <= 18) { startLeap(marauder, s, target); return; }
 
   // Riposte: if she's been getting hit a lot, bait a parry
   if (s.cdRiposte <= 0 && dist >= 2 && dist <= 6 && Math.random() < 0.25) {

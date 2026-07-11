@@ -85,65 +85,68 @@ def paint_geo(geo_path, out_path, palette, default_color, seed, decorate=None):
     print("wrote", os.path.relpath(out_path, ROOT))
 
 
-# --- Phase 1 "Crimson Waltz": elegant crimson regalia, ivory mask, bare left arm
+# --- Phase 1 "Crimson Waltz": Boreal-Dancer look — aged gold armor, ash-blue
+#     flowing veil, dark steel helm under a crown, long ember-steel blade
 P1 = {
-    "body":      (107, 15, 26),    # deep crimson regalia
-    "cloak":     (63, 10, 18),     # darker maroon cloak
-    "head":      (232, 224, 208),  # ivory mask
-    "right_arm": (94, 13, 24),     # sleeved sword arm
-    "left_arm":  (216, 180, 154),  # the bare arm
-    "blade":     (200, 204, 212),  # steel
-    "right_leg": (44, 34, 40),
-    "left_leg":  (44, 34, 40),
+    "body":      (146, 116, 58),   # aged engraved gold armor
+    "cloak":     (128, 142, 164),  # ash-blue cape veil
+    "veil":      (168, 180, 198),  # paler head veil
+    "head":      (58, 54, 62),     # dark steel helm
+    "crown":     (212, 175, 96),   # gold crown
+    "right_arm": (110, 84, 48),    # bronze sword arm
+    "left_arm":  (110, 84, 48),
+    "blade":     (222, 150, 70),   # ember-lit steel
+    "right_leg": (52, 48, 56),     # dark steel greaves
+    "left_leg":  (52, 48, 56),
 }
 
-# --- Phase 2 "The Frenzy": torn, blood-soaked, glowing mask, beast arm fur
+# --- Phase 2 "The Frenzy": Soul-of-Cinder look — charred armor, fire crown,
+#     molten blade, ash veil, Watcher's parry dagger
 P2 = {
-    "body":      (74, 8, 14),
-    "cloak":     (38, 5, 9),
-    "head":      (190, 175, 160),
-    "right_arm": (66, 8, 14),
-    "left_arm":  (52, 34, 26),     # beast arm: dark fur
-    "blade":     (176, 170, 178),
-    "right_leg": (30, 20, 24),
-    "left_leg":  (30, 20, 24),
+    "body":      (46, 38, 34),
+    "cloak":     (30, 22, 20),
+    "veil":      (90, 82, 78),
+    "head":      (40, 34, 32),
+    "crown":     (255, 120, 30),   # crown of cinders
+    "right_arm": (52, 40, 34),
+    "left_arm":  (52, 40, 34),
+    "blade":     (255, 140, 50),   # molten
+    "dagger":    (180, 175, 180),  # steel parry dagger
+    "right_leg": (36, 30, 28),
+    "left_leg":  (36, 30, 28),
 }
 
 
-def eyes(front_u, front_v, put, color):
-    """Stamp a pair of eyes on the head's front face (8-wide at uv+ (8, 8))."""
-    for ex in (2, 5):
-        put(front_u + ex, front_v + 3, color + (255,))
-        put(front_u + ex + 1, front_v + 3, color + (255,))
+def visor(put, color):
+    """Slit across the helm's front face (head cube uv [0,0], 8x8x8 -> front at 8,8)."""
+    for ex in range(1, 7):
+        put(8 + ex, 11, color + (255,))
 
 
 def decorate_p1(bone, geo, put):
     if bone == "head":
-        # dark eye slits in the ivory mask (head cube uv [0,0], size 8x9x8 -> front at 8,8)
-        eyes(8, 8, put, (40, 20, 24))
+        visor(put, (20, 16, 24))  # dark visor slit
     if bone == "body":
-        # gold trim rows across the regalia front (body uv [0,32], sz≈7 -> front at ~7,39)
-        d = geo["description"]
-        for yy in (42, 48):
-            for xx in range(8, 20):
-                put(xx, yy, (212, 175, 55, 255))
+        # engraved trim lines across the gold cuirass (body uv [0,32], front at 6,38 w12 h20)
+        for yy in (44, 50):
+            for xx in range(7, 17):
+                put(xx, yy, (96, 74, 34, 255))
 
 
 def decorate_p2(bone, geo, put):
     if bone == "head":
-        # glowing red eyes
-        eyes(8, 8, put, (255, 40, 40))
+        visor(put, (255, 70, 20))  # the visor burns
     if bone == "body":
-        # blood streaks down the torso front
-        for xx in (9, 13, 17):
-            for yy in range(40, 52):
-                put(xx, yy, (140, 10, 16, 255))
+        # ember cracks down the charred cuirass
+        for xx, y0, y1 in ((8, 42, 50), (11, 40, 54), (14, 44, 52), (16, 41, 48)):
+            for yy in range(y0, y1):
+                put(xx, yy, (255, 100, 20, 255))
 
 
 paint_geo(os.path.join(ROOT, "RP/models/entity/marauder.geo.json"),
           os.path.join(ROOT, "RP/textures/entity/marauder.png"),
-          P1, (90, 20, 30), seed=7, decorate=decorate_p1)
+          P1, (90, 80, 70), seed=7, decorate=decorate_p1)
 
 paint_geo(os.path.join(ROOT, "RP/models/entity/marauder_beast.geo.json"),
           os.path.join(ROOT, "RP/textures/entity/marauder_frenzied.png"),
-          P2, (60, 12, 18), seed=13, decorate=decorate_p2)
+          P2, (50, 42, 38), seed=13, decorate=decorate_p2)

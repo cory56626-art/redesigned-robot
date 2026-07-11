@@ -1,20 +1,49 @@
-# The Marauder — Companion Boss for the Oathbreaker Titan
+# The Marauder — a Boreal-Dancer-style Boss for Bedrock
 
-A Bloodborne-flavored, Boreal-Dancer-styled **blood/beast rival boss** for Minecraft
-Bedrock. Where the Oathbreaker Titan is a slow molten brawler, The Marauder is a
-fast blood-dancer who transforms partway through the fight. Designed as a rival:
-she **actively hunts the Titan**, and the two will fight on sight — no edits to
-the Oathbreaker addon required.
+A Dark-Souls-flavored **dancer/cinder boss** for Minecraft Bedrock. The Marauder
+is a fast blood-dancer who transforms partway through the fight. She's a
+**standalone boss tuned to the same power tier as the Oathbreaker Titan** —
+similar scale, similar threat — but she is *not* a rival or counter to it: she
+doesn't hunt the Titan, and only fights back if something (Titan included)
+strikes her first.
+
+**Model:** Phase 1 is built on the Dancer of the Boreal Valley silhouette —
+tall, gaunt and hunched, with long trailing limbs, a flowing veil, a crowned
+helm, and a long blade dragged low. Phase 2 shifts toward Soul of Cinder:
+charred armor, a crown of cinders, a molten blade, and an Abyss-Watcher parry
+dagger in the off-hand.
 
 ---
 
-## What's new in this upgraded build
+## What's new in v2 (this update)
 
-- **Playable out of the box** — both textures are now included as generated
-  placeholders (painted per-bone from the model UVs: ivory mask, crimson
-  regalia + gold trim, bare arm, steel blade; darker blood-soaked frenzied
-  variant with glowing eyes). Replace them with hand-painted art whenever you
-  like; regenerate after model edits with `python3 tools/gen_placeholder_textures.py`.
+- **Model rebuilt from scratch** to the Dancer of the Boreal Valley / Soul of
+  Cinder references — no more Oathbreaker-alike proportions. Same bone names,
+  so all animations still drive it.
+- **Rivalry removed.** She no longer prioritizes hunting `ob_titan`; her AI
+  targets players, and `hurt_by_target` makes her retaliate against anything
+  that hits her. Equal power, no built-in grudge.
+- **Abilities now work against the Oathbreaker (and any mob).** Hit detection
+  used to accept only the exact entity id `ob:oathbreaker_titan`, so swings
+  whiffed against anything else — including every Phase 2 ability. Victims are
+  now "players + whatever her AI is currently fighting", no hardcoded ids.
+- **Two Abyss-Watcher abilities:**
+  - **Abyssal Leap** (both phases) — crouch telegraph, plunging arc onto the
+    target, landing slam AoE (12 / 15 dmg, knock-up; curses in Phase 2).
+  - **Flame Wake** (Phase 2) — a burning dash through the fight (10 dmg direct
+    hit + ignite) that leaves a fire trail on the ground for 4 seconds.
+- Loosened Phase 2 ability ranges so Flurry/Lunge actually fire in close
+  quarters; taller collision box (2.3) to match the new silhouette.
+- Placeholder textures regenerated for the new rigs and palettes.
+
+---
+
+## What was fixed in v1 (previous update)
+
+- **Playable out of the box** — both textures are included as generated
+  placeholders, painted per-bone from the model UVs. Replace them with
+  hand-painted art whenever you like; regenerate after model edits with
+  `python3 tools/gen_placeholder_textures.py`.
 - **Blood Eclipse pools actually hurt now** — the lingering pools used to be
   spawned but dealt no damage. They now wither anyone (player or Titan)
   standing in them every half second and clean themselves up after 6s.
@@ -41,9 +70,7 @@ the Oathbreaker addon required.
    world requires it for `@minecraft/server` scripting.
 2. **Spawn:** use the spawn egg (inventory, crimson + gold), or run
    `/scriptevent mar:spawn` to summon her at your location.
-3. **The duel:** spawn an Oathbreaker Titan (`ob:oathbreaker_titan`) near her.
-   She targets the Titan automatically; the Titan retaliates once struck. Enjoy.
-4. *(Optional)* repaint the 2 textures (see *Step 1* below) and rebuild with
+3. *(Optional)* repaint the 2 textures (see *Step 1* below) and rebuild with
    `bash package.sh` → produces a fresh `The_Marauder.mcaddon`.
 
 ---
@@ -74,7 +101,7 @@ RP/  (visuals)
 
 ## The design (quick reference)
 
-### Stats (glass-cannon, tuned vs Oathbreaker's 600 HP)
+### Stats (glass-cannon, same power tier as the Oathbreaker's 600 HP)
 | Stat | Marauder | Oathbreaker |
 |---|---|---|
 | HP | 500 | 600 |
@@ -87,18 +114,19 @@ RP/  (visuals)
 - **Blood Flicker** — quickstep blink *through* the target, repositions behind. 4 dmg exit.
 - **Crimson Lance** — ranged blood-spear projectile. 8 dmg + Blood-Curse stack.
 - **Riposte / Visceral** — reactive parry: if hit during guard window, counters for 14.
+- **Abyssal Leap** — Watcher's plunge: crouch, arcing leap, landing slam AoE. 12 dmg + knock-up.
 - **Blood Scent** *(passive)* — Speed boost toward targets below 35% HP.
 
-### Phase 2 — "The Frenzy" (≤50% HP — transforms, draws second blade, beast arm)
+### Phase 2 — "The Frenzy" (≤50% HP — transforms: cinder crown, molten blade, parry dagger)
 - **Twin Waltz** — Waltz becomes 4-hit, wider, faster, applies Blood-Curse.
-- **Beast Lunge** — telegraphed pounce + claw rake. 16 dmg. (Her heavy hitter.)
+- **Beast Lunge** — telegraphed pounce + rake. 16 dmg. (Her heavy hitter.)
 - **Blood Eclipse** — r6 AoE burst + lingering blood pools (wither). 12 dmg.
 - **Feral Flurry** — rushing 5-hit combo, 6/hit (30 burst), each dodgeable.
+- **Abyssal Leap** — upgraded: 15 dmg and applies Blood-Curse on the slam.
+- **Flame Wake** — burning dash: 10 dmg + ignite on contact, leaves a fire
+  trail on the ground for 4s. Don't stand in it.
 - **Rally** *(passive)* — 3s after taking damage, 45% of damage dealt heals her.
 - **Blood-Curse** — stacking bleed; at 5 stacks a Hemorrhage proc deals a flat 10.
-
-**Win condition vs Titan:** she out-DPSes if Rally keeps her alive; she loses the
-raw-HP race. It's a momentum fight — a genuine tossup.
 
 ---
 
@@ -109,8 +137,8 @@ Two **128×128 PNGs** ship with the pack, auto-painted from the UV maps by
 
 | File | Path | Description |
 |---|---|---|
-| Phase 1 | `RP/textures/entity/marauder.png` | Slender crimson regalia, ivory mask, one bare arm, curved blade. Elegant. |
-| Phase 2 | `RP/textures/entity/marauder_frenzied.png` | Same silhouette but torn/blood-soaked, glowing red eyes/mask, beast-arm fur. |
+| Phase 1 | `RP/textures/entity/marauder.png` | Boreal-Dancer look: aged gold armor, ash-blue flowing veil, dark crowned helm, long ember blade. |
+| Phase 2 | `RP/textures/entity/marauder_frenzied.png` | Soul-of-Cinder look: charred armor with ember cracks, burning visor, crown of cinders, molten blade, steel parry dagger. |
 
 **Easiest workflow in Blockbench:**
 1. Open `RP/models/entity/marauder.geo.json` in Blockbench (Bedrock Entity format).
@@ -151,14 +179,14 @@ just a re-summon, to take effect).
 
 ---
 
-## How the rivalry works (no edits to Oathbreaker)
+## Sharing a world with the Oathbreaker Titan
 
-- The Marauder's `nearest_prioritized_attackable_target` lists `ob_titan` at
-  **priority 0** (preferred) and `player` at priority 1. She hunts the Titan.
-- The Oathbreaker Titan already has `behavior.hurt_by_target` (priority 1), so
-  once she strikes it, it retaliates — reciprocal aggro, zero cross-pack edits.
-- Summon both in an arena and they auto-fight. ✓ verified against the addon's
-  actual entity definition (Titan family = `ob_titan`).
+They coexist peacefully. The Marauder's AI only targets **players**; she has no
+special interest in the Titan. Both bosses have `hurt_by_target`, so if one
+happens to hit the other (a stray AoE, or you kiting them together), they'll
+brawl — and all of her scripted abilities work in that fight, because ability
+hit-detection targets *whatever her AI is currently fighting* rather than any
+hardcoded entity id. Equal power tier, no built-in rivalry.
 
 ---
 
@@ -173,8 +201,8 @@ just a re-summon, to take effect).
 - **Phase 2 doesn't trigger:** it fires on the `entityHurt` event at ≤50% HP;
   if she's oneshot or takes no damage events, it won't. There's a safety-net
   check in the tick loop too.
-- **She won't fight the Titan:** confirm the Oathbreaker addon is *also* enabled
-  on the world (its entity must be registered for her targeting filter to match).
+- **She ignores the Titan:** that's by design now — she only retaliates if it
+  hits her first. Shove them into each other's AoEs to start the brawl.
 - **Edits not applying:** re-zip via `bash package.sh` and re-import; or edit
   the pack files directly in `development_behavior_packs` / `development_resource_packs`
   for live iteration.
@@ -192,7 +220,7 @@ just a re-summon, to take effect).
 
 ## Credits / lore
 
-*"The Oathbreaker broke his vow to the gods. The Marauder broke hers to him."*
-She hunts the Titan. Inspired by Boreal Dancer (DS3), Bloodborne trick-weapons &
-rally, Asura's Wrath dramatic bursts, and Elden Ring delayed-timing roll-catches.
-Built as a companion to the Oathbreaker Titan addon.
+*"She danced for the gods once. Now she dances on ash."*
+Inspired by the Dancer of the Boreal Valley and Soul of Cinder (model), the
+Abyss Watchers (Abyssal Leap, Flame Wake, the parry dagger), Bloodborne
+trick-weapons & rally, and Elden Ring delayed-timing roll-catches.

@@ -23,6 +23,8 @@
         "lunge_anim": "animation.marauder.lunge",
         "eclipse_anim": "animation.marauder.eclipse",
         "flurry_anim": "animation.marauder.flurry",
+        "leap_anim": "animation.marauder.leap",
+        "flamewake_anim": "animation.marauder.flamewake",
         "transform_anim": "animation.marauder.transform",
         "attack_ctrl": "controller.animation.marauder.attack"
       },
