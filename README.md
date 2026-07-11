@@ -89,23 +89,26 @@ Prefer to do it by hand? The manual steps are:
    TShock 6.1) from
    [github.com/Pryaxis/TShock](https://github.com/Pryaxis/TShock/releases)
    and run it once so it generates its folders (incl. `ServerPlugins`).
-2. Download **`Crossplay.dll`** from
-   [github.com/Moneylover3246/Crossplay](https://github.com/Moneylover3246/Crossplay/releases)
-   and place it in TShock's `ServerPlugins` folder.
+2. Download **`Crossplay.dll`** for your exact Terraria version and place it in
+   TShock's `ServerPlugins` folder. For 1.4.4.x, grab it from
+   [github.com/Moneylover3246/Crossplay](https://github.com/Moneylover3246/Crossplay/releases);
+   for **1.4.5.x** see the status note below.
 3. Restart TShock, load/create your world, then join from mobile as above.
 
-**⚠️ Current status (July 2026): mobile crossplay is blocked on 1.4.5.6.**
-The Crossplay plugin only supports Terraria **1.4.4.9** and hard-refuses to
-load on 1.4.5.6 (TShock aborts with *"The provided version of this plugin is
-outdated"*). Since mobile devices are locked to the latest store version
-(1.4.5.6) and can't downgrade, there is currently **no way** to get a mobile
-player into a 1.4.5.6 server — not through BlockHost or any host. It's
-waiting on either the plugin author
-([Crossplay issue #76](https://github.com/Moneylover3246/Crossplay/issues/76))
-or Re-Logic's own official crossplay hotfix. BlockHost always fetches the
-newest plugin, so the crossplay toggle will start working automatically the
-day that update ships — and it now detects this failure and explains it in
-the console instead of dumping a stack trace.
+**⚠️ Current status (July 2026): 1.4.5.x needs a drop-in plugin.**
+The newest Crossplay **release** (v2.2) only supports Terraria **1.4.4.9** and
+hard-refuses to load on 1.4.5.6 (TShock aborts with *"The provided version of
+this plugin is outdated"*). Support for **1.4.5.0 – 1.4.5.6** was added in
+[Crossplay PR #77](https://github.com/Moneylover3246/Crossplay/pull/77) but
+isn't in a release yet, so there's no asset to auto-download. To turn on mobile
+crossplay on 1.4.5.6 today, supply that build once: build or download the
+`Crossplay.dll` from PR #77 and drop it in this repo's **`plugins/`** folder
+(see [`plugins/README.md`](plugins/README.md)), or point
+`BLOCKHOST_CROSSPLAY_DLL_URL` at it. BlockHost then installs your bundled plugin
+automatically. For 1.4.4.9 you don't need to do anything — BlockHost fetches the
+released plugin — and once PR #77 ships in a release, newer versions will
+auto-download too. If a mismatched plugin is ever loaded, BlockHost detects the
+failure and explains it in the console instead of dumping a stack trace.
 
 **Other caveats:**
 

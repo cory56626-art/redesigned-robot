@@ -54,9 +54,18 @@ MC_DIFFICULTY = {"peaceful", "easy", "normal", "hard"}
 
 # TShock (modded server that enables PC<->mobile crossplay) + the Crossplay plugin.
 # TShock ships self-contained per-platform builds; the Crossplay .dll is dropped
-# into its ServerPlugins folder. Assets are discovered from the GitHub releases API.
+# into its ServerPlugins folder. TShock builds are discovered from the GitHub
+# releases API. The Crossplay plugin is resolved per Terraria version (see
+# Instance._install_crossplay_plugin): a DLL bundled in this repo's plugins/
+# folder wins, then a BLOCKHOST_CROSSPLAY_DLL_URL override, then the newest
+# upstream release. Newer versions (1.4.5.x) aren't in any upstream release yet
+# — that support lives in github.com/Moneylover3246/Crossplay/pull/77 — so those
+# come from the bundled plugin / URL override.
 TSHOCK_REPO = "Pryaxis/TShock"
 CROSSPLAY_REPO = "Moneylover3246/Crossplay"
+# Directory where a prebuilt Crossplay.dll can be dropped in so BlockHost uses it
+# as-is instead of fetching (a possibly older) one from GitHub releases.
+BUNDLED_PLUGIN_DIR = os.path.join(ROOT, "plugins")
 
 
 def github_latest_asset(repo, must_contain=(), suffix=None):
@@ -440,15 +449,79 @@ class Instance:
         plugins = os.path.join(tdir, "ServerPlugins")
         os.makedirs(plugins, exist_ok=True)
         if not any(f.lower() == "crossplay.dll" for f in os.listdir(plugins)):
-            try:
-                name, url = github_latest_asset(CROSSPLAY_REPO, ["crossplay"], ".dll")
-            except RuntimeError:
-                name, url = github_latest_asset(CROSSPLAY_REPO, [], ".dll")
-            self._download(url, os.path.join(plugins, "Crossplay.dll"),
-                           f"Crossplay plugin ({name})")
-            self.log("[blockhost] Crossplay plugin installed. Mobile players can now join.")
-            self.log("[blockhost] NOTE: the plugin must support your Terraria version; "
-                     "if TShock logs that it failed to load, wait for a plugin update.")
+            self._install_crossplay_plugin(plugins)
+
+    def _bundled_crossplay_dll(self, version):
+        """A prebuilt Crossplay.dll dropped into this repo's plugins/ folder, if
+        any. A file named for the exact Terraria version wins over a generic one,
+        so several versions' plugins can live side by side. See plugins/README.md."""
+        candidates = [
+            os.path.join(BUNDLED_PLUGIN_DIR, version, "Crossplay.dll"),
+            os.path.join(BUNDLED_PLUGIN_DIR, f"Crossplay-{version}.dll"),
+            os.path.join(BUNDLED_PLUGIN_DIR, "Crossplay.dll"),
+        ]
+        for c in candidates:
+            if os.path.isfile(c):
+                return c
+        return None
+
+    def _crossplay_missing_msg(self, version):
+        rel = os.path.relpath(BUNDLED_PLUGIN_DIR, ROOT)
+        return (
+            f"Mobile crossplay on Terraria {version} needs a Crossplay plugin "
+            "built for 1.4.5.x, which isn't in any upstream release yet (the "
+            "newest is v2.2, for 1.4.4.9). That support was added in "
+            "github.com/Moneylover3246/Crossplay/pull/77 — build or download that "
+            f"Crossplay.dll and drop it into the '{rel}/' folder (see "
+            "plugins/README.md), or point BLOCKHOST_CROSSPLAY_DLL_URL at it, then "
+            "start the server again. Alternatively use Terraria 1.4.4.9 (which has "
+            "a released crossplay plugin) or run a PC-only server."
+        )
+
+    def _install_crossplay_plugin(self, plugins):
+        """Put a version-appropriate Crossplay.dll into TShock's ServerPlugins.
+
+        Resolution order (so the right plugin lands even for versions with no
+        upstream release): a DLL bundled in plugins/, then a URL override, then
+        the newest upstream GitHub release."""
+        version = self.config.get("version", "")
+        dest = os.path.join(plugins, "Crossplay.dll")
+
+        # 1) A DLL bundled in this repo (or dropped in by the user) always wins.
+        local = self._bundled_crossplay_dll(version)
+        if local:
+            shutil.copyfile(local, dest)
+            self.log(f"[blockhost] Crossplay plugin installed from "
+                     f"{os.path.relpath(local, ROOT)}. Mobile players can now join.")
+            return
+
+        # 2) An explicit URL override — e.g. a CI build of PR #77 for a version
+        #    that has no matching upstream release yet.
+        override = os.environ.get("BLOCKHOST_CROSSPLAY_DLL_URL")
+        if override:
+            self._download(override, dest,
+                           "Crossplay plugin (BLOCKHOST_CROSSPLAY_DLL_URL)")
+            self.log("[blockhost] Crossplay plugin installed from "
+                     "BLOCKHOST_CROSSPLAY_DLL_URL. Mobile players can now join.")
+            return
+
+        # 3) 1.4.5.x isn't covered by any upstream release yet. Fetching the
+        #    newest release would silently install a 1.4.4.9 plugin that TShock
+        #    hard-refuses to load, so stop with actionable guidance instead.
+        if version.startswith("1.4.5"):
+            raise RuntimeError(self._crossplay_missing_msg(version))
+
+        # 4) Otherwise fetch the newest upstream release (covers 1.4.4.x).
+        try:
+            name, url = github_latest_asset(CROSSPLAY_REPO, ["crossplay"], ".dll")
+        except RuntimeError:
+            name, url = github_latest_asset(CROSSPLAY_REPO, [], ".dll")
+        self._download(url, dest, f"Crossplay plugin ({name})")
+        self.log("[blockhost] Crossplay plugin installed. Mobile players can now join.")
+        self.log("[blockhost] NOTE: the plugin must support your Terraria version; "
+                 "if TShock logs that it failed to load, drop a matching "
+                 f"Crossplay.dll into {os.path.relpath(BUNDLED_PLUGIN_DIR, ROOT)}/ "
+                 "(see plugins/README.md).")
 
     # ---------- lifecycle ----------
 
@@ -517,13 +590,13 @@ class Instance:
         'Plugin "Crossplay" has thrown an exception',
     )
     CROSSPLAY_FAIL_MSG = (
-        "The Crossplay plugin does not support this Terraria version yet, so "
-        "TShock refused to start — this is why mobile still can't join. The "
-        "community plugin only supports 1.4.4.9 and hasn't been updated for "
-        "newer versions (github.com/Moneylover3246/Crossplay issue #76). Mobile "
-        "crossplay is not possible on this version until that plugin (or "
-        "Terraria's own official crossplay) is updated. Use a PC-only server "
-        "for now."
+        "TShock loaded a Crossplay plugin that doesn't match this Terraria "
+        "version, so it refused to start — this is why mobile still can't join. "
+        "Install a Crossplay.dll built for your exact version: 1.4.5.x support "
+        "lives in github.com/Moneylover3246/Crossplay/pull/77. Build or download "
+        "that DLL and drop it into this repo's 'plugins/' folder (see "
+        "plugins/README.md), or set BLOCKHOST_CROSSPLAY_DLL_URL, then restart. "
+        "Otherwise use Terraria 1.4.4.9 (released plugin) or a PC-only server."
     )
 
     def _pump_output(self):
