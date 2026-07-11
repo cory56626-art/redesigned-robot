@@ -66,24 +66,38 @@ if Java is missing.
 
 ### Terraria mobile players ("connecting to session…" forever)
 
-Since the 1.4.5 update (Jan 2026) mobile players **can** join a PC
-dedicated server via official crossplay — but two things have to be true,
-and if either is off the mobile client just hangs on *"connecting to
-session…"* with no error:
+**The vanilla dedicated server cannot do mobile crossplay.** Mobile and
+console Terraria use a different network protocol than PC, and the plain
+`TerrariaServer` binary can't translate it — so a phone hangs on
+*"connecting to session…"* forever, **even when PC and mobile are on the
+exact same version**. This is a Terraria limitation, not a BlockHost bug.
+(BlockHost still sets `upnp=1` so the port is reachable, which matters for
+remote *PC* players, but reachability was never the mobile problem.)
 
-1. **Matching versions.** The server and every mobile client must be on
-   the *same* 1.4.5.x build. BlockHost now defaults Terraria to the
-   current **1.4.5.6**, which matches the current mobile release. (An
-   older server build — e.g. 1.4.4.9 — is the most common cause of the
-   endless "connecting" hang.)
-2. **The port must be reachable.** On the same Wi-Fi it just works. From
-   cellular / a different network, the port has to be open. BlockHost now
-   writes `upnp=1` into the Terraria config so the server asks your router
-   to open the port automatically; if your router blocks UPnP, use a
-   tunnel like [playit.gg](https://playit.gg) instead.
+To actually get mobile/console players in, run a **modded server that
+translates the packets** — TShock plus the Crossplay plugin:
 
-On mobile: **Multiplayer → Join via IP →** type the address shown on the
-server card (and the password if you set one).
+1. Download **TShock** matching your Terraria version (1.4.5.6 →
+   TShock 6.1) from
+   [github.com/Pryaxis/TShock](https://github.com/Pryaxis/TShock/releases)
+   and run it once so it generates its folders (incl. `ServerPlugins`).
+   TShock needs the .NET 9 runtime on the host.
+2. Download **`Crossplay.dll`** from
+   [github.com/Moneylover3246/Crossplay](https://github.com/Moneylover3246/Crossplay/releases)
+   and place it in TShock's `ServerPlugins` folder.
+3. Restart TShock, load/create your world, then on mobile:
+   **Multiplayer → Join via IP →** the host's address and port 7777.
+
+Everything has to be on the same Terraria version — TShock, the Crossplay
+plugin, PC and mobile. If the plugin hasn't been rebuilt for the newest
+Terraria version yet, mobile crossplay has to wait for that plugin update.
+A PC-only Terraria server needs none of this and works out of the box.
+
+> BlockHost runs the vanilla server, so it's great for PC (and PC↔PC over
+> the internet). Automating the TShock + Crossplay path inside the panel
+> is a possible future addition — it wasn't shipped here because it can't
+> be verified without a .NET host and a plugin build confirmed for the
+> current version.
 
 ## Running it on an iPhone (iSH / a-Shell / Termius)
 

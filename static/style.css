@@ -205,6 +205,18 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .console-input input { flex: 1; }
 
 .info ol { margin: 0 0 10px; padding-left: 22px; }
+.crossplay-note {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent2);
+  border-radius: 8px;
+  background: var(--card2);
+}
+.crossplay-note h3 { margin: 0 0 8px; font-size: 1rem; }
+.crossplay-note p { margin: 8px 0; font-size: 0.9rem; }
+.crossplay-note ol { padding-left: 20px; }
+.crossplay-note li { margin-bottom: 6px; font-size: 0.9rem; }
 code { background: var(--card2); padding: 1px 6px; border-radius: 6px; }
 
 footer {

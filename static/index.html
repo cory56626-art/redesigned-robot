@@ -39,7 +39,7 @@
         <span class="game-icon">🌳</span>
         <span class="game-name">Terraria</span>
         <span class="game-sub">Dedicated Server</span>
-        <span class="platforms">Joinable from: PC · Mac · Linux · Mobile*</span>
+        <span class="platforms">Joinable from: PC · Mac · Linux (Mobile needs crossplay setup)</span>
       </button>
     </div>
     <p class="hint" id="platform-hint"></p>
@@ -153,7 +153,30 @@
       <li>People on your Wi-Fi join with <b><span class="lan-ip">…</span>:&lt;port&gt;</b>.</li>
       <li>For friends on the internet, forward the port on your router to this machine, or run a free tunnel like <code>playit.gg</code> and share the address it gives you.</li>
     </ol>
-    <p class="hint">*Terraria mobile/console use a different protocol — PC players can always join; mobile crossplay isn’t supported by the vanilla server.</p>
+
+    <div class="crossplay-note">
+      <h3>📱 Terraria: getting mobile players in (crossplay)</h3>
+      <p>
+        Mobile (and console) Terraria speak a <b>different network protocol</b> than PC.
+        The plain dedicated server BlockHost runs <b>cannot translate it</b>, so a phone will
+        sit on <i>“connecting to session…”</i> forever — even when both are on the exact same
+        version. This is a Terraria limitation, not a bug in your server.
+      </p>
+      <p>The working fix is a modded server that translates the packets:</p>
+      <ol>
+        <li>Download <b>TShock</b> for your exact Terraria version (1.4.5.6 → TShock&nbsp;6.1)
+            from <code>github.com/Pryaxis/TShock</code> and run it once so it creates its folders.</li>
+        <li>Download <b>Crossplay.dll</b> from <code>github.com/Moneylover3246/Crossplay</code>
+            and drop it into TShock’s <code>ServerPlugins</code> folder.</li>
+        <li>Restart TShock. Mobile joins the same way: <b>Multiplayer → Join via IP →</b>
+            <span class="lan-ip">…</span> and the port.</li>
+      </ol>
+      <p class="hint">
+        Versions must line up: TShock, the Crossplay plugin, PC and mobile all on the same
+        Terraria version. If the plugin hasn’t been rebuilt for the newest version yet, mobile
+        crossplay waits on that update. PC-only servers need none of this.
+      </p>
+    </div>
   </section>
 </main>
 

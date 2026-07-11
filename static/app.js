@@ -20,8 +20,8 @@ const GAME_INFO = {
   },
   terraria: {
     defaultPort: 7777,
-    hint: "Terraria dedicated server — friends join via Multiplayer → Join via IP. " +
-          "Mobile players (1.4.5+) can join too via crossplay.",
+    hint: "Terraria dedicated server — friends on PC join via Multiplayer → Join via IP. " +
+          "Mobile/console players need the TShock crossplay setup (see 'How friends join' below).",
     difficulties: [["classic", "Classic"], ["expert", "Expert"], ["master", "Master"], ["journey", "Journey"]],
     defaultDifficulty: "classic",
     worldSize: true,
@@ -222,7 +222,7 @@ async function refreshServers() {
           ${s.duration_min ? s.duration_min + " min limit" : "runs until stopped"}
           ${running && s.stops_at ? " · ⏳ " + fmtRemaining(s.stops_at) : ""}
         </div>
-        ${running ? `<div class="addr">join at ${addr}${s.game === "terraria" ? " (PC & mobile)" : ""}</div>` : ""}
+        ${running ? `<div class="addr">join at ${addr}${s.game === "terraria" ? " (PC — mobile needs crossplay setup)" : ""}</div>` : ""}
         ${s.status === "error" ? `<div class="error">${escapeHtml(s.status_detail)}</div>` : ""}
       </div>
       <span class="badge ${s.status}">${s.status}</span>
