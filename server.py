@@ -22,6 +22,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.error
 import urllib.request
 import uuid
 import zipfile
@@ -50,6 +51,44 @@ TERRARIA_ZIP_URL = "https://terraria.org/api/download/pc-dedicated-server/terrar
 TERRARIA_DIFFICULTY = {"classic": 0, "expert": 1, "master": 2, "journey": 3}
 # Minecraft difficulty keys accepted in server.properties
 MC_DIFFICULTY = {"peaceful", "easy", "normal", "hard"}
+
+# TShock (modded server that enables PC<->mobile crossplay) + the Crossplay plugin.
+# TShock ships self-contained per-platform builds; the Crossplay .dll is dropped
+# into its ServerPlugins folder. Assets are discovered from the GitHub releases API.
+TSHOCK_REPO = "Pryaxis/TShock"
+CROSSPLAY_REPO = "Moneylover3246/Crossplay"
+
+
+def github_latest_asset(repo, must_contain=(), suffix=None):
+    """Return (asset_name, download_url) for the newest release asset of `repo`
+    that contains every token in `must_contain` and ends with `suffix`."""
+    data = fetch_json(f"https://api.github.com/repos/{repo}/releases/latest")
+    assets = data.get("assets", [])
+    for a in assets:
+        name = a.get("name", "")
+        low = name.lower()
+        if suffix and not low.endswith(suffix):
+            continue
+        if all(tok.lower() in low for tok in must_contain):
+            return name, a["browser_download_url"]
+    raise RuntimeError(
+        f"no matching asset in {repo} latest release "
+        f"(need {must_contain!r}{' + ' + suffix if suffix else ''})")
+
+
+def tshock_platform_tokens():
+    """Ordered list of candidate runtime-identifier tokens for this OS/arch,
+    matching how TShock names its release zips (e.g. 'linux-x64')."""
+    mach = platform.machine().lower()
+    if sys.platform.startswith("linux"):
+        if mach in ("aarch64", "arm64"):
+            return ["linux-arm64", "linux-x64"]
+        if mach.startswith("arm"):
+            return ["linux-arm", "linux-x64"]
+        return ["linux-x64"]
+    if sys.platform == "darwin":
+        return ["osx-arm64", "osx-x64"] if mach in ("arm64", "aarch64") else ["osx-x64"]
+    return ["win-x64"]
 
 USER_AGENT = "BlockHost/1.0 (self-hosted game server panel)"
 
@@ -281,32 +320,12 @@ class Instance:
             sub = "Windows"
         return os.path.join(self.dir, "srv", sub, name)
 
-    def _install_terraria(self):
-        binary = self._terraria_binary()
-        if not os.path.exists(binary):
-            build = TERRARIA_VERSIONS[self.config["version"]]
-            zpath = os.path.join(self.dir, "terraria-server.zip")
-            if not os.path.exists(zpath):
-                self._download(TERRARIA_ZIP_URL.format(build=build), zpath,
-                               f"Terraria {self.config['version']} server")
-            self.log("[blockhost] extracting server ...")
-            srv = os.path.join(self.dir, "srv")
-            with zipfile.ZipFile(zpath) as z:
-                tmp = os.path.join(self.dir, "srv.tmp")
-                z.extractall(tmp)
-                # zip layout: <build>/{Linux,Mac,Windows}/...  -> flatten one level
-                inner = os.path.join(tmp, os.listdir(tmp)[0])
-                if os.path.exists(srv):
-                    shutil.rmtree(srv)
-                os.replace(inner, srv)
-                shutil.rmtree(tmp, ignore_errors=True)
-            os.remove(zpath)
-            for root, _, files in os.walk(srv):
-                for fn in files:
-                    if fn.startswith("TerrariaServer"):
-                        os.chmod(os.path.join(root, fn), 0o755)
-            self.log("[blockhost] extracted.")
+    def _tshock_binary(self):
+        exe = "TShock.Server.exe" if os.name == "nt" else "TShock.Server"
+        return os.path.join(self.dir, "tshock", exe)
 
+    def _write_terraria_config(self):
+        """serverconfig.txt shared by the vanilla and TShock launch paths."""
         world_dir = os.path.join(self.dir, "worlds")
         os.makedirs(world_dir, exist_ok=True)
         # world size: 1 small, 2 medium, 3 large ; difficulty: 0 classic .. 3 journey
@@ -320,8 +339,8 @@ class Instance:
             f"port={self.config['port']}",
             f"maxplayers={self.config['max_players']}",
             f"worldpath={world_dir}",
-            # crossplay + reachability: mobile clients (1.4.5+) can only join if the
-            # port is actually reachable — upnp asks the router to open it automatically.
+            # reachability: upnp asks the router to open the port automatically so
+            # remote players (and, with the TShock crossplay path, mobile) can reach it.
             "upnp=1",
             "npcstream=60",
             "priority=1",
@@ -335,18 +354,119 @@ class Instance:
         with open(os.path.join(self.dir, "serverconfig.txt"), "w") as f:
             f.write("\n".join(cfg) + "\n")
 
+    def _install_terraria(self):
+        if self.config.get("crossplay"):
+            self._install_tshock()
+        else:
+            self._install_vanilla_terraria()
+        self._write_terraria_config()
+
+    def _install_vanilla_terraria(self):
+        binary = self._terraria_binary()
+        if os.path.exists(binary):
+            return
+        build = TERRARIA_VERSIONS[self.config["version"]]
+        zpath = os.path.join(self.dir, "terraria-server.zip")
+        if not os.path.exists(zpath):
+            self._download(TERRARIA_ZIP_URL.format(build=build), zpath,
+                           f"Terraria {self.config['version']} server")
+        self.log("[blockhost] extracting server ...")
+        srv = os.path.join(self.dir, "srv")
+        with zipfile.ZipFile(zpath) as z:
+            tmp = os.path.join(self.dir, "srv.tmp")
+            z.extractall(tmp)
+            # zip layout: <build>/{Linux,Mac,Windows}/...  -> flatten one level
+            inner = os.path.join(tmp, os.listdir(tmp)[0])
+            if os.path.exists(srv):
+                shutil.rmtree(srv)
+            os.replace(inner, srv)
+            shutil.rmtree(tmp, ignore_errors=True)
+        os.remove(zpath)
+        for root, _, files in os.walk(srv):
+            for fn in files:
+                if fn.startswith("TerrariaServer"):
+                    os.chmod(os.path.join(root, fn), 0o755)
+        self.log("[blockhost] extracted.")
+
+    def _install_tshock(self):
+        """Download the TShock server + the Crossplay plugin for PC<->mobile play."""
+        tdir = os.path.join(self.dir, "tshock")
+        binary = self._tshock_binary()
+        if not os.path.exists(binary):
+            tokens = tshock_platform_tokens()
+            name = url = None
+            last_err = None
+            for tok in tokens:                 # try native arch first, then x64
+                try:
+                    name, url = github_latest_asset(TSHOCK_REPO, [tok], ".zip")
+                    break
+                except RuntimeError as e:
+                    last_err = e
+                    continue
+                except urllib.error.URLError as e:
+                    raise RuntimeError(
+                        "couldn't reach GitHub to download TShock "
+                        f"({e}). Check this machine's internet connection and that "
+                        "github.com is reachable, then start the server again.")
+            if url is None:
+                raise RuntimeError(
+                    "couldn't find a TShock build for this platform "
+                    f"(tried {tokens}; {last_err}); see github.com/Pryaxis/TShock/releases")
+            zpath = os.path.join(self.dir, "tshock.zip")
+            self._download(url, zpath, f"TShock server ({name})")
+            self.log("[blockhost] extracting TShock ...")
+            if os.path.exists(tdir):
+                shutil.rmtree(tdir)
+            with zipfile.ZipFile(zpath) as z:
+                z.extractall(tdir)
+            os.remove(zpath)
+            # some builds nest everything one directory deep — flatten if so
+            if not os.path.exists(binary):
+                entries = [os.path.join(tdir, e) for e in os.listdir(tdir)]
+                subdirs = [e for e in entries if os.path.isdir(e)]
+                if len(entries) == 1 and subdirs:
+                    for e in os.listdir(subdirs[0]):
+                        shutil.move(os.path.join(subdirs[0], e), os.path.join(tdir, e))
+                    shutil.rmtree(subdirs[0], ignore_errors=True)
+            if os.path.exists(binary) and os.name != "nt":
+                os.chmod(binary, 0o755)
+            self.log("[blockhost] TShock extracted.")
+
+        if not os.path.exists(binary):
+            raise RuntimeError("TShock.Server binary not found after extraction")
+
+        # Crossplay plugin -> ServerPlugins/
+        plugins = os.path.join(tdir, "ServerPlugins")
+        os.makedirs(plugins, exist_ok=True)
+        if not any(f.lower() == "crossplay.dll" for f in os.listdir(plugins)):
+            try:
+                name, url = github_latest_asset(CROSSPLAY_REPO, ["crossplay"], ".dll")
+            except RuntimeError:
+                name, url = github_latest_asset(CROSSPLAY_REPO, [], ".dll")
+            self._download(url, os.path.join(plugins, "Crossplay.dll"),
+                           f"Crossplay plugin ({name})")
+            self.log("[blockhost] Crossplay plugin installed. Mobile players can now join.")
+            self.log("[blockhost] NOTE: the plugin must support your Terraria version; "
+                     "if TShock logs that it failed to load, wait for a plugin update.")
+
     # ---------- lifecycle ----------
 
     def build_command(self):
         game = self.config["game"]
         ram = int(self.config["ram_mb"])
+        conf = os.path.join(self.dir, "serverconfig.txt")
         if game == "minecraft":
             cmd = ["java", f"-Xms{min(ram, 512)}M", f"-Xmx{ram}M",
                    "-jar", "server.jar", "nogui"]
             cwd = self.dir
+        elif self.config.get("crossplay"):
+            binary = self._tshock_binary()
+            # TShock reads the same serverconfig.txt via -config; -ip binds all NICs
+            cmd = [binary, "-config", conf, "-ip", "0.0.0.0"]
+            cwd = os.path.dirname(binary)
         else:
             binary = self._terraria_binary()
-            cmd = [binary, "-config", os.path.join(self.dir, "serverconfig.txt")]
+            cmd = [binary, "-config", conf]
             cwd = os.path.dirname(binary)
 
         # CPU core limit: use taskset when the OS has it, otherwise best effort.
@@ -503,6 +623,8 @@ class Manager:
             difficulty = difficulty or "normal"
         # password (Terraria serverconfig password; Minecraft Java has no such field)
         password = str(data.get("password") or "")[:60]
+        # crossplay: run TShock + Crossplay plugin so mobile/console can join (Terraria)
+        crossplay = bool(data.get("crossplay")) and game == "terraria"
         with self.lock:
             used = {i.config["port"] for i in self.instances.values()}
             if port in used:
@@ -521,6 +643,7 @@ class Manager:
                 "world_size": world_size,
                 "difficulty": difficulty,
                 "password": password if game == "terraria" else "",
+                "crossplay": crossplay,
                 "eula": bool(data.get("eula")),
                 "created_at": time.time(),
             }

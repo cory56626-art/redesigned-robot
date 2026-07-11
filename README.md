@@ -74,30 +74,45 @@ exact same version**. This is a Terraria limitation, not a BlockHost bug.
 (BlockHost still sets `upnp=1` so the port is reachable, which matters for
 remote *PC* players, but reachability was never the mobile problem.)
 
-To actually get mobile/console players in, run a **modded server that
-translates the packets** — TShock plus the Crossplay plugin:
+To get mobile/console players in you need a **modded server that translates
+the packets** — TShock plus the Crossplay plugin. **BlockHost can do this
+for you**: when you create a Terraria server, tick **“📱 Enable mobile
+crossplay”**. On first start BlockHost downloads the right TShock build for
+your OS, drops the Crossplay plugin into TShock’s `ServerPlugins` folder,
+and launches it with your world/size/difficulty/password settings. Mobile
+then joins the normal way: **Multiplayer → Join via IP →** the address on
+the server card and port 7777.
+
+Prefer to do it by hand? The manual steps are:
 
 1. Download **TShock** matching your Terraria version (1.4.5.6 →
    TShock 6.1) from
    [github.com/Pryaxis/TShock](https://github.com/Pryaxis/TShock/releases)
    and run it once so it generates its folders (incl. `ServerPlugins`).
-   TShock needs the .NET 9 runtime on the host.
 2. Download **`Crossplay.dll`** from
    [github.com/Moneylover3246/Crossplay](https://github.com/Moneylover3246/Crossplay/releases)
    and place it in TShock's `ServerPlugins` folder.
-3. Restart TShock, load/create your world, then on mobile:
-   **Multiplayer → Join via IP →** the host's address and port 7777.
+3. Restart TShock, load/create your world, then join from mobile as above.
 
-Everything has to be on the same Terraria version — TShock, the Crossplay
-plugin, PC and mobile. If the plugin hasn't been rebuilt for the newest
-Terraria version yet, mobile crossplay has to wait for that plugin update.
-A PC-only Terraria server needs none of this and works out of the box.
+**Important caveats (either way):**
 
-> BlockHost runs the vanilla server, so it's great for PC (and PC↔PC over
-> the internet). Automating the TShock + Crossplay path inside the panel
-> is a possible future addition — it wasn't shipped here because it can't
-> be verified without a .NET host and a plugin build confirmed for the
-> current version.
+- Everything must be on the same Terraria version — TShock, the Crossplay
+  plugin, PC and mobile. If the plugin author hasn’t rebuilt Crossplay for
+  the newest Terraria version yet, mobile crossplay waits for that update.
+  If TShock logs that the plugin failed to load, that’s the cause.
+- TShock ships as a self-contained build, but some platforms may still need
+  the **.NET runtime** installed. If the crossplay server won’t launch,
+  install .NET from [dotnet.microsoft.com](https://dotnet.microsoft.com/download).
+- A PC-only Terraria server needs none of this — leave the box unticked.
+
+> Honesty note: the vanilla Minecraft/Terraria paths were each booted and
+> verified end-to-end during development. The crossplay path’s logic
+> (platform/asset selection, config, launch command, error handling) is
+> unit-tested, but it could **not** be run end-to-end in the build
+> environment, which has no .NET runtime and blocks the GitHub downloads.
+> Treat the first crossplay launch on your machine as the real test — the
+> console will show a clear error if anything (network, .NET, plugin
+> version) needs attention.
 
 ## Running it on an iPhone (iSH / a-Shell / Termius)
 

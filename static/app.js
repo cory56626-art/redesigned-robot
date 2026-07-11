@@ -108,6 +108,9 @@ function pickGame(game) {
   $("field-worldsize").classList.toggle("hidden", !info.worldSize);
   // password — Terraria only (Minecraft Java authenticates via accounts)
   $("f-password").closest(".field").classList.toggle("hidden", !info.password);
+  // mobile crossplay (TShock) — Terraria only
+  $("crossplay-row").classList.toggle("hidden", game !== "terraria");
+  if (game !== "terraria") $("f-crossplay").checked = false;
   // difficulty options are game-specific
   const dsel = $("f-difficulty");
   dsel.innerHTML = "";
@@ -170,6 +173,7 @@ async function createServer() {
         world_size: +$("f-worldsize").value,
         difficulty: $("f-difficulty").value,
         password: $("f-password").value,
+        crossplay: $("f-crossplay").checked,
         eula: $("f-eula").checked,
       }),
     });
@@ -187,6 +191,11 @@ async function createServer() {
 
 function sizeName(n) {
   return { 1: "small", 2: "medium", 3: "large" }[n] || "medium";
+}
+
+function terrariaJoinHint(s) {
+  if (s.game !== "terraria") return "";
+  return s.crossplay ? " (PC & mobile)" : " (PC — mobile needs crossplay)";
 }
 
 function fmtRemaining(stopsAt) {
@@ -219,10 +228,11 @@ async function refreshServers() {
           ${s.max_players} players ·
           ${s.difficulty ? escapeHtml(s.difficulty) + (s.game === "terraria" ? " · " + sizeName(s.world_size) : "") + " · " : ""}
           ${s.password ? "🔒 password · " : ""}
+          ${s.crossplay ? "📱 crossplay (TShock) · " : ""}
           ${s.duration_min ? s.duration_min + " min limit" : "runs until stopped"}
           ${running && s.stops_at ? " · ⏳ " + fmtRemaining(s.stops_at) : ""}
         </div>
-        ${running ? `<div class="addr">join at ${addr}${s.game === "terraria" ? " (PC — mobile needs crossplay setup)" : ""}</div>` : ""}
+        ${running ? `<div class="addr">join at ${addr}${terrariaJoinHint(s)}</div>` : ""}
         ${s.status === "error" ? `<div class="error">${escapeHtml(s.status_detail)}</div>` : ""}
       </div>
       <span class="badge ${s.status}">${s.status}</span>
