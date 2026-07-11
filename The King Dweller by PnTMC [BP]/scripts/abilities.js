@@ -1,18 +1,18 @@
-import { world, system } from '@minecraft/server';
+import { system } from '@minecraft/server';
 import {
 	TPS,
 	getNum,
 	getStr,
 	setProp,
 	readFutureTick,
-	trySetActionBar,
 	playSoundAt,
 	spawnParticleSafe,
 	spawnRing,
 	setFrozen,
 	findGroundY,
 	hasLineOfSight,
-	findNearestPlayer,
+	findNearestMob,
+	isValidMobTarget,
 	horizontalDir,
 	normalizeHorizontal,
 	randInt,
@@ -33,6 +33,19 @@ import { applyBleed } from './bleed.js';
 // than overlapping spam. Enrage is intentionally exempt from all of this - it is a passive,
 // permanent stat/visual layer (see king.behavior.json's pntmc:enrage component group) that
 // stacks with whichever ability is active rather than competing for the ab slot.
+//
+// Every ability targets "any mob" (see util.js#isValidMobTarget) rather than players only:
+// normal melee widened at the BP level (nearest_attackable_target), and every ability here
+// resolves its target through findNearestMob()/isValidMobTarget() instead of a player-only
+// query. A few pieces stay player-specific by nature rather than by restriction - the actionbar
+// bleed readout, milk-cure, and input-lock/camera-shake only apply to an actual Player - and
+// those all degrade gracefully (try/catch no-ops) when the target isn't one.
+//
+// Every tryStartX() also accepts an optional {force: true}, which is what backs the
+// /scriptevent pntmc:<ability> test commands (see main.js): it skips the chance roll, cooldown,
+// range/LOS gates, and cleanly resets any ability already in flight, but it still refuses to
+// fire while the king is crawling/crouching/spotted, so a "forced" trigger is still a faithful
+// test of the real ability rather than a way to break the state machine's own invariants.
 const GLOBAL_COOLDOWN = 5 * TPS;
 const GLOBAL_COOLDOWN_ENRAGED = 3 * TPS;
 const ENRAGE_COOLDOWN_SCALE = 0.6;
@@ -79,6 +92,12 @@ const BURROW_UNDER_MAX = 60;
 const BURROW_ERUPT_TICKS = 10;
 const BURROW_EMERGE_MAX = 6;
 const BURROW_ERUPT_DAMAGE = 5;
+
+// Currently-grabbed target ids, mapped to the id of the king holding them. Grab is exclusive to
+// one target at a time (only one king can ever exist), so this normally holds 0-1 entries. Kept
+// as a map (not a single pointer) so reconcileGrabs() below never depends on any king actually
+// existing at the time it runs.
+const grabbedTargets = new Map();
 
 function isEnraged(king) {
 	try {
@@ -150,6 +169,15 @@ function playAnim(king, name, blendOut) {
 	} catch (e) {}
 }
 
+// Cleanly resets the king to idle (releasing any grab in progress) so a forced/debug ability
+// trigger always starts from a known-good state instead of fighting whatever was already
+// running.
+function forceIdle(king, now) {
+	const ab = getAb(king);
+	if (ab === 'grab_wind' || ab === 'grab_hold') releaseGrab(king);
+	if (ab !== 'idle') endAbility(king, now);
+}
+
 // ---- Grab & Throw / Grab & Bite -------------------------------------------
 
 function computeGrabAnchor(king) {
@@ -164,124 +192,153 @@ function computeGrabAnchor(king) {
 	return { x: loc.x + horiz.x * GRAB_ANCHOR_DIST, y: loc.y + 1.6, z: loc.z + horiz.z * GRAB_ANCHOR_DIST };
 }
 
-export function tryStartGrabOnHit(king, player, now) {
-	if (!isEntityUsable(king) || king.typeId !== 'pntmc:king' || !isEntityUsable(player)) return;
-	if (isLocked(king)) return;
-	if (getAb(king) !== 'idle') return;
-	if (!gcdReady(king, now) || !cooldownReady(king, 'Grab', now)) return;
-	if (Math.random() > GRAB_CHANCE) return;
+function trackGrab(kingId, targetId) {
+	grabbedTargets.set(targetId, kingId);
+}
 
+function untrackGrab(targetId) {
+	if (targetId) grabbedTargets.delete(targetId);
+}
+
+function startGrab(king, victim, now) {
 	beginAbility(king, now, 'grab_wind', GRAB_WINDUP_TICKS);
 	startGcd(king, now);
 	startCooldown(king, 'Grab', now, GRAB_COOLDOWN);
 	freeze(king, GRAB_WINDUP_TICKS + GRAB_HOLD_TICKS + GRAB_THROW_TICKS + GRAB_BITE_TICKS + 20);
 
 	const anchor = computeGrabAnchor(king);
-	setProp(player, 'pntmc:grabbedBy', king.id);
-	setProp(player, 'pntmc:grabAnchor', anchor);
-	setProp(king, 'pntmc:grabId', player.id);
-	setFrozen(player, true);
+	setProp(victim, 'pntmc:grabbedBy', king.id);
+	setProp(victim, 'pntmc:grabAnchor', anchor);
+	setProp(king, 'pntmc:grabId', victim.id);
+	setFrozen(victim, true);
+	trackGrab(king.id, victim.id);
 	try {
-		player.teleport(anchor, { facingLocation: king.getHeadLocation() });
-		player.clearVelocity();
+		victim.teleport(anchor, { facingLocation: king.getHeadLocation() });
+		victim.clearVelocity();
 	} catch (e) {}
 
 	playAnim(king, 'grab_windup', 0.15);
 	playSoundAt(king, 'pntmc:king_spotted', 1.3, 1.15);
 }
 
-function pinGrabbedPlayer(king, now) {
+export function tryStartGrabOnHit(king, victim, now, opts = {}) {
+	if (!isEntityUsable(king) || king.typeId !== 'pntmc:king' || !isValidMobTarget(victim)) return false;
+	if (isLocked(king)) return false;
+	const force = !!opts.force;
+	if (!force) {
+		if (getAb(king) !== 'idle') return false;
+		if (!gcdReady(king, now) || !cooldownReady(king, 'Grab', now)) return false;
+		if (Math.random() > GRAB_CHANCE) return false;
+	} else {
+		forceIdle(king, now);
+	}
+	startGrab(king, victim, now);
+	return true;
+}
+
+function pinGrabbedTarget(king, now) {
 	const id = getStr(king, 'pntmc:grabId', '');
-	const player = getEntityById(id);
-	if (!player) {
+	const target = getEntityById(id);
+	if (!target) {
 		releaseGrab(king);
 		endAbility(king, now);
 		return;
 	}
 	let anchor;
 	try {
-		anchor = player.getDynamicProperty('pntmc:grabAnchor');
+		anchor = target.getDynamicProperty('pntmc:grabAnchor');
 	} catch (e) {}
 	if (anchor) {
 		try {
-			player.teleport(anchor, { facingLocation: king.getHeadLocation() });
-			player.clearVelocity();
+			target.teleport(anchor, { facingLocation: king.getHeadLocation() });
+			target.clearVelocity();
 		} catch (e) {}
 	}
 }
 
-function releaseGrabPlayer(player) {
-	if (!player) return;
-	setFrozen(player, false);
-	setProp(player, 'pntmc:grabbedBy', '');
+function releaseGrabTarget(target) {
+	if (!target) return;
+	setFrozen(target, false);
+	setProp(target, 'pntmc:grabbedBy', '');
+	untrackGrab(target.id);
 }
 
 export function releaseGrab(king) {
 	const id = getStr(king, 'pntmc:grabId', '');
 	setProp(king, 'pntmc:grabId', '');
-	const player = getEntityById(id);
-	releaseGrabPlayer(player);
+	untrackGrab(id);
+	const target = getEntityById(id);
+	releaseGrabTarget(target);
 }
 
 function resolveGrabOutcome(king, now) {
 	const id = getStr(king, 'pntmc:grabId', '');
 	setProp(king, 'pntmc:grabId', '');
-	const player = getEntityById(id);
-	if (!player) {
-		releaseGrabPlayer(player);
+	untrackGrab(id);
+	const target = getEntityById(id);
+	if (!target) {
 		endAbility(king, now);
 		return;
 	}
-	if (Math.random() < GRAB_BITE_CHANCE) doBite(king, player, now);
-	else doThrow(king, player, now);
+	const forced = getStr(king, 'pntmc:forcedGrabOutcome', '');
+	if (forced) setProp(king, 'pntmc:forcedGrabOutcome', '');
+	const bite = forced === 'bite' ? true : forced === 'throw' ? false : Math.random() < GRAB_BITE_CHANCE;
+	if (bite) doBite(king, target, now);
+	else doThrow(king, target, now);
 }
 
-function doThrow(king, player, now) {
+function doThrow(king, victim, now) {
 	beginAbility(king, now, 'grab_throw', GRAB_THROW_TICKS);
 	playAnim(king, 'grab_throw', 0.2);
 	playSoundAt(king, 'pntmc:king_chase4', 1.0, 1.0);
 	spawnParticleSafe(king.dimension, 'minecraft:knockback_roar_particle', king.getHeadLocation());
 
-	const dir = horizontalDir(king.location, player.location);
-	releaseGrabPlayer(player);
+	const dir = horizontalDir(king.location, victim.location);
+	releaseGrabTarget(victim);
 	try {
-		player.clearVelocity();
-		player.applyKnockback(dir.x, dir.z, THROW_HORIZ_STRENGTH, THROW_VERT_STRENGTH);
+		victim.clearVelocity();
+		victim.applyKnockback(dir.x, dir.z, THROW_HORIZ_STRENGTH, THROW_VERT_STRENGTH);
 	} catch (e) {}
 }
 
-function doBite(king, player, now) {
+function doBite(king, victim, now) {
 	beginAbility(king, now, 'grab_bite', GRAB_BITE_TICKS);
 	playAnim(king, 'grab_bite', 0.2);
 	playSoundAt(king, 'pntmc:king_chase3', 1.0, 1.0);
-	const playerId = player.id;
+	const victimId = victim.id;
 	const kingId = king.id;
 
 	system.runTimeout(() => {
-		const p = getEntityById(playerId);
-		releaseGrabPlayer(p);
+		const v = getEntityById(victimId);
+		releaseGrabTarget(v);
 		const k = getEntityById(kingId);
-		if (!p || !k) return;
+		if (!v || !k) return;
 		try {
-			p.applyDamage(GRAB_BITE_DAMAGE, { damagingEntity: k });
+			v.applyDamage(GRAB_BITE_DAMAGE, { damagingEntity: k });
 		} catch (e) {}
-		applyBleed(p, system.currentTick);
-		spawnParticleSafe(p.dimension, 'minecraft:critical_hit_emitter', p.getHeadLocation());
+		applyBleed(v, system.currentTick);
+		spawnParticleSafe(v.dimension, 'minecraft:critical_hit_emitter', v.getHeadLocation());
 	}, GRAB_BITE_DELAY);
 }
 
 // ---- Pounce -----------------------------------------------------------------
 
-function tryStartPounce(king, now, target) {
+function tryStartPounce(king, now, target, opts = {}) {
 	if (!target) return false;
-	if (!gcdReady(king, now) || !cooldownReady(king, 'Pounce', now)) return false;
-	if (target.dist < POUNCE_MIN_RANGE || target.dist > POUNCE_MAX_RANGE) return false;
+	if (isLocked(king)) return false;
+	const force = !!opts.force;
+	if (!force) {
+		if (!gcdReady(king, now) || !cooldownReady(king, 'Pounce', now)) return false;
+		if (target.dist < POUNCE_MIN_RANGE || target.dist > POUNCE_MAX_RANGE) return false;
+	} else {
+		forceIdle(king, now);
+	}
 
 	beginAbility(king, now, 'pounce_wind', POUNCE_WINDUP_TICKS);
 	startGcd(king, now);
 	startCooldown(king, 'Pounce', now, POUNCE_COOLDOWN);
 	freeze(king, POUNCE_WINDUP_TICKS + 4);
-	setProp(king, 'pntmc:pounceTargetId', target.player.id);
+	setProp(king, 'pntmc:pounceTargetId', target.mob.id);
 
 	playAnim(king, 'pounce_windup', 0.15);
 	playSoundAt(king, 'pntmc:king_chase1', 0.7, 0.75);
@@ -289,8 +346,8 @@ function tryStartPounce(king, now, target) {
 }
 
 function launchPounce(king, now) {
-	const player = getEntityById(getStr(king, 'pntmc:pounceTargetId', ''));
-	if (!player) {
+	const target = getEntityById(getStr(king, 'pntmc:pounceTargetId', ''));
+	if (!target) {
 		endAbility(king, now);
 		return;
 	}
@@ -301,7 +358,7 @@ function launchPounce(king, now) {
 		king.removeEffect('slowness');
 	} catch (e) {}
 
-	const dir = horizontalDir(king.location, player.location);
+	const dir = horizontalDir(king.location, target.location);
 	try {
 		king.clearVelocity();
 		king.applyImpulse({ x: dir.x * POUNCE_IMPULSE_HORIZ, y: POUNCE_IMPULSE_VERT, z: dir.z * POUNCE_IMPULSE_HORIZ });
@@ -339,27 +396,33 @@ function landPounce(king, now) {
 
 	let victims = [];
 	try {
-		victims = king.dimension.getPlayers({ location: king.location, maxDistance: POUNCE_LAND_RADIUS });
+		victims = king.dimension.getEntities({ location: king.location, maxDistance: POUNCE_LAND_RADIUS });
 	} catch (e) {}
-	for (const p of victims) {
-		if (!isEntityUsable(p)) continue;
+	for (const v of victims) {
+		if (!isValidMobTarget(v)) continue;
 		try {
-			p.applyDamage(POUNCE_DAMAGE, { damagingEntity: king });
-			const kd = horizontalDir(king.location, p.location);
-			p.applyKnockback(kd.x, kd.z, 0.6, 0.4);
-			p.addEffect('slowness', 30, { amplifier: 1, showParticles: false });
+			v.applyDamage(POUNCE_DAMAGE, { damagingEntity: king });
+			const kd = horizontalDir(king.location, v.location);
+			v.applyKnockback(kd.x, kd.z, 0.6, 0.4);
+			v.addEffect('slowness', 30, { amplifier: 1, showParticles: false });
 		} catch (e) {}
 	}
 }
 
 // ---- Petrifying Screech -------------------------------------------------------
 
-function tryStartScreech(king, now, target) {
-	if (!target) return false;
-	if (now % TPS !== 0) return false;
-	if (!gcdReady(king, now) || !cooldownReady(king, 'Screech', now)) return false;
-	if (target.dist < SCREECH_MIN_DIST) return false;
-	if (Math.random() > SCREECH_CHANCE_PER_ROLL) return false;
+function tryStartScreech(king, now, target, opts = {}) {
+	if (isLocked(king)) return false;
+	const force = !!opts.force;
+	if (!force) {
+		if (!target) return false;
+		if (now % TPS !== 0) return false;
+		if (!gcdReady(king, now) || !cooldownReady(king, 'Screech', now)) return false;
+		if (target.dist < SCREECH_MIN_DIST) return false;
+		if (Math.random() > SCREECH_CHANCE_PER_ROLL) return false;
+	} else {
+		forceIdle(king, now);
+	}
 
 	beginAbility(king, now, 'screech', SCREECH_DURATION_TICKS);
 	startGcd(king, now);
@@ -375,16 +438,16 @@ function tryStartScreech(king, now, target) {
 function doScreechBurst(king) {
 	let victims = [];
 	try {
-		victims = king.dimension.getPlayers({ location: king.location, maxDistance: SCREECH_RANGE });
+		victims = king.dimension.getEntities({ location: king.location, maxDistance: SCREECH_RANGE });
 	} catch (e) {}
-	for (const p of victims) {
-		if (!isEntityUsable(p)) continue;
+	for (const v of victims) {
+		if (!isValidMobTarget(v)) continue;
 		try {
-			p.addEffect('blindness', 70, { amplifier: 0, showParticles: false });
-			p.addEffect('darkness', 80, { amplifier: 0, showParticles: false });
-			p.addEffect('nausea', 90, { amplifier: 1, showParticles: false });
-			p.addEffect('slowness', 40, { amplifier: 1, showParticles: false });
-			p.runCommand('camerashake add @s 0.4 2 positional');
+			v.addEffect('blindness', 70, { amplifier: 0, showParticles: false });
+			v.addEffect('darkness', 80, { amplifier: 0, showParticles: false });
+			v.addEffect('nausea', 90, { amplifier: 1, showParticles: false });
+			v.addEffect('slowness', 40, { amplifier: 1, showParticles: false });
+			if (v.typeId === 'minecraft:player') v.runCommand('camerashake add @s 0.4 2 positional');
 		} catch (e) {}
 	}
 	spawnRing(king, 'minecraft:knockback_roar_particle', 1.5, 6);
@@ -404,7 +467,7 @@ function doScreechBurst(king) {
 
 function updateBurrowTracking(king, target) {
 	if (!target) return;
-	const los = target.dist <= BURROW_FAR_DIST && hasLineOfSight(king, target.player);
+	const los = target.dist <= BURROW_FAR_DIST && hasLineOfSight(king, target.mob);
 	if (los) {
 		setProp(king, 'pntmc:noLos', 0);
 	} else {
@@ -412,17 +475,23 @@ function updateBurrowTracking(king, target) {
 	}
 }
 
-function tryStartBurrow(king, now, target) {
-	if (!target) return false;
-	if (!gcdReady(king, now) || !cooldownReady(king, 'Burrow', now)) return false;
-	if (getNum(king, 'pntmc:noLos', 0) < BURROW_TRIGGER_TICKS) return false;
+function tryStartBurrow(king, now, target, opts = {}) {
+	if (isLocked(king)) return false;
+	const force = !!opts.force;
+	if (!force) {
+		if (!target) return false;
+		if (!gcdReady(king, now) || !cooldownReady(king, 'Burrow', now)) return false;
+		if (getNum(king, 'pntmc:noLos', 0) < BURROW_TRIGGER_TICKS) return false;
+	} else {
+		forceIdle(king, now);
+	}
 
 	setProp(king, 'pntmc:noLos', 0);
 	beginAbility(king, now, 'burrow_dig', BURROW_DIG_TICKS);
 	startGcd(king, now);
 	startCooldown(king, 'Burrow', now, BURROW_COOLDOWN);
 	freeze(king, BURROW_DIG_TICKS + 5);
-	setProp(king, 'pntmc:burrowTargetId', target.player.id);
+	setProp(king, 'pntmc:burrowTargetId', target ? target.mob.id : '');
 
 	playAnim(king, 'burrow_dig', 0.2);
 	playSoundAt(king, 'pntmc:king_disappear', 2.0, 1.0);
@@ -431,8 +500,8 @@ function tryStartBurrow(king, now, target) {
 }
 
 function enterBurrowUnder(king, now) {
-	const player = getEntityById(getStr(king, 'pntmc:burrowTargetId', ''));
-	const anchor = player ? player.location : king.location;
+	const target = getEntityById(getStr(king, 'pntmc:burrowTargetId', ''));
+	const anchor = target ? target.location : king.location;
 	const underTicks = randInt(BURROW_UNDER_MIN, BURROW_UNDER_MAX);
 	beginAbility(king, now, 'burrow_under', underTicks);
 
@@ -465,9 +534,9 @@ function eruptBurrow(king, now) {
 		king.removeEffect('resistance');
 	} catch (e) {}
 
-	const player = getEntityById(getStr(king, 'pntmc:burrowTargetId', ''));
+	const target = getEntityById(getStr(king, 'pntmc:burrowTargetId', ''));
 	try {
-		king.teleport({ x: spot.x, y: groundY, z: spot.z }, player ? { facingLocation: player.location } : undefined);
+		king.teleport({ x: spot.x, y: groundY, z: spot.z }, target ? { facingLocation: target.location } : undefined);
 	} catch (e) {}
 
 	playAnim(king, 'burrow_erupt', 0.2);
@@ -477,14 +546,14 @@ function eruptBurrow(king, now) {
 
 	let victims = [];
 	try {
-		victims = king.dimension.getPlayers({ location: king.location, maxDistance: 3 });
+		victims = king.dimension.getEntities({ location: king.location, maxDistance: 3 });
 	} catch (e) {}
-	for (const p of victims) {
-		if (!isEntityUsable(p)) continue;
+	for (const v of victims) {
+		if (!isValidMobTarget(v)) continue;
 		try {
-			p.applyDamage(BURROW_ERUPT_DAMAGE, { damagingEntity: king });
-			const kd = horizontalDir(king.location, p.location);
-			p.applyKnockback(kd.x, kd.z, 0.5, 0.3);
+			v.applyDamage(BURROW_ERUPT_DAMAGE, { damagingEntity: king });
+			const kd = horizontalDir(king.location, v.location);
+			v.applyKnockback(kd.x, kd.z, 0.5, 0.3);
 		} catch (e) {}
 	}
 }
@@ -565,12 +634,12 @@ export function tickKing(king, now) {
 	if (!isEntityUsable(king) || king.typeId !== 'pntmc:king') return;
 	const ab = getAb(king);
 
-	if (ab === 'grab_wind' || ab === 'grab_hold') pinGrabbedPlayer(king, now);
+	if (ab === 'grab_wind' || ab === 'grab_hold') pinGrabbedTarget(king, now);
 	if (ab === 'pounce_air') checkPounceLanding(king, now);
 
 	tickEnrageAura(king, now);
 
-	const target = findNearestPlayer(king, 40);
+	const target = findNearestMob(king, 40);
 	updateBurrowTracking(king, target);
 
 	if (ab !== 'idle') {
@@ -585,21 +654,61 @@ export function tickKing(king, now) {
 	tryStartPounce(king, now, target);
 }
 
-export function reconcileGrabbedPlayers() {
-	for (const player of world.getPlayers()) {
-		let byId = '';
-		try {
-			byId = getStr(player, 'pntmc:grabbedBy', '');
-		} catch (e) {
-			continue;
-		}
-		if (!byId) continue;
-		const king = getEntityById(byId);
+export function reconcileGrabs() {
+	for (const [targetId, kingId] of Array.from(grabbedTargets.entries())) {
+		const king = getEntityById(kingId);
 		const stillHeld =
 			king &&
 			king.typeId === 'pntmc:king' &&
 			(getAb(king) === 'grab_wind' || getAb(king) === 'grab_hold') &&
-			getStr(king, 'pntmc:grabId', '') === player.id;
-		if (!stillHeld) releaseGrabPlayer(player);
+			getStr(king, 'pntmc:grabId', '') === targetId;
+		if (!stillHeld) {
+			releaseGrabTarget(getEntityById(targetId));
+			grabbedTargets.delete(targetId);
+		}
+	}
+}
+
+// ---- /scriptevent pntmc:<ability> test hooks (see main.js) ---------------
+
+export function debugTriggerGrab(king, now, forcedOutcome) {
+	const target = findNearestMob(king, 48);
+	if (!target) return false;
+	if (forcedOutcome === 'throw' || forcedOutcome === 'bite') setProp(king, 'pntmc:forcedGrabOutcome', forcedOutcome);
+	return tryStartGrabOnHit(king, target.mob, now, { force: true });
+}
+
+export function debugTriggerPounce(king, now) {
+	const target = findNearestMob(king, 48);
+	if (!target) return false;
+	return tryStartPounce(king, now, target, { force: true });
+}
+
+export function debugTriggerScreech(king, now) {
+	const target = findNearestMob(king, 48);
+	return tryStartScreech(king, now, target, { force: true });
+}
+
+export function debugTriggerBurrow(king, now) {
+	const target = findNearestMob(king, 48);
+	return tryStartBurrow(king, now, target, { force: true });
+}
+
+export function debugTriggerBleed(king, now) {
+	const target = findNearestMob(king, 48);
+	if (!target) return false;
+	applyBleed(target.mob, now);
+	try {
+		spawnParticleSafe(target.mob.dimension, 'minecraft:critical_hit_emitter', target.mob.getHeadLocation());
+	} catch (e) {}
+	return true;
+}
+
+export function debugTriggerEnrage(king) {
+	try {
+		king.triggerEvent('pntmc:enrage');
+		return true;
+	} catch (e) {
+		return false;
 	}
 }

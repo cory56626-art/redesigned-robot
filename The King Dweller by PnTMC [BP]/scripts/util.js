@@ -143,10 +143,10 @@ export function findGroundY(dimension, x, z, startY) {
 	return Math.floor(startY);
 }
 
-export function hasLineOfSight(king, player) {
+export function hasLineOfSight(king, target) {
 	try {
 		const from = king.getHeadLocation();
-		const to = player.getHeadLocation();
+		const to = target.getHeadLocation();
 		const dist = distance(from, to);
 		if (dist < 0.5) return true;
 		const dir = { x: (to.x - from.x) / dist, y: (to.y - from.y) / dist, z: (to.z - from.z) / dist };
@@ -161,27 +161,52 @@ export function hasLineOfSight(king, player) {
 	}
 }
 
-export function findNearestPlayer(entity, maxDistance) {
+// Every pntmc:king/king_trigger/king_flee/king_ambient shares the "pntmc" type_family, but that's
+// only readable through a component lookup on a *live* entity. Hardcoding the four identifiers
+// here is simpler and just as reliable, and lets isValidMobTarget() work purely off typeId.
+export const PNTMC_TYPE_IDS = new Set(['pntmc:king', 'pntmc:king_trigger', 'pntmc:king_flee', 'pntmc:king_ambient']);
+
+// "Any mob" candidacy check shared by targeting and every AOE ability. minecraft:health is the
+// one component every actual creature/player has and inert entities (item drops, XP orbs,
+// arrows, boats, minecarts, paintings, item frames, end crystals, TNT, falling blocks...) don't,
+// so it's a robust way to mean "a living thing" without having to enumerate every vanilla
+// is_family tag (which isn't universal across mob types) or guess at ones that don't exist.
+export function isValidMobTarget(entity) {
+	if (!isEntityUsable(entity)) return false;
+	if (PNTMC_TYPE_IDS.has(entity.typeId)) return false;
+	try {
+		if (!entity.hasComponent('minecraft:health')) return false;
+	} catch (e) {
+		return false;
+	}
+	if (entity.typeId === 'minecraft:player') {
+		try {
+			const mode = entity.getGameMode();
+			if (mode === 'creative' || mode === 'spectator') return false;
+		} catch (e) {}
+	}
+	return true;
+}
+
+export function findNearestMob(entity, maxDistance) {
 	let best;
 	let bestDist = Infinity;
-	let players;
+	let candidates;
 	try {
-		players = entity.dimension.getPlayers({ location: entity.location, maxDistance });
+		candidates = entity.dimension.getEntities({ location: entity.location, maxDistance });
 	} catch (e) {
 		return undefined;
 	}
-	for (const p of players) {
-		if (!isEntityUsable(p)) continue;
-		try {
-			if (p.getGameMode() === 'creative' || p.getGameMode() === 'spectator') continue;
-		} catch (e) {}
-		const d = distance(entity.location, p.location);
+	for (const c of candidates) {
+		if (c.id === entity.id) continue;
+		if (!isValidMobTarget(c)) continue;
+		const d = distance(entity.location, c.location);
 		if (d < bestDist) {
 			bestDist = d;
-			best = p;
+			best = c;
 		}
 	}
-	return best ? { player: best, dist: bestDist } : undefined;
+	return best ? { mob: best, dist: bestDist } : undefined;
 }
 
 export const currentTick = () => system.currentTick;

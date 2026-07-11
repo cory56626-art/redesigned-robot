@@ -1,10 +1,12 @@
 # The King Dweller — Boss Upgrade
 
 Personal-use modification of *The King Dweller by PnTMC* (credits to PnTMC and Flamc04 for the
-original add-on — kept intact in both manifests). Two changes on top of the original pack:
+original add-on — kept intact in both manifests). On top of the original pack:
 
 1. The King is now ~2x its previous visual size.
 2. It has a six-ability combat kit that turns it into a real boss fight.
+3. Every ability and its normal melee attack work on **any mob**, not just players.
+4. Every ability has a `/scriptevent pntmc:<ability>` command to trigger it on demand for testing.
 
 Both packs keep their original UUIDs (so this updates in place over the original install) and
 were bumped to version `1.1.0`. The BP gained a `script` module; nothing else about how the pack
@@ -63,6 +65,37 @@ script-triggered animation overrides the entity's regular locomotion controller 
 plays, then hands control back — so none of the RP animation controllers needed new states or new
 Molang queries, and the client never needs to be told "which ability" is happening at all.
 
+## Any mob, not just players
+
+Two independent layers, both widened together so normal attacks and every ability agree on what
+counts as a valid target:
+
+- **BP (normal melee):** `minecraft:behavior.nearest_attackable_target`'s filter changed from
+  `is_family == player` to `is_family != pntmc`. That's the same four-entity family
+  (`pntmc:king`/`king_trigger`/`king_flee`/`king_ambient`) the pack already tags itself with, so
+  this reads as "attack anything except my own kind" rather than requiring a positive list of
+  every mob family that should count (which isn't a reliable enumeration — not every vanilla mob
+  shares a common tag like "monster" or "animal").
+- **Script (every ability):** `util.js#isValidMobTarget(entity)` is the matching script-side rule:
+  reject the pack's own four typeIds, then require `hasComponent('minecraft:health')`. Health is
+  the one component every actual creature and player has that item drops, XP orbs, arrows, boats,
+  minecarts, paintings, item frames, end crystals, TNT, and falling blocks don't — so it reliably
+  means "a living thing," without hardcoding a family list that could quietly miss a mob type.
+  Every ability's target search (`findNearestMob`, replacing the old player-only
+  `findNearestPlayer`) and every AOE damage loop (pounce landing, screech burst, burrow erupt) now
+  run through this same check, so a zombie, a villager, a cow, or a player are all equally valid
+  things to grab, pounce on, screech at, or ambush.
+- A few pieces stay player-specific **by nature**, not by restriction, and degrade gracefully
+  (existing try/catch no-ops) when the target isn't a player: the actionbar Bleed readout, the
+  milk-bucket cure, `inputPermissions` movement-locking during a grab, and `/camerashake` during a
+  screech. None of those exist on a generic mob, but none of them are load-bearing for the
+  mechanic to still work on one either — a grabbed zombie is still teleport-anchored and thrown or
+  bitten identically to a player, it just never gets an actionbar message.
+- Grab tracking changed from scanning `world.getPlayers()` every tick to a small in-memory
+  `Map<targetId, kingId>` (`abilities.js`'s `grabbedTargets`) populated on grab-start and consulted
+  by `reconcileGrabs()`, since the held target can now be any entity, not only one drawn from the
+  player list.
+
 ## Script API version
 
 Commands cannot set an entity's velocity in Bedrock (no `/tp` delta, no velocity NBT command), so
@@ -99,26 +132,29 @@ before packaging — see the "Testing performed" section at the bottom.
 All cooldowns shorten to ~60% and the global cooldown drops from 5s to 3s once enraged.
 
 ### 1. Grab & Throw
-- **Trigger:** on a landed king melee hit (`world.afterEvents.entityHitEntity`), 25% chance, own
+- **Trigger:** on a landed king melee hit against any valid mob target (`world.afterEvents.entityHitEntity`,
+  filtered through `isValidMobTarget` — see "Any mob, not just players" below), 25% chance, own
   30s cooldown.
-- **Flow:** `grab_windup` (0.4s, arms raise) → `grab_hold` (2s: player is teleport-anchored to a
-  fixed point in front of the king every tick, with movement input locked where available — the
-  king stands still) → **either** `grab_throw` **or** `grab_bite` (55%/45% split, rolled once the
-  hold ends).
+- **Flow:** `grab_windup` (0.4s, arms raise) → `grab_hold` (2s: the target is teleport-anchored to
+  a fixed point in front of the king every tick, with movement input locked where the target is a
+  player — the king stands still) → **either** `grab_throw` **or** `grab_bite` (55%/45% split,
+  rolled once the hold ends).
 - **Throw:** velocity is set with `applyKnockback` (strength tuned for a 10+ block arc); actual
-  injury comes from vanilla fall damage on landing, not a direct hit.
+  injury comes from vanilla fall damage on landing, not a direct hit — works identically whether
+  the target is a player or any other mob.
 
 ### 2. Grab & Bite → Bleed
 - Same grab entry point as above; the 55% branch. The main head/neck/jaw (the un-suffixed
   `head`/`neck`/`jaw` bones — the front-facing one) lunges and snaps shut ~0.3s into the animation,
   dealing 8 damage and applying Bleed.
-- **Bleed:** 10s duration, 2 damage every 2s (5 pulses, 10 potential damage). Re-biting a bleeding
-  player **refreshes** the 10s window instead of stacking — it can never run two DoT sources at
-  once or extend past 10s from the moment of the freshest bite. **Cannot kill on its own** — each
-  tick's damage is clamped so health never drops below 1; it can put a player on the edge for a
-  follow-up hit to finish, but the tick itself never does. Cured by drinking milk, or by the 10s
-  timeout, or implicitly by death. Visible as red dust particles trailing the player plus an
-  actionbar countdown. Dynamic properties persist through a same-session relog, so disconnecting
+- **Bleed:** works on any mob (see below), not just players. 10s duration, 2 damage every 2s (5
+  pulses, 10 potential damage). Re-biting a bleeding target **refreshes** the 10s window instead of
+  stacking — it can never run two DoT sources at once or extend past 10s from the moment of the
+  freshest bite. **Cannot kill on its own** — each tick's damage is clamped so health never drops
+  below 1; it can put a target on the edge for a follow-up hit to finish, but the tick itself never
+  does. Cured by drinking milk (players only, obviously), or by the 10s timeout, or implicitly by
+  death. Visible as red dust particles trailing the target plus an actionbar countdown when the
+  target is a player. Dynamic properties persist through a same-session relog, so disconnecting
   doesn't stop the clock or cure it; a full world/server restart resets the tick counter and the
   now-stale end time gets clamped away by the same safety net that stops any stuck state from
   surviving a reload (see below) — not a realistic exploit, since it needs restarting the world.
@@ -169,13 +205,14 @@ All cooldowns shorten to ~60% and the global cooldown drops from 5s to 3s once e
 
 ## Edge cases
 
-- **Player disconnects mid-grab:** the per-tick anchor loop detects the missing entity within one
-  tick-loop pass (≤2 ticks) and both releases the player-side lock and ends the ability immediately
-  — it doesn't wait out the phase timer.
-- **King dies or transforms (flees) mid-ability:** an `entityDie` listener releases any held player
-  immediately as a fast path; a `reconcileGrabbedPlayers()` pass every tick loop is the guaranteed
-  backstop that catches every other disappearance cause (transform, admin `/kill`, etc.) within a
-  couple of ticks regardless of what caused it.
+- **Target disconnects (if a player) or is otherwise removed mid-grab:** the per-tick anchor loop
+  detects the missing entity within one tick-loop pass (≤2 ticks) and both releases the lock and
+  ends the ability immediately — it doesn't wait out the phase timer.
+- **King dies or transforms (flees) mid-ability:** an `entityDie` listener releases any held target
+  immediately as a fast path; a `reconcileGrabs()` pass every tick loop is the guaranteed backstop
+  that catches every other disappearance cause (transform, admin `/kill`, etc.) within a couple of
+  ticks regardless of what caused it — it works off the tracked `{targetId → kingId}` pair directly
+  rather than scanning the world, so it doesn't depend on the target being a player either.
 - **World/server reload mid-ability:** every stored tick timestamp (`abEnd`, per-ability
   cooldowns, the global cooldown) is read through a sanity clamp that treats a value unreasonably
   far in the future as already-expired. `system.currentTick` resets on a process restart, which
@@ -200,38 +237,69 @@ All cooldowns shorten to ~60% and the global cooldown drops from 5s to 3s once e
 
 ## Test commands
 
+### Instant, on-demand: `/scriptevent`
+
+Requires cheats enabled (same requirement as `/scriptevent` in general). Each command finds the
+`pntmc:king` nearest to whoever ran it (or any king in the world if run from a command block) and
+forces that specific ability through its **real** state machine and timing — the same windup,
+animation, sound, and payoff as the real thing, just without waiting on chance/cooldown/range. It
+still refuses to fire while the king is crawling/crouching/spotted, since a forced trigger is
+meant to be a faithful test, not a way to break the arbitration system's own rules. Targets
+whichever valid mob is nearest the king (any mob, not just players — see above), and replies in
+chat if run by a player.
+
+```
+/summon pntmc:king ~ ~ ~5
+
+/scriptevent pntmc:grab      # grab -> random throw or bite (55% bite / 45% throw), like the real thing
+/scriptevent pntmc:throw     # grab, forced to resolve as a throw specifically
+/scriptevent pntmc:bite      # grab, forced to resolve as a bite (+ Bleed) specifically
+/scriptevent pntmc:bleed     # apply Bleed directly, no grab needed - isolates the DoT for testing
+/scriptevent pntmc:pounce    # forced pounce, ignoring the normal 5-15 block range gate
+/scriptevent pntmc:screech   # forced screech, ignoring the once-a-second chance roll
+/scriptevent pntmc:burrow    # forced burrow, ignoring the 4s line-of-sight-loss requirement
+/scriptevent pntmc:enrage    # fires the real pntmc:enrage BP event directly (same path as the HP trigger)
+/scriptevent pntmc:help      # lists all of the above in chat
+```
+
+### Natural triggers (to verify the real gating, not just the forced path)
+
 ```
 # 1. Size / hit detection / tunnel crawl
 /summon pntmc:king ~ ~ ~5
 # hit it — registers at the new ~2x visual size. Dig a 1-block-tall, 1-wide tunnel and run
 # through it while chased; the king should still crawl through after you.
 
-# 2 & 3. Grab -> Throw or Bite -> Bleed
-# Let the king melee you repeatedly (or reduce GRAB_CHANCE friction with /effect on yourself to
-# stay alive) until it grabs you - you'll be teleport-pinned in front of it for ~2s, then either
-# thrown (fly 10+ blocks, take fall damage on landing) or bitten (8 damage + Bleed: red particles
-# trail you, actionbar counts down, periodic damage). Try /effect @s milk_bucket... there's no
-# such effect - actually drink a milk bucket to confirm the cure:
+# Any mob, not just players
+/summon minecraft:zombie ~5 ~ ~
+/summon minecraft:cow ~-5 ~ ~
+# let the king notice them - it should path to and melee whichever is nearest exactly like it
+# would a player, and every ability below should be able to target them too.
+
+# 2 & 3. Grab -> Throw or Bite -> Bleed (natural trigger)
+# Let the king melee you (or a mob) repeatedly until it grabs - held ~2s, then either thrown
+# (10+ blocks, fall damage) or bitten (8 damage + Bleed: red particles trail the victim, actionbar
+# counts down if it's a player, periodic damage). Drink a milk bucket to confirm the cure:
 /give @s milk_bucket
 
-# 4. Pounce
+# 4. Pounce (natural trigger)
 # Stand 5-15 blocks from the king while it has a target. Watch for the ~1.1s crouch wind-up and
 # sidestep - the leap should whiff. Stand still through one to feel the landing AOE.
 
-# 5. Screech
+# 5. Screech (natural trigger)
 # Get the king's attention, then break line of sight for several seconds (round a corner / duck
 # behind a wall) while staying within its long follow range, then step back within ~15 blocks.
 # It should stop, rear back, and screech - blindness/darkness/nausea + camera shake, and the king
 # holds still (hit it during the screech to confirm it's not invulnerable).
 
-# 6. Burrow Ambush
+# 6. Burrow Ambush (natural trigger)
 # Break line of sight or run more than ~22 blocks away and hold that for a few seconds - it should
 # dig down (particles + the disappear sound), vanish, then erupt near you shortly after with a
 # particle burst and a lunge. Confirm afterwards that /summon pntmc:king again still respects the
 # one-king rule (the old one should already be gone / the new one takes over cleanly), and that
 # tunnel-crawling still works.
 
-# 7. Enrage
+# 7. Enrage (natural trigger)
 /summon pntmc:king ~ ~ ~5
 /damage @e[type=pntmc:king,c=1] 145
 # health should now be <= 60/200 (30%) - the king should visibly enrage (flame aura, faster,
@@ -239,7 +307,7 @@ All cooldowns shorten to ~60% and the global cooldown drops from 5s to 3s once e
 
 # 8/9. Disconnect / death mid-ability and reload recovery
 # Get grabbed, then log off before the throw/bite resolves; log back in and confirm you're not
-# stuck. Kill the king (or let a player kill it) mid-grab and confirm the held player is freed
+# stuck. Kill the king (or let a player kill it) mid-grab and confirm the held target is freed
 # within a couple of seconds. Reload the world mid-fight and confirm nothing is left frozen,
 # invisible, or stuck underground.
 
@@ -257,14 +325,22 @@ Minecraft Bedrock itself isn't available in this environment, so verification to
    zip → extract → re-validate round trip on the packaged `.mcaddon` to rule out packaging
    corruption. All script files were syntax-checked with `node --check`.
 2. **Behavioral simulation:** `scripts/*.js` were exercised against a mocked `@minecraft/server`
-   module (fake entities, dimension, world, and system objects) driving `tickKing` tick-by-tick
-   through complete Grab→Throw, Grab→Bite→Bleed (including the cannot-kill damage clamp), Pounce,
-   Screech, and full Burrow (dig → under → erupt, including the invisibility/resistance toggle)
-   sequences, plus targeted checks for: mutual exclusion (a second ability can't clobber one in
-   progress), crawl/crouch/spotted locking out new abilities, `pntmc:king_trigger` being
-   structurally unable to trigger any ability, the global cooldown blocking a *different* ability
-   right after one ends, the reload safety clamp resolving a stale far-future timestamp instead of
-   getting stuck, and a player being freed within one tick-loop pass if the king they're grabbed by
-   becomes invalid. All of the above passed. This does not replace an in-game playtest — animation
-   timing/feel, particle appearance, and exact knockback distances should still be sanity-checked
-   in a real world.
+   module (fake entities, dimension, world, and system objects, including a fake
+   `system.afterEvents.scriptEventReceive` that can fire synthetic `/scriptevent` calls) driving
+   `tickKing` tick-by-tick through complete Grab→Throw, Grab→Bite→Bleed (including the cannot-kill
+   damage clamp), Pounce, Screech, and full Burrow (dig → under → erupt, including the
+   invisibility/resistance toggle) sequences, plus targeted checks for: mutual exclusion (a second
+   ability can't clobber one in progress), crawl/crouch/spotted locking out new abilities,
+   `pntmc:king_trigger` being structurally unable to trigger any ability, the global cooldown
+   blocking a *different* ability right after one ends, the reload safety clamp resolving a stale
+   far-future timestamp instead of getting stuck, and a target being freed within one tick-loop
+   pass if the king holding it becomes invalid. A third round specifically covers this update:
+   `isValidMobTarget` accepting a zombie/cow/villager/player alike while rejecting the pack's own
+   `pntmc:king_trigger`, all eight `/scriptevent pntmc:*` commands end-to-end (including a forced
+   grab actually resolving to the specifically-forced throw/bite outcome once real time is
+   advanced through `tickKing`, not just the property being set), forced triggers still refusing
+   to fire while the king is locked, the namespace filter silently ignoring non-`pntmc` script
+   events, and a test command still working with no `sourceEntity` (command-block invocation).
+   All of the above passed — 67 checks across three simulation files. This does not replace an
+   in-game playtest — animation timing/feel, particle appearance, and exact knockback distances
+   should still be sanity-checked in a real world.
