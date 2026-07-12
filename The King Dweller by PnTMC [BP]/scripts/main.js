@@ -10,6 +10,8 @@ import {
 	debugTriggerBurrow,
 	debugTriggerBleed,
 	debugTriggerEnrage,
+	markLostTarget,
+	markFoundTarget,
 } from './abilities.js';
 import { tickBleeds, registerBleedCureHooks } from './bleed.js';
 import { getDimensions, isEntityUsable, isValidMobTarget, distance, markProvoked } from './util.js';
@@ -45,12 +47,30 @@ world.afterEvents.entityHitEntity.subscribe((ev) => {
 		tryStartGrabOnHit(attacker, victim, system.currentTick);
 	}
 
-	// The king takes a hit from anything: the king still only *hunts* players on its own, but
-	// remembering whoever just attacked it lets abilities.js#tickKing also treat that attacker
-	// as a valid target for the rest of the kit (not just plain melee retaliation, which
-	// hurt_by_target already handles by itself) for a little while - see
-	// util.js#findAbilityTarget.
+	// The king takes a melee hit from anything: remembering the attacker lets
+	// abilities.js#tickKing treat it as a valid target for the rest of the kit, not just plain
+	// melee retaliation (hurt_by_target already handles that by itself) - see
+	// util.js#findAbilityTarget. entityHitEntity only fires for an actual melee swing connecting
+	// though, so this alone would miss anything that hurts the king by any other means (a
+	// command, a projectile, another mod's own applyDamage() call) - see the entityHurt listener
+	// below for the broader net.
 	if (victim && victim.typeId === 'pntmc:king' && isValidMobTarget(attacker)) {
+		markProvoked(victim, attacker, system.currentTick);
+	}
+});
+
+// Broader than entityHitEntity above: fires for *any* damage the king takes, regardless of how it
+// was dealt (melee, projectile, /damage command, another pack's own scripted applyDamage() call).
+// A third-party "make mobs fight" tool is far more likely to deal damage this way than through an
+// actual simulated melee swing, so this is the net that actually catches it.
+world.afterEvents.entityHurt.subscribe((ev) => {
+	const victim = ev.hurtEntity;
+	if (!victim || victim.typeId !== 'pntmc:king') return;
+	let attacker;
+	try {
+		attacker = ev.damageSource && ev.damageSource.damagingEntity;
+	} catch (e) {}
+	if (attacker && isValidMobTarget(attacker)) {
 		markProvoked(victim, attacker, system.currentTick);
 	}
 });
@@ -101,6 +121,19 @@ function replyTo(sourceEntity, msg) {
 system.afterEvents.scriptEventReceive.subscribe(
 	(ev) => {
 		if (!ev.id || !ev.id.startsWith('pntmc:')) return;
+
+		// Internal signal from controller.animation.king_disappear_akp_PNTMC (see
+		// king_dweller_animation_controllers.json), not a user-facing test command. Sent as a
+		// plain /scriptevent from the entity's own on_entry/on_exit rather than a vanilla flag
+		// component, precisely so it can't have any side effect on the king's actual AI/movement.
+		if (ev.id === 'pntmc:losttarget' || ev.id === 'pntmc:foundtarget') {
+			let king = ev.sourceEntity && ev.sourceEntity.typeId === 'pntmc:king' ? ev.sourceEntity : undefined;
+			if (!king) king = findActingKing(ev.sourceEntity);
+			if (!king) return;
+			if (ev.id === 'pntmc:losttarget') markLostTarget(king, system.currentTick);
+			else markFoundTarget(king);
+			return;
+		}
 
 		if (ev.id === 'pntmc:help') {
 			replyTo(ev.sourceEntity, `§e[King Dweller] Test commands: ${TEST_COMMAND_LIST}`);

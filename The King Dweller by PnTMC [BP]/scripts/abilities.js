@@ -94,14 +94,18 @@ const BURROW_ERUPT_TICKS = 10;
 const BURROW_EMERGE_MAX = 6;
 const BURROW_ERUPT_DAMAGE = 5;
 
-// The BP's own controller.animation.king_disappear_akp_PNTMC flags "no AI target" by toggling
-// minecraft:is_stunned (see king.behavior.json's pntmc:losttarget component group) rather than
-// despawning directly - Molang can see query.has_target but script can't (Entity.target needs
-// API 2.10-beta, far past this pack's 1.11.0 floor), so the animation controller is the only
-// thing that can detect the transition. It hands the actual grace-period countdown to script
-// instead of using minecraft:timer, because minecraft:timer is a single shared component slot
-// crawl/crouch already drive every tick they're active - reusing it here would make a long grace
-// timer lose to their 1-tick one every time the king is crawling or crouching with no target.
+// The BP's own controller.animation.king_disappear_akp_PNTMC is the only thing that can see
+// query.has_target (script can't - Entity.target needs API 2.10-beta, far past this pack's
+// 1.11.0 floor). It now reports that transition to script with a plain /scriptevent
+// (pntmc:losttarget / pntmc:foundtarget, wired up in main.js) instead of toggling a vanilla flag
+// component - an earlier version of this used minecraft:is_stunned for that signal, which was a
+// mistake: unlike is_ignited/is_sheared/is_saddled/is_charged (all inert flags this pack already
+// safely repurposes), "stunned" is plausibly an engine-level state that can suspend a mob's own
+// behaviors (it's what Wardens/Ravagers use to actually freeze up), so it risked telling the game
+// to stop the king's AI rather than just marking a fact for script to read. markLostTarget() /
+// markFoundTarget() below just stamp plain dynamic properties, which have zero effect on AI or
+// rendering, then tickLostTargetGrace() (called every tickKing pass) is the one applying the
+// actual 30-second grace countdown before giving up for real.
 const LOST_TARGET_GRACE_TICKS = 30 * TPS;
 
 // Currently-grabbed target ids, mapped to the id of the king holding them. Grab is exclusive to
@@ -602,13 +606,29 @@ function tickEnrageAura(king, now) {
 
 // ---- Lost-target grace period (see the LOST_TARGET_GRACE_TICKS comment above) --------------
 
+// Called from main.js when the /scriptevent pntmc:losttarget signal arrives (fired by the
+// animation controller the instant query.has_target goes false).
+export function markLostTarget(king, now) {
+	setProp(king, 'pntmc:hasNoTarget', true);
+	if (getNum(king, 'pntmc:noTargetSince', 0) <= 0) {
+		setProp(king, 'pntmc:noTargetSince', now);
+	}
+}
+
+// Called from main.js when /scriptevent pntmc:foundtarget arrives (query.has_target true again) -
+// cancels the grace countdown entirely, no partial credit.
+export function markFoundTarget(king) {
+	setProp(king, 'pntmc:hasNoTarget', false);
+	setProp(king, 'pntmc:noTargetSince', 0);
+}
+
 function tickLostTargetGrace(king, now) {
-	let stunned = false;
+	let hasNoTarget = false;
 	try {
-		stunned = king.hasComponent('minecraft:is_stunned');
+		hasNoTarget = !!king.getDynamicProperty('pntmc:hasNoTarget');
 	} catch (e) {}
 
-	if (!stunned) {
+	if (!hasNoTarget) {
 		setProp(king, 'pntmc:noTargetSince', 0);
 		return;
 	}

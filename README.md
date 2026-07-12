@@ -80,20 +80,34 @@ whatever actually attacks it. Three pieces make that true:
   has no `entity_types` filter, so it was *always* the case — even in the original pack — that the
   king would swing back at whatever damaged it, mob or player. That behavior alone already
   satisfies "fight back if provoked" for plain melee; nothing needed to change there.
-- **Script (the ability kit): a short-lived "provoked" memory.** `main.js`'s `entityHitEntity`
-  listener now also fires when the *king* is the one hit — regardless of attacker type — and calls
-  `util.js#markProvoked(king, attacker, now)`, which remembers that attacker for 15 seconds.
+- **Script (the ability kit): a short-lived "provoked" memory, fed by two listeners.**
+  `util.js#markProvoked(king, attacker, now)` remembers an attacker for 15 seconds, and
   `util.js#findAbilityTarget(king, maxDistance, now)` is what `abilities.js#tickKing` polls every
   pass to decide who's eligible for automatic Pounce/Screech/Burrow triggering: any nearby player
   (unchanged hunting behavior) **plus** the currently-remembered attacker, even when it isn't a
   player. A mob that never landed a hit on the king is never a candidate here, no matter how close
-  it stands or how long it's watched. `isValidMobTarget(entity)` (reject the pack's own four
-  typeIds, then require `hasComponent('minecraft:health')` — the one thing every real creature has
-  that item drops/projectiles/boats/minecarts/etc. don't) is still the underlying "is this even a
-  legitimate creature" sanity check, now just gated behind provocation for anything non-player.
-  Grab doesn't need any of this — it only ever triggers off a melee hit the king already landed,
-  which by the two BP behaviors above is already correctly scoped to players-it's-hunting or
-  attackers-it's-retaliating-against.
+  it stands or how long it's watched. Two separate `main.js` listeners feed `markProvoked`, on
+  purpose:
+  - `world.afterEvents.entityHitEntity` fires when the *king* is the one hit by an actual melee
+    swing connecting.
+  - `world.afterEvents.entityHurt` fires for **any** damage the king takes, however it was dealt —
+    melee, projectile, a `/damage` command, or another mod's own scripted `applyDamage()` call.
+    This one was added because `entityHitEntity` alone turned out to be too narrow: a third-party
+    "make mobs fight" tool is far more likely to deal damage straight through `applyDamage()`/a
+    command than to simulate an actual melee-swing connection, so relying on `entityHitEntity`
+    alone meant the king could take real damage from such a mod and never register it as an
+    attacker worth fighting back against — no provocation was ever recorded, so
+    `findAbilityTarget` kept returning nothing for that mob and the king had nothing to do but
+    stand there. Both listeners funnel into the exact same `markProvoked` call, so whichever one
+    fires first wins and neither is required on its own.
+
+  `isValidMobTarget(entity)` (reject the pack's own four typeIds, then require
+  `hasComponent('minecraft:health')` — the one thing every real creature has that item
+  drops/projectiles/boats/minecarts/etc. don't) is still the underlying "is this even a legitimate
+  creature" sanity check on both listeners, now just gated behind provocation for anything
+  non-player. Grab doesn't need any of this — it only ever triggers off a melee hit the king
+  already landed, which by the two BP behaviors above is already correctly scoped to
+  players-it's-hunting or attackers-it's-retaliating-against.
 - AOE splash (pounce landing, screech burst, burrow erupt) still hits *any* valid mob caught in
   the blast radius, not just the primary target — that's an incidental side effect of an ability
   that was already legitimately triggered against a real target, the same way a ground-slam would
@@ -224,31 +238,73 @@ All cooldowns shorten to ~60% and the global cooldown drops from 5s to 3s once e
   particle aura plus a one-time announce burst/sound — both are independent of the RP animation
   state, so they don't care whether the king is currently crawling, crouching, or mid-ability.
 
+## Fixed: king takes damage but doesn't actually fight back
+
+This is the one that actually matters for "why won't it fight" — a grace period (below) only
+changes how long the king survives with nothing to do; it can't by itself make the king do
+anything. Two separate bugs combined to produce the "jumpscare, stand still, go invisible, never
+attacks" symptom, and both had to be fixed for damage from something other than a player to
+actually turn into a fight:
+
+1. **Provocation detection was melee-swing-only.** The only signal that told the king "something
+   just attacked you" was `world.afterEvents.entityHitEntity`, which fires strictly for an actual
+   melee swing connecting. Damage delivered any other way — a `/damage` command, a projectile, or
+   (most likely, for a "make mobs fight" tool) another mod's own scripted `Entity#applyDamage()`
+   call — never fires it, so `markProvoked` was never called, the attacker was never remembered,
+   and `findAbilityTarget` kept returning nothing for it no matter how much damage the king took.
+   No provocation means no valid target means no ability, no matter how many times it gets hit.
+   **Fixed** by adding a second, broader `world.afterEvents.entityHurt` listener in `main.js` that
+   fires for *any* damage the king takes and also calls `markProvoked` — see "Any mob that attacks
+   the king" above for both listeners together.
+2. **The previous lost-target fix risked suspending the king's own AI.** The grace-period signal
+   (see below) was originally implemented by toggling `minecraft:is_stunned` on the king. That was
+   picked by analogy to the pack's other harmless flag components
+   (`is_ignited`/`is_sheared`/`is_saddled`/`is_charged`, all reused elsewhere in this pack purely
+   as inert markers) — but `is_stunned` is not obviously inert. It's plausibly the same
+   engine-level state Wardens and Ravagers use to actually freeze in place, which would mean
+   *this pack's own previous fix* could have been the direct cause of "stands still and does
+   nothing" — flagging the king as stunned the instant it lost `has_target`, independent of
+   whether it had just been provoked by something worth fighting. **Fixed** by removing
+   `is_stunned` entirely; see below for what replaced it. Nothing in the current pack sets or
+   reads `minecraft:is_stunned` anywhere.
+
+Neither fix can be verified against a specific third-party mod without an actual in-game test —
+there's no way to run Minecraft in this environment — but both are aimed squarely at the mechanism
+a script-driven "make mobs fight" tool would actually exercise (damage via `applyDamage()`, not a
+melee swing) and at removing the one component change in this pack's own history that could have
+been actively fighting against that goal.
+
 ## Fixed: near-instant despawn when no player is around
 
-The original pack's `controller.animation.king_disappear_akp_PNTMC` despawned the king the moment
-`query.has_target` went false (after an initial 5-second grace from spawn) — fine in normal play,
-since a player is essentially always available to be re-acquired as a target, but with no player
-anywhere nearby (e.g. testing mob-vs-mob combat via a third-party "make mobs fight" tool), the
-instant whatever provoked the king was gone, `has_target` had nothing left to fall back to and the
-king vanished almost immediately — the "jumpscare then disappear, never actually fights" symptom.
+Separately from the above — this one only controls how *long the king waits* before giving up,
+not whether it fights in the meantime. The original pack's
+`controller.animation.king_disappear_akp_PNTMC` despawned the king the moment `query.has_target`
+went false (after an initial 5-second grace from spawn) — fine in normal play, since a player is
+essentially always available to be re-acquired as a target, but with no player anywhere nearby
+(e.g. testing mob-vs-mob combat), the instant whatever provoked the king was gone, `has_target` had
+nothing left to fall back to and the king vanished almost immediately.
 
-Fix keeps the same timer+component-group idiom the pack already uses for crawl/crouch, but doesn't
-literally despawn on losing a target anymore - it starts a real 30-second grace period first:
+Fix doesn't literally despawn on losing a target anymore - it starts a real 30-second grace period
+first, signaled with a plain `/scriptevent` rather than any vanilla component:
 
 - The animation controller still detects the `has_target` transition (only Molang can see that;
-  script can't without API 2.10-beta) but now just toggles `minecraft:is_stunned` on/off via two
-  new events (`pntmc:losttarget` / `pntmc:foundtarget`) instead of despawning directly.
-- `is_stunned` was picked deliberately over reusing `minecraft:timer` for the actual countdown -
-  crawl/crouch already drive that single shared timer slot every tick they're active, so a long
-  grace timer sharing it would get reset to their 1-tick value constantly whenever the king lost
-  its target while also crawling/crouching (a very plausible combination). Instead,
-  `abilities.js#tickLostTargetGrace` (script-side, called every `tickKing` pass) watches the flag
-  and counts the real 30 seconds itself using the same dynamic-property/`system.currentTick`
-  approach as everything else, firing `pntmc:vanish` (which still runs the original
-  `king_disappear_pntmc` cleanup function) only if the king truly never re-engages anything for the
-  whole window. Re-acquiring any target within the 30s - a player wandering by, or anything landing
-  a hit and getting remembered as provoked - clears the flag and cancels it, no despawn.
+  script can't without API 2.10-beta), but now reports it to script with a bare
+  `/scriptevent pntmc:losttarget -` / `/scriptevent pntmc:foundtarget -` fired from its own
+  `on_entry`/`on_exit` (wired up in `main.js`) instead of touching any component at all.
+- `main.js` routes those two events to `abilities.js#markLostTarget` / `#markFoundTarget`, which
+  just stamp plain dynamic properties (`pntmc:hasNoTarget`, `pntmc:noTargetSince`) — inert data,
+  nothing the engine or any AI behavior reads or reacts to. `abilities.js#tickLostTargetGrace`
+  (script-side, called every `tickKing` pass) watches those properties and counts the real 30
+  seconds itself using the same dynamic-property/`system.currentTick` approach as everything else,
+  firing `pntmc:vanish` (which still runs the original `king_disappear_pntmc` cleanup function)
+  only if the king truly never re-engages anything for the whole window. Re-acquiring any target
+  within the 30s - a player wandering by, or anything landing a hit and getting remembered as
+  provoked - clears it and cancels the countdown, no despawn.
+- `minecraft:timer` was deliberately avoided for this countdown - crawl/crouch already drive that
+  single shared timer slot every tick they're active, so a long grace timer sharing it would get
+  reset to their 1-tick value constantly whenever the king lost its target while also
+  crawling/crouching (a very plausible combination). Dynamic properties don't have that problem
+  since each key is independent.
 - This only touches `king_disappear_akp_PNTMC`; the other one (`king_disappear_timer_PNTMC`, an
   unconditional ~100-second-of-existence check) was left exactly as it was, since it isn't what's
   responsible for the reported near-instant vanish and touching it wasn't necessary to fix that.
@@ -330,6 +386,12 @@ chat if run by a player.
 # the full kit (pounce/screech/burrow/grab) should be able to engage it for about 15s after that
 # hit, then it drops out of contention again if it stops attacking and nothing re-triggers it.
 
+# Any mob that damages the king WITHOUT a melee swing (this is the specific case a script-driven
+# "make mobs fight" mod exercises, and the one entityHitEntity alone used to miss):
+/damage @e[type=pntmc:king,c=1] 5 entity_attack @e[type=minecraft:zombie,c=1]
+# the king never got hit by an actual swing here - the damage came from the command instead - but
+# it should still turn and fight the zombie exactly as if it had been hit normally.
+
 # 2 & 3. Grab -> Throw or Bite -> Bleed (natural trigger)
 # Let the king melee you (or a mob) repeatedly until it grabs - held ~2s, then either thrown
 # (10+ blocks, fall damage) or bitten (8 damage + Bleed: red particles trail the victim, actionbar
@@ -402,15 +464,30 @@ Minecraft Bedrock itself isn't available in this environment, so verification to
    `tickKing` does fire on the very next pass; the provocation expires on its own once the
    remembered window elapses; and a nearby player remains a valid target with no provocation
    needed at all, confirming the original hunting behavior is untouched. A fifth round covers the
-   lost-target grace period: no `minecraft:is_stunned` means the grace timer never starts and
-   `pntmc:vanish` never fires even well past the 30s window; the timer stamps its start once and
-   holds steady rather than resetting every tick it's still flagged; losing the flag before 30s
-   cancels it with no vanish; a full, uninterrupted 30s with the flag set does fire `pntmc:vanish`
-   (and not a tick before); and a stale future-dated timestamp (simulating a post-reload
-   `system.currentTick` discontinuity) gets corrected instead of blocking the timer forever. All of
-   the above passed — 79 checks across five simulation files. Throw/pounce strength and range were
-   tuned directly per feedback that the previous values were far weaker in practice than the
-   in-code physics estimate suggested, without re-running the simulation harness (nothing about the
-   state machine changed, only magnitude constants) - this does not replace an in-game playtest —
-   animation timing/feel, particle appearance, and exact knockback distances should still be
-   sanity-checked in a real world.
+   lost-target grace period in isolation (`markLostTarget`/`markFoundTarget`/
+   `tickLostTargetGrace` in `abilities.js`, driven directly - no `main.js` wiring involved): never
+   calling `markLostTarget` means the grace timer never starts and `pntmc:vanish` never fires even
+   well past the 30s window; calling it once stamps the start tick and holds steady on later ticks
+   rather than drifting (matching the animation controller's `on_entry` firing once per
+   transition, not every tick); `markFoundTarget` before 30s cancels it with no vanish; a full,
+   uninterrupted 30s does fire `pntmc:vanish` (and not a tick before); a stale future-dated
+   timestamp (simulating a post-reload `system.currentTick` discontinuity) gets corrected instead
+   of blocking the timer forever; and calling `markFoundTarget` with nothing lost is a safe no-op.
+   A sixth round covers `main.js`'s event *wiring* specifically, going through the real subscribed
+   handlers (`__fireEntityHurt`/`__fireEntityHitEntity`/`__fireScriptEvent` on the mock module)
+   rather than calling the underlying helpers directly, since the bug report this round was about
+   behavior that only main.js's subscriptions - not the helpers - could be responsible for: a
+   non-melee `entityHurt` alone (no `entityHitEntity`) is enough to mark provocation, matching what
+   a script-driven "make mobs fight" mod would actually trigger; a bare damage source with no
+   attacking entity doesn't crash and marks nothing; an attacker that fails `isValidMobTarget` is
+   ignored; `entityHitEntity` still independently marks provocation too (additive, not replaced);
+   the king landing a real melee hit still starts a grab through the actual subscription; and the
+   `pntmc:losttarget`/`pntmc:foundtarget` scriptevents reach `markLostTarget`/`markFoundTarget`
+   through `main.js`'s real dispatch. All of the above passed — 94 checks across six simulation
+   files. Throw/pounce strength and range were tuned directly per feedback that the previous values
+   were far weaker in practice than the in-code physics estimate suggested, without re-running the
+   simulation harness (nothing about the state machine changed, only magnitude constants) - this
+   does not replace an in-game playtest — animation timing/feel, particle appearance, and exact
+   knockback distances should still be sanity-checked in a real world. The provocation-widening and
+   `is_stunned`-removal fixes in this round likewise can't be verified against any specific
+   third-party mod without a live game to test against.

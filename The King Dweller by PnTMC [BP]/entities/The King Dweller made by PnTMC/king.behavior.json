@@ -89,9 +89,6 @@
 			"minecraft:attack": {
 				"damage": 10
 			}
-		},
-		"pntmc:losttarget": {
-			"minecraft:is_stunned": {}
 		}
 	  },
 	  "components": {
@@ -366,20 +363,6 @@
 			"add": {
 				"component_groups": [
 					"pntmc:enrage"
-				]
-			}
-		},
-		"pntmc:losttarget": {
-			"add": {
-				"component_groups": [
-					"pntmc:losttarget"
-				]
-			}
-		},
-		"pntmc:foundtarget": {
-			"remove": {
-				"component_groups": [
-					"pntmc:losttarget"
 				]
 			}
 		},

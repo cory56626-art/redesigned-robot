@@ -65,10 +65,10 @@
             }
           ],
           "on_entry": [
-            "/event entity @s pntmc:losttarget"
+            "/scriptevent pntmc:losttarget -"
           ],
           "on_exit": [
-            "/event entity @s pntmc:foundtarget"
+            "/scriptevent pntmc:foundtarget -"
           ]
         }
       }
