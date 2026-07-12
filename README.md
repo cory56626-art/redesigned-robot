@@ -156,7 +156,9 @@ All cooldowns shorten to ~60% and the global cooldown drops from 5s to 3s once e
   a fixed point in front of the king every tick, with movement input locked where the target is a
   player — the king stands still) → **either** `grab_throw` **or** `grab_bite` (55%/45% split,
   rolled once the hold ends).
-- **Throw:** velocity is set with `applyKnockback` (strength tuned for a 10+ block arc); actual
+- **Throw:** velocity is set with `applyKnockback` (strength tuned for a ~18+ block arc, up from an
+  initial tune that turned out to be a "gentle tap" in practice — `THROW_HORIZ_STRENGTH`/
+  `THROW_VERT_STRENGTH` in `abilities.js`); actual
   injury comes from vanilla fall damage on landing, not a direct hit — works identically whether
   the target is a player or any other mob.
 
@@ -177,10 +179,12 @@ All cooldowns shorten to ~60% and the global cooldown drops from 5s to 3s once e
   surviving a reload (see below) — not a realistic exploit, since it needs restarting the world.
 
 ### 3. Pounce
-- **Trigger:** target 5–15 blocks away, 15% chance rolled once a second, 14s cooldown.
+- **Trigger:** target 5–20 blocks away, 15% chance rolled once a second, 14s cooldown.
 - **Flow:** `pounce_windup` (1.1s crouch-coil — long enough to sidestep) → leap
-  (`applyImpulse`, not `applyKnockback` — see above) → land on ground contact (min 0.2s airtime,
-  hard 1.5s cap so it can never get stuck mid-air) → 2.5-block AOE damage/knockback/slowness.
+  (`applyImpulse`, not `applyKnockback` — see above; strengthened alongside the throw, since the
+  same "impulse strength doesn't map to distance the way you'd guess" surprise applied here too)
+  → land on ground contact (min 0.2s airtime, hard 2s cap so it can never get stuck mid-air) →
+  2.5-block AOE damage/knockback/slowness.
 - Landing in water/lava fizzles (no AOE) rather than looking silly; landing near nobody just does
   nothing extra — both are the "expected" outcomes, not special-cased failure states.
 
@@ -219,6 +223,35 @@ All cooldowns shorten to ~60% and the global cooldown drops from 5s to 3s once e
   off (no flicker). Script reads the same flag to shorten cooldowns and to drive a periodic flame
   particle aura plus a one-time announce burst/sound — both are independent of the RP animation
   state, so they don't care whether the king is currently crawling, crouching, or mid-ability.
+
+## Fixed: near-instant despawn when no player is around
+
+The original pack's `controller.animation.king_disappear_akp_PNTMC` despawned the king the moment
+`query.has_target` went false (after an initial 5-second grace from spawn) — fine in normal play,
+since a player is essentially always available to be re-acquired as a target, but with no player
+anywhere nearby (e.g. testing mob-vs-mob combat via a third-party "make mobs fight" tool), the
+instant whatever provoked the king was gone, `has_target` had nothing left to fall back to and the
+king vanished almost immediately — the "jumpscare then disappear, never actually fights" symptom.
+
+Fix keeps the same timer+component-group idiom the pack already uses for crawl/crouch, but doesn't
+literally despawn on losing a target anymore - it starts a real 30-second grace period first:
+
+- The animation controller still detects the `has_target` transition (only Molang can see that;
+  script can't without API 2.10-beta) but now just toggles `minecraft:is_stunned` on/off via two
+  new events (`pntmc:losttarget` / `pntmc:foundtarget`) instead of despawning directly.
+- `is_stunned` was picked deliberately over reusing `minecraft:timer` for the actual countdown -
+  crawl/crouch already drive that single shared timer slot every tick they're active, so a long
+  grace timer sharing it would get reset to their 1-tick value constantly whenever the king lost
+  its target while also crawling/crouching (a very plausible combination). Instead,
+  `abilities.js#tickLostTargetGrace` (script-side, called every `tickKing` pass) watches the flag
+  and counts the real 30 seconds itself using the same dynamic-property/`system.currentTick`
+  approach as everything else, firing `pntmc:vanish` (which still runs the original
+  `king_disappear_pntmc` cleanup function) only if the king truly never re-engages anything for the
+  whole window. Re-acquiring any target within the 30s - a player wandering by, or anything landing
+  a hit and getting remembered as provoked - clears the flag and cancels it, no despawn.
+- This only touches `king_disappear_akp_PNTMC`; the other one (`king_disappear_timer_PNTMC`, an
+  unconditional ~100-second-of-existence check) was left exactly as it was, since it isn't what's
+  responsible for the reported near-instant vanish and touching it wasn't necessary to fix that.
 
 ## Edge cases
 
@@ -368,7 +401,16 @@ Minecraft Bedrock itself isn't available in this environment, so verification to
    `markProvoked` after a simulated hit immediately makes that same mob a valid target and
    `tickKing` does fire on the very next pass; the provocation expires on its own once the
    remembered window elapses; and a nearby player remains a valid target with no provocation
-   needed at all, confirming the original hunting behavior is untouched. All of the above
-   passed — 73 checks across four simulation files. This does not replace an in-game playtest —
+   needed at all, confirming the original hunting behavior is untouched. A fifth round covers the
+   lost-target grace period: no `minecraft:is_stunned` means the grace timer never starts and
+   `pntmc:vanish` never fires even well past the 30s window; the timer stamps its start once and
+   holds steady rather than resetting every tick it's still flagged; losing the flag before 30s
+   cancels it with no vanish; a full, uninterrupted 30s with the flag set does fire `pntmc:vanish`
+   (and not a tick before); and a stale future-dated timestamp (simulating a post-reload
+   `system.currentTick` discontinuity) gets corrected instead of blocking the timer forever. All of
+   the above passed — 79 checks across five simulation files. Throw/pounce strength and range were
+   tuned directly per feedback that the previous values were far weaker in practice than the
+   in-code physics estimate suggested, without re-running the simulation harness (nothing about the
+   state machine changed, only magnitude constants) - this does not replace an in-game playtest —
    animation timing/feel, particle appearance, and exact knockback distances should still be
    sanity-checked in a real world.

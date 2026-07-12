@@ -61,11 +61,14 @@
         "pntmc1": {
           "transitions": [
             {
-              "pntmc": "!query.has_target"
+              "pntmc": "query.has_target"
             }
           ],
           "on_entry": [
-            "/function king_disappear_pntmc"
+            "/event entity @s pntmc:losttarget"
+          ],
+          "on_exit": [
+            "/event entity @s pntmc:foundtarget"
           ]
         }
       }

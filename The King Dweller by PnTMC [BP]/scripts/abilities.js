@@ -64,19 +64,19 @@ const GRAB_BITE_DELAY = 6;
 const GRAB_BITE_CHANCE = 0.55;
 const GRAB_ANCHOR_DIST = 2.2;
 const GRAB_BITE_DAMAGE = 8;
-const THROW_HORIZ_STRENGTH = 2.1;
-const THROW_VERT_STRENGTH = 0.9;
+const THROW_HORIZ_STRENGTH = 6.5;
+const THROW_VERT_STRENGTH = 1.4;
 
 const POUNCE_MIN_RANGE = 5;
-const POUNCE_MAX_RANGE = 15;
+const POUNCE_MAX_RANGE = 20;
 const POUNCE_COOLDOWN = 14 * TPS;
 const POUNCE_WINDUP_TICKS = 22;
-const POUNCE_AIR_MAX_TICKS = 30;
+const POUNCE_AIR_MAX_TICKS = 40;
 const POUNCE_MIN_AIR_TICKS = 4;
 const POUNCE_LAND_RADIUS = 2.5;
 const POUNCE_DAMAGE = 6;
-const POUNCE_IMPULSE_HORIZ = 1.0;
-const POUNCE_IMPULSE_VERT = 0.55;
+const POUNCE_IMPULSE_HORIZ = 2.4;
+const POUNCE_IMPULSE_VERT = 0.8;
 
 const SCREECH_RANGE = 15;
 const SCREECH_COOLDOWN = 25 * TPS;
@@ -93,6 +93,16 @@ const BURROW_UNDER_MAX = 60;
 const BURROW_ERUPT_TICKS = 10;
 const BURROW_EMERGE_MAX = 6;
 const BURROW_ERUPT_DAMAGE = 5;
+
+// The BP's own controller.animation.king_disappear_akp_PNTMC flags "no AI target" by toggling
+// minecraft:is_stunned (see king.behavior.json's pntmc:losttarget component group) rather than
+// despawning directly - Molang can see query.has_target but script can't (Entity.target needs
+// API 2.10-beta, far past this pack's 1.11.0 floor), so the animation controller is the only
+// thing that can detect the transition. It hands the actual grace-period countdown to script
+// instead of using minecraft:timer, because minecraft:timer is a single shared component slot
+// crawl/crouch already drive every tick they're active - reusing it here would make a long grace
+// timer lose to their 1-tick one every time the king is crawling or crouching with no target.
+const LOST_TARGET_GRACE_TICKS = 30 * TPS;
 
 // Currently-grabbed target ids, mapped to the id of the king holding them. Grab is exclusive to
 // one target at a time (only one king can ever exist), so this normally holds 0-1 entries. Kept
@@ -590,6 +600,32 @@ function tickEnrageAura(king, now) {
 	}
 }
 
+// ---- Lost-target grace period (see the LOST_TARGET_GRACE_TICKS comment above) --------------
+
+function tickLostTargetGrace(king, now) {
+	let stunned = false;
+	try {
+		stunned = king.hasComponent('minecraft:is_stunned');
+	} catch (e) {}
+
+	if (!stunned) {
+		setProp(king, 'pntmc:noTargetSince', 0);
+		return;
+	}
+
+	let since = getNum(king, 'pntmc:noTargetSince', 0);
+	if (since <= 0 || since > now) {
+		since = now;
+		setProp(king, 'pntmc:noTargetSince', since);
+	}
+
+	if (now - since >= LOST_TARGET_GRACE_TICKS) {
+		try {
+			king.triggerEvent('pntmc:vanish');
+		} catch (e) {}
+	}
+}
+
 // ---- Phase resolution + main per-king tick --------------------------------
 
 function resolveExpiredPhase(king, ab, now) {
@@ -639,6 +675,7 @@ export function tickKing(king, now) {
 	if (ab === 'pounce_air') checkPounceLanding(king, now);
 
 	tickEnrageAura(king, now);
+	tickLostTargetGrace(king, now);
 
 	const target = findAbilityTarget(king, 40, now);
 	updateBurrowTracking(king, target);
