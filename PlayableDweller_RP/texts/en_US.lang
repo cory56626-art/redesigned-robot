@@ -1,0 +1,14 @@
+## Playable Dweller - Resource Pack strings
+
+pack.name=Playable Dweller [RP]
+pack.description=Monster model, animations and sounds for Playable Dweller.
+
+item.dwl:totem.name=The Totem
+item.dwl:ability_super_run.name=Charm of the Chase
+item.dwl:ability_decoy.name=Effigy of Deceit
+item.dwl:ability_broadcast.name=Heart of Horrors
+
+entity.dwl:dweller_puppet.name=The Dweller
+entity.dwl:decoy.name=The Dweller
+
+itemGroup.name.dwl:group.dweller_kit=Dweller Kit

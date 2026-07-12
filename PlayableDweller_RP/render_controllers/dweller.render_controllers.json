@@ -1,0 +1,10 @@
+{
+  "format_version": "1.21.70",
+  "render_controllers": {
+    "controller.render.dwl_dweller": {
+      "geometry": "Geometry.default",
+      "materials": [{ "*": "Material.default" }],
+      "textures": ["Texture.default"]
+    }
+  }
+}

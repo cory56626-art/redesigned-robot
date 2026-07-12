@@ -1,0 +1,18 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Playable Dweller [RP]",
+    "description": "Monster model, textures, animations and sounds for the Playable Dweller add-on. Requires the Playable Dweller [BP] behavior pack.",
+    "uuid": "5ebcf5ef-9705-4268-9e37-bd95bfe98fbf",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 70]
+  },
+  "modules": [
+    {
+      "description": "Dweller textures, models, animations, sounds",
+      "type": "resources",
+      "uuid": "c29c931d-2d64-4df3-a8f6-6553405329a5",
+      "version": [1, 0, 0]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:item": {
+    "description": {
+      "identifier": "dwl:ability_super_run",
+      "menu_category": {
+        "category": "equipment",
+        "group": "dwl:group.dweller_kit"
+      }
+    },
+    "components": {
+      "minecraft:icon": {
+        "textures": {
+          "default": "dwl_super_run"
+        }
+      },
+      "minecraft:display_name": {
+        "value": "item.dwl:ability_super_run.name"
+      },
+      "minecraft:max_stack_size": 1,
+      "minecraft:hand_equipped": true,
+      "minecraft:cooldown": {
+        "category": "dwl:super_run",
+        "duration": 30.0
+      },
+      "minecraft:tags": {
+        "tags": ["dwl:ability_item"]
+      }
+    }
+  }
+}

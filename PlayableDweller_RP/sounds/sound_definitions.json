@@ -1,0 +1,33 @@
+{
+  "format_version": "1.21.70",
+  "sound_definitions": {
+    "dwl.scream": {
+      "category": "hostile",
+      "sounds": ["sounds/dwl/scream"]
+    },
+    "dwl.bone_crack": {
+      "category": "hostile",
+      "sounds": ["sounds/dwl/bone_crack"]
+    },
+    "dwl.footstep": {
+      "category": "hostile",
+      "sounds": [
+        { "name": "sounds/dwl/footstep", "pitch": [0.85, 1.15], "volume": 0.8 }
+      ]
+    },
+    "dwl.knock": {
+      "category": "hostile",
+      "sounds": [
+        { "name": "sounds/dwl/knock", "pitch": [0.9, 1.1], "volume": 0.7 }
+      ]
+    },
+    "dwl.ambience": {
+      "category": "ambient",
+      "sounds": ["sounds/dwl/ambience"]
+    },
+    "dwl.hunt_theme": {
+      "category": "music",
+      "sounds": ["sounds/dwl/hunt_theme"]
+    }
+  }
+}

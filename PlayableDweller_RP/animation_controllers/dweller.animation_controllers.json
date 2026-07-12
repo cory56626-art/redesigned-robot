@@ -1,0 +1,54 @@
+{
+  "format_version": "1.21.70",
+  "animation_controllers": {
+    "controller.animation.dwl_dweller.locomotion": {
+      "initial_state": "idle",
+      "states": {
+        "idle": {
+          "animations": ["animation.dwl_dweller.idle"],
+          "transitions": [
+            { "walk": "query.property('dwl:move_state') == 'walk'" },
+            { "sprint": "query.property('dwl:move_state') == 'sprint'" }
+          ]
+        },
+        "walk": {
+          "animations": ["animation.dwl_dweller.walk"],
+          "transitions": [
+            { "idle": "query.property('dwl:move_state') == 'idle'" },
+            { "sprint": "query.property('dwl:move_state') == 'sprint'" }
+          ]
+        },
+        "sprint": {
+          "animations": ["animation.dwl_dweller.sprint"],
+          "transitions": [
+            { "idle": "query.property('dwl:move_state') == 'idle'" },
+            { "walk": "query.property('dwl:move_state') == 'walk'" }
+          ]
+        }
+      }
+    },
+    "controller.animation.dwl_dweller.action": {
+      "initial_state": "none",
+      "states": {
+        "none": {
+          "transitions": [
+            { "grab": "query.property('dwl:action_state') == 'grab'" },
+            { "spine_twist": "query.property('dwl:action_state') == 'spine_twist'" }
+          ]
+        },
+        "grab": {
+          "animations": ["animation.dwl_dweller.grab"],
+          "transitions": [
+            { "none": "query.property('dwl:action_state') == 'none'" }
+          ]
+        },
+        "spine_twist": {
+          "animations": ["animation.dwl_dweller.spine_twist"],
+          "transitions": [
+            { "none": "query.property('dwl:action_state') == 'none'" }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "dwl:dweller_puppet",
+      "is_spawnable": false,
+      "is_summonable": true,
+      "is_experimental": false,
+      "properties": {
+        "dwl:move_state": {
+          "type": "enum",
+          "values": ["idle", "walk", "sprint"],
+          "default": "idle",
+          "client_sync": true
+        },
+        "dwl:action_state": {
+          "type": "enum",
+          "values": ["none", "grab", "spine_twist"],
+          "default": "none",
+          "client_sync": true
+        }
+      }
+    },
+    "components": {
+      "minecraft:collision_box": {
+        "width": 0.001,
+        "height": 0.001
+      },
+      "minecraft:physics": {
+        "has_gravity": false,
+        "has_collision": false
+      },
+      "minecraft:pushable": {
+        "is_pushable": false,
+        "is_pushable_by_piston": false
+      },
+      "minecraft:knockback_resistance": {
+        "value": 1.0
+      },
+      "minecraft:health": {
+        "value": 100000,
+        "max": 100000
+      },
+      "minecraft:damage_sensor": {
+        "triggers": {
+          "deals_damage": false
+        }
+      },
+      "minecraft:fire_immune": {},
+      "minecraft:persistent": {},
+      "minecraft:can_climb": {},
+      "minecraft:type_family": {
+        "family": ["dwl_puppet", "dwl_no_target"]
+      }
+    }
+  }
+}

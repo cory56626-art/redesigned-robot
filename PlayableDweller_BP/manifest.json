@@ -1,0 +1,36 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Playable Dweller [BP]",
+    "description": "Asymmetric horror add-on: one player becomes The Dweller and hunts the others. Requires the Playable Dweller [RP] resource pack.",
+    "uuid": "c735f402-bb07-471e-8177-c8cd20f554a9",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 70]
+  },
+  "modules": [
+    {
+      "description": "Dweller items, entities and data-driven content",
+      "type": "data",
+      "uuid": "bd9c2719-8fb2-4527-baf3-5d13948fc6c5",
+      "version": [1, 0, 0]
+    },
+    {
+      "description": "Dweller server-side scripting (transformation, abilities, state)",
+      "type": "script",
+      "language": "javascript",
+      "uuid": "6e05233d-5b2e-4e28-b940-b08b152d5a07",
+      "entry": "scripts/main.js",
+      "version": [1, 0, 0]
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "1.18.0"
+    },
+    {
+      "uuid": "5ebcf5ef-9705-4268-9e37-bd95bfe98fbf",
+      "version": [1, 0, 0]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "dwl:decoy",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/entity/dwl/dweller" },
+      "geometry": { "default": "geometry.dwl_dweller" },
+      "animations": {
+        "idle": "animation.dwl_dweller.idle",
+        "walk": "animation.dwl_dweller.walk",
+        "sprint": "animation.dwl_dweller.sprint",
+        "grab": "animation.dwl_dweller.grab",
+        "spine_twist": "animation.dwl_dweller.spine_twist",
+        "locomotion_controller": "controller.animation.dwl_dweller.locomotion",
+        "action_controller": "controller.animation.dwl_dweller.action"
+      },
+      "scripts": {
+        "animate": ["locomotion_controller", "action_controller"]
+      },
+      "render_controllers": ["controller.render.dwl_dweller"],
+      "enable_attachables": false
+    }
+  }
+}

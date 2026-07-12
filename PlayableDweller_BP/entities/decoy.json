@@ -1,0 +1,89 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "dwl:decoy",
+      "is_spawnable": false,
+      "is_summonable": true,
+      "is_experimental": false,
+      "properties": {
+        "dwl:move_state": {
+          "type": "enum",
+          "values": ["idle", "walk", "sprint"],
+          "default": "idle",
+          "client_sync": true
+        },
+        "dwl:action_state": {
+          "type": "enum",
+          "values": ["none", "grab", "spine_twist"],
+          "default": "none",
+          "client_sync": true
+        }
+      }
+    },
+    "component_groups": {
+      "dwl:can_wander": {
+        "minecraft:behavior.random_stroll": {
+          "priority": 6,
+          "speed_multiplier": 0.6,
+          "interval": 120
+        },
+        "minecraft:behavior.random_look_around": {
+          "priority": 9
+        }
+      }
+    },
+    "components": {
+      "minecraft:collision_box": {
+        "width": 0.6,
+        "height": 3.5
+      },
+      "minecraft:physics": {},
+      "minecraft:movement": {
+        "value": 0.25
+      },
+      "minecraft:movement.basic": {},
+      "minecraft:navigation.walk": {
+        "can_path_over_water": false,
+        "avoid_water": true,
+        "avoid_damage_blocks": true
+      },
+      "minecraft:jump.static": {},
+      "minecraft:pushable": {
+        "is_pushable": false,
+        "is_pushable_by_piston": false
+      },
+      "minecraft:knockback_resistance": {
+        "value": 1.0
+      },
+      "minecraft:health": {
+        "value": 100000,
+        "max": 100000
+      },
+      "minecraft:damage_sensor": {
+        "triggers": {
+          "deals_damage": false
+        }
+      },
+      "minecraft:fire_immune": {},
+      "minecraft:persistent": {},
+      "minecraft:behavior.float": {
+        "priority": 0
+      },
+      "minecraft:type_family": {
+        "family": ["dwl_decoy", "dwl_no_target"]
+      }
+    },
+    "events": {
+      "dwl:spawn_init": {
+        "add": { "component_groups": ["dwl:can_wander"] }
+      },
+      "dwl:start_stare": {
+        "remove": { "component_groups": ["dwl:can_wander"] }
+      },
+      "dwl:stop_stare": {
+        "add": { "component_groups": ["dwl:can_wander"] }
+      }
+    }
+  }
+}

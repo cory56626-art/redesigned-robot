@@ -1,0 +1,18 @@
+{
+  "resource_pack_name": "playable_dweller",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "dwl_totem": {
+      "textures": "textures/items/totem"
+    },
+    "dwl_super_run": {
+      "textures": "textures/items/super_run"
+    },
+    "dwl_decoy": {
+      "textures": "textures/items/decoy"
+    },
+    "dwl_broadcast": {
+      "textures": "textures/items/broadcast"
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "format_version": "1.21.70",
+  "minecraft:item": {
+    "description": {
+      "identifier": "dwl:totem",
+      "menu_category": {
+        "category": "equipment",
+        "group": "dwl:group.dweller_kit"
+      }
+    },
+    "components": {
+      "minecraft:icon": {
+        "textures": {
+          "default": "dwl_totem"
+        }
+      },
+      "minecraft:display_name": {
+        "value": "item.dwl:totem.name"
+      },
+      "minecraft:max_stack_size": 1,
+      "minecraft:hand_equipped": true,
+      "minecraft:glint": true,
+      "minecraft:tags": {
+        "tags": ["dwl:totem"]
+      }
+    }
+  }
+}
