@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Snake</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --board-bg: #161a23;
+    --grid-line: #1e2330;
+    --snake-head: #4ade80;
+    --snake-body: #22c55e;
+    --food: #f87171;
+    --text: #e5e7eb;
+    --accent: #38bdf8;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 20px;
+  }
+  h1 {
+    margin: 0;
+    font-size: 28px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    text-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+  }
+  #hud {
+    display: flex;
+    gap: 28px;
+    font-size: 18px;
+    font-variant-numeric: tabular-nums;
+  }
+  #hud span.label {
+    color: #94a3b8;
+    margin-right: 6px;
+  }
+  #board-wrap {
+    position: relative;
+    border-radius: 10px;
+    padding: 10px;
+    background: linear-gradient(145deg, #1b1f2a, #12151d);
+    box-shadow: 0 0 0 1px #262b38, 0 20px 40px rgba(0,0,0,0.45);
+  }
+  canvas {
+    display: block;
+    background: var(--board-bg);
+    border-radius: 6px;
+  }
+  #overlay {
+    position: absolute;
+    inset: 10px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 10px;
+    background: rgba(10, 12, 18, 0.82);
+    border-radius: 6px;
+    text-align: center;
+  }
+  #overlay.show { display: flex; }
+  #overlay h2 {
+    margin: 0;
+    font-size: 26px;
+    color: #f87171;
+  }
+  #overlay p {
+    margin: 0;
+    color: #cbd5e1;
+    font-size: 15px;
+  }
+  footer {
+    font-size: 13px;
+    color: #64748b;
+  }
+</style>
+</head>
+<body>
+  <div id="app">
+    <h1>SNAKE</h1>
+    <div id="hud">
+      <div><span class="label">Score</span><span id="score">0</span></div>
+      <div><span class="label">Best</span><span id="best">0</span></div>
+      <div><span class="label">Speed</span><span id="speed">1x</span></div>
+    </div>
+    <div id="board-wrap">
+      <canvas id="board" width="400" height="400"></canvas>
+      <div id="overlay">
+        <h2 id="overlay-title">Game Over</h2>
+        <p id="overlay-sub">Press Space to restart</p>
+      </div>
+    </div>
+    <footer>Arrow keys / WASD to move &middot; Space to pause or restart</footer>
+  </div>
+<script src="snake.js"></script>
+</body>
+</html>
