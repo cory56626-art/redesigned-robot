@@ -10,7 +10,7 @@ def test_missing_file_gives_defaults(tmp_path):
 
 def test_round_trip(tmp_path):
     path = tmp_path / "settings.json"
-    original = Settings(provider="ollama", model="gemma3", comment_interval=45)
+    original = Settings(provider="ollama", model="gemma3", capture_interval=6.0)
     save_settings(original, path)
     assert load_settings(path) == original
 

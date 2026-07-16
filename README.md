@@ -5,11 +5,11 @@ play, chats with you, and pipes up with commentary of its own — swappable
 personalities, TTS voices, and multiple AI providers (Google's free tier by
 default). Formerly "Mine Buddy", which lives on as the default persona.
 
-**Status: rebuild in progress** — see `PLAN.md` for the roadmap. Steps 1
-(package skeleton + provider layer) and 2 (multi-key rotation + secure key
-storage) are done; the app currently runs as a console chat with prototype
-feature-parity. The windowed app, personas, TTS, and the rest land in the
-following steps.
+**Status: rebuild in progress** — see `PLAN.md` for the roadmap. Done so
+far: step 1 (package skeleton + provider layer), step 2 (multi-key rotation
++ secure key storage), step 3 (the director — lively, cheap comment
+timing). The windowed app, personas, TTS, and the rest land in the
+following steps; until then it runs as a console chat.
 
 ## Try it now (console mode)
 
@@ -74,10 +74,23 @@ Notes:
 - `tests/` — unit tests for the pure logic (`pip install -e .[dev]`, then
   `python -m pytest`).
 
+## How commenting works now (the director)
+
+Backseat looks at your screen every few seconds **locally** (costing
+nothing), fingerprints the frame, and only spends an API request when the
+scene actually changed AND a randomized cooldown has passed. Bursts of
+action make it chattier; quiet mining makes it back off; near-duplicate
+comments get dropped. Net effect: livelier timing with *fewer* API calls
+than the old fixed 20-second poll.
+
+It also never captures while a password manager (or any window title on
+your blocklist — `privacy_blocklist` in settings.json) is focused; the
+console prints watching/paused transitions so you always know.
+
 ## Known limitations (current step)
 
-- Console UI, fixed 20s comment interval, no TTS yet — all replaced in
-  later PLAN.md steps.
+- Console UI, no TTS, single hardcoded personality yet — coming in later
+  PLAN.md steps.
 - Free Google tier: rate-limited (multiple keys soften this), and
   prompts/outputs may be used to improve Google's models (not private the
   way a paid tier is).

@@ -10,9 +10,33 @@ now growing voice output. Renamed from "Mine Buddy" to **Backseat** (as in
 backseat gamer) because nothing about it is Minecraft-specific; "Mine Buddy"
 lives on as the name of the default persona.
 
-### Current status (July 2026): rebuild underway — PLAN.md steps 1 & 2 DONE
+### Current status (July 2026): rebuild underway — PLAN.md steps 1-3 DONE
 
-**Step 2 (multi-key support, `keys.py`) is complete:**
+**Step 3 (the director) is complete:**
+- `capture/change.py`: dHash perceptual hashing (8x8, 64-bit) + hamming
+  distance; JPEG re-compression stays under the change threshold (8 bits).
+  Uses `tobytes()` — `getdata()` is deprecated in Pillow 12+.
+- `director.py`: `Director.should_glance(frame_hash)` gates API calls on
+  scene-change + jittered cooldown (25-70s, ±25%); energy value rises with
+  change magnitude, halves per 60s of quiet, shortens cooldowns; persona
+  `chattiness` plugs into `DirectorConfig` (step 4 wires it). Reply dedupe
+  via `SequenceMatcher` ratio ≥ 0.85 over last 6 replies
+  (`approve_reply`).
+- `capture/privacy.py`: `PrivacyGuard` blocklist (substring,
+  case-insensitive) + `focused_window_title()` (ctypes, Windows-only, None
+  elsewhere = not blocked). Checked BEFORE capture; console prints
+  watching/paused transitions. Default blocklist = password managers.
+- `app.py` watch loop is director-driven; `comment_interval` setting
+  replaced by `capture_interval`/`min_cooldown`/`max_cooldown`/
+  `chattiness`/`privacy_blocklist`. Simulated run: 43 frames → 3 API
+  calls (old design: 8). NOT yet verified against real gameplay on the
+  user's PC.
+
+**Next up: step 4 (personas)**, then maturity (step 5), TTS (step 6),
+UI (step 7 — user cares a lot that it looks good; use the
+frontend-design skill).
+
+Earlier: **step 2 (multi-key support, `keys.py`) complete:**
 - `KeyPool`: round-robin rotation; 429 marks a key cooling-down with a
   reset timestamp that doubles on consecutive limits (60s base, 15min cap);
   per-key request/rate-limit stats for the step-7 usage panel.
@@ -31,8 +55,6 @@ lives on as the name of the default persona.
   build on the user's PC → `dist\Backseat\Backseat.exe`). PyInstaller
   cannot cross-compile — exe builds happen only on the user's Windows
   machine; the bat is written for that. NOT yet verified on Windows.
-
-**Next up: step 3 (the director)**, then personas (step 4).
 
 The project is being rebuilt into a real installable Windows app per
 **`PLAN.md`** — read that file first; it is the approved roadmap and

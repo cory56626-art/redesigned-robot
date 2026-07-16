@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
+
+from .capture.privacy import DEFAULT_BLOCKLIST
 
 APP_NAME = "Backseat"
 
@@ -36,11 +38,17 @@ class Settings:
     model: str = ""
     api_key: str = ""  # legacy step-1 field; auto-migrated to the keyring
     ollama_host: str = "http://localhost:11434"
-    comment_interval: int = 20  # seconds; replaced by the director in step 3
     max_image_width: int = 1024
     jpeg_quality: int = 70
     monitor: int = 1
     max_history_turns: int = 20
+    # Director timing (see director.py). chattiness moves into personas
+    # in step 4; until then it's a plain setting.
+    capture_interval: float = 4.0  # local hash cadence, costs no API calls
+    min_cooldown: float = 25.0
+    max_cooldown: float = 70.0
+    chattiness: float = 0.4
+    privacy_blocklist: list[str] = field(default_factory=lambda: list(DEFAULT_BLOCKLIST))
 
 
 def load_settings(path: Path | None = None) -> Settings:
