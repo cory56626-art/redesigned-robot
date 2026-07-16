@@ -1,8 +1,8 @@
 """Settings persisted as JSON in %APPDATA%\\Backseat (or ~/.config/backseat).
 
-NOTE: ``api_key`` living in this JSON is a stopgap for the console phase
-only. PLAN step 2 (keys.py) moves keys into Windows Credential Manager via
-``keyring`` and adds the multi-key pool; this field is deleted then.
+API keys do NOT live here — they're in the OS keyring via keys.py. The
+``api_key`` field below only remains so step-1 installs migrate cleanly
+(``__main__`` moves any value into the keyring and blanks it on startup).
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ class Settings:
     # (see CLAUDE.md), so the app asks the provider for its list rather
     # than assuming.
     model: str = ""
-    api_key: str = ""  # temporary; replaced by keyring in PLAN step 2
+    api_key: str = ""  # legacy step-1 field; auto-migrated to the keyring
     ollama_host: str = "http://localhost:11434"
     comment_interval: int = 20  # seconds; replaced by the director in step 3
     max_image_width: int = 1024

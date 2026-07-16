@@ -10,13 +10,35 @@ now growing voice output. Renamed from "Mine Buddy" to **Backseat** (as in
 backseat gamer) because nothing about it is Minecraft-specific; "Mine Buddy"
 lives on as the name of the default persona.
 
-### Current status (July 2026): rebuild underway — PLAN.md step 1 DONE
+### Current status (July 2026): rebuild underway — PLAN.md steps 1 & 2 DONE
+
+**Step 2 (multi-key support, `keys.py`) is complete:**
+- `KeyPool`: round-robin rotation; 429 marks a key cooling-down with a
+  reset timestamp that doubles on consecutive limits (60s base, 15min cap);
+  per-key request/rate-limit stats for the step-7 usage panel.
+- `KeyStore`: keys in the OS keyring (Windows Credential Manager on the
+  target PC). Falls back to `keys.json` in the config dir when no usable
+  keyring exists (headless dev box) — probe must catch `BaseException`,
+  a broken Linux SecretService backend raises a pyo3 `PanicException`.
+- `RotatingProvider`: wraps keyed providers; retries the same request on
+  the next key after a 429; raises rate_limited only when ALL keys cool.
+- CLI: `--add-key` / `--remove-key` / `--list-keys`; old `--api-key` kept
+  as a hidden alias; a key stored in settings.json by step 1 auto-migrates
+  to the keyring on startup. ollama/mock need no keys.
+- **Packaging scaffold (early slice of step 8):** `build/backseat.spec`
+  (onedir, console=True until step 7, lazy-imported SDKs listed as
+  hiddenimports, Qt excluded) + `build/build_windows.bat` (double-click
+  build on the user's PC → `dist\Backseat\Backseat.exe`). PyInstaller
+  cannot cross-compile — exe builds happen only on the user's Windows
+  machine; the bat is written for that. NOT yet verified on Windows.
+
+**Next up: step 3 (the director)**, then personas (step 4).
 
 The project is being rebuilt into a real installable Windows app per
 **`PLAN.md`** — read that file first; it is the approved roadmap and
 architecture.
 
-**Step 1 (skeleton + provider layer) is complete:**
+Earlier: **step 1 (skeleton + provider layer) complete:**
 - `backseat/` package with the PLAN.md layout; later-step modules exist as
   docstring placeholders (`keys.py`, `director.py`, `maturity.py`,
   `bridge.py`, `persona/`, `tts/`).
@@ -35,8 +57,6 @@ architecture.
   glance loop lives in `app.py` until the director replaces it in step 3).
 - `tests/` cover retry, memory, config, mock, ollama payload shaping —
   20 passing. Prototype scripts moved to `prototype/` (reference only).
-
-**Next up: step 2 (multi-key pool, `keys.py`)**, then the director (step 3).
 
 Key locked decisions:
 

@@ -13,6 +13,7 @@ import time
 
 from .capture import capture_screenshot
 from .config import Settings
+from .keys import KEYED_PROVIDERS, KeyPool, KeyStore, RotatingProvider
 from .memory import Memory
 from .providers import ChatMessage, LLMProvider, ProviderError, build_provider, with_retry
 
@@ -84,13 +85,27 @@ class Backseat:
         return reply
 
 
-def run_console(settings: Settings) -> None:
-    provider = build_provider(
-        settings.provider,
-        api_key=settings.api_key,
-        model=settings.model,
-        ollama_host=settings.ollama_host,
+def make_provider(settings: Settings, store: KeyStore | None = None) -> LLMProvider:
+    """Build the configured provider, wrapped in key rotation when keyed."""
+    if settings.provider not in KEYED_PROVIDERS:
+        return build_provider(
+            settings.provider, model=settings.model, ollama_host=settings.ollama_host
+        )
+    store = store or KeyStore()
+    keys = store.load(settings.provider)
+    if not keys:
+        raise ProviderError(
+            f"No API keys stored for '{settings.provider}'. "
+            "Add one with:  python -m backseat --add-key YOUR-KEY-HERE"
+        )
+    factory = lambda key: build_provider(
+        settings.provider, api_key=key, model=settings.model
     )
+    return RotatingProvider(factory, KeyPool(keys), name=settings.provider)
+
+
+def run_console(settings: Settings) -> None:
+    provider = make_provider(settings)
     if not settings.model and provider.name != "mock":
         print("No model set yet. Models available to your key/install:\n")
         try:
@@ -103,8 +118,14 @@ def run_console(settings: Settings) -> None:
 
     session = Backseat(provider, settings)
 
+    keys_note = (
+        f", {len(provider.pool)} key(s) in rotation"
+        if isinstance(provider, RotatingProvider)
+        else ""
+    )
     print(
-        f"Backseat is watching your screen ({provider.name}: {settings.model or 'default'}). "
+        f"Backseat is watching your screen ({provider.name}: "
+        f"{settings.model or 'default'}{keys_note}). "
         "Type anytime to chat, or 'quit' to exit.\n"
     )
 

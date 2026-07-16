@@ -5,10 +5,11 @@ play, chats with you, and pipes up with commentary of its own — swappable
 personalities, TTS voices, and multiple AI providers (Google's free tier by
 default). Formerly "Mine Buddy", which lives on as the default persona.
 
-**Status: rebuild in progress** — see `PLAN.md` for the roadmap. Step 1
-(package skeleton + provider layer) is done; the app currently runs as a
-console chat with prototype feature-parity. The windowed app, personas, TTS,
-and the rest land in the following steps.
+**Status: rebuild in progress** — see `PLAN.md` for the roadmap. Steps 1
+(package skeleton + provider layer) and 2 (multi-key rotation + secure key
+storage) are done; the app currently runs as a console chat with prototype
+feature-parity. The windowed app, personas, TTS, and the rest land in the
+following steps.
 
 ## Try it now (console mode)
 
@@ -21,10 +22,13 @@ and the rest land in the following steps.
 
 2. Get a free Google API key: https://aistudio.google.com/app/apikey
 
-3. Save your key once (no more environment variables):
+3. Save your key once — it goes into Windows Credential Manager, not a file:
    ```
-   python -m backseat --api-key YOUR-KEY-HERE
+   python -m backseat --add-key YOUR-KEY-HERE
    ```
+   Have more keys? Run `--add-key` once per key. Backseat rotates through
+   them automatically and rests any key that hits its rate limit.
+   (`--list-keys` and `--remove-key` manage the pool.)
 
 4. First run lists the models your key can access. Pick one with "gemma" in
    the name and save it:
@@ -44,6 +48,19 @@ No API key? Kick the tires with canned replies:
 python -m backseat --provider mock
 ```
 
+## Building Backseat.exe
+
+On your Windows PC, double-click **`build\build_windows.bat`**. It sets up a
+clean environment, installs everything, and produces
+`dist\Backseat\Backseat.exe` — keep that whole folder together; the exe
+needs the files beside it. (A proper `BackseatSetup.exe` installer with
+Start Menu shortcuts comes in PLAN step 8.)
+
+Notes:
+- The exe can only be built on Windows (PyInstaller doesn't cross-compile).
+- Windows SmartScreen may warn about an unsigned exe the first time — click
+  "More info" → "Run anyway". It's your own build.
+
 ## Repo layout
 
 - `backseat/` — the application package (see `PLAN.md` for the full map).
@@ -59,11 +76,10 @@ python -m backseat --provider mock
 
 ## Known limitations (current step)
 
-- Console UI, single API key, fixed 20s comment interval, no TTS yet —
-  all replaced in later PLAN.md steps.
-- API key is stored in plain-text settings JSON until step 2 moves it into
-  Windows Credential Manager.
-- Free Google tier: rate-limited, and prompts/outputs may be used to
-  improve Google's models (not private the way a paid tier is).
+- Console UI, fixed 20s comment interval, no TTS yet — all replaced in
+  later PLAN.md steps.
+- Free Google tier: rate-limited (multiple keys soften this), and
+  prompts/outputs may be used to improve Google's models (not private the
+  way a paid tier is).
 
 See `CLAUDE.md` for project history and design decisions.
