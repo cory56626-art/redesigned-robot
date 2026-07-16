@@ -1,0 +1,30 @@
+[project]
+name = "backseat"
+version = "0.1.0"
+description = "An AI backseat gamer: watches your screen, comments, and chats with you."
+requires-python = ">=3.11"
+dependencies = [
+    "mss",
+    "pillow",
+]
+
+[project.optional-dependencies]
+# Each LLM provider's SDK is optional — install only what you use.
+# Ollama needs nothing (plain HTTP to localhost).
+google = ["google-genai"]
+anthropic = ["anthropic"]
+openai = ["openai"]
+dev = ["pytest"]
+
+[project.scripts]
+backseat = "backseat.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["backseat*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
