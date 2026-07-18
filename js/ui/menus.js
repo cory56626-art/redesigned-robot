@@ -29,6 +29,7 @@ export class Menus {
   _wire() {
     const g = this.game;
     // ---- Main menu ----
+    $('btnContinue').onclick = () => g.continueGame();
     $('btnNewWorld').onclick = () => this.show('newWorldDialog');
     $('btnLoadWorld').onclick = () => this.openLoadDialog();
     $('btnMultiplayer').onclick = () => this.show('mpMenu');
@@ -122,8 +123,13 @@ export class Menus {
   }
 
   // ---- Main menu / pause visibility ----
-  showMainMenu() { this.show('mainMenu'); }
+  showMainMenu() { this.refreshContinue(); this.show('mainMenu'); }
   hideMainMenu() { this.hide('mainMenu'); }
+  // Show "Continue" only when there's at least one save to resume.
+  refreshContinue() {
+    const btn = $('btnContinue');
+    if (btn) btn.classList.toggle('hidden', this.game.saves.list().length === 0);
+  }
   showPause() { this.show('pauseMenu'); $('btnLeaveServer').style.display = this.game.net ? '' : 'none'; this._updatePauseSaveState(); }
   hidePause() { this.hide('pauseMenu'); }
   _updatePauseSaveState() { $('pauseSaveState').textContent = this.game.saveStateText(); }

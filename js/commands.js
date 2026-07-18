@@ -5,6 +5,14 @@ import { BOSS_KEYS, BOSSES } from './data/bosses.js';
 
 const $ = (id) => document.getElementById(id);
 
+// Friendly aliases so common creature names map to this game's original enemies
+// (e.g. there's no "slime" — the slime-like foe is the Slugling).
+const SPAWN_ALIASES = {
+  slime: 'slugling', slimes: 'slugling', slug: 'slugling',
+  zombie: 'husk', skeleton: 'bonepicker', bones: 'bonepicker',
+  spider: 'crawler', pig: 'boar', ghost: 'blightshade', caster: 'blightshade',
+};
+
 export class CommandConsole {
   constructor(game) {
     this.game = game;
@@ -213,7 +221,8 @@ export class CommandConsole {
   }
 
   _spawn(a) {
-    const id = this._resolve(ENEMY_KEYS, a[0], ENEMYNAMES());
+    const raw = (a[0] || '').toLowerCase();
+    const id = SPAWN_ALIASES[raw] || this._resolve(ENEMY_KEYS, a[0], ENEMYNAMES());
     if (!id) return err(`No enemy matching "${a[0] || ''}". Options: ${ENEMY_KEYS.join(', ')}`);
     const count = Math.max(1, Math.min(10, parseInt(a[1], 10) || 1));
     this.game.hostCommand('spawn', { key: id, count });

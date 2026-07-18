@@ -99,11 +99,15 @@ export class Input {
   }
 
   _readKeyboardAxis() {
-    if (this.mode === 'mobile') return; // joystick supplies moveX
     let x = 0;
     if (this.keys.has('a') || this.keys.has('arrowleft')) x -= 1;
     if (this.keys.has('d') || this.keys.has('arrowright')) x += 1;
-    this.state.moveX = x;
+    // Keyboard drives movement in EVERY control mode — including mobile, for
+    // hybrid tablet+keyboard setups or a wrong auto-detect (a common cause of
+    // "left/right doesn't work"). When no movement key is held we leave moveX
+    // alone in mobile mode so the on-screen joystick still supplies it.
+    if (x !== 0) this.state.moveX = x;
+    else if (this.mode !== 'mobile') this.state.moveX = 0;
   }
 
   // ---- Mouse ----

@@ -98,6 +98,7 @@ class Game {
     this.ui.menus = new Menus(this);
     this.commands = new CommandConsole(this);
     this._wireInputActions();
+    this.ui.menus.refreshContinue(); // reflect any existing saves on first paint
     this._resize();
     window.addEventListener('resize', () => this._resize());
 
@@ -270,6 +271,13 @@ class Game {
     this.toast('Welcome to ' + name + '!', 'good');
   }
 
+  // Load the most recently played save (Main Menu "Continue" button).
+  continueGame() {
+    const saves = this.saves.list();
+    if (!saves.length) { this.toast('No saved worlds yet', 'bad'); return; }
+    this.loadWorldSlot(saves[0].id);
+  }
+
   loadWorldSlot(id) {
     const data = this.saves.read(id);
     if (!data) { this.toast('Save not found', 'bad'); return; }
@@ -352,12 +360,16 @@ class Game {
     if (!this.world) return;
     const inv = this.localPlayer.inventory;
     this.world = new World(this.seed);
-    this._resetEntities();
+    this._resetEntities();               // clears enemies, bosses, drops, minions, projectiles
+    this.time = new DayNight();           // fresh morning, not whatever time it was
     this.localPlayer.inventory = inv;
     this.players.set(this.localPlayer.id, this.localPlayer);
     const tx = Math.floor(this.world.spawnX / TILE);
     this.localPlayer.x = this.world.spawnX; this.localPlayer.y = (this.world.safeSpawnY(tx) - 2) * TILE;
-    this.localPlayer.alive = true; this.localPlayer.hp = this.localPlayer.maxHp;
+    this.localPlayer.vx = 0; this.localPlayer.vy = 0;
+    this.localPlayer.alive = true;
+    this.localPlayer.hp = this.localPlayer.maxHp; this.localPlayer.mana = this.localPlayer.maxMana;
+    this.localPlayer.buffs = [];
     this.camera.follow(this.localPlayer, 0, true);
     this.setPaused(false);
     this.markDirty();
