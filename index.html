@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1020" />
+  <title>Summoner Realms</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230b1020'/%3E%3Crect x='5' y='2' width='6' height='6' fill='%237ee0c0'/%3E%3Crect x='6' y='9' width='4' height='5' fill='%23c58bff'/%3E%3C/svg%3E" />
+</head>
+<body>
+  <!-- ============ GAME CANVAS ============ -->
+  <canvas id="game"></canvas>
+
+  <!-- ============ HUD (in-game overlay) ============ -->
+  <div id="hud" class="hud hidden">
+    <div class="hud-top-left">
+      <div class="bar-group">
+        <div class="bar hp"><div class="bar-fill" id="hpFill"></div><span class="bar-text" id="hpText">100/100</span></div>
+        <div class="bar mana"><div class="bar-fill" id="manaFill"></div><span class="bar-text" id="manaText">60/60</span></div>
+      </div>
+      <div id="buffBar" class="buff-bar"></div>
+    </div>
+
+    <div class="hud-top-right">
+      <div id="clock" class="clock">☀ Day</div>
+      <div id="saveIndicator" class="save-indicator saved">Saved</div>
+      <div id="netStatus" class="net-status hidden">Offline</div>
+      <div id="minionCount" class="minion-count hidden">Minions 0/1</div>
+    </div>
+
+    <!-- Boss health bar -->
+    <div id="bossBar" class="boss-bar hidden">
+      <div class="boss-name" id="bossName">Boss</div>
+      <div class="boss-hp"><div class="boss-hp-fill" id="bossHpFill"></div></div>
+      <div class="boss-phase" id="bossPhase"></div>
+    </div>
+
+    <!-- Toast messages -->
+    <div id="toasts" class="toasts"></div>
+
+    <!-- Hotbar -->
+    <div id="hotbar" class="hotbar"></div>
+  </div>
+
+  <!-- ============ MOBILE CONTROLS ============ -->
+  <div id="mobileControls" class="mobile-controls hidden">
+    <div id="joyMove" class="joystick"><div class="joy-knob"></div></div>
+    <div id="joyAim" class="joystick right"><div class="joy-knob"></div></div>
+    <div class="mobile-buttons">
+      <button class="mbtn" id="mbJump" data-act="jump">Jump</button>
+      <button class="mbtn" id="mbAttack" data-act="attack">Use</button>
+      <button class="mbtn" id="mbMine" data-act="mine">Mine</button>
+      <button class="mbtn" id="mbPlace" data-act="place">Place</button>
+    </div>
+    <div class="mobile-buttons-top">
+      <button class="mbtn small" id="mbInv" data-act="inv">Bag</button>
+      <button class="mbtn small" id="mbUseItem" data-act="useitem">Item</button>
+      <button class="mbtn small" id="mbPause" data-act="pause">☰</button>
+    </div>
+  </div>
+
+  <!-- ============ MAIN MENU ============ -->
+  <div id="mainMenu" class="overlay menu">
+    <div class="menu-panel">
+      <h1 class="game-title">Summoner<span>Realms</span></h1>
+      <p class="tagline">A tiny original sandbox-survival vertical slice</p>
+
+      <div class="menu-buttons">
+        <button class="btn primary" id="btnNewWorld">New World</button>
+        <button class="btn" id="btnLoadWorld">Load World</button>
+        <button class="btn" id="btnMultiplayer">Multiplayer</button>
+        <button class="btn" id="btnHowto">How to Play</button>
+      </div>
+
+      <div class="menu-row">
+        <label>Controls:</label>
+        <div class="seg" id="controlModeSeg">
+          <button data-mode="pc" class="seg-btn active">PC</button>
+          <button data-mode="mobile" class="seg-btn">Mobile</button>
+        </div>
+      </div>
+      <div class="menu-row">
+        <label>Player name:</label>
+        <input type="text" id="playerNameInput" maxlength="14" placeholder="Summoner" />
+        <span class="color-swatch" id="playerColorSwatch" title="Your color (click to change)"></span>
+      </div>
+      <p class="version">v1.0 demo · original art & content</p>
+    </div>
+  </div>
+
+  <!-- ============ NEW WORLD DIALOG ============ -->
+  <div id="newWorldDialog" class="overlay dialog hidden">
+    <div class="dialog-panel">
+      <h2>New World</h2>
+      <label>World name</label>
+      <input type="text" id="newWorldName" maxlength="20" placeholder="Realm One" />
+      <label>Seed (optional — blank = random)</label>
+      <input type="text" id="newWorldSeed" maxlength="20" placeholder="e.g. summoner" />
+      <div class="dialog-buttons">
+        <button class="btn" id="newWorldCancel">Cancel</button>
+        <button class="btn primary" id="newWorldCreate">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ LOAD WORLD DIALOG ============ -->
+  <div id="loadWorldDialog" class="overlay dialog hidden">
+    <div class="dialog-panel">
+      <h2>Load World</h2>
+      <div id="saveList" class="save-list"></div>
+      <div class="dialog-buttons">
+        <button class="btn" id="loadWorldClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MULTIPLAYER MENU ============ -->
+  <div id="mpMenu" class="overlay dialog hidden">
+    <div class="dialog-panel">
+      <h2>Multiplayer</h2>
+      <p class="hint">Peer-to-peer via WebRTC. The host runs the world; others join with a code or link. Works PC ↔ mobile.</p>
+      <div class="mp-section">
+        <button class="btn primary" id="btnCreateServer">Create Server (host a world)</button>
+        <p class="hint small">Starts from your currently loaded world, or a new one.</p>
+      </div>
+      <div class="mp-divider">or</div>
+      <div class="mp-section">
+        <label>Join with room code</label>
+        <div class="join-row">
+          <input type="text" id="joinCodeInput" maxlength="12" placeholder="ABCDE" />
+          <button class="btn" id="btnJoinServer">Join</button>
+        </div>
+        <p class="hint small">Or open an invite link someone shared with you.</p>
+      </div>
+      <div id="mpStatus" class="mp-status"></div>
+      <div class="dialog-buttons">
+        <button class="btn" id="mpClose">Back</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PAUSE MENU ============ -->
+  <div id="pauseMenu" class="overlay menu hidden">
+    <div class="menu-panel">
+      <h2>Paused</h2>
+      <div class="menu-buttons">
+        <button class="btn primary" id="btnResume">Resume</button>
+        <button class="btn" id="btnSaveGame">Save Game</button>
+        <button class="btn" id="btnDemoCommands">Demo Commands</button>
+        <button class="btn" id="btnResetWorld">Reset World</button>
+        <button class="btn" id="btnLeaveServer">Leave Server</button>
+        <button class="btn danger" id="btnQuitMenu">Quit to Menu</button>
+      </div>
+      <div id="pauseSaveState" class="hint small"></div>
+    </div>
+  </div>
+
+  <!-- ============ INVENTORY / CRAFTING ============ -->
+  <div id="inventoryScreen" class="overlay inv hidden">
+    <div class="inv-panel">
+      <div class="inv-col">
+        <h3>Equipment</h3>
+        <div class="equip-grid" id="equipGrid"></div>
+        <h3>Inventory</h3>
+        <div class="inv-grid" id="invGrid"></div>
+        <p class="hint small">Click an item to use/equip. Right-click (or long-press) to drop one.</p>
+      </div>
+      <div class="inv-col">
+        <h3>Crafting <span class="hint small" id="craftStationLabel">(near: none)</span></h3>
+        <div class="craft-list" id="craftList"></div>
+      </div>
+    </div>
+    <div id="itemTooltip" class="item-tooltip hidden"></div>
+  </div>
+
+  <!-- ============ MULTIPLAYER SIDEBAR (players + chat) ============ -->
+  <div id="mpSidebar" class="mp-sidebar hidden">
+    <div class="mp-panel">
+      <div class="mp-head">
+        <span id="mpRoomLabel">Room: —</span>
+        <button class="btn tiny" id="mpCopyLink">Copy Link</button>
+      </div>
+      <div class="mp-players">
+        <h4>Players</h4>
+        <ul id="playerList"></ul>
+      </div>
+      <div class="mp-chat">
+        <h4>Chat</h4>
+        <div id="chatLog" class="chat-log"></div>
+        <div class="chat-input-row">
+          <input type="text" id="chatInput" maxlength="120" placeholder="Press Enter to chat" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ DEMO COMMANDS PANEL ============ -->
+  <div id="commandPanel" class="overlay dialog hidden">
+    <div class="dialog-panel wide">
+      <h2>Demo Commands <span class="hint small">(testing only — not needed for normal play)</span></h2>
+      <div class="cmd-io">
+        <div id="cmdOutput" class="cmd-output"></div>
+        <div class="cmd-input-row">
+          <span class="cmd-prompt">/</span>
+          <input type="text" id="cmdInput" placeholder="help" autocomplete="off" spellcheck="false" />
+        </div>
+        <div id="cmdAutocomplete" class="cmd-autocomplete"></div>
+      </div>
+      <div class="cmd-list" id="cmdList"></div>
+      <div class="dialog-buttons">
+        <button class="btn" id="cmdClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ HOW TO PLAY ============ -->
+  <div id="howtoDialog" class="overlay dialog hidden">
+    <div class="dialog-panel wide">
+      <h2>How to Play</h2>
+      <div class="howto-body" id="howtoBody"></div>
+      <div class="dialog-buttons">
+        <button class="btn primary" id="howtoClose">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CONFIRM DIALOG ============ -->
+  <div id="confirmDialog" class="overlay dialog hidden">
+    <div class="dialog-panel narrow">
+      <h2 id="confirmTitle">Are you sure?</h2>
+      <p id="confirmMessage"></p>
+      <div class="dialog-buttons">
+        <button class="btn" id="confirmNo">Cancel</button>
+        <button class="btn danger" id="confirmYes">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ DEATH SCREEN ============ -->
+  <div id="deathScreen" class="overlay death hidden">
+    <div class="death-panel">
+      <h1>You Fell</h1>
+      <p id="deathMessage">The realm claims another summoner…</p>
+      <button class="btn primary" id="btnRespawn">Respawn</button>
+    </div>
+  </div>
+
+  <!-- PeerJS: vendored with CDN fallback if the local copy is missing. -->
+  <script src="vendor/peerjs.min.js" onerror="(function(){var s=document.createElement('script');s.src='https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';document.head.appendChild(s);})()"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

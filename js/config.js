@@ -1,0 +1,63 @@
+// Summoner Realms — global tuning constants.
+// Central place for numbers so gameplay is easy to tune.
+
+export const TILE = 16; // world pixels per tile
+
+export const WORLD_W = 420; // tiles wide
+export const WORLD_H = 200; // tiles tall
+
+// Vertical layout of the generated world (in tiles).
+export const SURFACE_Y = 70;      // average surface height
+export const UNDERGROUND_Y = 100; // below this depth counts as the Underground biome
+export const CAVERN_Y = 150;      // deep caverns (tougher spawns)
+
+// Horizontal biome split. Left = Forest, right = Corrupted Lands.
+export const CORRUPT_X = 300; // tiles: x >= this is Corrupted Lands on the surface
+
+// Physics (units are world-pixels and seconds).
+export const GRAVITY = 1500;
+export const MAX_FALL = 900;
+export const MOVE_SPEED = 150;
+export const JUMP_VELOCITY = 430;
+export const PLAYER_W = 12;
+export const PLAYER_H = 26;
+
+// Simulation.
+export const SIM_HZ = 60;
+export const SIM_DT = 1 / SIM_HZ;
+
+// Day / night cycle (seconds for a full cycle).
+export const DAY_LENGTH = 180; // 3 minutes per full day/night loop
+
+// Combat / entity caps for smoothness.
+export const MAX_ENEMIES = 40;
+export const MAX_PROJECTILES = 250;
+export const MAX_PARTICLES = 400;
+export const MAX_DROPS = 200;
+
+// Mining reach in tiles.
+export const REACH = 6;
+
+// Inventory sizes.
+export const HOTBAR_SIZE = 10;
+export const INV_ROWS = 4;      // additional inventory rows beyond hotbar
+export const INV_COLS = 10;
+export const ACCESSORY_SLOTS = 3;
+
+// Networking.
+export const NET_SNAPSHOT_HZ = 15; // authoritative snapshots per second
+export const NET_INPUT_HZ = 30;    // client input sends per second
+
+// Player base stats.
+export const BASE_HP = 100;
+export const BASE_MANA = 60;       // "Aether"
+export const MANA_REGEN = 8;       // per second
+export const HP_REGEN = 1.5;       // per second out of combat
+
+export const SAVE_PREFIX = 'summonerRealms.save.';
+export const SAVE_INDEX_KEY = 'summonerRealms.saves';
+export const SETTINGS_KEY = 'summonerRealms.settings';
+export const AUTOSAVE_INTERVAL = 30; // seconds
+
+// Rendering: target number of tiles visible vertically (drives zoom).
+export const TARGET_TILES_V = 22;
