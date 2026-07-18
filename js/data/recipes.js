@@ -5,7 +5,10 @@ export const RECIPES = [
   // --- Hand ---
   { out: { item: 'craftingBench', count: 1 }, in: [{ item: 'wood', count: 8 }], station: null },
   { out: { item: 'torch', count: 5 }, in: [{ item: 'wood', count: 1 }, { item: 'fiber', count: 1 }], station: null },
+  { out: { item: 'torch', count: 2 }, in: [{ item: 'stick', count: 1 }], station: null },
   { out: { item: 'woodPick', count: 1 }, in: [{ item: 'wood', count: 8 }], station: null },
+  { out: { item: 'woodAxe', count: 1 }, in: [{ item: 'wood', count: 6 }], station: null },
+  { out: { item: 'flintArrow', count: 12 }, in: [{ item: 'stick', count: 2 }, { item: 'stone', count: 1 }], station: null },
   { out: { item: 'planks', count: 4 }, in: [{ item: 'wood', count: 2 }], station: null },
 
   // --- Bench: starter gear & gathering tools ---
@@ -35,12 +38,14 @@ export const RECIPES = [
 
   // --- Forge: metal gear ---
   { out: { item: 'cupritePick', count: 1 }, in: [{ item: 'cupriteBar', count: 8 }], station: 'forge' },
+  { out: { item: 'cupriteAxe', count: 1 }, in: [{ item: 'cupriteBar', count: 7 }, { item: 'wood', count: 2 }], station: 'forge' },
   { out: { item: 'cupriteSword', count: 1 }, in: [{ item: 'cupriteBar', count: 8 }], station: 'forge' },
   { out: { item: 'thornspikeSpear', count: 1 }, in: [{ item: 'cupriteBar', count: 6 }, { item: 'fiber', count: 6 }], station: 'forge' },
   { out: { item: 'cupriteRepeater', count: 1 }, in: [{ item: 'cupriteBar', count: 10 }, { item: 'wood', count: 2 }], station: 'forge' },
   { out: { item: 'bolt', count: 50 }, in: [{ item: 'cupriteBar', count: 1 }], station: 'forge' },
   { out: { item: 'aetherAltar', count: 1 }, in: [{ item: 'stone', count: 12 }, { item: 'glimmerBar', count: 4 }], station: 'forge' },
   { out: { item: 'ironveinPick', count: 1 }, in: [{ item: 'ironveinBar', count: 12 }], station: 'forge' },
+  { out: { item: 'ironveinAxe', count: 1 }, in: [{ item: 'ironveinBar', count: 10 }, { item: 'wood', count: 2 }], station: 'forge' },
   { out: { item: 'ironveinSaber', count: 1 }, in: [{ item: 'ironveinBar', count: 12 }], station: 'forge' },
   { out: { item: 'ironveinHelm', count: 1 }, in: [{ item: 'ironveinBar', count: 10 }], station: 'forge' },
   { out: { item: 'ironveinPlate', count: 1 }, in: [{ item: 'ironveinBar', count: 16 }], station: 'forge' },

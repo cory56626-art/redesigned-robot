@@ -1,5 +1,5 @@
 // Summoner Realms — in-game HUD (bars, hotbar, boss bar, clock, indicators).
-import { HOTBAR_SIZE } from '../config.js';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN } from '../config.js';
 import { Sprites } from '../art/sprites.js';
 import { item as getItem } from '../data/items.js';
 
@@ -24,6 +24,7 @@ export class HUD {
       buffBar: document.getElementById('buffBar'),
       netStatus: document.getElementById('netStatus'),
       toasts: document.getElementById('toasts'),
+      ammo: document.getElementById('ammoIndicator'),
     };
     this._buildHotbar();
   }
@@ -44,10 +45,29 @@ export class HUD {
       const count = document.createElement('span');
       count.className = 'slot-count';
       s.appendChild(count);
+      const cd = document.createElement('div');
+      cd.className = 'slot-cd';
+      s.appendChild(cd);
+      const cdText = document.createElement('span');
+      cdText.className = 'slot-cd-text';
+      s.appendChild(cdText);
       s.addEventListener('pointerdown', (e) => { e.preventDefault(); this.game.selectHotbar(i); });
       this.el.hotbar.appendChild(s);
-      this.slotEls.push({ root: s, canvas: cv, ctx: cv.getContext('2d'), count });
+      this.slotEls.push({ root: s, canvas: cv, ctx: cv.getContext('2d'), count, cd, cdText });
     }
+  }
+
+  // Cooldown ratio (0..1) and countdown seconds for the item in a hotbar slot.
+  _slotCooldown(p, def, isSelected) {
+    if (!def) return null;
+    if (def.category === 'potion' && def.potion) {
+      if (def.potion.heal && p.healCd > 0) return { r: p.healCd / HEAL_COOLDOWN, s: p.healCd };
+      if (def.potion.mana && p.manaCd > 0) return { r: p.manaCd / MANA_POTION_COOLDOWN, s: p.manaCd };
+      if (def.potion.buff && p.buffCd > 0) return { r: p.buffCd / POTION_BUFF_COOLDOWN, s: p.buffCd };
+    } else if (isSelected && def.category === 'weapon' && p.useTimer > 0 && def.useTime) {
+      return { r: Math.min(1, p.useTimer / def.useTime), s: 0 };
+    }
+    return null;
   }
 
   update() {
@@ -97,6 +117,7 @@ export class HUD {
     }
 
     this._updateHotbar(p);
+    this._updateAmmo(p);
   }
 
   _updateHotbar(p) {
@@ -111,6 +132,32 @@ export class HUD {
         if (slot) { const icon = Sprites.getIcon(getItem(slot.id)); if (icon) el.ctx.drawImage(icon, 0, 0, 20, 20); }
       }
       el.count.textContent = slot && slot.count > 1 ? slot.count : '';
+      // Cooldown overlay (heal / cast / use).
+      const cd = slot ? this._slotCooldown(p, getItem(slot.id), i === p.inventory.selected) : null;
+      if (cd) {
+        el.cd.style.height = Math.max(0, Math.min(100, cd.r * 100)) + '%';
+        el.root.classList.toggle('cooling', cd.s >= 1);
+        el.cdText.textContent = cd.s >= 1 ? Math.ceil(cd.s) : '';
+      } else {
+        el.cd.style.height = '0%';
+        el.root.classList.remove('cooling');
+        el.cdText.textContent = '';
+      }
+    }
+  }
+
+  _updateAmmo(p) {
+    const sel = p.inventory.selectedItem();
+    if (sel && sel.category === 'weapon' && sel.weaponClass === 'ranged' && sel.ammo) {
+      const n = p.inventory.count(sel.ammo);
+      const ammoName = getItem(sel.ammo).name;
+      this.el.ammo.classList.remove('hidden');
+      this.el.ammo.classList.toggle('empty', n <= 0);
+      this.el.ammo.innerHTML = n > 0
+        ? `${ammoName}: <span class="ammo-ok">${n}</span>`
+        : `Out of ${ammoName}!`;
+    } else {
+      this.el.ammo.classList.add('hidden');
     }
   }
 

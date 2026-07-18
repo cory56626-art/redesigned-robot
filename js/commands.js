@@ -32,11 +32,30 @@ export class CommandConsole {
       fly: { args: '', desc: 'Toggle flight', run: () => { g.localPlayer.cheats.fly = !g.localPlayer.cheats.fly; return ok('Fly ' + (g.localPlayer.cheats.fly ? 'ON' : 'OFF')); } },
       godmode: { args: '', desc: 'Toggle invincibility', run: () => { g.localPlayer.cheats.godmode = !g.localPlayer.cheats.godmode; return ok('God mode ' + (g.localPlayer.cheats.godmode ? 'ON' : 'OFF')); } },
       time: { args: '[day|night]', desc: 'Set time of day', run: (a) => this._time(a) },
-      teleport: { args: '[forest|underground|corrupt]', desc: 'Teleport to a biome', run: (a) => this._teleport(a) },
+      teleport: { args: '[forest|underground|corrupt|cavern]', desc: 'Teleport to a biome', run: (a) => this._teleport(a) },
       clearinventory: { args: '', desc: 'Clear the inventory', run: () => { g.localPlayer.inventory.clear(); g.localPlayer.recomputeStats(); return ok('Inventory cleared.'); } },
+      resetcooldowns: { args: '', desc: 'Clear attack/mana/heal cooldowns', run: () => this._resetCooldowns() },
       save: { args: '', desc: 'Manually save the game', run: () => { g.saveGame(true); return ok('Game saved.'); } },
       resetdemo: { args: '', desc: 'Reset the demo world', run: () => { g.resetDemo(); return ok('Demo world reset.'); } },
+      // ---- Debug overlays ----
+      debugcollision: { args: '', desc: 'Toggle collision hitbox overlay', run: () => this._toggleDebug('collision') },
+      debugai: { args: '', desc: 'Toggle enemy/minion target overlay', run: () => this._toggleDebug('ai') },
+      debugbiome: { args: '', desc: 'Toggle current-biome readout', run: () => this._toggleDebug('biome') },
+      debugspawn: { args: '', desc: 'Toggle valid/invalid spawn overlay', run: () => this._toggleDebug('spawn') },
+      debugcaves: { args: '', desc: 'Toggle cave-void overlay', run: () => this._toggleDebug('caves') },
     };
+  }
+
+  _toggleDebug(key) {
+    const d = this.game.debug;
+    d[key] = !d[key];
+    return ok('Debug ' + key + ' ' + (d[key] ? 'ON' : 'OFF'));
+  }
+
+  _resetCooldowns() {
+    const p = this.game.localPlayer;
+    p.healCd = 0; p.manaCd = 0; p.buffCd = 0; p.useTimer = 0; p.placeTimer = 0; p.castTimer = 0;
+    return ok('Attack, mana, and healing cooldowns reset.');
   }
 
   _wire() {

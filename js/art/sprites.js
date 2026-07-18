@@ -119,7 +119,7 @@ class SpriteBank {
       else if (item.weaponClass === 'ranged') this._ranged(ctx, col, col2, item.rangedKind);
       else if (item.weaponClass === 'mage') this._mage(ctx, col, col2, item.mageKind);
       else if (item.weaponClass === 'summon') this._summon(ctx, col, col2);
-    } else if (cat === 'tool') this._pick(ctx, col, col2);
+    } else if (cat === 'tool') { if (item.tool && item.tool.kind === 'axe') this._axe(ctx, col, col2); else this._pick(ctx, col, col2); }
     else if (cat === 'armor') this._armor(ctx, col, col2, item.slot);
     else if (cat === 'accessory') this._accessory(ctx, col, col2, item.accKind);
     else if (cat === 'potion') this._potion(ctx, col);
@@ -189,6 +189,15 @@ class SpriteBank {
     ctx.beginPath(); ctx.moveTo(3, 6); ctx.quadraticCurveTo(11, 2, 18, 7); ctx.stroke();
     ctx.strokeStyle = shade(col, 0.4); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(4, 6); ctx.quadraticCurveTo(11, 3, 17, 7); ctx.stroke();
+  }
+  _axe(ctx, col, col2) {
+    ctx.strokeStyle = '#7a5a2a'; ctx.lineWidth = 2; // haft
+    ctx.beginPath(); ctx.moveTo(7, 18); ctx.lineTo(12, 4); ctx.stroke();
+    // axe head (wedge) at the top-right of the haft
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.moveTo(11, 3); ctx.lineTo(18, 5); ctx.lineTo(17, 10); ctx.lineTo(11, 8); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = shade(col, 0.4); ctx.beginPath(); ctx.moveTo(12, 4); ctx.lineTo(17, 5.5); ctx.lineTo(16.5, 7); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = shade(col, -0.3); ctx.fillRect(10, 3, 2, 6);
   }
   _armor(ctx, col, col2, slot) {
     ctx.fillStyle = col;

@@ -12,11 +12,16 @@ function def(o) {
   return ITEMS[o.id];
 }
 
-// ---------- Tools (pickaxes) ----------
-def({ id: 'woodPick', name: 'Oaken Pick', category: 'tool', tool: { power: 1 }, color: '#a67c46', desc: 'Basic pickaxe. Mining power 1.' });
-def({ id: 'cupritePick', name: 'Cuprite Pick', category: 'tool', tool: { power: 2 }, color: '#c47b4a', tier: 1, desc: 'Mining power 2. Breaks Ironvein.' });
-def({ id: 'ironveinPick', name: 'Ironvein Pick', category: 'tool', tool: { power: 3 }, color: '#a9b0bd', tier: 2, desc: 'Mining power 3. Breaks Glimmer & Aetherite.' });
-def({ id: 'glimmerPick', name: 'Glimmer Pick', category: 'tool', tool: { power: 4 }, color: '#ffe08a', tier: 3, desc: 'Mining power 4. Breaks Blightore.' });
+// ---------- Tools: pickaxes (mine stone & ore) ----------
+def({ id: 'woodPick', name: 'Oaken Pick', category: 'tool', tool: { power: 1, kind: 'pickaxe' }, color: '#a67c46', desc: 'Basic pickaxe. Mines stone & ore (power 1).' });
+def({ id: 'cupritePick', name: 'Cuprite Pick', category: 'tool', tool: { power: 2, kind: 'pickaxe' }, color: '#c47b4a', tier: 1, desc: 'Mining power 2. Breaks Ironvein.' });
+def({ id: 'ironveinPick', name: 'Ironvein Pick', category: 'tool', tool: { power: 3, kind: 'pickaxe' }, color: '#a9b0bd', tier: 2, desc: 'Mining power 3. Breaks Glimmer & Aetherite.' });
+def({ id: 'glimmerPick', name: 'Glimmer Pick', category: 'tool', tool: { power: 4, kind: 'pickaxe' }, color: '#ffe08a', tier: 3, desc: 'Mining power 4. Breaks Blightore.' });
+
+// ---------- Tools: axes (chop trees for wood) ----------
+def({ id: 'woodAxe', name: 'Oaken Hatchet', category: 'tool', tool: { power: 1, kind: 'axe' }, color: '#9a6a3a', color2: '#7a5228', desc: 'Basic axe. Chop trees to fell them for wood (power 1).' });
+def({ id: 'cupriteAxe', name: 'Cuprite Axe', category: 'tool', tool: { power: 2, kind: 'axe' }, color: '#c47b4a', tier: 1, desc: 'Chops trees faster (power 2).' });
+def({ id: 'ironveinAxe', name: 'Ironvein Axe', category: 'tool', tool: { power: 3, kind: 'axe' }, color: '#a9b0bd', tier: 2, desc: 'Chops trees swiftly (power 3).' });
 
 // ---------- Melee weapons (8) ----------
 const melee = (id, name, color, dmg, useTime, tier, extra = {}) =>
@@ -45,14 +50,14 @@ ranged('stormpiercer', 'Stormpiercer', '#8ad9ff', 20, 0.30, 3, { projSpeed: 700,
 // ---------- Mage weapons (8) ----------
 const mage = (id, name, color, dmg, useTime, tier, mana, extra = {}) =>
   def(Object.assign({ id, name, category: 'weapon', weaponClass: 'mage', color, damage: dmg, useTime, tier, manaCost: mana, knockback: 2, crit: 0.06, projSpeed: 420, projColor: color, mageKind: 'staff', desc: `${name} — ${dmg} magic damage, ${mana} Aether.` }, extra));
-mage('sparkWand', 'Spark Wand', '#9ec3ff', 10, 0.3, 0, 4);
-mage('emberTome', 'Ember Tome', '#ff7a3b', 12, 0.5, 0, 7, { mageKind: 'tome', effect: { burn: 3 }, gravity: false, desc: 'Lobs burning embers.' });
-mage('frostshardStaff', 'Frostshard Staff', '#bfe9ff', 14, 0.35, 1, 6, { effect: { slow: 1.6 }, desc: 'Chilling shards that slow foes.' });
-mage('venomWand', 'Venom Wand', '#7ee08a', 11, 0.3, 1, 5, { effect: { poison: 4 }, desc: 'Spits venom that poisons.' });
-mage('aetherboltStaff', 'Aetherbolt Staff', '#8ad9ff', 18, 0.3, 2, 7);
-mage('thunderRod', 'Thunder Rod', '#fff2a0', 22, 0.45, 2, 10, { pierce: 3, projSpeed: 900, desc: 'Piercing bolt of lightning.' });
-mage('prismScepter', 'Prism Scepter', '#c58bff', 20, 0.28, 3, 8, { multishot: 3, spread: 0.4, desc: 'Fires a fan of prism shards.' });
-mage('voidlance', 'Voidlance', '#b06bff', 34, 0.5, 4, 14, { pierce: 4, projSpeed: 640, desc: 'A lancing beam of void energy.' });
+mage('sparkWand', 'Spark Wand', '#9ec3ff', 10, 0.32, 0, 7);
+mage('emberTome', 'Ember Tome', '#ff7a3b', 12, 0.5, 0, 11, { mageKind: 'tome', effect: { burn: 3 }, gravity: false, desc: 'Lobs burning embers.' });
+mage('frostshardStaff', 'Frostshard Staff', '#bfe9ff', 14, 0.36, 1, 10, { effect: { slow: 1.6 }, desc: 'Chilling shards that slow foes.' });
+mage('venomWand', 'Venom Wand', '#7ee08a', 11, 0.32, 1, 9, { effect: { poison: 4 }, desc: 'Spits venom that poisons.' });
+mage('aetherboltStaff', 'Aetherbolt Staff', '#8ad9ff', 18, 0.32, 2, 13);
+mage('thunderRod', 'Thunder Rod', '#fff2a0', 22, 0.45, 2, 18, { pierce: 3, projSpeed: 900, desc: 'Piercing bolt of lightning.' });
+mage('prismScepter', 'Prism Scepter', '#c58bff', 20, 0.30, 3, 16, { multishot: 3, spread: 0.4, desc: 'Fires a fan of prism shards.' });
+mage('voidlance', 'Voidlance', '#b06bff', 34, 0.5, 4, 24, { pierce: 4, projSpeed: 640, desc: 'A lancing beam of void energy.' });
 
 // ---------- Summoner weapons (6) ----------
 const summon = (id, name, color, useTime, tier, mana, minion, extra = {}) =>
@@ -118,8 +123,10 @@ def({ id: 'shot', name: 'Shot', category: 'ammo', color: '#ffcf6b', maxStack: 20
 
 // ---------- Materials ----------
 const mat = (id, name, color, kind = 'misc', tier = 0, desc = '') => def({ id, name, category: 'material', color, matKind: kind, tier, desc });
-mat('wood', 'Oakenwood', '#8a5a2a', 'misc', 0, 'Crafting wood.');
+mat('wood', 'Oakenwood', '#8a5a2a', 'misc', 0, 'Crafting wood. Fell trees with an axe.');
 mat('fiber', 'Plant Fiber', '#7ea04a', 'misc', 0, 'Woven for starter gear.');
+mat('stick', 'Twig', '#9a6a3a', 'misc', 0, 'Snapped from leaves. Crafts torches and arrows.');
+mat('sapling', 'Sapling Seed', '#7ee08a', 'misc', 0, 'A seed shaken from the canopy.');
 mat('dirt', 'Dirt', '#6b4a2b', 'misc');
 mat('stone', 'Stone', '#6f7484', 'misc');
 mat('clay', 'Clay', '#9a5b45', 'misc');

@@ -15,12 +15,14 @@ import { Spawner } from './systems/spawner.js';
 import { Progression } from './systems/progression.js';
 import { starterInventory } from './systems/inventory.js';
 import * as craftSys from './systems/crafting.js';
+import { applyPotion } from './systems/combat.js';
 import { Player, assignColor } from './entities/player.js';
 import { Enemy } from './entities/enemy.js';
 import { Boss } from './entities/boss.js';
 import { Minion } from './entities/minion.js';
 import { Projectile } from './entities/projectile.js';
 import { DropItem } from './entities/droppeditem.js';
+import { FallingTree } from './entities/fallingtree.js';
 import { ENEMIES } from './data/enemies.js';
 import { BOSSES } from './data/bosses.js';
 import { item as getItem } from './data/items.js';
@@ -63,6 +65,10 @@ class Game {
     this.dropById = new Map();
     this.particles = [];
     this.floatTexts = [];
+    this.fallingTrees = [];  // cosmetic tree-topple animations
+
+    // Debug overlays toggled from the demo command console.
+    this.debug = { collision: false, ai: false, biome: false, spawn: false, caves: false };
 
     this.net = null;
     this.isHost = true;          // true in single-player and while hosting
@@ -228,6 +234,8 @@ class Game {
     if (this.particles.length > MAX_PARTICLES) this.particles.splice(0, this.particles.length - MAX_PARTICLES);
     for (const ft of this.floatTexts) { ft.y += ft.vy * dt; ft.life -= dt; }
     this.floatTexts = this.floatTexts.filter(f => f.life > 0);
+    for (const t of this.fallingTrees) t.update(dt);
+    this.fallingTrees = this.fallingTrees.filter(t => !t.dead);
   }
 
   canAct() {
@@ -239,7 +247,7 @@ class Game {
   _resetEntities() {
     this.players.clear(); this.enemies = []; this.enemyById.clear(); this.minions = [];
     this.bosses = []; this.projectiles = []; this.drops = []; this.dropById.clear();
-    this.particles = []; this.floatTexts = [];
+    this.particles = []; this.floatTexts = []; this.fallingTrees = [];
   }
 
   _seedFromString(str) {
@@ -305,7 +313,7 @@ class Game {
     this.progression = new Progression();
     this.progression.deserialize(progression);
     this.enemies = []; this.enemyById.clear(); this.minions = []; this.bosses = [];
-    this.projectiles = []; this.drops = []; this.dropById.clear(); this.particles = []; this.floatTexts = [];
+    this.projectiles = []; this.drops = []; this.dropById.clear(); this.particles = []; this.floatTexts = []; this.fallingTrees = [];
     // keep players map empty except local (added here)
     this.players.clear();
     this.time = new DayNight(time || 0);
@@ -428,12 +436,8 @@ class Game {
     }
   }
   _consumePotionAt(p, index, def) {
-    const eff = def.potion;
-    if (eff.heal) { if (p.hp >= p.maxHp) { this.toast('Health already full', 'bad'); return; } p.heal(eff.heal); }
-    if (eff.mana) { if (p.mana >= p.maxMana) { this.toast('Aether already full', 'bad'); return; } p.restoreMana(eff.mana); }
-    if (eff.buff) { p.buffs = p.buffs.filter(x => x.type !== eff.buff.type); p.buffs.push(Object.assign({}, eff.buff)); }
-    p.inventory.removeAt(index, 1);
-    this.addHitParticles(p.x + p.w / 2, p.y + p.h / 2, def.color, 6);
+    // Routes through the shared handler so the healing cooldown applies here too.
+    applyPotion(this, p, index, def);
   }
   dropInventoryItem(index) {
     const p = this.localPlayer; const s = p.inventory.slots[index];
@@ -472,6 +476,18 @@ class Game {
     const pc = player.center();
     for (let i = 0; i < 4; i++) { const a = angle + (Math.random() - 0.5) * (item.arc || 1.4); const r = (item.reach || 26) * (0.5 + Math.random() * 0.5); this.particles.push({ x: pc.x + Math.cos(a) * r, y: pc.y + Math.sin(a) * r, vx: 0, vy: 0, life: 0.12, max: 0.12, size: 2, color: item.color, gravity: 0 }); }
   }
+  // Visible cast puff at the caster's hand so magic reads as an actual cast.
+  spawnCastFx(player, angle, item) {
+    const pc = player.center();
+    const hx = pc.x + Math.cos(angle) * 12, hy = pc.y + Math.sin(angle) * 12;
+    for (let i = 0; i < 7; i++) { const a = angle + (Math.random() - 0.5) * 1.2, sp = 20 + Math.random() * 40; this.particles.push({ x: hx, y: hy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.25, max: 0.25, size: 1 + Math.random() * 2, color: item.projColor || item.color, gravity: 0 }); }
+  }
+  spawnFallingTree(cells, tx, ty, dir) {
+    this.fallingTrees.push(new FallingTree(cells, tx, ty, dir));
+    if (this.fallingTrees.length > 16) this.fallingTrees.shift();
+    // A shower of leaf/wood bits from the topple.
+    this.addHitParticles(tx * TILE + TILE / 2, (ty - 2) * TILE, '#3e7a34', 10);
+  }
 
   nearestPlayer(x, y) {
     let best = null, bd = Infinity;
@@ -487,6 +503,19 @@ class Game {
     let best = null, bd = range ? range * range : Infinity;
     for (const e of this.enemies) { const d = dist2(x, y, e.x + e.w / 2, e.y + e.h / 2); if (d < bd) { bd = d; best = e; } }
     for (const b of this.bosses) { const d = dist2(x, y, b.x + b.w / 2, b.y + b.h / 2); if (d < bd) { bd = d; best = b; } }
+    return best;
+  }
+  // Nearest enemy/boss with unobstructed line-of-sight from (x,y) — i.e. one a
+  // minion can actually reach/hit rather than a target behind a wall.
+  nearestReachableEnemyOrBoss(x, y, range) {
+    let best = null, bd = range ? range * range : Infinity;
+    const consider = (t) => {
+      const tcx = t.x + t.w / 2, tcy = t.y + t.h / 2;
+      const d = dist2(x, y, tcx, tcy);
+      if (d < bd && this.world.hasLineOfSight(x, y, tcx, tcy)) { bd = d; best = t; }
+    };
+    for (const e of this.enemies) consider(e);
+    for (const b of this.bosses) consider(b);
     return best;
   }
 
@@ -511,8 +540,9 @@ class Game {
   summonMinion(player, key) {
     if (!player.isLocal) return;
     const cap = player.stats ? player.stats.minionCap : 1;
-    const mine = this.minions.filter(m => m.ownerId === player.id);
-    if (mine.length >= cap) { const oldest = mine[0]; oldest.dead = true; }
+    // Retire the oldest living minions until there's a free summon slot.
+    const mine = this.minions.filter(m => m.ownerId === player.id && !m.dead);
+    while (mine.length >= cap) { mine.shift().dead = true; }
     const pc = player.center();
     this.minions.push(new Minion(key, player.id, pc.x, pc.y - 30));
     this.toast('Summoned ' + key, 'good');

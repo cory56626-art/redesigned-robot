@@ -4,6 +4,21 @@ import { ITEMS, item as getItem } from '../data/items.js';
 
 export const INV_SIZE = HOTBAR_SIZE + INV_ROWS * INV_COLS;
 
+// Human-readable full-set (3-piece) bonuses, mirrored from getStats() below so
+// the UI can show players exactly what completing a set grants.
+export const SET_BONUS_DESC = {
+  thornweave: '+1 minion capacity, +15% summon damage',
+  aetherweave: '+20 max Aether, +12% magic damage',
+  ironvein: '+4 defense, +10% melee damage',
+  hunter: '+12% ranged damage, +10% move speed',
+  blight: '+6 defense',
+  fiber: '+10 max health',
+};
+export const SET_LABEL = {
+  thornweave: 'Thornweave', aetherweave: 'Aetherweave', ironvein: 'Ironvein',
+  hunter: 'Hunter', blight: 'Blightplate', fiber: 'Fiber',
+};
+
 export class Inventory {
   constructor() {
     this.slots = new Array(INV_SIZE).fill(null); // {id, count}
@@ -162,14 +177,34 @@ export class Inventory {
     return st;
   }
 
-  // Best pickaxe power owned (for the dedicated mine action). Hands = 1.
-  bestMinePower() {
-    let p = 1;
-    for (const s of this.slots) {
-      if (s) { const d = getItem(s.id); if (d && d.tool) p = Math.max(p, d.tool.power); }
+  // Count of equipped armor pieces per set key, e.g. { ironvein: 2 }.
+  equippedSets() {
+    const c = {};
+    for (const p of [this.equip.head, this.equip.chest, this.equip.legs]) {
+      if (!p) continue;
+      const d = getItem(p.id);
+      if (d && d.setKey) c[d.setKey] = (c[d.setKey] || 0) + 1;
     }
-    return p;
+    return c;
   }
+
+  // Best owned tool of a given kind ('pickaxe' | 'axe'). Returns {power, kind, id}.
+  // Falls back to bare hands (power 1) with no kind, so wrong-tool mining still
+  // works at the slow fallback rate defined in the world.
+  bestToolFor(kind) {
+    let best = { power: 1, kind: null, id: null };
+    for (const s of this.slots) {
+      if (!s) continue;
+      const d = getItem(s.id);
+      if (d && d.tool && d.tool.kind === kind && d.tool.power >= best.power) {
+        best = { power: d.tool.power, kind, id: s.id };
+      }
+    }
+    return best;
+  }
+
+  // Best pickaxe power owned (kept for compatibility). Hands = 1.
+  bestMinePower() { return this.bestToolFor('pickaxe').power; }
 
   serialize() {
     return { slots: this.slots, equip: this.equip, selected: this.selected };
@@ -184,15 +219,15 @@ export class Inventory {
   }
 }
 
+// The demo starts the player with only the three weakest gathering/combat tools
+// and a handful of torches. Everything else must be gathered, crafted, or earned.
+// (The axe is included as a core gathering tool — trees now require one, so
+// without it the demo would soft-lock. It is the weakest axe available.)
 export function starterInventory() {
   const inv = new Inventory();
-  inv.add('woodPick', 1);
-  inv.add('rustedShortblade', 1);
-  inv.add('spriteWhistle', 1);
-  inv.add('sparkWand', 1);
-  inv.add('slingcaster', 1);
-  inv.add('torch', 20);
-  inv.add('healLesser', 5);
-  inv.add('craftingBench', 1);
+  inv.add('woodPick', 1);   // weakest pickaxe
+  inv.add('woodAxe', 1);    // weakest axe (needed to gather any wood at all)
+  inv.add('rustedShortblade', 1); // weakest sword
+  inv.add('torch', 6);      // small basic amount of a necessary starter material
   return inv;
 }

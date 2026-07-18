@@ -1,11 +1,15 @@
 // Summoner Realms — combat & interaction resolution (weapons, mining, placing).
-import { TILE, REACH } from '../config.js';
-import { T, tileDef } from '../world/tiles.js';
+import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY } from '../config.js';
+import { T, tileDef, isTree, isLeaf } from '../world/tiles.js';
 import { item as getItem } from '../data/items.js';
 import { Projectile } from '../entities/projectile.js';
-import { angleTo, aabb } from '../utils.js';
+import { angleTo, aabb, clamp } from '../utils.js';
 
 const MINE_RATE = 95;
+// Melee swings are limited to a side-view arc: at most ~49° above/below level so
+// there is never an instant straight-up swipe, and the arc never reaches behind.
+const MELEE_MAX_TILT = 0.85;
+const NEIGHBORS8 = [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]];
 
 function aimTile(game, player) {
   const s = game.input.state;
@@ -24,10 +28,17 @@ function rollCrit(chance) { return Math.random() < chance; }
 export function useWeapon(game, player, item) {
   const s = game.input.state;
   const pc = player.center();
-  const aimAng = angleTo(pc.x, pc.y, s.aimX, s.aimY);
-  player.facing = Math.cos(aimAng) < 0 ? -1 : 1;
+  const rawAng = angleTo(pc.x, pc.y, s.aimX, s.aimY);
+  const facing = Math.cos(rawAng) < 0 ? -1 : 1;
+  player.facing = facing;
 
   if (item.weaponClass === 'melee') {
+    // Clamp to a believable side-view arc. `tilt` is the vertical lean of the
+    // swing (+down / -up), limited so you can angle a hit but never swipe
+    // straight up or hook an enemy standing behind you.
+    const dx = s.aimX - pc.x, dy = s.aimY - pc.y;
+    const tilt = clamp(Math.atan2(dy, Math.abs(dx) + 0.001), -MELEE_MAX_TILT, MELEE_MAX_TILT);
+    const aimAng = facing > 0 ? tilt : (Math.PI - tilt);
     player.useTimer = item.useTime;
     player.swing = { time: 0, dur: item.useTime, angle: aimAng, item: item.id, reach: item.reach };
     const crit = rollCrit(item.crit || 0.06);
@@ -53,32 +64,52 @@ export function useWeapon(game, player, item) {
   }
 
   if (item.weaponClass === 'ranged') {
+    // Ranged weapons without an `ammo` field are self-powered (stated in their
+    // tooltip). Ones that use ammo must have it, and the useTimer below prevents
+    // a rapid click from consuming several arrows in one frame.
     if (item.ammo) {
-      if (!player.inventory.remove(item.ammo, 1)) {
-        game.toast('Out of ' + getItem(item.ammo).name, 'bad');
-        player.useTimer = 0.2;
+      if (player.inventory.count(item.ammo) <= 0) {
+        game.toast('Out of ' + getItem(item.ammo).name + '!', 'bad');
+        player.floatText && game.floatText(pc.x, pc.y - 10, 'No ammo', '#ff6b7d');
+        player.useTimer = 0.25;
         return;
       }
+      player.inventory.remove(item.ammo, 1);
     }
     player.useTimer = item.useTime;
     const crit = rollCrit(item.crit || 0.06);
     const dmg = item.damage * (player.stats ? player.stats.rangedMul : 1) * (crit ? 2 : 1);
-    _fireProjectiles(game, player, item, aimAng, dmg, crit, 'ranged');
+    _fireProjectiles(game, player, item, rawAng, dmg, crit, 'ranged');
     return;
   }
 
   if (item.weaponClass === 'mage') {
-    if (!player.spendMana(item.manaCost)) { game.toast('Not enough Aether', 'bad'); player.useTimer = 0.2; return; }
+    if (player.mana < item.manaCost) {
+      game.toast('Not enough Aether', 'bad');
+      game.floatText(pc.x, pc.y - 10, 'Low Aether', '#6a7bff');
+      player.useTimer = 0.25;
+      return;
+    }
+    player.spendMana(item.manaCost);
     player.useTimer = item.useTime;
+    player.castTimer = CAST_REGEN_DELAY; // throttle mana regen right after a cast
     const crit = rollCrit(item.crit || 0.06);
     const dmg = item.damage * (player.stats ? player.stats.mageMul : 1) * (crit ? 2 : 1);
-    _fireProjectiles(game, player, item, aimAng, dmg, crit, 'mage');
+    _fireProjectiles(game, player, item, rawAng, dmg, crit, 'mage');
+    game.spawnCastFx && game.spawnCastFx(player, rawAng, item);
     return;
   }
 
   if (item.weaponClass === 'summon') {
-    if (!player.spendMana(item.manaCost)) { game.toast('Not enough Aether', 'bad'); player.useTimer = 0.3; return; }
+    if (player.mana < item.manaCost) {
+      game.toast('Not enough Aether', 'bad');
+      game.floatText(pc.x, pc.y - 10, 'Low Aether', '#6a7bff');
+      player.useTimer = 0.3;
+      return;
+    }
+    player.spendMana(item.manaCost);
     player.useTimer = item.useTime;
+    player.castTimer = CAST_REGEN_DELAY;
     game.summonMinion(player, item.summonMinion);
     return;
   }
@@ -101,27 +132,119 @@ function _fireProjectiles(game, player, item, aimAng, dmg, crit, cls) {
   }
 }
 
-export function mineAt(game, player, power, dt) {
+function bestAnyToolPower(player) {
+  let p = 1;
+  for (const s of player.inventory.slots) { if (s) { const d = getItem(s.id); if (d && d.tool) p = Math.max(p, d.tool.power); } }
+  return p;
+}
+
+// source: { tool: <itemDef> } for an explicitly selected tool, or { auto:true }
+// for the dedicated mine action (auto-picks the correct tool for the tile).
+export function mineAt(game, player, dt, source) {
   const { tx, ty } = aimTile(game, player);
   if (!withinReach(player, tx, ty)) return;
   const id = game.world.get(tx, ty);
   if (id === T.AIR) return;
   const def = tileDef(id);
-  const res = game.world.damageTile(tx, ty, power * MINE_RATE * dt, power);
+  if (!def.hardness) return;
+
+  const need = def.toolType || null;         // 'pickaxe' | 'axe' | null (any)
+  let power = 1, haveKind = null;
+  if (source && source.tool && source.tool.tool) {
+    power = source.tool.tool.power; haveKind = source.tool.tool.kind;
+  } else if (need) {
+    const best = player.inventory.bestToolFor(need);
+    power = best.power; haveKind = best.kind;
+  } else {
+    power = bestAnyToolPower(player);
+  }
+
+  // Right tool mines at full speed; the wrong tool (an axe on stone, a pick on a
+  // tree) still works but at a slow 25% fallback so it never fully blocks play.
+  const rightTool = !need || haveKind === need;
+  const factor = rightTool ? 1 : 0.25;
+  const res = game.world.damageTile(tx, ty, power * MINE_RATE * factor * dt, rightTool ? power : 0);
   player.mineTarget = { tx, ty, ratio: res ? (res.progress || (res.broken ? 1 : 0)) : 0 };
+
   if (res && res.broken) {
     player.mineTarget = null;
-    if (Math.random() <= (res.dropChance || 1) && res.drop) {
-      const leftover = player.inventory.add(res.drop, 1);
-      if (leftover > 0) game.spawnDrop(tx * TILE + 4, ty * TILE + 4, res.drop, leftover);
-      game.floatText(tx * TILE + TILE / 2, ty * TILE, '+' + getItem(res.drop).name.split(' ')[0], '#7ee0c0');
+    const cx = tx * TILE + TILE / 2, cy = ty * TILE + TILE / 2;
+    if (isTree(id)) {
+      // Base trunk segment: gives its own wood, then fells everything above it.
+      _giveOrDrop(game, player, tx, ty, 'wood', 1);
+      collapseTree(game, player, tx, ty);
+      game.addHitParticles(cx, cy, def.color || '#8a5a2a', 6);
+    } else if (isLeaf(id)) {
+      _leafDrop(game, player, tx, ty);
+      game.addHitParticles(cx, cy, def.color || '#3e7a34', 5);
+    } else if (Math.random() <= (res.dropChance || 1) && res.drop) {
+      _giveOrDrop(game, player, tx, ty, res.drop, 1);
+      game.addHitParticles(cx, cy, def.color || '#888', 6);
+    } else {
+      game.addHitParticles(cx, cy, def.color || '#888', 6);
     }
-    game.addHitParticles(tx * TILE + TILE / 2, ty * TILE + TILE / 2, def.color || '#888', 6);
     game.netEditTile(tx, ty, T.AIR);
     game.markDirty();
   } else if (res) {
     game.addHitParticles(tx * TILE + TILE / 2, ty * TILE + TILE / 2, def.color || '#888', 1);
   }
+}
+
+function _giveOrDrop(game, player, tx, ty, itemId, n) {
+  const leftover = player.inventory.add(itemId, n);
+  if (leftover > 0) game.spawnDrop(tx * TILE + 4, ty * TILE + 4, itemId, leftover);
+  game.floatText(tx * TILE + TILE / 2, ty * TILE, '+' + n + ' ' + getItem(itemId).name.split(' ')[0], '#7ee0c0');
+}
+
+// Breaking leaves yields twigs/seeds (never wood).
+function _leafDrop(game, player, tx, ty) {
+  const r = Math.random();
+  if (r < 0.32) _giveOrDrop(game, player, tx, ty, 'stick', 1);
+  else if (r < 0.40) _giveOrDrop(game, player, tx, ty, 'sapling', 1);
+  game.addHitParticles(tx * TILE + TILE / 2, ty * TILE + TILE / 2, '#3e7a34', 4);
+}
+
+// Fell the tree above a freshly-broken trunk tile at (tx,ty): collapse the trunk
+// column above the cut and every connected leaf, drop wood from the trunk and
+// twigs from the leaves, and kick off a short falling animation. No floating
+// leaves are ever left behind.
+function collapseTree(game, player, tx, ty) {
+  const world = game.world;
+  const key = (x, y) => x + ',' + y;
+  const seen = new Set();
+  const removed = [];
+  // 1) Trunk column above the cut.
+  for (let y = ty - 1; y >= 0; y--) {
+    if (isTree(world.get(tx, y))) { seen.add(key(tx, y)); removed.push({ x: tx, y, id: world.get(tx, y), trunk: true }); }
+    else break;
+  }
+  // 2) Flood connected leaves, seeded from the cut point and each trunk tile.
+  const q = [{ x: tx, y: ty }, ...removed];
+  let guard = 0;
+  while (q.length && guard++ < 500) {
+    const c = q.shift();
+    for (const [dx, dy] of NEIGHBORS8) {
+      const nx = c.x + dx, ny = c.y + dy, k = key(nx, ny);
+      if (seen.has(k)) continue;
+      if (isLeaf(world.get(nx, ny))) { seen.add(k); const cell = { x: nx, y: ny, id: world.get(nx, ny), trunk: false }; removed.push(cell); q.push(cell); }
+    }
+  }
+  if (!removed.length) return;
+
+  let woodCount = 0;
+  for (const cell of removed) {
+    world.set(cell.x, cell.y, T.AIR);
+    game.netEditTile(cell.x, cell.y, T.AIR);
+    if (cell.trunk) woodCount++;
+    else { const r = Math.random(); if (r < 0.22) player.inventory.add('stick', 1); else if (r < 0.28) player.inventory.add('sapling', 1); }
+  }
+  if (woodCount > 0) {
+    const leftover = player.inventory.add('wood', woodCount);
+    if (leftover > 0) game.spawnDrop(tx * TILE + 4, (ty - 1) * TILE, 'wood', leftover);
+    game.floatText(tx * TILE + TILE / 2, (ty - 1) * TILE, '+' + woodCount + ' Wood', '#c9a26a');
+  }
+  const dir = player.center().x < tx * TILE ? 1 : -1; // fall away from the chopper
+  game.spawnFallingTree(removed, tx, ty, dir);
 }
 
 export function placeSelected(game, player) {
@@ -152,20 +275,35 @@ export function placeSelected(game, player) {
   return true;
 }
 
+// Consume the currently-selected potion (Q key / mobile Item button / primary).
 export function consumeSelected(game, player) {
   const sel = player.inventory.selectedItem();
   if (!sel || sel.category !== 'potion') return;
-  const eff = sel.potion;
-  if (eff.heal) { if (player.hp >= player.maxHp) { game.toast('Health already full', 'bad'); return; } player.heal(eff.heal); }
-  if (eff.mana) { if (player.mana >= player.maxMana) { game.toast('Aether already full', 'bad'); return; } player.restoreMana(eff.mana); }
-  if (eff.buff) {
-    const b = eff.buff;
-    player.buffs = player.buffs.filter(x => x.type !== b.type);
-    player.buffs.push(Object.assign({}, b));
-  }
-  player.inventory.remove(sel.id, 1);
-  game.floatText(player.x + player.w / 2, player.y, 'used ' + sel.name.split(' ')[0], '#7ee08a');
-  game.addHitParticles(player.x + player.w / 2, player.y + player.h / 2, sel.color, 6);
+  applyPotion(game, player, player.inventory.selected, sel);
+}
+
+// Shared potion handler used by every input path (hotbar key, inventory click,
+// mobile, and test commands) so healing cooldowns can never be bypassed.
+// Returns true if the potion was consumed.
+export function applyPotion(game, player, index, def) {
+  if (!def || def.category !== 'potion') return false;
+  const eff = def.potion || {};
+  // Enforce cooldowns *before* consuming so a spammed click just no-ops.
+  if (eff.heal && player.healCd > 0) { game.toast('Healing recharging… ' + Math.ceil(player.healCd) + 's', 'bad'); return false; }
+  if (eff.mana && player.manaCd > 0) { game.toast('Tonic recharging… ' + Math.ceil(player.manaCd) + 's', 'bad'); return false; }
+  if (eff.buff && player.buffCd > 0) { game.toast('Brew recharging… ' + Math.ceil(player.buffCd) + 's', 'bad'); return false; }
+  // Don't waste a potion (or start a cooldown) if it would do nothing.
+  if (eff.heal && player.hp >= player.maxHp) { game.toast('Health already full', 'bad'); return false; }
+  if (eff.mana && player.mana >= player.maxMana) { game.toast('Aether already full', 'bad'); return false; }
+
+  if (eff.heal) { player.heal(eff.heal); player.startHealCooldown(); }
+  if (eff.mana) { player.restoreMana(eff.mana); player.startManaCooldown(); }
+  if (eff.buff) { player.buffs = player.buffs.filter(x => x.type !== eff.buff.type); player.buffs.push(Object.assign({}, eff.buff)); player.startBuffCooldown(); }
+
+  player.inventory.removeAt(index, 1);
+  game.floatText(player.x + player.w / 2, player.y, 'used ' + def.name.split(' ')[0], '#7ee08a');
+  game.addHitParticles(player.x + player.w / 2, player.y + player.h / 2, def.color, 6);
+  return true;
 }
 
 export function useSummonItem(game, player, item) {

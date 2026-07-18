@@ -1,6 +1,6 @@
 // Summoner Realms — canvas renderer. Draws world, lighting, entities, effects.
 import { TILE, UNDERGROUND_Y, CAVERN_Y, CORRUPT_X } from '../config.js';
-import { T } from '../world/tiles.js';
+import { T, isSolid } from '../world/tiles.js';
 import { Sprites } from '../art/sprites.js';
 import { item as getItem } from '../data/items.js';
 
@@ -34,6 +34,7 @@ export class Renderer {
     const ty1 = Math.min(game.world.height - 1, Math.ceil((cam.y + cam.vh / 2) / TILE) + 1);
 
     this._drawTiles(game, ctx, tx0, ty0, tx1, ty1);
+    this._drawFallingTrees(game, ctx);
     this._drawDrops(game, ctx);
     this._drawMinions(game, ctx);
     this._drawEnemies(game, ctx);
@@ -42,14 +43,86 @@ export class Renderer {
     this._drawPlayers(game, ctx);
     this._drawAimHighlight(game, ctx);
     this._drawParticles(game, ctx);
+    const dbg = game.debug;
+    if (dbg && (dbg.collision || dbg.ai || dbg.spawn || dbg.caves)) this._drawDebugWorld(game, ctx, tx0, ty0, tx1, ty1);
 
     ctx.restore();
 
-    // Lighting overlay (screen-space, smooth).
-    this._drawLighting(game, tx0, ty0, tx1, ty1, W, H);
+    // Lighting overlay (screen-space, smooth). Skipped for the collision/cave
+    // debug views so the outlines stay readable.
+    if (!(dbg && (dbg.collision || dbg.caves))) this._drawLighting(game, tx0, ty0, tx1, ty1, W, H);
 
     // Float texts (screen space via camera projection).
     this._drawFloatTexts(game, W, H);
+    if (dbg && dbg.biome) this._drawBiomeLabel(game, W, H);
+  }
+
+  _drawDebugWorld(game, ctx, tx0, ty0, tx1, ty1) {
+    const world = game.world;
+    // Cave voids: tint air below the surface line.
+    if (game.debug.caves) {
+      ctx.fillStyle = 'rgba(90,200,255,0.16)';
+      for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+        if (world.get(tx, ty) === T.AIR && ty > world.surfaceY(tx)) ctx.fillRect(tx * TILE, ty * TILE, TILE, TILE);
+      }
+    }
+    // Collision: outline solid tiles + entity hitboxes.
+    if (game.debug.collision) {
+      ctx.strokeStyle = 'rgba(255,80,110,0.5)'; ctx.lineWidth = 0.5;
+      for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+        if (isSolid(world.get(tx, ty))) ctx.strokeRect(tx * TILE + 0.25, ty * TILE + 0.25, TILE - 0.5, TILE - 0.5);
+      }
+      ctx.lineWidth = 1; ctx.strokeStyle = '#ffcf6b';
+      const box = (e) => ctx.strokeRect(e.x, e.y, e.w, e.h);
+      for (const e of game.enemies) box(e);
+      for (const b of game.bosses) box(b);
+      ctx.strokeStyle = '#7ee0c0'; for (const p of game.players.values()) if (p.alive) box(p);
+      ctx.strokeStyle = '#c58bff'; for (const m of game.minions) box(m);
+    }
+    // Spawn validity: sample floor tiles in view for a standard-size enemy.
+    if (game.debug.spawn) {
+      const W16 = 16, H24 = 24;
+      for (let tx = tx0; tx <= tx1; tx++) {
+        for (let ty = ty0; ty <= ty1; ty++) {
+          if (!isSolid(world.get(tx, ty)) || isSolid(world.get(tx, ty - 1))) continue; // want a floor top
+          const x = tx * TILE, y = ty * TILE - H24;
+          const clear = !world.rectHitsSolid(x, y, W16, H24);
+          const farEnough = game.localPlayer ? Math.hypot((x + 8) - (game.localPlayer.x + game.localPlayer.w / 2), (y + 12) - (game.localPlayer.y + game.localPlayer.h / 2)) > 13 * TILE : true;
+          ctx.fillStyle = clear && farEnough ? 'rgba(126,224,138,0.5)' : 'rgba(255,107,125,0.45)';
+          ctx.fillRect(x + 6, y - 3, 4, 4);
+        }
+      }
+    }
+    // AI targets: lines from enemies to players and minions to their targets.
+    if (game.debug.ai) {
+      ctx.lineWidth = 1;
+      for (const e of game.enemies) {
+        const t = game.nearestPlayer(e.x + e.w / 2, e.y + e.h / 2);
+        if (!t) continue;
+        ctx.strokeStyle = 'rgba(255,107,125,0.7)';
+        ctx.beginPath(); ctx.moveTo(e.x + e.w / 2, e.y + e.h / 2); ctx.lineTo(t.x + t.w / 2, t.y + t.h / 2); ctx.stroke();
+      }
+      for (const m of game.minions) {
+        const cx = m.x + m.w / 2, cy = m.y + m.h / 2;
+        const t = game.nearestReachableEnemyOrBoss(cx, cy, m.def.range);
+        const owner = game.players.get(m.ownerId);
+        const dest = t || owner;
+        if (!dest) continue;
+        ctx.strokeStyle = t ? 'rgba(126,224,138,0.8)' : 'rgba(255,207,107,0.6)';
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(dest.x + dest.w / 2, dest.y + dest.h / 2); ctx.stroke();
+      }
+    }
+  }
+
+  _drawBiomeLabel(game, W, H) {
+    const p = game.localPlayer; if (!p) return;
+    const tx = Math.floor((p.x + p.w / 2) / TILE), ty = Math.floor((p.y + p.h / 2) / TILE);
+    const biome = game.world.biomeAt(tx, ty);
+    const ctx = this.ctx;
+    ctx.font = 'bold 16px Trebuchet MS, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillText('Biome: ' + biome + '  (tile ' + tx + ',' + ty + ')', W / 2 + 1, 110 + 1);
+    ctx.fillStyle = '#7ee0c0'; ctx.fillText('Biome: ' + biome + '  (tile ' + tx + ',' + ty + ')', W / 2, 110);
+    ctx.textAlign = 'left';
   }
 
   _drawSky(game, W, H) {
@@ -57,13 +130,16 @@ export class Renderer {
     const b = game.time.brightness;
     const player = game.localPlayer;
     const deep = player ? (player.y / TILE > UNDERGROUND_Y) : false;
+    // Which surface biome are we over? Tints the sky so biomes read distinctly.
+    const corrupt = player ? game.world.biomeAt(Math.floor((player.x + player.w / 2) / TILE), 0) === 'corrupt' : false;
     let top, bot;
     if (deep) {
-      top = '#14121c'; bot = '#08060c';
+      const cavern = player && player.y / TILE > CAVERN_Y;
+      top = cavern ? '#160a1c' : '#14121c'; bot = cavern ? '#0a0410' : '#08060c';
     } else {
-      // Sky colour from brightness.
-      const day = ['#3a6ea5', '#8fc0e8'];
-      const night = ['#0a0e22', '#1a1d3a'];
+      // Sky colour from brightness; corrupted lands get a sickly violet cast.
+      const day = corrupt ? ['#4a2f5a', '#7a5a86'] : ['#3a6ea5', '#8fc0e8'];
+      const night = corrupt ? ['#14081e', '#2a1436'] : ['#0a0e22', '#1a1d3a'];
       const mix = (a, b2, t) => a.map((v, i) => Math.round(v + (b2[i] - v) * t));
       const toRgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
       const t = Math.max(0, Math.min(1, (b - 0.12) / 0.88));
@@ -115,6 +191,22 @@ export class Renderer {
     } else if (sel && (sel.category === 'tool')) {
       ctx.strokeStyle = 'rgba(255,207,107,0.6)'; ctx.lineWidth = 1;
       ctx.strokeRect(tx * TILE + 0.5, ty * TILE + 0.5, TILE - 1, TILE - 1);
+    }
+  }
+
+  _drawFallingTrees(game, ctx) {
+    if (!game.fallingTrees || !game.fallingTrees.length) return;
+    for (const ft of game.fallingTrees) {
+      ctx.save();
+      ctx.translate(ft.px, ft.py);
+      ctx.rotate(ft.angle);
+      ctx.globalAlpha = Math.max(0, 1 - (ft.t / ft.dur) * 0.55);
+      for (const c of ft.cells) {
+        const spr = Sprites.getTile(c.id);
+        if (spr) ctx.drawImage(spr, c.dx * TILE - TILE / 2, c.dy * TILE - TILE, TILE, TILE);
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
     }
   }
 

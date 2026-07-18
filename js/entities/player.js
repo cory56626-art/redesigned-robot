@@ -2,7 +2,10 @@
 import {
   PLAYER_W, PLAYER_H, BASE_HP, BASE_MANA, MOVE_SPEED, JUMP_VELOCITY,
   MANA_REGEN, HP_REGEN, TILE,
+  HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN,
+  CAST_REGEN_DELAY, CAST_REGEN_MULT,
 } from '../config.js';
+import { tileDef } from '../world/tiles.js';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js';
 import { Inventory } from '../systems/inventory.js';
 import { item as getItem } from '../data/items.js';
@@ -26,6 +29,13 @@ export class Player {
     this.placeTimer = 0;
     this.iframes = 0;
     this.kbTimer = 0;
+    // Consumable + casting cooldowns (persist across inventory/hotbar/death so
+    // they cannot be bypassed). See config.js for the tunable values.
+    this.healCd = 0;
+    this.manaCd = 0;
+    this.buffCd = 0;
+    this.castTimer = 0;   // throttles mana regen right after a cast
+    this.hazardTimer = 0; // gates contact damage from hazard tiles (thornvine)
     this.buffs = [];
     this.alive = true;
     this.respawnTimer = 0;
@@ -127,7 +137,12 @@ export class Player {
     let hpRegen = HP_REGEN;
     for (const b of this.buffs) if (b.type === 'regen') hpRegen += b.hpRegen;
     if (this.combatTimer <= 0 || hpRegen > HP_REGEN) this.hp = Math.min(this.maxHp, this.hp + hpRegen * dt);
-    this.mana = Math.min(this.maxMana, this.mana + MANA_REGEN * dt);
+    // Mana regen is throttled briefly after each cast so magic has real upkeep.
+    const manaRegen = MANA_REGEN * (this.castTimer > 0 ? CAST_REGEN_MULT : 1);
+    this.mana = Math.min(this.maxMana, this.mana + manaRegen * dt);
+
+    // ---- Hazard tiles (thornvine etc.) ----
+    this._tickHazards(game);
 
     // Swing anim
     if (this.swing) { this.swing.time += dt; if (this.swing.time >= this.swing.dur) this.swing = null; }
@@ -140,11 +155,20 @@ export class Player {
     if (this.useTimer > 0) this.useTimer -= dt;
     if (this.placeTimer > 0) this.placeTimer -= dt;
     if (this.iframes > 0) this.iframes -= dt;
+    if (this.healCd > 0) this.healCd -= dt;
+    if (this.manaCd > 0) this.manaCd -= dt;
+    if (this.buffCd > 0) this.buffCd -= dt;
+    if (this.castTimer > 0) this.castTimer -= dt;
+    if (this.hazardTimer > 0) this.hazardTimer -= dt;
     for (let i = this.buffs.length - 1; i >= 0; i--) {
       this.buffs[i].time -= dt;
       if (this.buffs[i].time <= 0) this.buffs.splice(i, 1);
     }
   }
+
+  startHealCooldown() { this.healCd = HEAL_COOLDOWN; }
+  startManaCooldown() { this.manaCd = MANA_POTION_COOLDOWN; }
+  startBuffCooldown() { this.buffCd = POTION_BUFF_COOLDOWN; }
 
   _handleActions(dt, game, input) {
     const sel = this.inventory.selectedItem();
@@ -153,8 +177,8 @@ export class Player {
     // Consume (potion) via dedicated button/key.
     if (input.consumePressed && sel && sel.category === 'potion') combat.consumeSelected(game, this);
 
-    // Dedicated mine (RMB / mobile Mine).
-    if (input.mineHeld) combat.mineAt(game, this, this.inventory.bestMinePower(), dt);
+    // Dedicated mine (RMB / mobile Mine) — auto-picks the right tool for the tile.
+    if (input.mineHeld) combat.mineAt(game, this, dt, { auto: true });
 
     // Dedicated place (mobile Place button).
     if (input.placeHeld && sel && (sel.category === 'block' || sel.category === 'station')) {
@@ -164,7 +188,7 @@ export class Player {
     // Primary use.
     if (input.primaryHeld && sel) {
       if (sel.category === 'tool') {
-        combat.mineAt(game, this, sel.tool.power, dt);
+        combat.mineAt(game, this, dt, { tool: sel });
       } else if (sel.category === 'block' || sel.category === 'station') {
         if (this.placeTimer <= 0) { if (combat.placeSelected(game, this)) this.placeTimer = 0.12; }
       } else if (sel.category === 'potion') {
@@ -173,6 +197,20 @@ export class Player {
         if (this.useTimer <= 0) combat.useWeapon(game, this, sel);
       } else if (sel.category === 'summonitem') {
         if (input.primaryPressed) combat.useSummonItem(game, this, sel);
+      }
+    }
+  }
+
+  // Contact damage from hazard tiles (e.g. corrupted thornvines) the player is
+  // standing in. Non-solid so they never block movement, but they sting.
+  _tickHazards(game) {
+    if (this.hazardTimer > 0 || this.cheats.godmode || !this.alive) return;
+    const x0 = Math.floor(this.x / TILE), x1 = Math.floor((this.x + this.w - 0.001) / TILE);
+    const y0 = Math.floor(this.y / TILE), y1 = Math.floor((this.y + this.h - 0.001) / TILE);
+    for (let ty = y0; ty <= y1; ty++) {
+      for (let tx = x0; tx <= x1; tx++) {
+        const def = tileDef(game.world.get(tx, ty));
+        if (def.hazard) { this.takeDamage(def.hazard, this.facing * -2, game, 'thornvine'); this.hazardTimer = 0.8; return; }
       }
     }
   }

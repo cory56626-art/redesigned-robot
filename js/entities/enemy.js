@@ -25,7 +25,13 @@ export class Enemy {
     this.attackCd = 0;
     this.fireCd = Math.random() * 1.2;
     this.jumpCd = 0;
+    this.climbCd = 0;
     this.dashCd = 1 + Math.random() * 2;
+    // Stuck detection / detour routing for ground navigation.
+    this._lastX = x;
+    this.stuckTimer = 0;
+    this.detourDir = 0;
+    this.detourTimer = 0;
     this.dead = false;
     this.hurtFlash = 0;
     this.walkAnim = 0;
@@ -47,8 +53,13 @@ export class Enemy {
     const dx = tc.x - cx, dy = tc.y - cy;
     this.facing = dx < 0 ? -1 : 1;
 
+    // Ground navigation: if we're pinned against terrain making no progress,
+    // briefly route the other way instead of walking into the same block forever.
+    const moveDir = this._navDir(dt, dx);
+
     switch (this.behavior) {
       case 'flyer': {
+        // Flying enemies ignore terrain but nudge out if they clip into it.
         const len = Math.hypot(dx, dy) || 1;
         this.vx = (dx / len) * this.speed;
         this.vy = (dy / len) * this.speed;
@@ -61,7 +72,7 @@ export class Enemy {
         if (this.onGround) {
           this.jumpCd -= dt;
           this.vx = 0;
-          if (this.jumpCd <= 0) { this.vy = -300; this.vx = Math.sign(dx) * this.speed * 3; this.jumpCd = 1.1; }
+          if (this.jumpCd <= 0) { this.vy = -300; this.vx = moveDir * this.speed * 3; this.jumpCd = 1.1; }
         }
         moveAndCollide(this, game.world, dt);
         break;
@@ -69,10 +80,10 @@ export class Enemy {
       case 'charger': {
         applyGravity(this, dt);
         this.dashCd -= dt;
-        if (this.dashCd <= 0 && Math.abs(dy) < 60 && Math.abs(dx) < 240) { this.dashVel = Math.sign(dx) * this.speed * 3.2; this.dashTime = 0.5; this.dashCd = 2.5; }
+        if (this.dashCd <= 0 && Math.abs(dy) < 60 && Math.abs(dx) < 240 && this.detourTimer <= 0) { this.dashVel = Math.sign(dx) * this.speed * 3.2; this.dashTime = 0.5; this.dashCd = 2.5; }
         if (this.dashTime > 0) { this.dashTime -= dt; this.vx = this.dashVel; }
-        else this.vx = Math.sign(dx) * this.speed;
-        this._climb(game);
+        else this.vx = moveDir * this.speed;
+        this._climb(game, dt, moveDir);
         moveAndCollide(this, game.world, dt);
         break;
       }
@@ -80,9 +91,9 @@ export class Enemy {
         applyGravity(this, dt);
         const d = Math.hypot(dx, dy);
         if (d < 150) this.vx = -Math.sign(dx) * this.speed;
-        else if (d > 240) this.vx = Math.sign(dx) * this.speed;
+        else if (d > 240) this.vx = moveDir * this.speed;
         else this.vx = 0;
-        this._climb(game);
+        this._climb(game, dt, Math.sign(this.vx));
         moveAndCollide(this, game.world, dt);
         this.fireCd -= dt;
         if (this.fireCd <= 0 && d < 380) {
@@ -98,8 +109,8 @@ export class Enemy {
       }
       default: { // walker
         applyGravity(this, dt);
-        this.vx = Math.sign(dx) * this.speed;
-        this._climb(game);
+        this.vx = moveDir * this.speed;
+        this._climb(game, dt, moveDir);
         moveAndCollide(this, game.world, dt);
       }
     }
@@ -120,9 +131,39 @@ export class Enemy {
     if (game.minDistToAnyPlayer(cx, cy) > 1700 * 1700) this.dead = true;
   }
 
-  _climb(game) {
-    // Auto-hop small ledges when blocked.
-    if (this.onGround && this.hitWallX) { this.vy = -260; }
+  // Decide which horizontal direction to walk, taking a temporary detour when
+  // stuck against terrain so the enemy doesn't grind into one block forever.
+  _navDir(dt, dx) {
+    const desired = Math.sign(dx) || this.facing;
+    const moved = Math.abs(this.x - this._lastX);
+    // Count as "stuck" only while actively pushing into a wall on the ground.
+    if (this.onGround && Math.abs(this.vx) > 1 && this.hitWallX && moved < 0.4) this.stuckTimer += dt;
+    else this.stuckTimer = Math.max(0, this.stuckTimer - dt * 2);
+    this._lastX = this.x;
+    if (this.detourTimer > 0) this.detourTimer -= dt;
+    if (this.stuckTimer > 0.9 && this.detourTimer <= 0) {
+      this.detourDir = -desired;   // back off and try the other way
+      this.detourTimer = 0.7;
+      this.stuckTimer = 0;
+      this.climbCd = 0;            // allow an immediate hop attempt
+    }
+    return this.detourTimer > 0 ? this.detourDir : desired;
+  }
+
+  // Hop small ledges when blocked — but only with headroom (never headbutt a
+  // ceiling) and on a cooldown (so ground enemies don't jump constantly).
+  _climb(game, dt, dir) {
+    if (this.climbCd > 0) this.climbCd -= dt;
+    if (!this.onGround || !this.hitWallX || this.climbCd > 0) return;
+    dir = dir || this.facing;
+    const w = game.world;
+    const headTy = Math.floor((this.y - 2) / TILE);
+    const cxTile = Math.floor((this.x + this.w / 2) / TILE);
+    const aheadTile = cxTile + (dir >= 0 ? 1 : -1);
+    // Require clear space above our head and above the obstacle we're hopping.
+    const headClear = !w.isSolidAt(cxTile, headTy);
+    const ledgeTopClear = !w.isSolidAt(aheadTile, headTy) && !w.isSolidAt(aheadTile, headTy + 1);
+    if (headClear && ledgeTopClear) { this.vy = -300; this.climbCd = 0.5; }
   }
 
   takeDamage(amount, kbx, kby, game, effect, crit) {

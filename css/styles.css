@@ -224,6 +224,19 @@ input[type="text"]:focus { outline: none; border-color: var(--teal); }
 .slot .slot-count { position: absolute; bottom: 1px; right: 3px; font-size: 11px; font-weight: 800; text-shadow: 0 1px 2px #000; }
 .slot canvas, .slot .slot-icon { width: 34px; height: 34px; image-rendering: pixelated; }
 .slot .slot-icon { display: flex; align-items: center; justify-content: center; font-size: 22px; }
+/* Bottom-up cooldown sweep drawn over a hotbar slot (heal / cast / use). */
+.slot .slot-cd { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(6,10,22,0.66); border-radius: 0 0 6px 6px; pointer-events: none; height: 0; transition: height 0.05s linear; }
+.slot .slot-cd-text { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px #000; pointer-events: none; }
+.slot.cooling .slot-cd-text { display: flex; }
+
+/* Ammo / weapon readout above the hotbar */
+.ammo-indicator {
+  position: absolute; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 56px); left: 50%;
+  transform: translateX(-50%); background: rgba(12,16,32,0.85); border: 1px solid var(--border);
+  border-radius: 8px; padding: 4px 12px; font-size: 13px; font-weight: 700; white-space: nowrap; pointer-events: none;
+}
+.ammo-indicator.empty { border-color: var(--red); color: var(--red); }
+.ammo-indicator .ammo-ok { color: var(--gold); }
 
 /* ---------------- Inventory / crafting screen ---------------- */
 .overlay.inv { background: rgba(5, 8, 18, 0.82); backdrop-filter: blur(2px); align-items: flex-start; padding-top: max(40px, env(safe-area-inset-top)); }
@@ -253,10 +266,26 @@ input[type="text"]:focus { outline: none; border-color: var(--teal); }
 .craft-item .craft-cost .ok { color: var(--green); }
 .craft-item .craft-cost .no { color: var(--red); }
 
-.item-tooltip { position: fixed; z-index: 50; background: rgba(8,12,24,0.96); border: 1px solid var(--teal); border-radius: 8px; padding: 8px 12px; max-width: 240px; font-size: 12px; pointer-events: none; box-shadow: var(--shadow); }
-.item-tooltip .tt-name { font-weight: 800; margin-bottom: 3px; }
-.item-tooltip .tt-tag { color: var(--gold); font-size: 11px; }
-.item-tooltip .tt-desc { color: var(--muted); margin-top: 4px; }
+.item-tooltip { position: fixed; z-index: 50; background: rgba(8,12,24,0.97); border: 1px solid var(--teal); border-radius: 8px; padding: 8px 12px; max-width: 250px; font-size: 12px; pointer-events: none; box-shadow: var(--shadow); }
+.item-tooltip.touch { pointer-events: auto; }
+.item-tooltip .tt-name { font-weight: 800; margin-bottom: 2px; font-size: 13px; }
+.item-tooltip .tt-tag { font-size: 11px; opacity: 0.9; }
+.item-tooltip .tt-stat { font-size: 12px; margin-top: 2px; }
+.item-tooltip .tt-stat b { color: var(--ink); }
+.item-tooltip .tt-good { color: var(--green); }
+.item-tooltip .tt-mag { color: var(--violet); }
+.item-tooltip .tt-set { color: var(--gold); margin-top: 3px; font-size: 11px; }
+.item-tooltip .tt-desc { color: var(--muted); margin-top: 4px; font-style: italic; }
+.item-tooltip .tt-actions { display: flex; gap: 6px; margin-top: 8px; }
+.item-tooltip .tt-actions .btn { flex: 1; padding: 6px 4px; font-size: 12px; min-height: 30px; }
+
+/* Player stats / class panel in the inventory */
+.player-stats { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin: 8px 0 4px; font-size: 12px; }
+.player-stats .ps-row { display: flex; justify-content: space-between; gap: 8px; margin: 1px 0; }
+.player-stats .ps-row .ps-k { color: var(--muted); }
+.player-stats .ps-row .ps-v { font-weight: 700; }
+.player-stats .ps-set { color: var(--gold); margin-top: 4px; font-size: 11px; }
+.player-stats .ps-head { font-weight: 800; color: var(--teal); margin-bottom: 3px; }
 
 /* ---------------- Multiplayer sidebar ---------------- */
 .mp-sidebar { position: fixed; top: 0; right: 0; height: 100%; z-index: 20; pointer-events: none; padding: 8px; }

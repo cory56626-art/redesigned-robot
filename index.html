@@ -39,6 +39,9 @@
     <!-- Toast messages -->
     <div id="toasts" class="toasts"></div>
 
+    <!-- Ammo / selected-weapon readout (shown above the hotbar) -->
+    <div id="ammoIndicator" class="ammo-indicator hidden"></div>
+
     <!-- Hotbar -->
     <div id="hotbar" class="hotbar"></div>
   </div>
@@ -160,11 +163,12 @@
   <div id="inventoryScreen" class="overlay inv hidden">
     <div class="inv-panel">
       <div class="inv-col">
-        <h3>Equipment</h3>
+        <h3>Equipment <span class="hint small" id="equipDefense"></span></h3>
         <div class="equip-grid" id="equipGrid"></div>
+        <div class="player-stats" id="playerStats"></div>
         <h3>Inventory</h3>
         <div class="inv-grid" id="invGrid"></div>
-        <p class="hint small">Click an item to use/equip. Right-click (or long-press) to drop one.</p>
+        <p class="hint small" id="invHint">Click an item to use/equip. Right-click to drop one. Hover to inspect.</p>
       </div>
       <div class="inv-col">
         <h3>Crafting <span class="hint small" id="craftStationLabel">(near: none)</span></h3>

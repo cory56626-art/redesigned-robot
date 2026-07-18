@@ -42,6 +42,19 @@ export class World {
 
   isSolidAt(tx, ty) { return isSolid(this.get(tx, ty)); }
 
+  // True if a straight line between two world-pixel points crosses no solid
+  // tile. Used by minions/AI so they don't target through walls.
+  hasLineOfSight(x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const d = Math.hypot(dx, dy);
+    const steps = Math.max(1, Math.ceil(d / (TILE * 0.5)));
+    for (let i = 1; i < steps; i++) {
+      const t = i / steps;
+      if (this.isSolidAt(Math.floor((x1 + dx * t) / TILE), Math.floor((y1 + dy * t) / TILE))) return false;
+    }
+    return true;
+  }
+
   // Rectangle (world px) vs solid tiles.
   rectHitsSolid(x, y, w, h) {
     const x0 = Math.floor(x / TILE), x1 = Math.floor((x + w - 0.001) / TILE);

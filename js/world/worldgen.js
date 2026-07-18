@@ -11,8 +11,6 @@ export function generateWorld(seed) {
   const rand = mulberry32(seed);
   const surfNoise = makeValueNoise(seed ^ 0x1234);
   const surfNoise2 = makeValueNoise(seed ^ 0x9abc);
-  const caveNoise = makeValueNoise(seed ^ 0x55aa);
-  const caveNoiseY = makeValueNoise(seed ^ 0xaa55);
 
   const idx = (x, y) => y * w + x;
 
@@ -27,7 +25,7 @@ export function generateWorld(seed) {
     surface[x] = Math.max(30, Math.min(UNDERGROUND_Y - 6, Math.round(hgt)));
   }
 
-  // Fill terrain.
+  // Fill solid terrain (no caves yet — those are tunnelled next).
   for (let x = 0; x < w; x++) {
     const corrupt = x >= CORRUPT_X;
     const s = surface[x];
@@ -36,16 +34,16 @@ export function generateWorld(seed) {
       if (y === s) id = corrupt ? T.BLIGHTGRASS : T.GRASS;
       else if (y > s && y < s + 5) id = T.DIRT;
       else if (y >= s + 5) id = corrupt ? T.BLIGHTSTONE : T.STONE;
-
-      // Cave carving underground.
-      if (y > s + 3) {
-        const c = caveNoise(x * 0.08 + y * 0.02) * 0.6 + caveNoiseY(x * 0.03 - y * 0.09) * 0.4;
-        const depthBias = Math.min(1, (y - s) / 60);
-        if (c > 0.62 - depthBias * 0.14) id = T.AIR;
-      }
       tiles[idx(x, y)] = id;
     }
   }
+
+  // Spawn column (forest surface) — reserved so nothing carves it away.
+  const spawnTx = Math.floor(CORRUPT_X * 0.4);
+
+  // Carve connected cave systems with readable surface entrances, deterministic
+  // from the seed (independent PRNG stream so ores/trees stay reproducible).
+  carveCaves(tiles, w, h, surface, seed, spawnTx);
 
   // Surface dirt->grass fix and clay/sand pockets near surface.
   for (let x = 0; x < w; x++) {
@@ -90,11 +88,95 @@ export function generateWorld(seed) {
     }
   }
 
+  // Seal a small solid platform under the spawn so the player never spawns over
+  // a cave entrance and falls in.
+  const s0 = surface[spawnTx];
+  for (let dx = -2; dx <= 2; dx++) {
+    const sx = spawnTx + dx;
+    if (sx < 0 || sx >= w) continue;
+    const cs = surface[sx];
+    if (tiles[idx(sx, cs)] === T.AIR) tiles[idx(sx, cs)] = T.GRASS;
+    for (let dy = 1; dy <= 4; dy++) if (tiles[idx(sx, cs + dy)] === T.AIR) tiles[idx(sx, cs + dy)] = T.DIRT;
+  }
+
   // Spawn point: forest, on the surface.
-  const spawnTx = Math.floor(CORRUPT_X * 0.4);
-  const spawnTy = surface[spawnTx] - 3;
+  const spawnTy = s0 - 3;
 
   return { tiles, width: w, height: h, surface, spawnX: spawnTx * TILE, spawnY: spawnTy * TILE };
+}
+
+// ---- Cave systems: drunkard-walk tunnels + chambers + surface entrances ----
+function carveCaves(tiles, w, h, surface, seed, spawnTx) {
+  const idx = (x, y) => y * w + x;
+  const rc = mulberry32((seed ^ 0xca7e5a) >>> 0);
+  const bottom = h - 4; // keep a solid deep boundary at the very bottom
+
+  const carve = (cx, cy, r) => {
+    const x0 = Math.max(1, cx - r), x1 = Math.min(w - 2, cx + r);
+    const y0 = Math.max(2, cy - r), y1 = Math.min(bottom, cy + r);
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const dx = x - cx, dy = y - cy;
+        if (dx * dx + dy * dy > r * r + 0.4) continue;
+        if (y < surface[x] - 1) continue; // never punch holes into the open sky
+        tiles[idx(x, y)] = T.AIR;
+      }
+    }
+  };
+
+  // A single wandering tunnel. `depth` bounds recursive branching.
+  const tunnel = (x, y, ang, len, radius, depth) => {
+    for (let i = 0; i < len; i++) {
+      carve(Math.round(x), Math.round(y), radius);
+      ang += (rc() - 0.5) * 0.6;           // meander
+      x += Math.cos(ang) * 1.5;
+      y += Math.sin(ang) * 1.5;
+      if (x < 3) { x = 3; ang = 0; }
+      if (x > w - 4) { x = w - 4; ang = Math.PI; }
+      if (y < surface[Math.max(0, Math.min(w - 1, Math.round(x)))] + 2) ang = Math.abs(ang || 0.6); // steer back down near the surface
+      if (y > bottom) { y = bottom; ang = -Math.abs(ang); }
+      if (rc() < 0.035) carve(Math.round(x), Math.round(y), radius + 2); // pocket chamber
+      if (depth > 0 && rc() < 0.02 && len - i > 18) {
+        tunnel(x, y, ang + (rc() < 0.5 ? -1 : 1) * (0.8 + rc()), (18 + rc() * 34) | 0, Math.max(1, radius - 1), depth - 1);
+      }
+    }
+    return { x, y };
+  };
+
+  // Big chamber helper.
+  const chamber = (cx, cy, rx, ry) => {
+    for (let y = -ry; y <= ry; y++) for (let x = -rx; x <= rx; x++) {
+      if ((x * x) / (rx * rx) + (y * y) / (ry * ry) > 1) continue;
+      const nx = cx + x, ny = cy + y;
+      if (nx < 2 || nx >= w - 2 || ny < surface[nx] + 2 || ny > bottom) continue;
+      tiles[idx(nx, ny)] = T.AIR;
+    }
+  };
+
+  // 1) Surface entrances — tunnels starting at the surface heading down/aside so
+  //    caves connect to the world above with readable openings.
+  const entrances = 6 + (rc() * 5 | 0);
+  for (let e = 0; e < entrances; e++) {
+    const x = 6 + Math.floor(rc() * (w - 12));
+    if (Math.abs(x - spawnTx) < 4) continue; // keep the spawn area intact
+    tunnel(x, surface[x] + 1, Math.PI / 2 + (rc() - 0.5) * 1.0, (36 + rc() * 60) | 0, 1 + (rc() < 0.4 ? 1 : 0), 2);
+  }
+
+  // 2) Underground tunnel networks (deeper, more branching), scaled to width.
+  const systems = 5 + Math.floor(w / 42);
+  for (let s = 0; s < systems; s++) {
+    const x = 5 + Math.floor(rc() * (w - 10));
+    const y = UNDERGROUND_Y + Math.floor(rc() * (h - UNDERGROUND_Y - 12));
+    tunnel(x, y, rc() * Math.PI * 2, (60 + rc() * 90) | 0, 1 + (rc() < 0.5 ? 1 : 0), 3);
+  }
+
+  // 3) A few large chambers in the cavern layer for landmarks/loot rooms.
+  const chambers = 3 + Math.floor(w / 120);
+  for (let c = 0; c < chambers; c++) {
+    const cx = 8 + Math.floor(rc() * (w - 16));
+    const cy = CAVERN_Y + Math.floor(rc() * (h - CAVERN_Y - 8));
+    chamber(cx, Math.min(cy, bottom - 4), 3 + (rc() * 3 | 0), 2 + (rc() * 2 | 0));
+  }
 }
 
 function seedOre(tiles, w, h, surface, rand, oreId, density, minYFn, maxY, corruptOnly) {

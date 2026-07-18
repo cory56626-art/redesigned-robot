@@ -51,8 +51,18 @@ export const NET_INPUT_HZ = 30;    // client input sends per second
 // Player base stats.
 export const BASE_HP = 100;
 export const BASE_MANA = 60;       // "Aether"
-export const MANA_REGEN = 8;       // per second
+export const MANA_REGEN = 6;       // per second (idle)
 export const HP_REGEN = 1.5;       // per second out of combat
+
+// ---- Cooldowns (seconds). One place to tune resource pacing. ----
+// Healing / consumable cooldowns. A single healing item triggers a shared
+// cooldown that cannot be bypassed by clicking fast, switching slots, or dying.
+export const HEAL_COOLDOWN = 9;        // after any HP-restoring item
+export const MANA_POTION_COOLDOWN = 7; // after any Aether-restoring item
+export const POTION_BUFF_COOLDOWN = 3; // after a buff potion
+// Mana regen is throttled briefly after each cast so magic has real upkeep.
+export const CAST_REGEN_DELAY = 1.4;   // seconds of throttled regen after a cast
+export const CAST_REGEN_MULT = 0.2;    // regen multiplier during that window
 
 export const SAVE_PREFIX = 'summonerRealms.save.';
 export const SAVE_INDEX_KEY = 'summonerRealms.saves';
