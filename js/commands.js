@@ -34,7 +34,10 @@ export class CommandConsole {
       spawn: { args: '[enemy]', desc: 'Spawn an enemy nearby', run: (a) => this._spawn(a) },
       spawnboss: { args: '[boss]', desc: 'Spawn a boss', run: (a) => this._spawnBoss(a) },
       summonitem: { args: '[boss]', desc: 'Give a boss-summoning item', run: (a) => this._summonItem(a) },
-      killall: { args: '', desc: 'Defeat nearby enemies', run: () => this._killAll() },
+      killall: { args: '', desc: 'Defeat nearby enemies (not bosses — use /clearboss)', run: () => this._killAll() },
+      clearboss: { args: '', desc: 'Remove active boss(es), their adds & shots', run: () => this._clearBoss() },
+      resetcombat: { args: '', desc: 'Clear projectiles/effects & combat state', run: () => this._resetCombat() },
+      resetworldstate: { args: '', desc: 'Clear all bosses, enemies & projectiles', run: () => this._resetWorldState() },
       heal: { args: '', desc: 'Restore health', run: () => { g.localPlayer.hp = g.localPlayer.maxHp; return ok('Health restored.'); } },
       mana: { args: '', desc: 'Restore Aether (mana)', run: () => { g.localPlayer.mana = g.localPlayer.maxMana; return ok('Aether restored.'); } },
       fly: { args: '', desc: 'Toggle flight', run: () => { g.localPlayer.cheats.fly = !g.localPlayer.cheats.fly; return ok('Fly ' + (g.localPlayer.cheats.fly ? 'ON' : 'OFF')); } },
@@ -192,12 +195,20 @@ export class CommandConsole {
   _resolve(pool, query, nameMap) {
     query = (query || '').toLowerCase();
     if (!query) return null;
+    // Space/punctuation-insensitive form so "plantfiber" matches the item whose
+    // display name is "Plant Fiber", "craftingbench" matches "Crafting Bench", etc.
+    const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const nq = norm(query);
     if (pool.includes(query)) return query;
     let m = pool.find(k => k.toLowerCase() === query);
     if (m) return m;
+    // Exact match on the normalized id or display name.
+    m = pool.find(k => norm(k) === nq || (nameMap && nameMap[k] && norm(nameMap[k]) === nq));
+    if (m) return m;
     m = pool.find(k => k.toLowerCase().startsWith(query));
     if (m) return m;
-    m = pool.find(k => k.toLowerCase().includes(query) || (nameMap && nameMap[k] && nameMap[k].toLowerCase().includes(query)));
+    m = pool.find(k => k.toLowerCase().includes(query) || norm(k).includes(nq) ||
+      (nameMap && nameMap[k] && (nameMap[k].toLowerCase().includes(query) || norm(nameMap[k]).includes(nq))));
     return m || null;
   }
 
@@ -244,7 +255,28 @@ export class CommandConsole {
     return ok(`Gave 3× ${ITEMS[itemId].name}.`);
   }
 
-  _killAll() { this.game.hostCommand('killall', {}); return ok('Cleared nearby enemies.'); }
+  _killAll() {
+    this.game.hostCommand('killall', {});
+    const hasBoss = this.game.bosses.length > 0;
+    return ok('Cleared nearby enemies.' + (hasBoss ? ' (Bosses are NOT included — use /clearboss.)' : ''));
+  }
+
+  _clearBoss() {
+    const n = this.game.clearBosses(false);
+    return n ? ok(`Removed ${n} boss${n > 1 ? 'es' : ''}, adds and boss projectiles.`) : ok('No active boss to clear.');
+  }
+
+  _resetCombat() {
+    this.game.resetCombatState();
+    return ok('Projectiles, particles and combat state cleared.');
+  }
+
+  _resetWorldState() {
+    this.game.clearBosses(true);
+    this.game.killAllEnemies();
+    this.game.resetCombatState();
+    return ok('World runtime reset: bosses, enemies and projectiles cleared (terrain kept).');
+  }
 
   _time(a) {
     const t = (a[0] || '').toLowerCase();

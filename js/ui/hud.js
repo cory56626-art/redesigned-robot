@@ -19,6 +19,7 @@ export class HUD {
       bossBar: document.getElementById('bossBar'),
       bossName: document.getElementById('bossName'),
       bossHpFill: document.getElementById('bossHpFill'),
+      bossHpText: document.getElementById('bossHpText'),
       bossPhase: document.getElementById('bossPhase'),
       hotbar: document.getElementById('hotbar'),
       buffBar: document.getElementById('buffBar'),
@@ -101,7 +102,9 @@ export class HUD {
       const b = g.bosses[0];
       this.el.bossBar.classList.remove('hidden');
       this.el.bossName.textContent = b.name;
-      this.el.bossHpFill.style.width = Math.max(0, (b.hp / b.maxHp) * 100) + '%';
+      const pct = Math.max(0, (b.hp / b.maxHp) * 100);
+      this.el.bossHpFill.style.width = pct + '%';
+      if (this.el.bossHpText) this.el.bossHpText.textContent = `${Math.max(0, Math.ceil(b.hp))} / ${b.maxHp}  (${Math.round(pct)}%)`;
       this.el.bossPhase.textContent = b.phase ? b.phase().name : (b.phaseName || '');
     } else {
       this.el.bossBar.classList.add('hidden');

@@ -108,6 +108,16 @@ export class World {
     return ty;
   }
 
+  // Pixel Y at which an entity of pixel-height h rests directly on the surface at
+  // column tx (its feet on the first solid tile), so it spawns standing rather
+  // than floating a few tiles up and dropping in.
+  spawnPixelY(tx, h) {
+    // Find the first solid tile at/under the safe air tile.
+    let ty = this.safeSpawnY(tx);
+    while (ty < this.height - 1 && !this.isSolidAt(tx, ty + 1)) ty++;
+    return (ty + 1) * TILE - h - 1;
+  }
+
   _recomputeAllTopSolid() {
     for (let x = 0; x < this.width; x++) this._recomputeTopSolidColumn(x);
   }
@@ -149,6 +159,9 @@ export class World {
       }
     }
     // Relaxation passes (alternating direction) with solidity-based attenuation.
+    // Solid tiles block light a little less than before and light spreads a bit
+    // further, so caves and the underside of tree canopies stay *readable* dim
+    // rather than dropping to unreadable pure black.
     const PASSES = 6;
     for (let p = 0; p < PASSES; p++) {
       const fwd = p % 2 === 0;
@@ -157,7 +170,7 @@ export class World {
         const j = (k / cols) | 0, ii = k - j * cols;
         const tx = tx0 + ii, ty = ty0 + j;
         const solid = this.inBounds(tx, ty) ? isSolid(this.tiles[this.index(tx, ty)]) : true;
-        const att = solid ? 0.24 : 0.09;
+        const att = solid ? 0.19 : 0.085;
         let l = buf[k];
         if (ii > 0) l = Math.max(l, buf[k - 1] - att);
         if (ii < cols - 1) l = Math.max(l, buf[k + 1] - att);
@@ -166,7 +179,11 @@ export class World {
         buf[k] = l;
       }
     }
-    for (let k = 0; k < n; k++) buf[k] = Math.max(0.05, Math.min(1, buf[k]));
+    // AMBIENT_FLOOR keeps unlit terrain dimly visible instead of pure black.
+    // Torches (light 0.95) and the player's own glow are still clearly brighter,
+    // so lighting the dark still matters — you just aren't blind without it.
+    const AMBIENT_FLOOR = 0.14;
+    for (let k = 0; k < n; k++) buf[k] = Math.max(AMBIENT_FLOOR, Math.min(1, buf[k]));
     return buf;
   }
 

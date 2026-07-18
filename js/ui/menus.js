@@ -5,6 +5,7 @@ import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js';
 import { Sprites } from '../art/sprites.js';
 import { item as getItem } from '../data/items.js';
 import { availableRecipes } from '../systems/crafting.js';
+import { claudeNotesHTML } from './claude-notes.js';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [
@@ -34,6 +35,7 @@ export class Menus {
     $('btnLoadWorld').onclick = () => this.openLoadDialog();
     $('btnMultiplayer').onclick = () => this.show('mpMenu');
     $('btnHowto').onclick = () => this.showHowTo();
+    $('btnClaudeNotes').onclick = () => this.showClaudeNotes();
     $('controlModeSeg').querySelectorAll('.seg-btn').forEach(b => {
       b.onclick = () => g.setControlMode(b.dataset.mode);
     });
@@ -63,6 +65,7 @@ export class Menus {
     $('btnResume').onclick = () => g.setPaused(false);
     $('btnSaveGame').onclick = () => { g.saveGame(true); };
     $('btnDemoCommands').onclick = () => g.openCommandPanel();
+    $('btnClaudeNotesPause').onclick = () => this.showClaudeNotes();
     $('btnResetWorld').onclick = () => this.confirm('Reset World?', 'This regenerates the world from its seed and clears your placed/mined blocks. Your inventory is kept.', () => g.resetWorld());
     $('btnLeaveServer').onclick = () => g.leaveServer();
     $('btnQuitMenu').onclick = () => this.confirm('Quit to Menu?', 'The game will autosave first.', () => g.quitToMenu());
@@ -99,8 +102,14 @@ export class Menus {
     // ---- How to ----
     $('howtoClose').onclick = () => this.hide('howtoDialog');
 
+    // ---- Claude's Notes ----
+    $('claudeNotesClose').onclick = () => this.hide('claudeNotesDialog');
+
     // ---- Death ----
     $('btnRespawn').onclick = () => g.respawnLocal();
+
+    // ---- Always-visible HUD menu/pause button (works in PC & mobile) ----
+    $('hudMenuBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); g.menuButton(); });
 
     // ---- Command panel close handled in commands.js ----
   }
@@ -111,7 +120,7 @@ export class Menus {
   isOpen(id) { return !$(id).classList.contains('hidden'); }
 
   anyModalOpen() {
-    return ['mainMenu', 'pauseMenu', 'inventoryScreen', 'newWorldDialog', 'loadWorldDialog', 'mpMenu', 'commandPanel', 'howtoDialog', 'confirmDialog', 'deathScreen']
+    return ['mainMenu', 'pauseMenu', 'inventoryScreen', 'newWorldDialog', 'loadWorldDialog', 'mpMenu', 'commandPanel', 'howtoDialog', 'claudeNotesDialog', 'confirmDialog', 'deathScreen']
       .some(id => this.isOpen(id));
   }
 
@@ -183,6 +192,12 @@ export class Menus {
         <li>Stuck? Open the pause menu → <b>Demo Commands</b> for testing tools like <code>/giveall</code> or <code>/debugai</code>.</li>
       </ul>`;
     this.show('howtoDialog');
+  }
+
+  // ---- Claude's Notes (dev annotations for the stress-test review) ----
+  showClaudeNotes() {
+    $('claudeNotesBody').innerHTML = claudeNotesHTML();
+    this.show('claudeNotesDialog');
   }
 
   // ---- Inventory / crafting ----

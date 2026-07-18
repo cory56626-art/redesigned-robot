@@ -144,7 +144,10 @@ they make testing fast:
 /give [item] [amount] give an item        /giveall   give all demo items
 /spawn [enemy]        spawn an enemy       /spawnboss [boss]  spawn a boss
 /summonitem [boss]    give a boss-summon item
-/killall              defeat nearby enemies
+/killall              defeat nearby enemies (not bosses)
+/clearboss            remove active boss(es), their adds & projectiles
+/resetcombat          clear projectiles/particles & combat state
+/resetworldstate      clear all bosses, enemies & projectiles (keep terrain)
 /heal                 restore health       /mana      restore Aether
 /fly                  toggle flight        /godmode   toggle invincibility
 /time day|night       set time of day      /teleport [biome]  forest|underground|corrupt
@@ -152,8 +155,20 @@ they make testing fast:
 /resetdemo            reset the demo world
 ```
 
-Every command prints a success or error message, and item/enemy/boss names
-autocomplete as you type.
+Item and enemy names are matched loosely — `/give plantfiber`, `/give plant fiber`
+and `/give fiber` all work, and `/spawn slime` maps to the Slugling. Every command
+prints a success or error message, and names autocomplete (Tab) as you type.
+
+---
+
+## Claude's Notes (dev annotations)
+
+The main menu and pause menu have a **Claude's Notes** button (and there's a
+`CLAUDE_NOTES.md` in the repo root). It's a developer commentary written to sit
+beside the QA/stress-test review: for each reported issue it says whether it was a
+real bug (and how it was fixed), a misunderstanding, or intended behaviour, plus a
+crib sheet for driving the game via `window.__game` and the console — so a
+reviewer can test the right things the right way.
 
 ---
 

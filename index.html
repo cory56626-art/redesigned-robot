@@ -23,6 +23,7 @@
     </div>
 
     <div class="hud-top-right">
+      <button id="hudMenuBtn" class="hud-menu-btn" title="Pause / menu (Esc)">☰</button>
       <div id="clock" class="clock">☀ Day</div>
       <div id="saveIndicator" class="save-indicator saved">Saved</div>
       <div id="netStatus" class="net-status hidden">Offline</div>
@@ -32,7 +33,7 @@
     <!-- Boss health bar -->
     <div id="bossBar" class="boss-bar hidden">
       <div class="boss-name" id="bossName">Boss</div>
-      <div class="boss-hp"><div class="boss-hp-fill" id="bossHpFill"></div></div>
+      <div class="boss-hp"><div class="boss-hp-fill" id="bossHpFill"></div><span class="boss-hp-text" id="bossHpText"></span></div>
       <div class="boss-phase" id="bossPhase"></div>
     </div>
 
@@ -66,7 +67,7 @@
   <!-- ============ MAIN MENU ============ -->
   <div id="mainMenu" class="overlay menu">
     <div class="menu-panel">
-      <h1 class="game-title">Summoner<span>Realms</span></h1>
+      <h1 class="game-title">Summoner<wbr /><span>Realms</span></h1>
       <p class="tagline">A tiny original sandbox-survival vertical slice</p>
 
       <div class="menu-buttons">
@@ -75,6 +76,7 @@
         <button class="btn" id="btnLoadWorld">Load World</button>
         <button class="btn" id="btnMultiplayer">Multiplayer</button>
         <button class="btn" id="btnHowto">How to Play</button>
+        <button class="btn" id="btnClaudeNotes">Claude's Notes</button>
       </div>
 
       <div class="menu-row">
@@ -152,6 +154,7 @@
         <button class="btn primary" id="btnResume">Resume</button>
         <button class="btn" id="btnSaveGame">Save Game</button>
         <button class="btn" id="btnDemoCommands">Demo Commands</button>
+        <button class="btn" id="btnClaudeNotesPause">Claude's Notes</button>
         <button class="btn" id="btnResetWorld">Reset World</button>
         <button class="btn" id="btnLeaveServer">Leave Server</button>
         <button class="btn danger" id="btnQuitMenu">Quit to Menu</button>
@@ -215,6 +218,17 @@
       <div class="cmd-list" id="cmdList"></div>
       <div class="dialog-buttons">
         <button class="btn" id="cmdClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CLAUDE'S NOTES (dev annotations beside the GPT review) ============ -->
+  <div id="claudeNotesDialog" class="overlay dialog hidden">
+    <div class="dialog-panel wide">
+      <h2>Claude's Notes <span class="hint small">— developer annotations for the stress-test review</span></h2>
+      <div class="howto-body claude-notes" id="claudeNotesBody"></div>
+      <div class="dialog-buttons">
+        <button class="btn primary" id="claudeNotesClose">Close</button>
       </div>
     </div>
   </div>

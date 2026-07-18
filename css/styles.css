@@ -102,14 +102,21 @@ canvas#game {
 .dialog-panel.narrow { width: min(380px, 94vw); }
 
 .game-title {
-  font-size: clamp(34px, 7vw, 54px);
-  letter-spacing: 1px;
-  line-height: 1;
+  /* Capped so "SummonerRealms" (one long word) always fits the menu panel and
+     is never clipped at the viewport edge; wraps to two lines on very narrow
+     screens instead of overflowing. */
+  font-size: clamp(30px, 6vw, 46px);
+  letter-spacing: 0.5px;
+  line-height: 1.02;
   margin-bottom: 6px;
   color: var(--teal);
+  max-width: 100%;
+  overflow-wrap: break-word;
   text-shadow: 0 3px 0 #0a3a30, 0 0 18px rgba(126, 224, 192, 0.35);
 }
-.game-title span { color: var(--violet); text-shadow: 0 3px 0 #3a1a5a, 0 0 18px rgba(197, 139, 255, 0.35); }
+/* inline-block keeps "Realms" whole; the <wbr> before it is the only break point,
+   so the title splits cleanly as "Summoner" / "Realms" when it must wrap. */
+.game-title span { display: inline-block; color: var(--violet); text-shadow: 0 3px 0 #3a1a5a, 0 0 18px rgba(197, 139, 255, 0.35); }
 .tagline { color: var(--muted); margin-bottom: 20px; font-size: 14px; }
 .version { color: var(--muted); font-size: 12px; margin-top: 16px; text-align: center; }
 
@@ -172,6 +179,8 @@ input[type="text"]:focus { outline: none; border-color: var(--teal); }
 .hud { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
 .hud-top-left { position: absolute; top: max(10px, env(safe-area-inset-top)); left: 12px; }
 .hud-top-right { position: absolute; top: max(10px, env(safe-area-inset-top)); right: 12px; text-align: right; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.hud-menu-btn { pointer-events: auto; width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: rgba(10,14,28,0.82); color: var(--ink); font-size: 17px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.hud-menu-btn:hover { border-color: var(--teal); color: var(--teal); }
 
 .bar-group { display: flex; flex-direction: column; gap: 6px; }
 .bar {
@@ -201,8 +210,9 @@ input[type="text"]:focus { outline: none; border-color: var(--teal); }
 /* Boss bar */
 .boss-bar { position: absolute; bottom: 92px; left: 50%; transform: translateX(-50%); width: min(560px, 90vw); text-align: center; }
 .boss-name { font-weight: 800; color: var(--red); text-shadow: 0 2px 4px #000; margin-bottom: 4px; letter-spacing: 1px; }
-.boss-hp { height: 16px; background: #05070f; border: 1px solid var(--red); border-radius: 8px; overflow: hidden; }
+.boss-hp { position: relative; height: 18px; background: #05070f; border: 1px solid var(--red); border-radius: 8px; overflow: hidden; }
 .boss-hp-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #b5233a, #ff6b7d); transition: width 0.2s ease; }
+.boss-hp-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px #000, 0 0 3px #000; letter-spacing: 0.5px; }
 .boss-phase { color: var(--gold); font-size: 12px; margin-top: 3px; font-weight: 700; }
 
 /* Toasts */
@@ -333,6 +343,16 @@ input[type="text"]:focus { outline: none; border-color: var(--teal); }
 .howto-body h4 { margin-top: 12px; color: var(--teal); }
 .howto-body ul { margin-left: 18px; color: var(--muted); }
 .howto-body kbd { background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-family: monospace; color: var(--ink); }
+
+/* ---------------- Claude's Notes ---------------- */
+.claude-notes { max-height: 66vh; overflow-y: auto; padding-right: 6px; }
+.claude-notes .cn-intro { color: var(--muted); background: rgba(126,224,192,0.06); border-left: 3px solid var(--teal); padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; }
+.claude-notes h4 { color: var(--gold); border-bottom: 1px solid var(--border); padding-bottom: 3px; }
+.claude-notes li { margin: 3px 0; }
+.claude-notes code { background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; font-family: 'Courier New', monospace; font-size: 12px; color: var(--ink); }
+.claude-notes .cn-fix { color: var(--green); }
+.claude-notes .cn-good { color: var(--green); font-weight: 700; }
+.claude-notes .cn-bad { color: var(--red); font-weight: 700; }
 
 /* ---------------- Death screen ---------------- */
 .overlay.death { background: rgba(30, 5, 12, 0.7); backdrop-filter: blur(2px); z-index: 40; }

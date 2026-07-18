@@ -2,15 +2,32 @@
 import { TILE, GRAVITY, MAX_FALL } from '../config.js';
 
 export function moveAndCollide(e, world, dt) {
+  const wasGrounded = e.onGround;
   e.onGround = false;
 
   // Horizontal
   e.x += e.vx * dt;
   if (world.rectHitsSolid(e.x, e.y, e.w, e.h)) {
-    if (e.vx > 0) e.x = Math.floor((e.x + e.w) / TILE) * TILE - e.w - 0.01;
-    else if (e.vx < 0) e.x = (Math.floor(e.x / TILE) + 1) * TILE + 0.01;
-    e.vx = 0;
-    e.hitWallX = true;
+    // Auto step-up: entities with a `stepHeight` (the player) automatically
+    // climb ledges up to that many pixels tall while walking on the ground, so
+    // ordinary 1-tile terrain bumps never jam horizontal movement. Without this
+    // the player gets stuck on every natural terrace and movement feels broken.
+    const step = e.stepHeight || 0;
+    let stepped = false;
+    if (step > 0 && e.vx !== 0 && wasGrounded) {
+      for (let lift = 2; lift <= step; lift += 2) {
+        if (!world.rectHitsSolid(e.x, e.y - lift, e.w, e.h)) { e.y -= lift; stepped = true; break; }
+      }
+    }
+    if (stepped) {
+      e.hitWallX = false;
+      e.onGround = true; // stay grounded so we keep stepping up a staircase
+    } else {
+      if (e.vx > 0) e.x = Math.floor((e.x + e.w) / TILE) * TILE - e.w - 0.01;
+      else if (e.vx < 0) e.x = (Math.floor(e.x / TILE) + 1) * TILE + 0.01;
+      e.vx = 0;
+      e.hitWallX = true;
+    }
   } else e.hitWallX = false;
 
   // Vertical

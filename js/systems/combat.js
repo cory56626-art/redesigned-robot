@@ -247,31 +247,46 @@ function collapseTree(game, player, tx, ty) {
   game.spawnFallingTree(removed, tx, ty, dir);
 }
 
-export function placeSelected(game, player) {
-  const sel = player.inventory.selectedItem();
-  if (!sel || sel.place == null) return false;
-  const { tx, ty } = aimTile(game, player);
-  if (!withinReach(player, tx, ty)) return false;
-  if (game.world.get(tx, ty) !== T.AIR) return false;
-
+// Can the given placeable item be placed at aim tile (tx,ty)? Returns
+// { ok:true } or { ok:false, reason:'...' }. Pure check — never mutates state —
+// so the renderer can colour a valid/invalid ghost preview with the same rules.
+export function canPlaceAt(game, player, tx, ty, sel) {
+  if (!sel || sel.place == null) return { ok: false, reason: 'Not placeable' };
+  if (!withinReach(player, tx, ty)) return { ok: false, reason: 'Too far away' };
+  if (game.world.get(tx, ty) !== T.AIR) return { ok: false, reason: 'Space is occupied' };
   const placingSolid = tileDef(sel.place).solid;
-  // Don't place a solid tile inside any player.
   if (placingSolid) {
     const box = { x: tx * TILE, y: ty * TILE, w: TILE, h: TILE };
-    for (const p of game.players.values()) if (p.alive && aabb(box, p)) return false;
+    for (const p of game.players.values()) if (p.alive && aabb(box, p)) return { ok: false, reason: "Can't place on a player" };
   }
-  // Require an adjacent solid tile or proximity to the player.
   const neighborSolid = game.world.isSolidAt(tx - 1, ty) || game.world.isSolidAt(tx + 1, ty) ||
     game.world.isSolidAt(tx, ty - 1) || game.world.isSolidAt(tx, ty + 1);
   const pcx = (player.x + player.w / 2) / TILE, pcy = (player.y + player.h / 2) / TILE;
   const near = Math.abs(tx + 0.5 - pcx) < 3 && Math.abs(ty + 0.5 - pcy) < 3;
-  if (!neighborSolid && !near) return false;
+  if (!neighborSolid && !near) return { ok: false, reason: 'Needs a solid neighbour' };
+  return { ok: true };
+}
 
+export function placeSelected(game, player) {
+  const sel = player.inventory.selectedItem();
+  if (!sel || sel.place == null) return false;
+  const { tx, ty } = aimTile(game, player);
+  const check = canPlaceAt(game, player, tx, ty, sel);
+  if (!check.ok) {
+    // Throttled so a deliberate misclick is explained without spamming while the
+    // Place button is held over an invalid tile.
+    if (!game._placeFailCd || game._placeFailCd <= 0) {
+      game.floatText(tx * TILE + TILE / 2, ty * TILE, check.reason, '#ff8b7d');
+      game._placeFailCd = 0.7;
+    }
+    return false;
+  }
   if (!player.inventory.remove(sel.id, 1)) return false;
   game.world.set(tx, ty, sel.place);
   game.netEditTile(tx, ty, sel.place);
   game.markDirty();
   game.addHitParticles(tx * TILE + TILE / 2, ty * TILE + TILE / 2, tileDef(sel.place).color || '#888', 3);
+  game.floatText(tx * TILE + TILE / 2, ty * TILE, getItem(sel.id).name.split(' ')[0] + ' placed', '#7ee0c0');
   return true;
 }
 

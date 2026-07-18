@@ -135,6 +135,7 @@ class Game {
     const m = this.ui.menus;
     if (this.commands.isOpen()) { this.commands.close(); return; }
     if (m.isOpen('howtoDialog')) { m.hide('howtoDialog'); return; }
+    if (m.isOpen('claudeNotesDialog')) { m.hide('claudeNotesDialog'); return; }
     if (m.isOpen('confirmDialog')) { m.hide('confirmDialog'); return; }
     if (m.invOpen) { m.closeInventory(); return; }
     if (m.isOpen('newWorldDialog') || m.isOpen('loadWorldDialog') || m.isOpen('mpMenu')) { m.hide('newWorldDialog'); m.hide('loadWorldDialog'); m.hide('mpMenu'); return; }
@@ -153,10 +154,12 @@ class Game {
     this._last = ts;
     if (dt > 0.05) dt = 0.05;
 
-    if (this.state === 'playing' && !this.paused) {
+    if (this.state === 'playing' && !this.paused && !this._simFrozen()) {
       this._acc = (this._acc || 0) + dt;
       let steps = 0;
       while (this._acc >= SIM_DT && steps < 5) { this._step(SIM_DT); this._acc -= SIM_DT; steps++; }
+    } else {
+      this._acc = 0; // don't bank time while frozen, or it fast-forwards on resume
     }
 
     if (this.state === 'playing') {
@@ -171,6 +174,7 @@ class Game {
   }
 
   _step(dt) {
+    if (this._placeFailCd > 0) this._placeFailCd -= dt;
     // Aim resolve needs local player centre.
     const lc = this.localPlayer ? this.localPlayer.center() : { x: 0, y: 0 };
     this.input.resolveAim(lc.x, lc.y, this.canvas.width, this.canvas.height);
@@ -244,6 +248,15 @@ class Game {
       && !this.ui.menus.anyModalOpen() && !this.input.isTyping();
   }
 
+  // While these single-player overlays are open the world simulation is frozen
+  // (see _loop) so enemies/bosses can't keep attacking you while you're in the
+  // debug console or managing your inventory. A shared (networked) world can't be
+  // frozen unilaterally, so it keeps running there.
+  _simFrozen() {
+    if (this.net) return false;
+    return (this.commands && this.commands.isOpen()) || (this.ui.menus && this.ui.menus.invOpen);
+  }
+
   // ============ WORLD LIFECYCLE ============
   _resetEntities() {
     this.players.clear(); this.enemies = []; this.enemyById.clear(); this.minions = [];
@@ -309,7 +322,7 @@ class Game {
     p.recomputeStats();
     p.hp = p.maxHp; p.mana = p.maxMana;
     const tx = Math.floor(this.world.spawnX / TILE);
-    p.x = this.world.spawnX; p.y = (this.world.safeSpawnY(tx) - 2) * TILE;
+    p.x = this.world.spawnX; p.y = this.world.spawnPixelY(tx, p.h);
     this.localPlayer = p;
     this.players.set(p.id, p);
   }
@@ -365,7 +378,7 @@ class Game {
     this.localPlayer.inventory = inv;
     this.players.set(this.localPlayer.id, this.localPlayer);
     const tx = Math.floor(this.world.spawnX / TILE);
-    this.localPlayer.x = this.world.spawnX; this.localPlayer.y = (this.world.safeSpawnY(tx) - 2) * TILE;
+    this.localPlayer.x = this.world.spawnX; this.localPlayer.y = this.world.spawnPixelY(tx, this.localPlayer.h);
     this.localPlayer.vx = 0; this.localPlayer.vy = 0;
     this.localPlayer.alive = true;
     this.localPlayer.hp = this.localPlayer.maxHp; this.localPlayer.mana = this.localPlayer.maxMana;
@@ -434,6 +447,9 @@ class Game {
     else this.ui.menus.hidePause();
   }
   openCommandPanel() { this.commands.open(); }
+  // Shared by the Esc key and the always-visible HUD ☰ button, so PC players have
+  // a visible pause affordance (the review flagged that Esc was the only way).
+  menuButton() { this._handleEscape(); }
   selectHotbar(i) { if (this.localPlayer) this.localPlayer.inventory.selected = Math.max(0, Math.min(HOTBAR_SIZE - 1, i)); }
 
   useInventoryItem(index) {
@@ -465,8 +481,44 @@ class Game {
   }
   craftRecipe(recipe) { craftSys.craft(this, this.localPlayer, recipe); this.localPlayer.recomputeStats(); }
 
-  respawnLocal() { if (this.localPlayer) { this.localPlayer.respawn(this); this.ui.menus.hideDeath(); } }
-  onLocalDeath(srcName) { this.ui.menus.showDeath(srcName ? 'Slain by ' + srcName : undefined); }
+  respawnLocal() {
+    if (!this.localPlayer) return;
+    this.localPlayer.respawn(this);
+    // Clear leftover combat so you never respawn straight into a projectile or a
+    // lingering damage state. (Bosses are already despawned on death below.)
+    this.resetCombatState();
+    this.ui.menus.hideDeath();
+  }
+  onLocalDeath(srcName) {
+    this.ui.menus.showDeath(srcName ? 'Slain by ' + srcName : undefined);
+    // In single-player, dying ends the encounter: the boss (and its adds and
+    // projectiles) despawn so respawn is a clean slate — no stale boss surviving
+    // across death like the stress test reported. In multiplayer the host keeps
+    // the fight alive for the other players.
+    if (!this.net) { this.clearBosses(true); this.resetCombatState(); }
+  }
+
+  // Remove every active boss plus the adds it spawned and any boss projectiles.
+  clearBosses(silent) {
+    if (!this.isHost) { if (!silent) this.toast('Only the host can clear bosses', 'bad'); return 0; }
+    const n = this.bosses.length;
+    this.bosses = [];
+    this.enemies = this.enemies.filter(e => { if (e.fromBoss) { this.enemyById.delete(e.netId); return false; } return true; });
+    this.projectiles = this.projectiles.filter(p => p.ownerType !== 'boss');
+    if (n && !silent) this.toast(n + ' boss' + (n > 1 ? 'es' : '') + ' cleared', 'info');
+    this.markDirty();
+    return n;
+  }
+
+  // Wipe transient combat: all projectiles, particles, and float texts, and the
+  // local player's hit/knockback state. Used on death/respawn and by /resetcombat.
+  resetCombatState() {
+    this.projectiles = [];
+    this.particles = [];
+    this.floatTexts = [];
+    const p = this.localPlayer;
+    if (p) { p.iframes = Math.max(p.iframes, 1.5); p.kbTimer = 0; p.combatTimer = 0; p.hazardTimer = 0; }
+  }
 
   // ============ COMBAT / ENTITY HELPERS ============
   addProjectile(proj, broadcast) {

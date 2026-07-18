@@ -181,7 +181,12 @@ export class Input {
     el.addEventListener('pointermove', onMove);
     el.addEventListener('pointerup', onUp);
     el.addEventListener('pointercancel', onUp);
-    el.addEventListener('pointerout', onUp);
+    // NOTE: intentionally NOT listening for pointerout/pointerleave here.
+    // With setPointerCapture the element keeps receiving moves, but the pointer
+    // still emits pointerout as soon as the knob is dragged past the joystick's
+    // small bounds — which previously reset the stick mid-drag and made the
+    // player stop moving the instant you pushed the stick to the edge. We only
+    // release on an actual pointerup/pointercancel now.
   }
 
   // ---- Mobile action buttons ----

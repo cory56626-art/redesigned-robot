@@ -22,6 +22,7 @@ export class Player {
     this.x = 0; this.y = 0; this.vx = 0; this.vy = 0;
     this.facing = 1;
     this.onGround = false;
+    this.stepHeight = TILE + 2; // auto-climb 1-tile ledges (see physics.moveAndCollide)
     this.jumpsLeft = 0;
     this.maxHp = BASE_HP; this.hp = BASE_HP;
     this.maxMana = BASE_MANA; this.mana = BASE_MANA;
@@ -258,7 +259,7 @@ export class Player {
     this.hp = this.maxHp;
     this.mana = this.maxMana;
     this.iframes = 2;
-    const sx = game.world.spawnX, sy = (game.world.safeSpawnY(Math.floor(game.world.spawnX / TILE)) - 2) * TILE;
+    const sx = game.world.spawnX, sy = game.world.spawnPixelY(Math.floor(game.world.spawnX / TILE), this.h);
     this.x = sx; this.y = sy;
     this.vx = 0; this.vy = 0;
   }

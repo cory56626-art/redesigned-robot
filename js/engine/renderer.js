@@ -3,6 +3,7 @@ import { TILE, UNDERGROUND_Y, CAVERN_Y, CORRUPT_X } from '../config.js';
 import { T, isSolid } from '../world/tiles.js';
 import { Sprites } from '../art/sprites.js';
 import { item as getItem } from '../data/items.js';
+import { canPlaceAt } from '../systems/combat.js';
 
 const PROJ_GLOW = { thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff', spark: '#9ec3ff', wispbolt: '#9ec3ff', emberball: '#ff8c3b' };
 
@@ -186,8 +187,14 @@ export class Renderer {
     const s = game.input.state;
     const tx = Math.floor(s.aimX / TILE), ty = Math.floor(s.aimY / TILE);
     if (sel && (sel.place != null)) {
-      ctx.strokeStyle = 'rgba(126,224,192,0.7)'; ctx.lineWidth = 1;
-      ctx.strokeRect(tx * TILE + 0.5, ty * TILE + 0.5, TILE - 1, TILE - 1);
+      // Ghost preview: green = can place here, red = cannot, with the block's
+      // own icon shown faintly so you see exactly what/where you'll build.
+      const valid = canPlaceAt(game, p, tx, ty, sel).ok;
+      const icon = Sprites.getIcon(sel);
+      if (icon) { ctx.globalAlpha = valid ? 0.5 : 0.28; ctx.drawImage(icon, tx * TILE, ty * TILE, TILE, TILE); ctx.globalAlpha = 1; }
+      ctx.strokeStyle = valid ? 'rgba(126,224,138,0.95)' : 'rgba(255,107,125,0.9)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(tx * TILE + 0.75, ty * TILE + 0.75, TILE - 1.5, TILE - 1.5);
     } else if (sel && (sel.category === 'tool')) {
       ctx.strokeStyle = 'rgba(255,207,107,0.6)'; ctx.lineWidth = 1;
       ctx.strokeRect(tx * TILE + 0.5, ty * TILE + 0.5, TILE - 1, TILE - 1);
@@ -396,7 +403,7 @@ export class Renderer {
     if (cols <= 0 || rows <= 0) return;
     const extra = [];
     const p = game.localPlayer;
-    if (p) extra.push({ tx: Math.floor((p.x + p.w / 2) / TILE), ty: Math.floor((p.y + p.h / 2) / TILE), level: 0.42 });
+    if (p) extra.push({ tx: Math.floor((p.x + p.w / 2) / TILE), ty: Math.floor((p.y + p.h / 2) / TILE), level: 0.5 });
     for (const pl of game.players.values()) if (!pl.isLocal) extra.push({ tx: Math.floor((pl.x + pl.w / 2) / TILE), ty: Math.floor((pl.y + pl.h / 2) / TILE), level: 0.35 });
     const buf = game.world.computeLightWindow(tx0, ty0, cols, rows, game.time.brightness, extra);
 
