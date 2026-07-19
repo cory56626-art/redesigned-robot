@@ -1,0 +1,19 @@
+{
+  "name": "summoner-realms-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multiplayer backend for Summoner Realms — Express + Socket.IO room relay hub. Deploy on Render as a Node.js Web Service (Root Directory: server).",
+  "type": "commonjs",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}
