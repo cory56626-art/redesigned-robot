@@ -125,7 +125,7 @@
   <div id="mpMenu" class="overlay dialog hidden">
     <div class="dialog-panel">
       <h2>Multiplayer</h2>
-      <p class="hint">Peer-to-peer via WebRTC. The host runs the world; others join with a code or link. Works PC ↔ mobile.</p>
+      <p class="hint">Online via a shared server. The host runs the world; others join with a room code or invite link. Works PC ↔ mobile.</p>
       <div class="mp-section">
         <button class="btn primary" id="btnCreateServer">Create Server (host a world)</button>
         <p class="hint small">Starts from your currently loaded world, or a new one.</p>
@@ -265,8 +265,22 @@
     </div>
   </div>
 
-  <!-- PeerJS: vendored with CDN fallback if the local copy is missing. -->
-  <script src="vendor/peerjs.min.js" onerror="(function(){var s=document.createElement('script');s.src='https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';document.head.appendChild(s);})()"></script>
+  <!-- Socket.IO client for the Render multiplayer backend.
+       Vendored copy first, jsDelivr CDN fallback if the local copy is missing. -->
+  <script src="vendor/socket.io.min.js" onerror="(function(){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/socket.io-client@4.8.3/dist/socket.io.min.js';document.head.appendChild(s);})()"></script>
+
+  <!-- ================================================================== -->
+  <!--  ⚙️  MULTIPLAYER BACKEND URL                                        -->
+  <!--  After deploying the /server folder to Render, paste the URL it     -->
+  <!--  gives you between the quotes below.                                -->
+  <!--     Example: 'https://summoner-realms.onrender.com'                 -->
+  <!--  Leave it '' for single-player only. You can also override per-visit -->
+  <!--  by adding ?server=https://your-service.onrender.com to the link.   -->
+  <!-- ================================================================== -->
+  <script>
+    window.SUMMONER_SERVER_URL = '';
+  </script>
+
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

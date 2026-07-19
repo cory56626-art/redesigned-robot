@@ -1,13 +1,19 @@
 {
-  "name": "summoner-realms-peerserver",
+  "name": "summoner-realms-server",
   "version": "1.0.0",
   "private": true,
-  "description": "Optional self-hosted PeerJS signaling server for Summoner Realms multiplayer. Not required to play — the game uses the public PeerJS broker by default.",
+  "description": "Multiplayer backend for Summoner Realms — Express + Socket.IO room relay hub. Deploy on Render as a Node.js Web Service (Root Directory: server).",
   "type": "commonjs",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
-    "start": "node peer-server.js"
+    "start": "node server.js"
   },
   "dependencies": {
-    "peer": "^1.0.2"
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
   }
 }

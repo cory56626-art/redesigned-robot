@@ -1,109 +1,147 @@
-// Summoner Realms — PeerJS transport (host-authoritative). Cross-platform PC/mobile.
-import { MSG, ROOM_PREFIX } from './protocol.js';
-import { shortId } from '../utils.js';
+// Summoner Realms — Socket.IO transport (host-authoritative). Cross-platform PC/mobile.
+//
+// The game stays host-authoritative exactly as before: whoever presses "Create
+// Server" runs the world and broadcasts snapshots; others join and send their
+// own player state. Only the transport changed — previously peer-to-peer WebRTC
+// (PeerJS), now a Render-hosted Socket.IO relay over HTTPS + WebSockets. The
+// message protocol (protocol.js) and sync logic (sync.js) are untouched, so all
+// gameplay, saves, inventory, combat and controls behave the same.
+//
+// The backend URL is configured in index.html (window.SUMMONER_SERVER_URL) and
+// can be overridden per-visit with ?server=https://your-service.onrender.com
+import { MSG } from './protocol.js';
 
-// Peer options. Defaults to the public PeerJS cloud broker. To use the optional
-// self-hosted server in /server, add URL params: ?peerhost=HOST&peerport=9000
-function peerOptions() {
+// Resolve the multiplayer backend URL, trailing slashes trimmed:
+//   1. ?server= query param (handy for testing without editing files)
+//   2. window.SUMMONER_SERVER_URL set in index.html (paste your Render URL here)
+//   3. dev convenience: a page opened from localhost falls back to :10000
+//   4. otherwise '' (not configured) — the UI explains how to set it
+export function backendUrl() {
+  const trim = (u) => String(u || '').trim().replace(/\/+$/, '');
   const q = new URLSearchParams(location.search);
-  const host = q.get('peerhost');
-  const opts = { debug: 1 };
-  if (host) {
-    opts.host = host;
-    opts.port = parseInt(q.get('peerport') || '9000', 10);
-    opts.path = q.get('peerpath') || '/';
-    opts.secure = q.get('peersecure') === '1';
-  }
-  return opts;
+  const override = trim(q.get('server'));
+  if (override) return override;
+  const configured = trim(window.SUMMONER_SERVER_URL);
+  if (configured) return configured;
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') return 'http://localhost:10000';
+  return '';
 }
 
 export class Net {
   constructor(game) {
     this.game = game;
-    this.peer = null;
+    this.socket = null;
     this.isHost = false;
-    this.hostId = null;      // player id of the host
-    this.selfId = null;      // this peer's player id
+    this.hostId = null;      // player id (socket id) of the host
+    this.selfId = null;      // this connection's player id (socket id)
     this.roomCode = null;
-    this.conns = new Map();  // host: peerId -> conn
-    this.hostConn = null;    // client: connection to host
+    this.conns = new Map();  // host: clientId -> true (drives the online count)
     this.status = 'offline'; // offline|connecting|connected|error
     this.statusMsg = '';
+    this.url = backendUrl();
+    this._announced = false; // guards against re-hosting/re-joining on reconnect
   }
 
-  available() { return typeof window.Peer === 'function'; }
+  // The Socket.IO client is loaded via a <script> tag in index.html.
+  available() { return typeof window.io === 'function'; }
+
+  _makeSocket() {
+    // websocket preferred, polling fallback. Generous timeout + retries so a
+    // sleeping free-tier Render instance has time to wake on the first connect.
+    return window.io(this.url, {
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 10,
+      reconnectionDelay: 800,
+      reconnectionDelayMax: 4000,
+      timeout: 20000,
+      withCredentials: false,
+    });
+  }
+
+  // Deliver relayed game messages to the game. A small conn shim lets sync.js's
+  // HELLO handler reply straight to the sender via conn.send(...) unchanged.
+  _wireCommon(socket) {
+    socket.on('net-msg', ({ from, msg }) => {
+      const conn = { peer: from, send: (m) => this.toPeer(from, m) };
+      this.game.handleNetMessage(from, msg, conn);
+    });
+    socket.io.on('reconnect_failed', () => {
+      if (this.status !== 'connected') {
+        this.status = 'error';
+        this.game.onJoinError('Cannot reach the multiplayer server. Check the backend URL in index.html — a free Render instance can take ~30–60s to wake, so try again.');
+      }
+    });
+  }
+
+  _preflight() {
+    if (!this.available()) { this.game.onJoinError('Multiplayer library failed to load. Check your connection.'); return false; }
+    if (!this.url) { this.game.onJoinError('No multiplayer backend is configured. Paste your Render URL into index.html (window.SUMMONER_SERVER_URL), or add ?server=… to the link.'); return false; }
+    return true;
+  }
 
   // ---------- Host ----------
-  host(onReady, attempt = 0) {
-    if (!this.available()) { this.game.onJoinError('Multiplayer library failed to load. Check your connection.'); return; }
+  host(onReady) {
+    if (!this._preflight()) return;
     this.isHost = true;
     this.status = 'connecting';
-    const code = shortId(5);
-    const peer = new window.Peer(ROOM_PREFIX + code, peerOptions());
-    this.peer = peer;
-    peer.on('open', (id) => {
-      this.selfId = id;
-      this.hostId = id;
-      this.roomCode = code;
-      this.status = 'connected';
-      onReady(code);
-    });
-    peer.on('connection', (conn) => this._onIncoming(conn));
-    peer.on('error', (err) => {
-      if (err.type === 'unavailable-id' && attempt < 5) { peer.destroy(); this.host(onReady, attempt + 1); return; }
-      this.status = 'error'; this.statusMsg = err.type;
-      this.game.onJoinError('Host error: ' + err.type);
-    });
-    peer.on('disconnected', () => { try { peer.reconnect(); } catch {} });
-  }
+    const socket = this._makeSocket();
+    this.socket = socket;
+    this._wireCommon(socket);
 
-  _onIncoming(conn) {
-    conn.on('open', () => {
-      this.conns.set(conn.peer, conn);
+    socket.on('peer-join', ({ id }) => { this.conns.set(id, true); });
+    socket.on('peer-leave', ({ id }) => { this.conns.delete(id); this.game.onClientLeave(id); });
+
+    socket.on('connect', () => {
+      if (this._announced) return; // never open a second room on a reconnect
+      this._announced = true;
+      socket.emit('host', { name: this.game.playerName, color: this.game.playerColor }, (res) => {
+        if (!res || !res.ok) { this.status = 'error'; this.game.onJoinError('Could not start the server room. Try again.'); this.leave(); return; }
+        this.selfId = res.id;
+        this.hostId = res.id;
+        this.roomCode = res.code;
+        this.status = 'connected';
+        onReady(res.code);
+      });
     });
-    conn.on('data', (msg) => this.game.handleNetMessage(conn.peer, msg, conn));
-    conn.on('close', () => { this.conns.delete(conn.peer); this.game.onClientLeave(conn.peer); });
-    conn.on('error', () => { this.conns.delete(conn.peer); this.game.onClientLeave(conn.peer); });
+    socket.on('disconnect', () => { if (this.status === 'connected') this.status = 'error'; });
+    socket.on('connect_error', () => { /* manager retries; reconnect_failed reports the give-up */ });
   }
 
   // ---------- Client ----------
   join(code, onReady) {
-    if (!this.available()) { this.game.onJoinError('Multiplayer library failed to load. Check your connection.'); return; }
+    if (!this._preflight()) return;
     this.isHost = false;
     this.status = 'connecting';
     this.roomCode = code;
-    const peer = new window.Peer(null, peerOptions());
-    this.peer = peer;
-    let opened = false;
-    peer.on('open', (id) => {
-      this.selfId = id;
-      const conn = peer.connect(ROOM_PREFIX + code, { reliable: true, serialization: 'json' });
-      this.hostConn = conn;
-      const timeout = setTimeout(() => { if (!opened) { this.status = 'error'; this.game.onJoinError('Could not reach room ' + code + '. Check the code.'); this.leave(); } }, 12000);
-      conn.on('open', () => {
-        opened = true; clearTimeout(timeout);
+    const socket = this._makeSocket();
+    this.socket = socket;
+    this._wireCommon(socket);
+
+    socket.on('host-gone', () => { this.status = 'error'; this.game.onHostLost(); });
+
+    socket.on('connect', () => {
+      if (this._announced) return;
+      this._announced = true;
+      socket.emit('join', { code, name: this.game.playerName, color: this.game.playerColor }, (res) => {
+        if (!res || !res.ok) { this.status = 'error'; this.game.onJoinError(res && res.error ? res.error : ('Room "' + code + '" not found.')); this.leave(); return; }
+        this.selfId = res.id;
+        this.hostId = res.hostId;
         this.status = 'connected';
-        this.hostId = conn.peer;
-        conn.send({ t: MSG.HELLO, name: this.game.playerName, color: this.game.playerColor });
+        // Kick off the game handshake: HELLO prompts the host to send WELCOME
+        // (the full world snapshot). Same flow as the old WebRTC transport.
+        this.toHost({ t: MSG.HELLO, name: this.game.playerName, color: this.game.playerColor });
         onReady();
       });
-      conn.on('data', (msg) => this.game.handleNetMessage(conn.peer, msg, conn));
-      conn.on('close', () => { this.status = 'error'; this.game.onHostLost(); });
-      conn.on('error', () => { this.status = 'error'; });
     });
-    peer.on('error', (err) => {
-      this.status = 'error';
-      if (err.type === 'peer-unavailable') this.game.onJoinError('Room "' + code + '" not found.');
-      else this.game.onJoinError('Connection error: ' + err.type);
-    });
+    socket.on('disconnect', () => { if (this.status === 'connected') { this.status = 'error'; this.game.onHostLost(); } });
+    socket.on('connect_error', () => { /* manager retries; reconnect_failed reports the give-up */ });
   }
 
   // ---------- Send helpers ----------
-  toHost(msg) { if (this.hostConn && this.hostConn.open) this.hostConn.send(msg); }
-  toPeer(peerId, msg) { const c = this.conns.get(peerId); if (c && c.open) c.send(msg); }
-  broadcast(msg, exceptId) {
-    for (const [pid, c] of this.conns) { if (pid === exceptId) continue; if (c.open) c.send(msg); }
-  }
+  _live() { return this.socket && this.socket.connected; }
+  toHost(msg) { if (this._live()) this.socket.emit('to-host', msg); }
+  toPeer(peerId, msg) { if (this._live()) this.socket.emit('to-peer', { to: peerId, msg }); }
+  broadcast(msg, exceptId) { if (this._live()) this.socket.emit('broadcast', { msg, except: exceptId }); }
   // Send to everyone appropriately (host -> all clients; client -> host).
   relay(msg, fromId) {
     if (this.isHost) this.broadcast(msg, fromId);
@@ -122,13 +160,10 @@ export class Net {
 
   leave() {
     try {
-      if (this.hostConn) this.hostConn.close();
-      for (const c of this.conns.values()) { try { c.send({ t: MSG.BYE }); c.close(); } catch {} }
-      if (this.peer) this.peer.destroy();
+      if (this.socket) { this.socket.emit('leave'); this.socket.disconnect(); }
     } catch {}
     this.conns.clear();
-    this.hostConn = null;
-    this.peer = null;
+    this.socket = null;
     this.status = 'offline';
   }
 }

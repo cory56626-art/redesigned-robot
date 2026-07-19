@@ -1,4 +1,4 @@
-// Summoner Realms — network message types (PeerJS data channel, JSON).
+// Summoner Realms — network message types (relayed as JSON over Socket.IO).
 export const MSG = {
   HELLO: 'hello',       // client -> host : {name, color}
   WELCOME: 'welcome',   // host -> client : full world + assigned id
@@ -16,5 +16,3 @@ export const MSG = {
   CMD: 'cmd',           // client -> host : demo command relay {cmd, args}
   BYE: 'bye',
 };
-
-export const ROOM_PREFIX = 'sumrealm-';

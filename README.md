@@ -84,7 +84,7 @@ whole UI is responsive and safe-area aware for phones and iPads.
 
 ---
 
-## Multiplayer (real peer-to-peer co-op)
+## Multiplayer (real online co-op)
 
 Open **Multiplayer** from the main menu:
 
@@ -95,27 +95,35 @@ Open **Multiplayer** from the main menu:
 Player movement, mining, building, combat, health, enemies, minions, **bosses**,
 items, and world changes are synchronized. You get player names, colors, a live
 player list, chat, a connection indicator, and a **Leave Server** button. Multiple
-players can fight bosses together (damage is pooled; bosses aggro everyone). It's
-real WebRTC — no bots, no duplicated characters. Single-player runs fully offline.
+players can fight bosses together (damage is pooled; bosses aggro everyone).
+No bots, no duplicated characters. Single-player runs fully offline.
 
-> Multiplayer uses [PeerJS](https://peerjs.com) (WebRTC). The library is
-> **vendored** in `vendor/peerjs.min.js` (with a CDN fallback) and, by default,
-> uses PeerJS's free public broker for signaling — so it needs internet access
-> and works from any static host. Cross-platform PC ↔ mobile is supported because
-> both platforms feed the exact same normalized input into the netcode.
+> Multiplayer runs through a small **Node.js + Socket.IO** backend (in
+> [`server/`](server/)) hosted on **[Render](https://render.com)**, over HTTPS +
+> WebSockets. The game is still **host-authoritative** — the backend only manages
+> rooms and relays the game's messages between the host and joined clients, so all
+> gameplay/saves/inventory logic is unchanged. Cross-platform PC ↔ mobile works
+> because both platforms feed the exact same normalized input into the netcode.
 
-### Optional: self-hosted signaling server
+### Backend setup (Render)
 
-If you'd rather not use the public broker, an optional server is in
-[`server/`](server/):
+1. Deploy the [`server/`](server/) folder to Render as a **Node Web Service**
+   (Root Directory `server`, Build `npm install`, Start `npm start`). Full steps
+   are in [`server/README.md`](server/README.md).
+2. Paste the URL Render gives you into `index.html`:
 
-```bash
-cd server && npm install && npm start   # PeerServer on :9000
-```
+   ```html
+   <script>
+     window.SUMMONER_SERVER_URL = 'https://your-service.onrender.com';
+   </script>
+   ```
 
-Then load the game pointing at it:
-`https://your-site/?peerhost=YOURHOST&peerport=9000` (add `&peersecure=1` for
-HTTPS/WSS).
+   (Or test without editing files by adding
+   `?server=https://your-service.onrender.com` to the game link.)
+
+Run it locally with `cd server && npm install && npm start`
+(health check at <http://localhost:10000/health>), then load the game with
+`?server=http://localhost:10000`.
 
 ---
 
@@ -192,8 +200,8 @@ reviewer can test the right things the right way.
 ```
 index.html            markup + all UI overlays
 css/styles.css        theme + responsive/mobile layout
-vendor/peerjs.min.js  vendored PeerJS (WebRTC)
-server/               optional self-hosted PeerServer
+vendor/socket.io.min.js  vendored Socket.IO client (CDN fallback)
+server/               Node.js + Socket.IO multiplayer backend (deploy on Render)
 js/
   config.js  utils.js
   engine/    loop, camera, input (PC + mobile), renderer
@@ -203,7 +211,7 @@ js/
   entities/  player, enemy, minion, boss, projectile, dropped item, physics
   systems/   combat, inventory, crafting, progression, spawner, day/night
   ui/        HUD, menus, controls-mode
-  net/       protocol, PeerJS transport, host-authoritative sync
+  net/       protocol, Socket.IO transport, host-authoritative sync
   commands.js  save.js  main.js (orchestrator + game loop)
 ```
 
@@ -211,8 +219,8 @@ js/
 
 ## Tech notes
 
-- Pure vanilla JS + Canvas 2D, ES modules, ~zero dependencies (PeerJS only, for
-  multiplayer).
+- Pure vanilla JS + Canvas 2D, ES modules, ~zero front-end dependencies
+  (Socket.IO client only, for multiplayer).
 - Fixed-timestep simulation with viewport-culled rendering and a smooth lightmap.
 - Host-authoritative netcode: world/enemies/bosses/drops on the host; each client
   owns its inventory and reports actions. Normalized input makes PC ↔ mobile
