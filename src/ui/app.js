@@ -1,7 +1,10 @@
 // Application shell: top bar, bottom navigation, screen routing, modals and toasts.
 import { el, $, fmtCoins } from '../core/util.js';
 import { state, save as persist, settings } from '../core/store.js';
-import { xpForLevel } from '../game/economy.js';
+import { xpForLevel, addCoins } from '../game/economy.js';
+import { generatePlayer } from '../game/player-gen.js';
+import { RNG } from '../core/rng.js';
+import { autoFill } from '../game/squad.js';
 
 import { renderMenu } from './screen-menu.js';
 import { renderSquad } from './screen-squad.js';
@@ -76,6 +79,12 @@ class App {
         el('div', { class: 'lvl', text: `Lv ${c.level} · ${c.xp}/${xpNeed} XP` }),
       ]),
       el('div', { class: 'spacer' }),
+      el('button', {
+        class: 'btn ghost',
+        title: 'Card test commands',
+        style: { padding: '8px 10px', fontSize: '12px', whiteSpace: 'nowrap' },
+        onclick: () => this.openCardTools(),
+      }, [el('span', { text: '🃏 Cards' })]),
       el('div', { class: 'pill coins' }, [el('span', { class: 'ico', text: '🪙' }), el('span', { text: fmtCoins(c.coins) })]),
     );
     // nav active
@@ -121,6 +130,10 @@ class App {
     if (this._modal) { this._modal.remove(); this._modal = null; }
   }
 
+  openCardTools() {
+    openCardTools(this);
+  }
+
   confirm(title, message, onYes, yesLabel = 'Confirm') {
     const node = el('div', {}, [
       el('h2', { text: title }),
@@ -138,7 +151,118 @@ class App {
   }
 }
 
-// small helper (avoid importing $$ from util into every screen)
-function $$(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
+function openCardTools(app) {
+  const unlock = el('div', {}, [
+    el('h2', { text: 'Card Test Commands' }),
+    el('p', { style: { color: 'var(--muted)', fontSize: '14px' }, text: 'Enter the test code to unlock player commands.' }),
+  ]);
+  const code = el('input', {
+    type: 'password',
+    inputmode: 'numeric',
+    placeholder: 'Test code',
+    style: { width: '100%', padding: '12px', marginTop: '10px', background: 'var(--panel2)', color: 'var(--txt)', border: '1px solid var(--line)', borderRadius: '10px' },
+  });
+  const error = el('div', { style: { color: 'var(--danger)', fontSize: '12px', minHeight: '18px', marginTop: '6px' } });
+  const enter = () => {
+    if (code.value.trim() === '4062') showCardCommands(app);
+    else error.textContent = 'Wrong code.';
+  };
+  code.addEventListener('keydown', (e) => { if (e.key === 'Enter') enter(); });
+  unlock.append(
+    code,
+    error,
+    el('div', { class: 'row', style: { marginTop: '10px' } }, [
+      el('button', { class: 'btn ghost grow', onclick: () => app.closeModal(), text: 'Cancel' }),
+      el('button', { class: 'btn primary grow', onclick: enter, text: 'Unlock' }),
+    ]),
+  );
+  app.modal(unlock);
+  code.focus();
+}
+
+function showCardCommands(app) {
+  const tier = el('select', { class: 'input', style: fieldStyle() }, [
+    option('0', 'Common (0)'), option('1', 'Rare (1)'), option('2', 'Epic (2)'),
+    option('3', 'Legendary (3)'), option('4', 'Mythic (4)'), option('5', 'Superhuman (5)'),
+  ]);
+  const position = el('select', { class: 'input', style: fieldStyle() }, [
+    option('', 'Random position'), option('GK', 'Goalkeeper'), option('CB', 'Centre back'),
+    option('LB', 'Left back'), option('RB', 'Right back'), option('CM', 'Centre midfield'),
+    option('CAM', 'Attacking midfield'), option('LW', 'Left wing'), option('RW', 'Right wing'), option('ST', 'Striker'),
+  ]);
+  const count = el('input', { type: 'number', min: '1', max: '25', value: '1', style: fieldStyle() });
+  const content = el('div', {}, [
+    el('h2', { text: 'Card Test Commands' }),
+    el('p', { style: { color: 'var(--muted)', fontSize: '14px' }, text: 'These add real players to your collection and save immediately.' }),
+    el('label', { style: labelStyle(), text: 'Tier' }), tier,
+    el('label', { style: labelStyle(), text: 'Position' }), position,
+    el('label', { style: labelStyle(), text: 'How many' }), count,
+    el('button', {
+      class: 'btn primary block',
+      style: { marginTop: '14px' },
+      onclick: () => {
+        const n = Math.max(1, Math.min(25, Number(count.value) || 1));
+        const rng = new RNG(Date.now() ^ Math.floor(Math.random() * 1e9));
+        const generated = [];
+        for (let i = 0; i < n; i++) {
+          const pos = position.value;
+          generated.push(generatePlayer({
+            rng,
+            tier: Number(tier.value),
+            isGK: pos === 'GK' ? true : pos ? false : undefined,
+            positionHint: pos && pos !== 'GK' ? pos : undefined,
+          }));
+        }
+        const s = state();
+        s.collection.push(...generated);
+        s.stats.playersEarned += generated.length;
+        app.save();
+        app.refreshChrome();
+        app.closeModal();
+        app.toast(`Added ${generated.length} ${tier.options[tier.selectedIndex].text.split(' (')[0]} card${generated.length === 1 ? '' : 's'}`, 'good');
+        if (app.current === 'collection' || app.current === 'squad') app.render();
+      },
+      text: 'Give Me Card(s)',
+    }),
+    el('button', {
+      class: 'btn blue block',
+      style: { marginTop: '8px' },
+      onclick: () => {
+        const s = state();
+        const positions = ['GK', 'CB', 'CB', 'LB', 'RB', 'CM', 'CM', 'LW', 'RW', 'ST', 'ST'];
+        const rng = new RNG(Date.now() ^ Math.floor(Math.random() * 1e9));
+        const dreamTeam = positions.map((pos) => generatePlayer({
+          rng, tier: 5, isGK: pos === 'GK', positionHint: pos === 'GK' ? undefined : pos,
+        }));
+        s.collection.push(...dreamTeam);
+        s.stats.playersEarned += dreamTeam.length;
+        autoFill(s);
+        app.save();
+        app.refreshChrome();
+        app.closeModal();
+        app.toast('Added a Superhuman dream team and filled your XI', 'good');
+        if (app.current === 'collection' || app.current === 'squad') app.render();
+      },
+      text: 'Give Superhuman Best XI',
+    }),
+    el('button', { class: 'btn ghost block', style: { marginTop: '8px' }, onclick: () => app.closeModal(), text: 'Close' }),
+  ]);
+  app.modal(content, { wide: true });
+}
+
+function option(value, text) {
+  return el('option', { value, text });
+}
+
+function fieldStyle() {
+  return { width: '100%', padding: '10px 12px', margin: '4px 0 10px', background: 'var(--panel2)', color: 'var(--txt)', border: '1px solid var(--line)', borderRadius: '10px' };
+}
+
+function labelStyle() {
+  return { display: 'block', color: 'var(--muted)', fontSize: '12px', fontWeight: '800', marginTop: '8px' };
+}
+
+// small helper (avoid importing $ from util into every screen)
+function $(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
 
 export const app = new App();
