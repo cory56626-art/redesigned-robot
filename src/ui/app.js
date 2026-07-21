@@ -5,6 +5,7 @@ import { xpForLevel, addCoins } from '../game/economy.js';
 import { generatePlayer } from '../game/player-gen.js';
 import { RNG } from '../core/rng.js';
 import { autoFill } from '../game/squad.js';
+import { GK_RARITIES, OUTFIELD_RARITIES, SPECIAL_CARDS, TIER_TO_GK, TIER_TO_OUTFIELD } from '../data/rarities.js';
 
 import { renderMenu } from './screen-menu.js';
 import { renderSquad } from './screen-squad.js';
@@ -181,21 +182,62 @@ function openCardTools(app) {
 }
 
 function showCardCommands(app) {
-  const tier = el('select', { class: 'input', style: fieldStyle() }, [
-    option('0', 'Common (0)'), option('1', 'Rare (1)'), option('2', 'Epic (2)'),
-    option('3', 'Legendary (3)'), option('4', 'Mythic (4)'), option('5', 'Superhuman (5)'),
-  ]);
   const position = el('select', { class: 'input', style: fieldStyle() }, [
-    option('', 'Random position'), option('GK', 'Goalkeeper'), option('CB', 'Centre back'),
-    option('LB', 'Left back'), option('RB', 'Right back'), option('CM', 'Centre midfield'),
-    option('CAM', 'Attacking midfield'), option('LW', 'Left wing'), option('RW', 'Right wing'), option('ST', 'Striker'),
+    option('', 'Random position'),
+    option('GK', 'Goalkeeper'),
+    option('CB', 'Centre back'),
+    option('LB', 'Left back'),
+    option('RB', 'Right back'),
+    option('CM', 'Centre midfield'),
+    option('CAM', 'Attacking midfield'),
+    option('LW', 'Left wing'),
+    option('RW', 'Right wing'),
+    option('ST', 'Striker'),
+  ]);
+  const tier = el('select', { class: 'input', style: fieldStyle() });
+  const special = el('select', { class: 'input', style: fieldStyle() }, [
+    option('', 'Base card — no secondary type'),
+    ...Object.values(SPECIAL_CARDS).map((card) => option(card.id, card.name + ' (+' + card.boost + ' OVR)')),
   ]);
   const count = el('input', { type: 'number', min: '1', max: '25', value: '1', style: fieldStyle() });
+
+  const refreshTierOptions = () => {
+    const isGK = position.value === 'GK';
+    const ids = isGK ? TIER_TO_GK : TIER_TO_OUTFIELD;
+    const defs = isGK ? GK_RARITIES : OUTFIELD_RARITIES;
+    const previous = tier.value;
+    tier.innerHTML = '';
+    ids.forEach((id, index) => tier.append(option(String(index), defs[id].name + ' (' + index + ')')));
+    tier.value = ids[Number(previous)] ? previous : '0';
+  };
+  position.addEventListener('change', refreshTierOptions);
+  refreshTierOptions();
+
+  const addPlayers = (players, message) => {
+    const s = state();
+    s.collection.push(...players);
+    s.stats.playersEarned += players.length;
+    app.save();
+    app.refreshChrome();
+    app.closeModal();
+    app.toast(message, 'good');
+    if (app.current === 'collection' || app.current === 'squad') app.render();
+  };
+
+  const selectedSettings = () => ({
+    tier: Number(tier.value),
+    special: special.value || undefined,
+  });
+
   const content = el('div', {}, [
     el('h2', { text: 'Card Test Commands' }),
-    el('p', { style: { color: 'var(--muted)', fontSize: '14px' }, text: 'These add real players to your collection and save immediately.' }),
-    el('label', { style: labelStyle(), text: 'Tier' }), tier,
+    el('p', {
+      style: { color: 'var(--muted)', fontSize: '14px' },
+      text: 'Choose the base tier, position, and secondary card type. These create real saved players.',
+    }),
+    el('label', { style: labelStyle(), text: 'Base tier' }), tier,
     el('label', { style: labelStyle(), text: 'Position' }), position,
+    el('label', { style: labelStyle(), text: 'Secondary card type' }), special,
     el('label', { style: labelStyle(), text: 'How many' }), count,
     el('button', {
       class: 'btn primary block',
@@ -203,36 +245,38 @@ function showCardCommands(app) {
       onclick: () => {
         const n = Math.max(1, Math.min(25, Number(count.value) || 1));
         const rng = new RNG(Date.now() ^ Math.floor(Math.random() * 1e9));
+        const settings = selectedSettings();
         const generated = [];
         for (let i = 0; i < n; i++) {
           const pos = position.value;
           generated.push(generatePlayer({
             rng,
-            tier: Number(tier.value),
+            tier: settings.tier,
+            special: settings.special,
             isGK: pos === 'GK' ? true : pos ? false : undefined,
             positionHint: pos && pos !== 'GK' ? pos : undefined,
           }));
         }
-        const s = state();
-        s.collection.push(...generated);
-        s.stats.playersEarned += generated.length;
-        app.save();
-        app.refreshChrome();
-        app.closeModal();
-        app.toast(`Added ${generated.length} ${tier.options[tier.selectedIndex].text.split(' (')[0]} card${generated.length === 1 ? '' : 's'}`, 'good');
-        if (app.current === 'collection' || app.current === 'squad') app.render();
+        const tierLabel = tier.options[tier.selectedIndex]?.text || 'selected';
+        const specialLabel = special.options[special.selectedIndex]?.text.split(' (+')[0] || 'Base card';
+        addPlayers(generated, 'Added ' + generated.length + ' ' + specialLabel + ' ' + tierLabel.split(' (')[0] + ' card' + (generated.length === 1 ? '' : 's'));
       },
-      text: 'Give Me Card(s)',
+      text: 'Give Selected Card(s)',
     }),
     el('button', {
       class: 'btn blue block',
       style: { marginTop: '8px' },
       onclick: () => {
         const s = state();
+        const settings = selectedSettings();
         const positions = ['GK', 'CB', 'CB', 'LB', 'RB', 'CM', 'CM', 'LW', 'RW', 'ST', 'ST'];
         const rng = new RNG(Date.now() ^ Math.floor(Math.random() * 1e9));
         const dreamTeam = positions.map((pos) => generatePlayer({
-          rng, tier: 5, isGK: pos === 'GK', positionHint: pos === 'GK' ? undefined : pos,
+          rng,
+          tier: settings.tier,
+          special: settings.special,
+          isGK: pos === 'GK',
+          positionHint: pos === 'GK' ? undefined : pos,
         }));
         s.collection.push(...dreamTeam);
         s.stats.playersEarned += dreamTeam.length;
@@ -240,16 +284,39 @@ function showCardCommands(app) {
         app.save();
         app.refreshChrome();
         app.closeModal();
-        app.toast('Added a Superhuman dream team and filled your XI', 'good');
+        app.toast('Added a selected-tier Best XI and filled your squad', 'good');
         if (app.current === 'collection' || app.current === 'squad') app.render();
       },
-      text: 'Give Superhuman Best XI',
+      text: 'Give Selected Best XI',
+    }),
+    el('button', {
+      class: 'btn ghost block',
+      style: { marginTop: '8px' },
+      onclick: () => {
+        const s = state();
+        const positions = ['GK', 'CB', 'CB', 'LB', 'RB', 'CM', 'CM', 'LW', 'RW', 'ST', 'ST'];
+        const rng = new RNG(Date.now() ^ Math.floor(Math.random() * 1e9));
+        const dreamTeam = positions.map((pos) => generatePlayer({
+          rng,
+          tier: 5,
+          isGK: pos === 'GK',
+          positionHint: pos === 'GK' ? undefined : pos,
+        }));
+        s.collection.push(...dreamTeam);
+        s.stats.playersEarned += dreamTeam.length;
+        autoFill(s);
+        app.save();
+        app.refreshChrome();
+        app.closeModal();
+        app.toast('Added a top-tier Best XI and filled your squad', 'good');
+        if (app.current === 'collection' || app.current === 'squad') app.render();
+      },
+      text: 'Give Superhuman / Cat-Like Best XI',
     }),
     el('button', { class: 'btn ghost block', style: { marginTop: '8px' }, onclick: () => app.closeModal(), text: 'Close' }),
   ]);
   app.modal(content, { wide: true });
 }
-
 function option(value, text) {
   return el('option', { value, text });
 }
