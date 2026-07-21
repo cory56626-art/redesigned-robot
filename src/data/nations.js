@@ -1,0 +1,48 @@
+// Real nations (geographic facts) with flag emoji and a footballing strength tier.
+// Strength (1-5) scales generated player quality and seeds the World Cup.
+
+export const NATIONS = [
+  { code: 'BR', name: 'Brazil', flag: '🇧🇷', region: 'S.America', strength: 5 },
+  { code: 'AR', name: 'Argentina', flag: '🇦🇷', region: 'S.America', strength: 5 },
+  { code: 'FR', name: 'France', flag: '🇫🇷', region: 'Europe', strength: 5 },
+  { code: 'ES', name: 'Spain', flag: '🇪🇸', region: 'Europe', strength: 5 },
+  { code: 'DE', name: 'Germany', flag: '🇩🇪', region: 'Europe', strength: 5 },
+  { code: 'EN', name: 'England', flag: '🏴\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}', region: 'Europe', strength: 5 },
+  { code: 'PT', name: 'Portugal', flag: '🇵🇹', region: 'Europe', strength: 5 },
+  { code: 'NL', name: 'Netherlands', flag: '🇳🇱', region: 'Europe', strength: 4 },
+  { code: 'IT', name: 'Italy', flag: '🇮🇹', region: 'Europe', strength: 4 },
+  { code: 'BE', name: 'Belgium', flag: '🇧🇪', region: 'Europe', strength: 4 },
+  { code: 'HR', name: 'Croatia', flag: '🇭🇷', region: 'Europe', strength: 4 },
+  { code: 'UY', name: 'Uruguay', flag: '🇺🇾', region: 'S.America', strength: 4 },
+  { code: 'CO', name: 'Colombia', flag: '🇨🇴', region: 'S.America', strength: 4 },
+  { code: 'MX', name: 'Mexico', flag: '🇲🇽', region: 'N.America', strength: 3 },
+  { code: 'US', name: 'United States', flag: '🇺🇸', region: 'N.America', strength: 3 },
+  { code: 'JP', name: 'Japan', flag: '🇯🇵', region: 'Asia', strength: 3 },
+  { code: 'KR', name: 'South Korea', flag: '🇰🇷', region: 'Asia', strength: 3 },
+  { code: 'SN', name: 'Senegal', flag: '🇸🇳', region: 'Africa', strength: 3 },
+  { code: 'MA', name: 'Morocco', flag: '🇲🇦', region: 'Africa', strength: 4 },
+  { code: 'NG', name: 'Nigeria', flag: '🇳🇬', region: 'Africa', strength: 3 },
+  { code: 'GH', name: 'Ghana', flag: '🇬🇭', region: 'Africa', strength: 3 },
+  { code: 'CM', name: 'Cameroon', flag: '🇨🇲', region: 'Africa', strength: 3 },
+  { code: 'SE', name: 'Sweden', flag: '🇸🇪', region: 'Europe', strength: 3 },
+  { code: 'DK', name: 'Denmark', flag: '🇩🇰', region: 'Europe', strength: 4 },
+  { code: 'NO', name: 'Norway', flag: '🇳🇴', region: 'Europe', strength: 3 },
+  { code: 'PL', name: 'Poland', flag: '🇵🇱', region: 'Europe', strength: 3 },
+  { code: 'CH', name: 'Switzerland', flag: '🇨🇭', region: 'Europe', strength: 3 },
+  { code: 'RS', name: 'Serbia', flag: '🇷🇸', region: 'Europe', strength: 3 },
+  { code: 'CL', name: 'Chile', flag: '🇨🇱', region: 'S.America', strength: 3 },
+  { code: 'AU', name: 'Australia', flag: '🇦🇺', region: 'Oceania', strength: 2 },
+  { code: 'EG', name: 'Egypt', flag: '🇪🇬', region: 'Africa', strength: 3 },
+  { code: 'IR', name: 'Iran', flag: '🇮🇷', region: 'Asia', strength: 2 },
+  { code: 'SA', name: 'Saudi Arabia', flag: '🇸🇦', region: 'Asia', strength: 2 },
+  { code: 'CA', name: 'Canada', flag: '🇨🇦', region: 'N.America', strength: 2 },
+  { code: 'EC', name: 'Ecuador', flag: '🇪🇨', region: 'S.America', strength: 3 },
+  { code: 'TR', name: 'Turkey', flag: '🇹🇷', region: 'Europe', strength: 3 },
+  { code: 'AT', name: 'Austria', flag: '🇦🇹', region: 'Europe', strength: 3 },
+  { code: 'SC', name: 'Scotland', flag: '🏴\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}', region: 'Europe', strength: 2 },
+  { code: 'GR', name: 'Greece', flag: '🇬🇷', region: 'Europe', strength: 2 },
+  { code: 'CI', name: "Côte d'Ivoire", flag: '🇨🇮', region: 'Africa', strength: 3 },
+];
+
+const NATION_BY_CODE = new Map(NATIONS.map((n) => [n.code, n]));
+export const nationByCode = (code) => NATION_BY_CODE.get(code) || NATIONS[0];

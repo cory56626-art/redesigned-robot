@@ -1,0 +1,11 @@
+{
+  "name": "football-manager-3d",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A 3D football (soccer) management and simulation game that runs entirely in the browser.",
+  "scripts": {
+    "start": "python3 -m http.server 8080",
+    "serve": "python3 -m http.server 8080"
+  }
+}
