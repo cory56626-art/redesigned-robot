@@ -2,6 +2,9 @@
 import { el, $, fmtCoins } from '../core/util.js';
 import { state, save as persist, settings } from '../core/store.js';
 import { xpForLevel } from '../game/economy.js';
+import { addCoins } from '../game/economy.js';
+import { generatePlayer } from '../game/player-gen.js';
+import { RNG } from '../core/rng.js';
 
 import { renderMenu } from './screen-menu.js';
 import { renderSquad } from './screen-squad.js';
@@ -76,30 +79,38 @@ class App {
         el('div', { class: 'lvl', text: `Lv ${c.level} · ${c.xp}/${xpNeed} XP` }),
       ]),
       el('div', { class: 'spacer' }),
+      el('button', { class: 'pill', title: 'Card menu', onclick: () => this.openCardMenu(), text: '🃏 Cards' }),
       el('div', { class: 'pill coins' }, [el('span', { class: 'ico', text: '🪙' }), el('span', { text: fmtCoins(c.coins) })]),
     );
-    // nav active
     $$('button', this.navEl).forEach((b) => b.classList.toggle('active', b.dataset.id === this.current));
   }
 
-  go(name, params = {}) {
-    if (!SCREENS[name]) name = 'menu';
-    this.current = name;
-    this.params = params;
-    this.render();
-    this.refreshChrome();
-    this.screenEl.scrollTop = 0;
+  openCardMenu() {
+    const content = el('div', {}, [
+      el('h2', { text: 'Card Menu' }),
+      el('p', { style: { color: 'var(--muted)', fontSize: '13px' }, text: 'Enter the test code to unlock card tools.' }),
+    ]);
+    const code = el('input', {
+      type: 'password', inputMode: 'numeric', placeholder: 'Test code', maxLength: '4',
+      style: { width: '100%', padding: '12px', marginTop: '10px', background: 'var(--panel2)', color: 'var(--txt)', border: '1px solid var(--line)', borderRadius: '10px', fontSize: '16px', letterSpacing: '.2em', textAlign: 'center' },
+    });
+    const unlock = el('button', { class: 'btn primary block', style: { marginTop: '10px' }, text: 'Unlock Test Commands' });
+    const tools = el('div', { style: { display: 'none', marginTop: '14px' } });
+    const error = el('div', { style: { color: 'var(--danger)', fontSize: '12px', marginTop: '8px', display: 'none' }, text: 'Incorrect code.' });
+    unlock.onclick = () => {
+      if (code.value !== '4062') { error.style.display = 'block'; return; }
+      error.style.display = 'none';
+      code.style.display = 'none'; unlock.style.display = 'none';
+      tools.style.display = 'block';
+      buildTestTools(tools);
+    };
+    code.addEventListener('keydown', (e) => { if (e.key === 'Enter') unlock.click(); });
+    content.append(code, unlock, error, tools, el('button', { class: 'btn ghost block', style: { marginTop: '12px' }, onclick: () => this.closeModal(), text: 'Close' }));
+    this.modal(content);
+    setTimeout(() => code.focus(), 0);
   }
 
-  render() {
-    this.screenEl.innerHTML = '';
-    const node = SCREENS[this.current](this, this.params);
-    this.screenEl.appendChild(node);
-  }
-
-  save() {
-    persist();
-  }
+  save() { persist(); }
 
   toast(msg, kind = '') {
     const t = el('div', { class: 'toast ' + kind, text: msg });
@@ -133,12 +144,39 @@ class App {
     this.modal(node);
   }
 
-  playMatch(opts) {
-    launchMatchFlow(this, opts);
-  }
+  playMatch(opts) { launchMatchFlow(this, opts); }
 }
 
-// small helper (avoid importing $$ from util into every screen)
-function $$(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
+function buildTestTools(root) {
+  const tier = el('select', { style: fieldStyle() }, [0, 1, 2, 3, 4, 5].map((n) => el('option', { value: n, text: `Tier ${n}` })));
+  const position = el('select', { style: fieldStyle() }, [
+    ['random', 'Random position'], ['GK', 'Goalkeeper'], ['ST', 'Striker'], ['CM', 'Midfielder'], ['CB', 'Defender'], ['W', 'Winger'],
+  ].map(([value, text]) => el('option', { value, text })));
+  const count = el('input', { type: 'number', min: '1', max: '50', value: '1', style: fieldStyle() });
+  const add = (label, fn, cls = 'btn blue block') => root.append(el('button', { class: cls, style: { marginTop: '8px' }, onclick: fn, text: label }));
+  root.append(
+    el('div', { style: { fontWeight: '900', color: 'var(--accent)', marginBottom: '8px' }, text: 'Test commands unlocked' }),
+    el('label', { style: labelStyle(), text: 'Card tier' }), tier,
+    el('label', { style: labelStyle(), text: 'Position' }), position,
+    el('label', { style: labelStyle(), text: 'Number of cards' }), count,
+  );
+  add('🃏 Give Me Card(s)', () => {
+    const s = state(); const n = Math.max(1, Math.min(50, Number(count.value) || 1));
+    const rng = new RNG(Date.now() ^ Math.random() * 1e9);
+    for (let i = 0; i < n; i++) {
+      const pos = position.value === 'random' ? undefined : position.value;
+      s.collection.push(generatePlayer({ rng, tier: Number(tier.value), positionHint: pos, isGK: pos === 'GK' }));
+    }
+    s.stats.playersEarned += n; persist(true); thisRefresh();
+  });
+  add('🪙 Give Me 100,000 Coins', () => { addCoins(state(), 100000); persist(true); thisRefresh(); });
+  add('⭐ Max Facilities', () => { const s = state(); for (const key of Object.keys(s.club.facilities)) s.club.facilities[key] = 10; persist(true); thisRefresh(); });
+  add('✨ Fill Best XI', () => { const s = state(); const ids = s.collection.slice().sort((a, b) => b.ovr - a.ovr).map((p) => p.id); s.squad.starters = ids.slice(0, 11); s.squad.bench = ids.slice(11, 18); persist(true); thisRefresh(); });
+  function thisRefresh() { app.closeModal(); app.refreshChrome(); app.render(); app.toast('Test command applied', 'good'); }
+}
 
+const labelStyle = () => ({ display: 'block', fontSize: '11px', color: 'var(--muted)', marginTop: '9px', marginBottom: '4px', fontWeight: '800' });
+const fieldStyle = () => ({ width: '100%', padding: '10px', background: 'var(--panel2)', color: 'var(--txt)', border: '1px solid var(--line)', borderRadius: '9px', fontSize: '14px' });
+
+function $$(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
 export const app = new App();
