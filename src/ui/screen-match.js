@@ -62,7 +62,7 @@ export function launchMatchFlow(app, { fixture }) {
   const slowBtn = ctrl('«', () => { setSpeed(-1); });
   const fastBtn = ctrl('»', () => { setSpeed(1); });
   const camBtn = ctrl('🎥', () => { camIdx = (camIdx + 1) % CAMERAS.length; renderer.setMode(CAMERAS[camIdx]); });
-  const statsBtn = ctrl('📊', () => { statsOpen = !statsOpen; statsPanel.style.display = statsOpen ? 'block' : 'none'; statsBtn.classList.toggle('active', statsOpen); });
+  const statsBtn = ctrl('📊', () => { statsOpen = !statsOpen; statsPanel.style.display = statsOpen ? 'block' : 'none'; feed.style.display = statsOpen ? 'none' : 'flex'; statsBtn.classList.toggle('active', statsOpen); });
   const skipBtn = el('button', { class: 'cbtn wide', onclick: () => skipToEnd(), text: '⏭ Skip' });
   const exitBtn = el('button', { class: 'cbtn wide', onclick: () => confirmExit(), text: '✕' });
 
