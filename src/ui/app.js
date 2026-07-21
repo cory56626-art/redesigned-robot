@@ -264,6 +264,31 @@ function showCardCommands(app) {
       text: 'Give Selected Card(s)',
     }),
     el('button', {
+      class: 'btn primary block',
+      style: { marginTop: '14px' },
+      onclick: () => {
+        const s = state();
+        const positions = ['GK', 'CB', 'CB', 'LB', 'RB', 'CM', 'CM', 'LW', 'RW', 'ST', 'ST'];
+        const rng = new RNG(Date.now() ^ Math.floor(Math.random() * 1e9));
+        const absoluteBestTeam = positions.map((pos) => generatePlayer({
+          rng,
+          tier: 5,
+          special: 'primeicon',
+          isGK: pos === 'GK',
+          positionHint: pos === 'GK' ? undefined : pos,
+        }));
+        s.collection.push(...absoluteBestTeam);
+        s.stats.playersEarned += absoluteBestTeam.length;
+        autoFill(s);
+        app.save();
+        app.refreshChrome();
+        app.closeModal();
+        app.toast('Added the absolute-best Prime Icon team and filled all 11 slots', 'good');
+        if (app.current === 'collection' || app.current === 'squad') app.render();
+      },
+      text: 'Give Absolute Best Team',
+    }),
+    el('button', {
       class: 'btn blue block',
       style: { marginTop: '8px' },
       onclick: () => {
