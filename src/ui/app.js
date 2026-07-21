@@ -16,6 +16,7 @@ import { renderClub } from './screen-club.js';
 import { renderStats } from './screen-stats.js';
 import { renderSettings } from './screen-settings.js';
 import { launchMatchFlow } from './screen-match.js';
+import { startStage, CAMPAIGN } from '../game/progression.js';
 
 const NAV = [
   { id: 'menu', ico: '🏠', label: 'Home' },
@@ -337,6 +338,20 @@ function showCardCommands(app) {
         if (app.current === 'collection' || app.current === 'squad') app.render();
       },
       text: 'Give Superhuman / Cat-Like Best XI',
+    }),
+    el('button', {
+      class: 'btn gold block',
+      style: { marginTop: '8px' },
+      onclick: () => {
+        const s = state();
+        const worldCupIndex = CAMPAIGN.findIndex((stage) => stage.type === 'worldcup');
+        startStage(s, worldCupIndex);
+        app.save();
+        app.closeModal();
+        app.go('menu');
+        app.toast('Jumped straight to the World Cup — press Play Match to start', 'good');
+      },
+      text: 'Go Straight to World Cup',
     }),
     el('button', { class: 'btn ghost block', style: { marginTop: '8px' }, onclick: () => app.closeModal(), text: 'Close' }),
   ]);
