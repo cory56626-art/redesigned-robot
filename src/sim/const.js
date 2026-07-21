@@ -13,9 +13,9 @@ export const MATCH_SECONDS = HALF_SECONDS * 2;
 // Physics tick (game-seconds). The engine integrates in fixed steps of this size.
 export const TICK = 1 / 30;
 
-// Normal 1x match pace. The match clock advances 3 game-seconds per real second,
-// giving a 30-minute full match while keeping player and ball movement readable.
-export const SIM_RATE = 3;
+// Slower, readable 1x match pace. The match clock advances 2 game-seconds
+// per real second, giving a 45-minute full match.
+export const SIM_RATE = 2;
 
 export const BALL = {
   friction: 0.86,
