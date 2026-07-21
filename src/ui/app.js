@@ -1,5 +1,5 @@
 // Application shell: top bar, bottom navigation, screen routing, modals and toasts.
-import { el, $, fmtCoins } from '../core/util.js';
+import { el, $$, fmtCoins } from '../core/util.js';
 import { state, save as persist, settings } from '../core/store.js';
 import { xpForLevel, addCoins } from '../game/economy.js';
 import { generatePlayer } from '../game/player-gen.js';
