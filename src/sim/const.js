@@ -13,8 +13,9 @@ export const MATCH_SECONDS = HALF_SECONDS * 2;
 // Physics tick (game-seconds). The engine integrates in fixed steps of this size.
 export const TICK = 1 / 30;
 
-// At 1x speed this many game-seconds elapse per real second (compresses 90' into ~3.5 min).
-export const SIM_RATE = 26;
+// At 1x speed, 9 game-seconds elapse per real second (~10 minutes for a full 90-minute match).
+// This keeps normal speed readable; the speed controls can still accelerate the match.
+export const SIM_RATE = 9;
 
 export const BALL = {
   friction: 0.86,   // per second horizontal decay when rolling
