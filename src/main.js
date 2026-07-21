@@ -2,7 +2,7 @@
 import { el } from './core/util.js';
 import { loadSettings, hasSave, loadSave, setState, save as persist } from './core/store.js';
 import { createNewCareer } from './game/newgame.js';
-import { app } from './ui/app.js?build=76cef66';
+import { app } from './ui/app.js?build=0a2ee1f';
 import { runPackOpening } from './ui/pack-open.js';
 
 function boot() {
