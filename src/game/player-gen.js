@@ -78,10 +78,10 @@ export function generatePlayer(opts) {
     base.group = 'GK';
     base.height = round(HEIGHT_BY_GROUP.GK + rng.gaussian(0, 4));
     const gk = {};
-    for (const k of GK_ATTRS) gk[k] = clamp(target + (GK_BIAS[k] || 0) + rng.gaussian(0, 5), 24, 99);
+    for (const k of GK_ATTRS) gk[k] = clamp(Math.round(target + (GK_BIAS[k] || 0) + rng.gaussian(0, 5)), 24, 99);
     // align to target
     const d = target - gkOvr(gk);
-    for (const k of GK_ATTRS) gk[k] = clamp(gk[k] + d, 24, 99);
+    for (const k of GK_ATTRS) gk[k] = clamp(Math.round(gk[k] + d), 24, 99);
     base.gk = gk;
     base.playstyle = rng.chance(0.5) ? 'sweeperkeeper' : 'shotstopper';
   } else {
@@ -94,12 +94,12 @@ export function generatePlayer(opts) {
     base.height = round((HEIGHT_BY_GROUP[group] || 179) + rng.gaussian(0, 5));
     const bias = BIAS[group] || BIAS.CM;
     const a = {};
-    for (const k of OUTFIELD_ATTRS) a[k] = clamp(target + (bias[k] || 0) + rng.gaussian(0, 5.5), 22, 99);
+    for (const k of OUTFIELD_ATTRS) a[k] = clamp(Math.round(target + (bias[k] || 0) + rng.gaussian(0, 5.5)), 22, 99);
     // keep pace consistent with accel/sprint
-    a.pace = clamp(round(a.acceleration * 0.45 + a.sprintSpeed * 0.55) + rng.gaussian(0, 2), 22, 99);
+    a.pace = clamp(round(a.acceleration * 0.45 + a.sprintSpeed * 0.55), 22, 99);
     // align OVR to target
     const d = target - outfieldOvr(a, group);
-    for (const k of OUTFIELD_ATTRS) a[k] = clamp(a[k] + d, 22, 99);
+    for (const k of OUTFIELD_ATTRS) a[k] = clamp(Math.round(a[k] + d), 22, 99);
     a.pace = clamp(round(a.acceleration * 0.45 + a.sprintSpeed * 0.55), 22, 99);
     base.attributes = a;
     base.playstyle = pickPlaystyle(rng, group);
