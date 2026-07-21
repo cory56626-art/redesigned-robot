@@ -66,6 +66,12 @@ class App {
     }
   }
 
+  render() {
+    this.screenEl.innerHTML = '';
+    const node = SCREENS[this.current](this, this.params);
+    this.screenEl.appendChild(node);
+  }
+
   refreshChrome() {
     const s = state();
     if (!s) return;
