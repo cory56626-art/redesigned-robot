@@ -144,6 +144,7 @@ export class Input {
     window.addEventListener('blur', () => {
       this.keys.clear();
       this.state.jumpHeld = false;
+      this.state.aimHeld = false;
       this.state.primaryHeld = false;
       this.state.mineHeld = false;
       this.state.placeHeld = false;
