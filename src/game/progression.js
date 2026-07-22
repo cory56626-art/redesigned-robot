@@ -198,7 +198,7 @@ function recordKnockout(save, comp, pg, og, oppRating, rng) {
     }
     const wa = { name: tie.a.name, ref: tie.a, goals: tie.as };
     const wb = { name: tie.b.name, ref: tie.b, goals: tie.bs };
-    tie.winner = decideWinner(wa, wb, tie.a.rating, tie.b.rating, rng).ref;
+    const ratingA = tie.a.isPlayer && comp.national ? 98 : tie.a.rating;\n    const ratingB = tie.b.isPlayer && comp.national ? 98 : tie.b.rating;\n    tie.winner = decideWinner(wa, wb, ratingA, ratingB, rng).ref;
     tie.played = true;
     results.push({ a: tie.a.name, b: tie.b.name, as: tie.as, bs: tie.bs, winner: tie.winner.name });
   }
