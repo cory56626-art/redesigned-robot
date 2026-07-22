@@ -92,7 +92,9 @@ export function decideOnBall(engine, p) {
     q *= 1 + urgency * 0.45;                                     // increasingly willing near goal
     var shootQuality = clamp((0.3 + 0.7 * closeness) * (0.35 + 0.65 * ang) * (1 - press * 0.4), 0.04, 1); // chance quality for the GK
     // scaled so a real chance in the box outranks passing / dribbling
-    shoot = q * 1.7 * (0.9 + prof.attack * 0.2);
+    // World Cup matches should feel competitive without turning every attack into a
+    // goalfest. Scale shot selection only for national-team fixtures.
+    shoot = q * 1.7 * (0.9 + prof.attack * 0.2) * (engine.worldCup ? 0.78 : 1);
     if (shootQuality < 0.42) shoot *= 0.18;                      // only take genuine chances
     if (press > 0.68) shoot *= 0.35;                             // can't get it away when swarmed
     const side = rnd.chance(0.5) ? -1 : 1;
