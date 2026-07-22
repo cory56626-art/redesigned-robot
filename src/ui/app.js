@@ -7,7 +7,7 @@ import { RNG } from '../core/rng.js';
 import { autoFill } from '../game/squad.js';
 import { GK_RARITIES, OUTFIELD_RARITIES, SPECIAL_CARDS, TIER_TO_GK, TIER_TO_OUTFIELD } from '../data/rarities.js';
 
-import { renderMenu } from './screen-menu.js';
+import { renderMenu } from './screen-menu.js?build=d9e11ec11';
 import { renderSquad } from './screen-squad.js';
 import { renderFormation } from './screen-formation.js';
 import { renderCollection } from './screen-collection.js';
