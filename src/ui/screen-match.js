@@ -254,7 +254,7 @@ function buildOpponentLineup(opp, home) {
     }),
   }));
   const styles = ['possession', 'balanced', 'counter', 'direct'];
-  const mentalities = ['defensive', 'balanced', 'attacking'];
+  const mentalities = isNationalOpponent ? ['defensive', 'balanced'] : ['defensive', 'balanced', 'attacking'];
   return {
     name: opp.name, colors: opp.colors || ['#c0392b', '#ffffff'], formation: fId,
     tactics: { mentality: rng.pick(mentalities), style: rng.pick(styles), pressing: rng.int(40, 75), tempo: rng.int(40, 75), width: rng.int(40, 70), line: rng.int(40, 70) },
