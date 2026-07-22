@@ -2,7 +2,7 @@
 import { el, fmtCoins } from '../core/util.js';
 import { state } from '../core/store.js';
 import { FACILITIES, upgradeCost, applyUpgrade, facilityLevel, canUpgrade, xpForLevel } from '../game/economy.js';
-import { currentCompetition, advanceCampaign, leagueStandings, CAMPAIGN } from '../game/progression.js';
+import { currentCompetition, advanceCampaign, leagueStandings, CAMPAIGN } from '../game/progression-wc.js';
 
 export function renderClub(app) {
   const s = state();
