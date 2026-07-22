@@ -16,6 +16,7 @@ export class Input {
       jumpPressed: false,
       aimX: 0,
       aimY: 0,
+      aimHeld: false,
       primaryHeld: false,
       primaryPressed: false,
       mineHeld: false,
@@ -246,6 +247,10 @@ export class Input {
     this._joy(
       document.getElementById('joyAim'),
       (vx, vy, active) => {
+        // Terraria mobile's Aim & Use behavior: touching the aim stick is
+        // itself a held-use input. The player filters this by item type so
+        // summon weapons remain manual-use only.
+        this.state.aimHeld = active;
         if (active) {
           const len = Math.hypot(vx, vy);
           this.aimMagnitude = Math.min(1, len);
