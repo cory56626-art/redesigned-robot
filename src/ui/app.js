@@ -16,7 +16,7 @@ import { renderClub } from './screen-club.js';
 import { renderStats } from './screen-stats.js';
 import { renderSettings } from './screen-settings.js';
 import { launchMatchFlow } from './screen-match.js?build=d9e11ec10';
-import { startStage, CAMPAIGN } from '../game/progression.js?build=d9e11ec10';
+import { startStage, CAMPAIGN } from '../game/progression-wc.js';
 
 const NAV = [
   { id: 'menu', ico: '🏠', label: 'Home' },
