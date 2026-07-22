@@ -5,7 +5,7 @@ import { Sprites } from '../art/sprites.js';
 import { item as getItem } from '../data/items.js';
 import { canPlaceAt } from '../systems/combat.js';
 
-const PROJ_GLOW = { thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff', spark: '#9ec3ff', wispbolt: '#9ec3ff', emberball: '#ff8c3b' };
+const PROJ_GLOW = { thorn: '#7ee08a', seed: '#a7e36f', rock: '#8a7a5a', shock: '#d3b985', blight: '#c58bff', crystal: '#df8cff', voidorb: '#b06bff', spark: '#9ec3ff', wispbolt: '#9ec3ff', emberball: '#ff8c3b' };
 
 export class Renderer {
   constructor(canvas, camera) {
@@ -298,31 +298,128 @@ export class Renderer {
 
   _drawBosses(game, ctx) {
     for (const b of game.bosses) {
-      const x = b.x, y = b.y, w = b.w, h = b.h;
-      const bob = Math.sin(b.bob) * 3;
-      ctx.save();
-      ctx.translate(0, bob);
-      // aura
-      ctx.fillStyle = b.color2; ctx.globalAlpha = 0.18 + 0.1 * Math.sin(b.bob * 2);
-      this._roundRect(ctx, x - 6, y - 6, w + 12, h + 12, 10); ctx.fill();
-      ctx.globalAlpha = 1;
-      // body
-      ctx.fillStyle = b.color;
-      this._roundRect(ctx, x, y, w, h, 8); ctx.fill();
-      ctx.fillStyle = b.color2; ctx.globalAlpha = 0.4;
-      this._roundRect(ctx, x + 3, y + h * 0.5, w - 6, h * 0.5, 6); ctx.fill();
-      ctx.globalAlpha = 1;
-      // eyes
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(x + w * 0.28, y + h * 0.28, w * 0.12, h * 0.1);
-      ctx.fillRect(x + w * 0.6, y + h * 0.28, w * 0.12, h * 0.1);
-      ctx.fillStyle = '#ff3b5d';
-      ctx.fillRect(x + w * 0.31 + (b.facing > 0 ? 3 : 0), y + h * 0.3, 3, 3);
-      ctx.fillRect(x + w * 0.63 + (b.facing > 0 ? 3 : 0), y + h * 0.3, 3, 3);
-      if (b.hurtFlash > 0) { ctx.fillStyle = 'rgba(255,255,255,0.5)'; this._roundRect(ctx, x, y, w, h, 8); ctx.fill(); }
-      if (b.invuln > 0) { ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 2; this._roundRect(ctx, x, y, w, h, 8); ctx.stroke(); }
-      ctx.restore();
+      if (b.key === 'grovekeeper') this._drawGrovekeeper(ctx, b);
+      else if (b.key === 'gravemaw') this._drawGravemaw(ctx, b);
+      else this._drawBlightSovereign(ctx, b);
     }
+  }
+
+  _bossAura(ctx, b, color, radius) {
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.13 + 0.06 * Math.sin(b.bob * 2);
+    ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    if (b.attackPulse > 0) {
+      ctx.strokeStyle = color; ctx.globalAlpha = b.attackPulse / 0.22;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, cy, radius + (0.22 - b.attackPulse) * 30, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  _drawGrovekeeper(ctx, b) {
+    const x = b.x, y = b.y + Math.sin(b.bob) * 3, w = b.w, h = b.h;
+    const cx = x + w / 2;
+    ctx.save();
+    this._bossAura(ctx, b, b.color2, 36);
+
+    // Branch crown and leafy canopy, with a wooden body underneath.
+    ctx.strokeStyle = '#264f2b'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx, y + 25); ctx.lineTo(cx - 13, y + 9);
+    ctx.moveTo(cx, y + 22); ctx.lineTo(cx + 14, y + 7);
+    ctx.moveTo(cx - 10, y + 14); ctx.lineTo(cx - 18, y + 4);
+    ctx.moveTo(cx + 11, y + 13); ctx.lineTo(cx + 19, y + 2);
+    ctx.stroke();
+    for (const leaf of [[cx - 18, y + 4, 9], [cx + 18, y + 3, 10], [cx - 7, y + 5, 12], [cx + 7, y + 5, 12]]) {
+      ctx.fillStyle = leaf[2] > 10 ? '#6fbf55' : '#4b9b45';
+      ctx.beginPath(); ctx.arc(leaf[0], leaf[1], leaf[2], 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = '#6b442d';
+    this._roundRect(ctx, x + 9, y + 16, w - 18, h - 17, 8); ctx.fill();
+    ctx.fillStyle = '#a36b3c';
+    ctx.fillRect(cx - 3, y + 19, 4, h - 22);
+    ctx.fillStyle = '#ffcf6b';
+    ctx.fillRect(x + 16, y + 28, 4, 4); ctx.fillRect(x + w - 20, y + 28, 4, 4);
+    ctx.fillStyle = '#1a2419';
+    ctx.fillRect(x + 17, y + 29, 2, 2); ctx.fillRect(x + w - 19, y + 29, 2, 2);
+    ctx.fillStyle = '#264f2b';
+    ctx.fillRect(x + 4, y + h - 6, 14, 5); ctx.fillRect(x + w - 18, y + h - 6, 14, 5);
+    if (b.hurtFlash > 0) { ctx.fillStyle = 'rgba(255,255,255,0.55)'; this._roundRect(ctx, x + 8, y + 15, w - 16, h - 15, 7); ctx.fill(); }
+    if (b.invuln > 0) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; this._roundRect(ctx, x + 5, y + 1, w - 10, h - 2, 8); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  _drawGravemaw(ctx, b) {
+    const x = b.x, y = b.y + Math.sin(b.bob) * 1.5, w = b.w, h = b.h;
+    const cx = x + w / 2;
+    ctx.save();
+    this._bossAura(ctx, b, b.color2, 39);
+
+    // Three stone segments make this read as a burrowing maw, not a recolored blob.
+    for (let i = 0; i < 3; i++) {
+      const sx = x + 4 + i * 17;
+      const sy = y + 12 + Math.sin(b.bob + i) * 1.5;
+      ctx.fillStyle = i === 2 ? '#5f4b3b' : '#75624b';
+      this._roundRect(ctx, sx, sy, 25, 27, 9); ctx.fill();
+      ctx.fillStyle = '#b69a6c'; ctx.globalAlpha = 0.55;
+      ctx.fillRect(sx + 5, sy + 5, 8, 3); ctx.globalAlpha = 1;
+    }
+    // Open jaw at the facing end.
+    const mouthX = b.facing > 0 ? x + w - 19 : x + 4;
+    ctx.fillStyle = '#211923';
+    this._roundRect(ctx, mouthX, y + 18, 17, 17, 6); ctx.fill();
+    ctx.fillStyle = '#e8d6a6';
+    for (let i = 0; i < 3; i++) {
+      const tx = b.facing > 0 ? mouthX + 2 + i * 5 : mouthX + 12 - i * 5;
+      ctx.beginPath(); ctx.moveTo(tx, y + 21); ctx.lineTo(tx + (b.facing > 0 ? 3 : -3), y + 28); ctx.lineTo(tx + (b.facing > 0 ? 6 : -6), y + 21); ctx.fill();
+    }
+    ctx.fillStyle = '#ff6b4d';
+    ctx.fillRect(x + (b.facing > 0 ? w - 26 : 11), y + 9, 5, 4);
+    ctx.fillStyle = '#1d1818';
+    ctx.fillRect(x + (b.facing > 0 ? w - 24 : 12), y + 10, 2, 2);
+    ctx.fillStyle = '#493b34';
+    ctx.fillRect(x + 2, y + h - 5, 22, 5); ctx.fillRect(x + w - 24, y + h - 5, 22, 5);
+    if (b.hurtFlash > 0) { ctx.fillStyle = 'rgba(255,255,255,0.55)'; this._roundRect(ctx, x + 3, y + 10, w - 6, h - 10, 8); ctx.fill(); }
+    if (b.invuln > 0) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; this._roundRect(ctx, x + 1, y + 8, w - 2, h - 8, 9); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  _drawBlightSovereign(ctx, b) {
+    const x = b.x, y = b.y + Math.sin(b.bob) * 4, w = b.w, h = b.h;
+    const cx = x + w / 2, cy = y + h / 2;
+    ctx.save();
+    this._bossAura(ctx, b, b.color2, 45);
+
+    // Crown shards orbit a central crystal body.
+    ctx.strokeStyle = '#8b4bb8'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    for (let i = 0; i < 4; i++) {
+      const a = b.bob * 0.7 + i * Math.PI / 2;
+      const sx = cx + Math.cos(a) * 31, sy = cy + Math.sin(a) * 31;
+      ctx.fillStyle = i % 2 ? '#b45de0' : '#df8cff';
+      ctx.beginPath();
+      ctx.moveTo(sx, sy - 7); ctx.lineTo(sx + 6, sy); ctx.lineTo(sx, sy + 7); ctx.lineTo(sx - 6, sy); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = '#512572';
+    ctx.beginPath();
+    ctx.moveTo(cx, y + 2); ctx.lineTo(x + w - 4, cy); ctx.lineTo(cx, y + h - 2); ctx.lineTo(x + 4, cy); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#d996ff';
+    ctx.beginPath();
+    ctx.moveTo(cx, y + 10); ctx.lineTo(x + w - 13, cy); ctx.lineTo(cx, y + h - 10); ctx.lineTo(x + 13, cy); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff0ff';
+    ctx.beginPath(); ctx.arc(cx, cy, 7 + Math.sin(b.bob * 2) * 1.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#5b237d';
+    ctx.beginPath(); ctx.arc(cx + (b.facing > 0 ? 2 : -2), cy, 3, 0, Math.PI * 2); ctx.fill();
+    // Trailing void ribbons.
+    ctx.strokeStyle = '#8b4bb8'; ctx.lineWidth = 3;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath(); ctx.moveTo(cx - 12 + i * 12, y + h - 4);
+      ctx.quadraticCurveTo(cx - 22 + i * 20, y + h + 12, cx - 14 + i * 14, y + h + 19); ctx.stroke();
+    }
+    if (b.hurtFlash > 0) { ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.arc(cx, cy, 22, 0, Math.PI * 2); ctx.fill(); }
+    if (b.invuln > 0) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, 31, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.restore();
   }
 
   _drawPlayers(game, ctx) {
