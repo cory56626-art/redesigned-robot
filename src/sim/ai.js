@@ -94,7 +94,7 @@ export function decideOnBall(engine, p) {
     // scaled so a real chance in the box outranks passing / dribbling
     // World Cup matches should feel competitive without turning every attack into a
     // goalfest. Scale shot selection only for national-team fixtures.
-    shoot = q * 1.7 * (0.9 + prof.attack * 0.2) * (engine.worldCup ? 0.72 : 1);
+    shoot = q * 1.7 * (0.9 + prof.attack * 0.2) * (engine.worldCup ? 0.58 : 1);
     if (shootQuality < 0.42) shoot *= 0.18;                      // only take genuine chances
     if (press > 0.68) shoot *= 0.35;                             // can't get it away when swarmed
     const side = rnd.chance(0.5) ? -1 : 1;
