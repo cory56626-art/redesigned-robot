@@ -242,7 +242,7 @@ function buildOpponentLineup(opp, home) {
     : 68;
   const isNationalOpponent = !!opp.flag;
   const balancedRating = isNationalOpponent
-    ? Math.min(rating, Math.max(84, homeRating >= 90 ? homeRating - 6 : homeRating + 8))
+    ? Math.min(rating, Math.max(84, homeRating >= 90 ? homeRating - 12 : homeRating + 8))
     : rating;
   const tier = clamp(Math.round((balancedRating - 55) / 8), 0, 5);
   const posAdj = { GK: 0, ST: 2, W: 1, CB: -1 };
@@ -250,7 +250,7 @@ function buildOpponentLineup(opp, home) {
     slotIndex: i,
     player: generatePlayer({
       rng, tier, isGK: slot.pos === 'GK', positionHint: slot.pos,
-      targetOvr: clamp(Math.round(balancedRating + (posAdj[slot.group] || 0) + rng.gaussian(0, 2)), 40, 96),
+      targetOvr: clamp(Math.round(balancedRating + (posAdj[slot.group] || 0) + rng.gaussian(0, 1.5)), 40, 96),
     }),
   }));
   const styles = ['possession', 'balanced', 'counter', 'direct'];
