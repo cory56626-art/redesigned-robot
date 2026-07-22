@@ -15,7 +15,7 @@ import { renderShop } from './screen-shop.js';
 import { renderClub } from './screen-club.js';
 import { renderStats } from './screen-stats.js';
 import { renderSettings } from './screen-settings.js';
-import { launchMatchFlow } from './screen-match.js?build=d9e11ec10';
+import { launchMatchFlow } from './screen-match.js?build=d9e11ec11';
 import { startStage, CAMPAIGN } from '../game/progression-wc.js';
 
 const NAV = [
