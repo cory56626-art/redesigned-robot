@@ -242,7 +242,7 @@ function buildOpponentLineup(opp, home) {
     : 68;
   const isNationalOpponent = !!opp.flag;
   const balancedRating = isNationalOpponent
-    ? Math.min(rating, Math.max(84, homeRating >= 90 ? homeRating - 12 : homeRating + 8))
+    ? Math.min(rating, Math.max(76, homeRating >= 90 ? homeRating - 22 : homeRating + 8))
     : rating;
   const tier = clamp(Math.round((balancedRating - 55) / 8), 0, 5);
   const posAdj = { GK: 0, ST: 2, W: 1, CB: -1 };
