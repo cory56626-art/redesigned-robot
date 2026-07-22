@@ -247,10 +247,10 @@ function buildOpponentLineup(opp, home) {
   const balancedRating = isNationalOpponent
     ? clamp(
         homeRating >= 90
-          ? homeRating - 12
+          ? homeRating - 18
           : Math.max(rating, homeRating + 6),
-                78,
-        88,
+        72,
+        84,
       )
     : rating;
   const tier = clamp(Math.round((balancedRating - 55) / 8), 0, 5);
