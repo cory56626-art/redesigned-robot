@@ -1,7 +1,6 @@
 // Summoner Realms — authored procedural game audio.
-// This is intentionally composed from layered instruments and short motifs rather
-// than isolated beeps: impacts have body/noise, weapons have motion, and each
-// surface/depth zone gets a small musical identity without external asset files.
+// Uses authored OGG sample assets for the primary sound, with the procedural
+// layers kept as a graceful fallback if a browser blocks asset loading.
 const AudioContextCtor = () => window.AudioContext || window.webkitAudioContext;
 
 export class AudioManager {
@@ -14,6 +13,16 @@ export class AudioManager {
     this.ambientTimer = 1.5;
     this.musicStep = 0;
     this.enabled = true;
+    this.samples = Object.create(null);
+    this.samplesLoading = false;
+    this.sampleAmbient = null;
+    this.sampleFiles = {
+      pickaxe: 'pickaxe', axe: 'axe', sword: 'sword',
+      enemyHurt: 'enemy-hurt', enemyDeath: 'enemy-death',
+      playerHurt: 'player-hurt', jump: 'jump', pickup: 'pickup',
+      coin: 'coin', ui: 'ui-click', place: 'block-place',
+      break: 'block-break', forest: 'forest', cave: 'cave', wind: 'wind',
+    };
   }
 
   attach() {
@@ -35,6 +44,7 @@ export class AudioManager {
     this._create();
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
     this._startAmbience();
+    this._loadSamples();
   }
 
   _create() {
@@ -57,6 +67,38 @@ export class AudioManager {
     if (!this.enabled) return false;
     if (!this.ctx && !this._create()) return false;
     if (this.ctx.state === 'suspended') this.ctx.resume();
+    return true;
+  }
+
+  async _loadSamples() {
+    if (this.samplesLoading || !this._ready()) return;
+    this.samplesLoading = true;
+    const jobs = Object.entries(this.sampleFiles).map(async ([key, file]) => {
+      try {
+        const response = await fetch(`./assets/audio/${file}.ogg`);
+        if (!response.ok) return;
+        const data = await response.arrayBuffer();
+        this.samples[key] = await this.ctx.decodeAudioData(data);
+      } catch (_) {
+        // Keep the procedural fallback for offline/dev builds.
+      }
+    });
+    await Promise.all(jobs);
+    this.samplesLoading = false;
+    this._startSampleAmbience();
+  }
+
+  _sample(key, volume = 1, delay = 0, rate = 1) {
+    if (!this._ready()) return false;
+    const buffer = this.samples[key];
+    if (!buffer) return false;
+    const source = this.ctx.createBufferSource();
+    const gain = this.ctx.createGain();
+    source.buffer = buffer;
+    source.playbackRate.value = rate;
+    gain.gain.value = volume;
+    source.connect(gain).connect(this.master);
+    source.start(this.ctx.currentTime + delay);
     return true;
   }
 
@@ -163,6 +205,22 @@ export class AudioManager {
     this.ambientStarted = true;
   }
 
+  _startSampleAmbience() {
+    if (!this._ready() || this.sampleAmbient) return;
+    if (!['forest', 'cave', 'wind'].every((key) => this.samples[key])) return;
+    this.sampleAmbient = {};
+    for (const key of ['forest', 'cave', 'wind']) {
+      const source = this.ctx.createBufferSource();
+      const gain = this.ctx.createGain();
+      source.buffer = this.samples[key];
+      source.loop = true;
+      gain.gain.value = 0;
+      source.connect(gain).connect(this.master);
+      source.start();
+      this.sampleAmbient[key] = gain;
+    }
+  }
+
   _forestMotif() {
     const notes = [196, 233, 262, 294, 349, 294, 262];
     const root = notes[this.musicStep % notes.length];
@@ -198,9 +256,15 @@ export class AudioManager {
     const wind = !cave;
     const now = this.ctx.currentTime;
 
-    this.ambient.forest.gain.setTargetAtTime(forest ? 0.045 : 0, now, 0.9);
-    this.ambient.cave.gain.setTargetAtTime(cave ? 0.065 : 0, now, 0.9);
-    this.ambient.wind.gain.setTargetAtTime(wind ? 0.025 : 0, now, 0.9);
+    const bed = this.sampleAmbient || this.ambient;
+    bed.forest.gain.setTargetAtTime(forest ? 0.065 : 0, now, 0.9);
+    bed.cave.gain.setTargetAtTime(cave ? 0.075 : 0, now, 0.9);
+    bed.wind.gain.setTargetAtTime(wind ? 0.045 : 0, now, 0.9);
+    if (this.sampleAmbient) {
+      this.ambient.forest.gain.setTargetAtTime(0, now, 0.9);
+      this.ambient.cave.gain.setTargetAtTime(0, now, 0.9);
+      this.ambient.wind.gain.setTargetAtTime(0, now, 0.9);
+    }
 
     if (forest) {
       this._forestMotif();
@@ -215,6 +279,7 @@ export class AudioManager {
 
   pickaxeHit() {
     if (!this._throttle('pickaxe', 75)) return;
+    if (this._sample('pickaxe', 0.75, 0, 0.94 + Math.random() * 0.12)) return;
     this._kick(0.13);
     this._noise(0.055, 0.12, 2400, { endFilter: 620, smooth: 0.45 });
     this._osc(310, 0.12, { endFreq: 170, volume: 0.06, type: 'triangle', attack: 0.002 });
@@ -223,6 +288,7 @@ export class AudioManager {
 
   axeHit() {
     if (!this._throttle('axe', 90)) return;
+    if (this._sample('axe', 0.8, 0, 0.94 + Math.random() * 0.1)) return;
     this._kick(0.16);
     this._noise(0.09, 0.1, 860, { endFilter: 250, smooth: 0.42 });
     this._osc(150, 0.16, { endFreq: 62, volume: 0.09, type: 'triangle' });
@@ -231,6 +297,7 @@ export class AudioManager {
 
   swordSwing() {
     if (!this._throttle('sword', 90)) return;
+    if (this._sample('sword', 0.7, 0, 0.96 + Math.random() * 0.12)) return;
     this._noise(0.18, 0.07, 3200, { filterType: 'bandpass', endFilter: 650, smooth: 0.35 });
     this._osc(980, 0.2, { endFreq: 310, volume: 0.08, type: 'sawtooth', attack: 0.002 });
     this._osc(740, 0.13, { endFreq: 420, volume: 0.045, type: 'triangle', delay: 0.02 });
@@ -253,6 +320,7 @@ export class AudioManager {
 
   enemyHurt() {
     if (!this._throttle('enemyHurt', 55)) return;
+    if (this._sample('enemyHurt', 0.72, 0, 0.95 + Math.random() * 0.1)) return;
     this._osc(220, 0.11, { endFreq: 105, volume: 0.09, type: 'square', attack: 0.002 });
     this._osc(330, 0.07, { endFreq: 180, volume: 0.035, type: 'triangle', delay: 0.012 });
     this._noise(0.045, 0.03, 1100, { endFilter: 420, smooth: 0.35 });
@@ -260,6 +328,7 @@ export class AudioManager {
 
   enemyDeath() {
     if (!this._throttle('enemyDeath', 40)) return;
+    if (this._sample('enemyDeath', 0.78, 0, 0.96 + Math.random() * 0.08)) return;
     this._osc(294, 0.22, { endFreq: 196, volume: 0.09, type: 'triangle' });
     this._osc(233, 0.25, { endFreq: 147, volume: 0.08, type: 'triangle', delay: 0.08 });
     this._osc(175, 0.32, { endFreq: 82, volume: 0.07, type: 'sine', delay: 0.16 });
@@ -268,6 +337,7 @@ export class AudioManager {
 
   playerHurt() {
     if (!this._throttle('playerHurt', 220)) return;
+    if (this._sample('playerHurt', 0.8, 0, 0.94 + Math.random() * 0.08)) return;
     this._kick(0.18);
     this._osc(190, 0.24, { endFreq: 78, volume: 0.12, type: 'sawtooth' });
     this._osc(247, 0.16, { endFreq: 110, volume: 0.05, type: 'square', delay: 0.02 });
@@ -276,6 +346,7 @@ export class AudioManager {
 
   jump() {
     if (!this._throttle('jump', 90)) return;
+    if (this._sample('jump', 0.64, 0, 0.96 + Math.random() * 0.08)) return;
     this._osc(220, 0.24, { endFreq: 440, volume: 0.07, type: 'square', attack: 0.006 });
     this._osc(330, 0.19, { endFreq: 660, volume: 0.035, type: 'triangle', delay: 0.035 });
     this._pluck(550, 0.025, 0.08);
@@ -283,6 +354,7 @@ export class AudioManager {
 
   itemPickup() {
     if (!this._throttle('pickup', 55)) return;
+    if (this._sample('pickup', 0.72, 0, 0.97 + Math.random() * 0.08)) return;
     this._pluck(523, 0.07);
     this._pluck(659, 0.06, 0.07);
     this._pluck(784, 0.05, 0.14);
@@ -290,6 +362,7 @@ export class AudioManager {
 
   coin() {
     if (!this._throttle('coin', 40)) return;
+    if (this._sample('coin', 0.72, 0, 0.96 + Math.random() * 0.1)) return;
     this._pluck(988, 0.07);
     this._pluck(1319, 0.06, 0.07);
     this._pluck(1760, 0.04, 0.15);
@@ -297,12 +370,14 @@ export class AudioManager {
 
   uiClick() {
     if (!this._throttle('ui', 35)) return;
+    if (this._sample('ui', 0.68, 0, 0.98 + Math.random() * 0.06)) return;
     this._pluck(392, 0.035);
     this._osc(523, 0.035, { endFreq: 440, volume: 0.018, type: 'sine', delay: 0.01 });
   }
 
   blockPlace() {
     if (!this._throttle('place', 70)) return;
+    if (this._sample('place', 0.72, 0, 0.95 + Math.random() * 0.1)) return;
     this._kick(0.12);
     this._noise(0.06, 0.08, 720, { endFilter: 260, smooth: 0.45 });
     this._pluck(180, 0.04, 0.025);
@@ -310,6 +385,7 @@ export class AudioManager {
 
   blockBreak() {
     if (!this._throttle('break', 55)) return;
+    if (this._sample('break', 0.72, 0, 0.95 + Math.random() * 0.1)) return;
     this._noise(0.11, 0.11, 1600, { endFilter: 420, smooth: 0.45 });
     this._osc(150, 0.15, { endFreq: 64, volume: 0.08, type: 'triangle' });
     this._noise(0.055, 0.045, 2400, { endFilter: 700, smooth: 0.3, delay: 0.045 });

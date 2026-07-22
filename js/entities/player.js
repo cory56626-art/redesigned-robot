@@ -24,6 +24,7 @@ export class Player {
     this.onGround = false;
     this.stepHeight = TILE + 2; // auto-climb 1-tile ledges (see physics.moveAndCollide)
     this.jumpsLeft = 0;
+    this.coyoteTimer = 0;
     this.maxHp = BASE_HP; this.hp = BASE_HP;
     this.maxMana = BASE_MANA; this.mana = BASE_MANA;
     this.useTimer = 0;
@@ -116,9 +117,22 @@ export class Player {
       moveAndCollide(this, game.world, dt);
       clampToWorld(this, game.world);
     } else {
+      if (this.onGround) this.coyoteTimer = 0.1;
+      else this.coyoteTimer = Math.max(0, this.coyoteTimer - dt);
+
       if (canAct && input.jumpPressed) {
-        if (this.onGround) { this.vy = -JUMP_VELOCITY; this.jumpsLeft = extraJumps; game.audio?.jump(); }
-        else if (this.jumpsLeft > 0) { this.vy = -JUMP_VELOCITY * 0.92; this.jumpsLeft--; game.audio?.jump(); }
+        if (this.onGround || this.coyoteTimer > 0) {
+          this.vy = -JUMP_VELOCITY;
+          this.jumpsLeft = extraJumps;
+          this.coyoteTimer = 0;
+          game.input.consumeJumpPress();
+          game.audio?.jump();
+        } else if (this.jumpsLeft > 0) {
+          this.vy = -JUMP_VELOCITY * 0.92;
+          this.jumpsLeft--;
+          game.input.consumeJumpPress();
+          game.audio?.jump();
+        }
       }
       // Variable jump height
       if (!input.jumpHeld && this.vy < -140) this.vy *= 0.55;

@@ -31,6 +31,7 @@ export class Input {
     this._moveTapX = 0;
     this._moveTapUntil = 0;
     this._lastJumpQueue = 0;
+    this._jumpQueuedUntil = 0;
 
     this.aimMode = 'point';
     this.mouseScreen = { x: 0, y: 0 };
@@ -78,10 +79,10 @@ export class Input {
     // Touchscreens can deliver pointer/touch events between fixed simulation
     // steps. Keep the edge-triggered press latched until the next step so a
     // short tap cannot turn into a jump on release.
+    if (this.state.jumpHeld) return;
     const now = performance.now();
-    if (now - this._lastJumpQueue > 35 || !this.state.jumpHeld) {
-      this.state.jumpPressed = true;
-    }
+    this.state.jumpPressed = true;
+    this._jumpQueuedUntil = now + 160;
     this._lastJumpQueue = now;
   }
 
@@ -244,13 +245,10 @@ export class Input {
       (vx, vy, active) => {
         this.state.moveX = active ? clampAxis(vx) : 0;
 
-        if (active && vy < -0.6) {
-          if (!this.state.jumpHeld) {
-            this._queueJump();
-          }
-
-          this.state.jumpHeld = true;
-        } else if (this.mode === 'mobile') {
+        // The movement stick is movement only. Jump is an explicit action on
+        // mobile; mapping upward drift to jump caused accidental bunny-hops
+        // while simply running across uneven terrain.
+        if (!active && this.mode === 'mobile') {
           this.state.jumpHeld =
             this._mobileJumpBtnHeld || false;
         }
@@ -462,10 +460,17 @@ export class Input {
   }
 
   lateUpdate() {
-    this.state.jumpPressed = false;
+    if (performance.now() >= this._jumpQueuedUntil) {
+      this.state.jumpPressed = false;
+    }
     this.state.primaryPressed = false;
     this.state.placePressed = false;
     this.state.consumePressed = false;
+  }
+
+  consumeJumpPress() {
+    this.state.jumpPressed = false;
+    this._jumpQueuedUntil = 0;
   }
 
   snapshot(selectedSlot) {
