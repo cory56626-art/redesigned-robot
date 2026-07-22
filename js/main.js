@@ -35,9 +35,10 @@ import { Net } from './net/net.js';
 import { MSG } from './net/protocol.js';
 import * as sync from './net/sync.js';
 
-// Summoner Realms — procedural game audio.
-// Uses Web Audio so the game ships with no external audio files. The sounds are
-// intentionally short and layered, with throttles on repeated mining/combat hits.
+// Summoner Realms — authored procedural game audio.
+// This is intentionally composed from layered instruments and short motifs rather
+// than isolated beeps: impacts have body/noise, weapons have motion, and each
+// surface/depth zone gets a small musical identity without external asset files.
 const AudioContextCtor = () => window.AudioContext || window.webkitAudioContext;
 
 class AudioManager {
@@ -47,16 +48,17 @@ class AudioManager {
     this.ambient = null;
     this.ambientStarted = false;
     this.last = Object.create(null);
-    this.ambientTimer = 2;
+    this.ambientTimer = 1.5;
+    this.musicStep = 0;
     this.enabled = true;
   }
 
   attach() {
     const unlock = () => this.unlock();
     window.addEventListener('pointerdown', unlock, { capture: true, passive: true });
+    window.addEventListener('touchstart', unlock, { capture: true, passive: true });
     window.addEventListener('keydown', unlock, { capture: true, passive: true });
 
-    // One consistent click sound for menus, hotbar slots, and mobile action buttons.
     document.addEventListener('pointerdown', (event) => {
       const target = event.target;
       if (target && target.closest && target.closest('button, .btn, .seg-btn, [role="button"]')) {
@@ -79,7 +81,7 @@ class AudioManager {
     try {
       this.ctx = new Ctor();
       this.master = this.ctx.createGain();
-      this.master.gain.value = 0.28;
+      this.master.gain.value = 0.32;
       this.master.connect(this.ctx.destination);
       return true;
     } catch {
@@ -102,52 +104,66 @@ class AudioManager {
     return true;
   }
 
-  _tone(freq, duration, opts = {}) {
-    if (!this._ready()) return;
-    const ctx = this.ctx;
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    const startFreq = Math.max(20, freq);
-    const endFreq = Math.max(20, opts.endFreq == null ? startFreq : opts.endFreq);
-    const volume = opts.volume == null ? 0.16 : opts.volume;
-    const attack = opts.attack == null ? 0.004 : opts.attack;
-    osc.type = opts.type || 'sine';
-    osc.frequency.setValueAtTime(startFreq, now);
-    osc.frequency.exponentialRampToValueAtTime(endFreq, now + Math.max(0.01, duration));
+  _envelope(gain, now, peak, duration, attack = 0.004, release = 0.06) {
+    gain.gain.cancelScheduledValues(now);
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume), now + attack);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak), now + attack);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + Math.max(attack + 0.01, duration - release));
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-    osc.connect(gain).connect(this.master);
-    osc.start(now);
-    osc.stop(now + duration + 0.02);
   }
 
-  _noise(duration, volume = 0.1, filterFreq = 1400) {
+  _osc(freq, duration, opts = {}) {
     if (!this._ready()) return;
     const ctx = this.ctx;
-    const now = ctx.currentTime;
+    const now = ctx.currentTime + (opts.delay || 0);
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const start = Math.max(20, freq);
+    const end = Math.max(20, opts.endFreq == null ? start : opts.endFreq);
+    osc.type = opts.type || 'sine';
+    osc.detune.value = opts.detune || 0;
+    osc.frequency.setValueAtTime(start, now);
+    if (opts.curve === 'linear') osc.frequency.linearRampToValueAtTime(end, now + duration);
+    else osc.frequency.exponentialRampToValueAtTime(end, now + Math.max(0.01, duration));
+    this._envelope(gain, now, opts.volume == null ? 0.12 : opts.volume, duration, opts.attack || 0.004, opts.release || 0.06);
+    osc.connect(gain).connect(this.master);
+    osc.start(now);
+    osc.stop(now + duration + 0.03);
+  }
+
+  _noise(duration, volume = 0.1, filterFreq = 1400, opts = {}) {
+    if (!this._ready()) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime + (opts.delay || 0);
     const length = Math.max(1, Math.floor(ctx.sampleRate * duration));
     const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
     const data = buffer.getChannelData(0);
     let previous = 0;
     for (let i = 0; i < length; i++) {
-      // Slightly smoothed noise is less harsh on mobile speakers.
       const white = Math.random() * 2 - 1;
-      previous = previous * 0.65 + white * 0.35;
+      previous = previous * (opts.smooth == null ? 0.72 : opts.smooth) + white * (1 - (opts.smooth == null ? 0.72 : opts.smooth));
       data[i] = previous;
     }
     const source = ctx.createBufferSource();
     const filter = ctx.createBiquadFilter();
     const gain = ctx.createGain();
-    filter.type = 'lowpass';
-    filter.frequency.value = filterFreq;
-    gain.gain.setValueAtTime(Math.max(0.0001, volume), now);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    filter.type = opts.filterType || 'lowpass';
+    filter.frequency.setValueAtTime(Math.max(60, filterFreq), now);
+    if (opts.endFilter) filter.frequency.exponentialRampToValueAtTime(Math.max(60, opts.endFilter), now + duration);
+    this._envelope(gain, now, volume, duration, opts.attack || 0.002, opts.release || 0.04);
     source.buffer = buffer;
     source.connect(filter).connect(gain).connect(this.master);
     source.start(now);
-    source.stop(now + duration + 0.02);
+    source.stop(now + duration + 0.03);
+  }
+
+  _kick(volume = 0.12, delay = 0) {
+    this._osc(125, 0.16, { endFreq: 42, volume, type: 'sine', delay, attack: 0.002, release: 0.08 });
+  }
+
+  _pluck(freq, volume = 0.08, delay = 0) {
+    this._osc(freq, 0.18, { endFreq: freq * 0.72, volume, type: 'triangle', delay, attack: 0.002, release: 0.08 });
+    this._osc(freq * 2.01, 0.12, { endFreq: freq * 1.7, volume: volume * 0.22, type: 'sine', delay: delay + 0.005, attack: 0.002 });
   }
 
   _ambientNoise(filterType, frequency) {
@@ -155,7 +171,7 @@ class AudioManager {
     const source = ctx.createBufferSource();
     const filter = ctx.createBiquadFilter();
     const gain = ctx.createGain();
-    const length = Math.floor(ctx.sampleRate * 3);
+    const length = Math.floor(ctx.sampleRate * 4);
     const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
     const data = buffer.getChannelData(0);
     let previous = 0;
@@ -178,17 +194,34 @@ class AudioManager {
     if (!this._ready() || this.ambientStarted) return;
     this.ambient = {
       forest: this._ambientNoise('bandpass', 900),
-      cave: this._ambientNoise('lowpass', 420),
-      wind: this._ambientNoise('lowpass', 1200),
+      cave: this._ambientNoise('lowpass', 330),
+      wind: this._ambientNoise('lowpass', 850),
     };
     this.ambientStarted = true;
+  }
+
+  _forestMotif() {
+    const notes = [196, 233, 262, 294, 349, 294, 262];
+    const root = notes[this.musicStep % notes.length];
+    this._osc(root, 0.52, { endFreq: root * 0.995, volume: 0.025, type: 'sine', attack: 0.08, release: 0.2 });
+    this._osc(root * 2, 0.28, { endFreq: root * 1.98, volume: 0.012, type: 'triangle', delay: 0.16, attack: 0.04, release: 0.12 });
+    this._pluck(root * 1.5, 0.018, 0.36);
+  }
+
+  _caveMotif() {
+    const roots = [73.4, 82.4, 65.4, 61.7];
+    const root = roots[this.musicStep % roots.length];
+    this._osc(root, 1.3, { endFreq: root * 0.98, volume: 0.045, type: 'sine', attack: 0.18, release: 0.35 });
+    this._osc(root * 1.5, 0.9, { endFreq: root * 1.47, volume: 0.018, type: 'triangle', delay: 0.22, attack: 0.14, release: 0.25 });
+    this._pluck(root * 3, 0.012, 0.8);
   }
 
   update(game, dt) {
     if (!this.ambientStarted || !this.ctx || this.ctx.state === 'suspended') return;
     this.ambientTimer -= dt;
     if (this.ambientTimer > 0) return;
-    this.ambientTimer = 0.25;
+    this.ambientTimer = 4.8 + Math.random() * 3.5;
+    this.musicStep++;
 
     const p = game.localPlayer;
     const world = game.world;
@@ -202,92 +235,121 @@ class AudioManager {
     const wind = !cave;
     const now = this.ctx.currentTime;
 
-    this.ambient.forest.gain.setTargetAtTime(forest ? 0.055 : 0, now, 0.8);
-    this.ambient.cave.gain.setTargetAtTime(cave ? 0.075 : 0, now, 0.8);
-    this.ambient.wind.gain.setTargetAtTime(wind ? 0.035 : 0, now, 0.8);
+    this.ambient.forest.gain.setTargetAtTime(forest ? 0.045 : 0, now, 0.9);
+    this.ambient.cave.gain.setTargetAtTime(cave ? 0.065 : 0, now, 0.9);
+    this.ambient.wind.gain.setTargetAtTime(wind ? 0.025 : 0, now, 0.9);
 
-    this.ambientTimer = 4 + Math.random() * 5;
-    if (forest && Math.random() < 0.72) this._tone(1050 + Math.random() * 500, 0.08, { endFreq: 760, volume: 0.018, type: 'sine' });
-    else if (cave && Math.random() < 0.7) this._tone(260 + Math.random() * 80, 0.18, { endFreq: 120, volume: 0.025, type: 'sine' });
-    else if (wind) this._noise(0.45, 0.025, 900);
+    if (forest) {
+      this._forestMotif();
+      if (Math.random() < 0.6) this._noise(0.8, 0.018, 1200, { filterType: 'bandpass', endFilter: 500, smooth: 0.9 });
+    } else if (cave) {
+      this._caveMotif();
+      if (Math.random() < 0.55) this._noise(0.6, 0.014, 420, { filterType: 'lowpass', endFilter: 170, smooth: 0.95 });
+    } else if (wind) {
+      this._noise(0.9, 0.02, 950, { filterType: 'bandpass', endFilter: 240, smooth: 0.88 });
+    }
   }
 
   pickaxeHit() {
     if (!this._throttle('pickaxe', 75)) return;
-    this._tone(145, 0.09, { endFreq: 70, volume: 0.2, type: 'triangle' });
-    this._noise(0.035, 0.11, 1800);
+    this._kick(0.13);
+    this._noise(0.055, 0.12, 2400, { endFilter: 620, smooth: 0.45 });
+    this._osc(310, 0.12, { endFreq: 170, volume: 0.06, type: 'triangle', attack: 0.002 });
+    this._osc(470, 0.08, { endFreq: 300, volume: 0.03, type: 'sine', delay: 0.014 });
   }
 
   axeHit() {
     if (!this._throttle('axe', 90)) return;
-    this._tone(105, 0.12, { endFreq: 58, volume: 0.18, type: 'triangle' });
-    this._noise(0.045, 0.13, 1000);
+    this._kick(0.16);
+    this._noise(0.09, 0.1, 860, { endFilter: 250, smooth: 0.42 });
+    this._osc(150, 0.16, { endFreq: 62, volume: 0.09, type: 'triangle' });
+    this._pluck(250, 0.035, 0.025);
   }
 
   swordSwing() {
     if (!this._throttle('sword', 90)) return;
-    this._tone(920, 0.16, { endFreq: 250, volume: 0.12, type: 'sawtooth' });
-    this._noise(0.08, 0.045, 2400);
+    this._noise(0.18, 0.07, 3200, { filterType: 'bandpass', endFilter: 650, smooth: 0.35 });
+    this._osc(980, 0.2, { endFreq: 310, volume: 0.08, type: 'sawtooth', attack: 0.002 });
+    this._osc(740, 0.13, { endFreq: 420, volume: 0.045, type: 'triangle', delay: 0.02 });
   }
 
   bowShot() {
     if (!this._throttle('bow', 90)) return;
-    this._tone(480, 0.09, { endFreq: 190, volume: 0.09, type: 'triangle' });
-    this._noise(0.035, 0.045, 2600);
+    this._noise(0.08, 0.055, 2600, { filterType: 'bandpass', endFilter: 850, smooth: 0.28 });
+    this._osc(320, 0.12, { endFreq: 180, volume: 0.06, type: 'triangle' });
+    this._pluck(640, 0.025, 0.035);
   }
 
   magicCast() {
     if (!this._throttle('magic', 90)) return;
-    this._tone(680, 0.2, { endFreq: 1100, volume: 0.09, type: 'sine' });
-    this._tone(980, 0.14, { endFreq: 1450, volume: 0.04, type: 'sine' });
+    this._osc(392, 0.34, { endFreq: 784, volume: 0.055, type: 'sine', attack: 0.025, release: 0.14 });
+    this._osc(523, 0.28, { endFreq: 1046, volume: 0.035, type: 'triangle', delay: 0.04, attack: 0.02, release: 0.12 });
+    this._pluck(784, 0.03, 0.16);
+    this._noise(0.12, 0.025, 1800, { filterType: 'bandpass', endFilter: 600, smooth: 0.72 });
   }
 
   enemyHurt() {
     if (!this._throttle('enemyHurt', 55)) return;
-    this._tone(185, 0.1, { endFreq: 95, volume: 0.13, type: 'square' });
+    this._osc(220, 0.11, { endFreq: 105, volume: 0.09, type: 'square', attack: 0.002 });
+    this._osc(330, 0.07, { endFreq: 180, volume: 0.035, type: 'triangle', delay: 0.012 });
+    this._noise(0.045, 0.03, 1100, { endFilter: 420, smooth: 0.35 });
   }
 
   enemyDeath() {
-    this._tone(240, 0.13, { endFreq: 110, volume: 0.14, type: 'triangle' });
-    this._tone(120, 0.22, { endFreq: 48, volume: 0.1, type: 'sine' });
+    if (!this._throttle('enemyDeath', 40)) return;
+    this._osc(294, 0.22, { endFreq: 196, volume: 0.09, type: 'triangle' });
+    this._osc(233, 0.25, { endFreq: 147, volume: 0.08, type: 'triangle', delay: 0.08 });
+    this._osc(175, 0.32, { endFreq: 82, volume: 0.07, type: 'sine', delay: 0.16 });
+    this._noise(0.16, 0.06, 1000, { endFilter: 220, smooth: 0.5, delay: 0.08 });
   }
 
   playerHurt() {
     if (!this._throttle('playerHurt', 220)) return;
-    this._tone(180, 0.18, { endFreq: 72, volume: 0.2, type: 'sawtooth' });
-    this._noise(0.08, 0.06, 900);
+    this._kick(0.18);
+    this._osc(190, 0.24, { endFreq: 78, volume: 0.12, type: 'sawtooth' });
+    this._osc(247, 0.16, { endFreq: 110, volume: 0.05, type: 'square', delay: 0.02 });
+    this._noise(0.1, 0.07, 850, { endFilter: 260, smooth: 0.45 });
   }
 
   jump() {
     if (!this._throttle('jump', 90)) return;
-    this._tone(260, 0.18, { endFreq: 520, volume: 0.11, type: 'square' });
+    this._osc(220, 0.24, { endFreq: 440, volume: 0.07, type: 'square', attack: 0.006 });
+    this._osc(330, 0.19, { endFreq: 660, volume: 0.035, type: 'triangle', delay: 0.035 });
+    this._pluck(550, 0.025, 0.08);
   }
 
   itemPickup() {
     if (!this._throttle('pickup', 55)) return;
-    this._tone(650, 0.08, { endFreq: 900, volume: 0.1, type: 'sine' });
+    this._pluck(523, 0.07);
+    this._pluck(659, 0.06, 0.07);
+    this._pluck(784, 0.05, 0.14);
   }
 
   coin() {
-    this._tone(920, 0.07, { endFreq: 1280, volume: 0.12, type: 'square' });
-    this._tone(1280, 0.1, { endFreq: 1700, volume: 0.1, type: 'square' });
+    if (!this._throttle('coin', 40)) return;
+    this._pluck(988, 0.07);
+    this._pluck(1319, 0.06, 0.07);
+    this._pluck(1760, 0.04, 0.15);
   }
 
   uiClick() {
     if (!this._throttle('ui', 35)) return;
-    this._tone(520, 0.045, { endFreq: 380, volume: 0.06, type: 'square' });
+    this._pluck(392, 0.035);
+    this._osc(523, 0.035, { endFreq: 440, volume: 0.018, type: 'sine', delay: 0.01 });
   }
 
   blockPlace() {
     if (!this._throttle('place', 70)) return;
-    this._tone(210, 0.1, { endFreq: 120, volume: 0.13, type: 'triangle' });
-    this._tone(480, 0.06, { endFreq: 350, volume: 0.05, type: 'sine' });
+    this._kick(0.12);
+    this._noise(0.06, 0.08, 720, { endFilter: 260, smooth: 0.45 });
+    this._pluck(180, 0.04, 0.025);
   }
 
   blockBreak() {
     if (!this._throttle('break', 55)) return;
-    this._noise(0.12, 0.12, 1500);
-    this._tone(115, 0.12, { endFreq: 58, volume: 0.1, type: 'triangle' });
+    this._noise(0.11, 0.11, 1600, { endFilter: 420, smooth: 0.45 });
+    this._osc(150, 0.15, { endFreq: 64, volume: 0.08, type: 'triangle' });
+    this._noise(0.055, 0.045, 2400, { endFilter: 700, smooth: 0.3, delay: 0.045 });
   }
 }
 
