@@ -4,7 +4,7 @@ import {
   HOTBAR_SIZE, MAX_PARTICLES, MAX_PROJECTILES,
 } from './config.js';
 import { hashString, mulberry32, dist2, uid } from './utils.js';
-import { World } from './world/world.js';
+import { World } from './world/world.js?build=30f8ec0';
 import { T } from './world/tiles.js';
 import { Sprites } from './art/sprites.js';
 import { Camera } from './engine/camera.js';
