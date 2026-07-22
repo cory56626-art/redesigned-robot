@@ -18,7 +18,7 @@ import * as craftSys from './systems/crafting.js';
 import { applyPotion } from './systems/combat.js';
 import { Player, assignColor } from './entities/player.js?build=826f56ee';
 import { Enemy } from './entities/enemy.js';
-import { Boss } from './entities/boss.js?build=7cdb6bf';
+import { Boss } from './entities/boss.js?build=cd391f5';
 import { Minion } from './entities/minion.js';
 import { Projectile } from './entities/projectile.js';
 import { DropItem } from './entities/droppeditem.js';
@@ -954,7 +954,7 @@ class Game {
     const anchor = this.nearestPlayer(this.localPlayer ? this.localPlayer.x : 0, this.localPlayer ? this.localPlayer.y : 0) || this.localPlayer;
     let bx = anchor ? anchor.x : this.world.spawnX;
     let by = anchor ? anchor.y - 140 : this.world.spawnY - 140;
-    if (def.movement === 'ground') by = anchor ? anchor.y - def.h : by;
+    if (def.movement === 'ground' || def.movement === 'gravemaw') by = anchor ? anchor.y - def.h : by;
     const b = new Boss(key, bx, by);
     this.bosses.push(b);
     this.toast(def.name + ' has appeared!', 'bad');
