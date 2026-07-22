@@ -9,7 +9,7 @@ import { T } from './world/tiles.js';
 import { Sprites } from './art/sprites.js';
 import { Camera } from './engine/camera.js';
 import { Input } from './engine/input.js?build=mobile-jump-2';
-import { AudioManager } from './engine/audio.js?build=audio-assets-1';
+import { AudioManager } from './engine/audio.js?build=audio-assets-2';
 import { Renderer } from './engine/renderer.js?build=f0bc604';
 import { DayNight } from './systems/daynight.js';
 import { Spawner } from './systems/spawner.js';
