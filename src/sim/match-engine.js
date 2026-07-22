@@ -453,7 +453,7 @@ export class MatchEngine {
 
     if (kick.type === 'shot') {
       p.stats.shots++; this.stats[p.team].shots++;
-      this._shotCd[p.team] = this.worldCup ? 6.5 : 1.8;
+      this._shotCd[p.team] = this.worldCup ? 8.0 : 1.8;
       if (this._shotBlocked(p, ndx, ndy)) {
         const defTeam = p.team === 0 ? 1 : 0;
         b.vx = -ndx * 4 + this.rng.gaussian(0, 3); b.vy = -ndy * 4 + this.rng.gaussian(0, 3); b.vz = 2;
