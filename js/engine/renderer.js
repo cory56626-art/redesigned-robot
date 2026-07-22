@@ -199,6 +199,23 @@ export class Renderer {
       ctx.strokeStyle = 'rgba(255,207,107,0.6)'; ctx.lineWidth = 1;
       ctx.strokeRect(tx * TILE + 0.5, ty * TILE + 0.5, TILE - 1, TILE - 1);
     }
+
+    // Mobile Terraria-style aim marker: a filled, readable cursor at the
+    // actual radial aim point, rather than making the player aim at an empty
+    // fixed-distance ring.
+    if (game.input.aimMode === 'dir') {
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,207,107,0.9)';
+      ctx.beginPath();
+      ctx.arc(s.aimX, s.aimY, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,245,190,0.95)';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.arc(s.aimX, s.aimY, 5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   _drawFallingTrees(game, ctx) {
