@@ -12,7 +12,7 @@ import { renderSquad } from './screen-squad.js';
 import { renderFormation } from './screen-formation.js';
 import { renderCollection } from './screen-collection.js';
 import { renderShop } from './screen-shop.js';
-import { renderClub } from './screen-club.js';
+import { renderClub } from './screen-club.js?build=d9e11ec11';
 import { renderStats } from './screen-stats.js';
 import { renderSettings } from './screen-settings.js';
 import { launchMatchFlow } from './screen-match.js?build=d9e11ec11';
