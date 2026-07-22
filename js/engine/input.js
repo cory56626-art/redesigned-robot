@@ -33,6 +33,7 @@ export class Input {
     this.aimMode = 'point';
     this.mouseScreen = { x: 0, y: 0 };
     this.aimDir = { x: 1, y: 0 };
+    this.aimMagnitude = 1;
 
     this.actionHandlers = {};
     this._camera = null;
@@ -245,10 +246,13 @@ export class Input {
     this._joy(
       document.getElementById('joyAim'),
       (vx, vy, active) => {
-        if (active && (vx || vy)) {
-          const len = Math.hypot(vx, vy) || 1;
-          this.aimDir.x = vx / len;
-          this.aimDir.y = vy / len;
+        if (active) {
+          const len = Math.hypot(vx, vy);
+          this.aimMagnitude = Math.min(1, len);
+          if (len > 0.001) {
+            this.aimDir.x = vx / len;
+            this.aimDir.y = vy / len;
+          }
         }
       }
     );
@@ -424,7 +428,10 @@ export class Input {
       this.state.aimX = w.x;
       this.state.aimY = w.y;
     } else {
-      const d = REACH * TILE * 0.8;
+      // Mobile aim is a radial cursor: joystick direction chooses the angle,
+      // while joystick distance chooses how close the cursor is. Keeping the
+      // magnitude was important; normalizing it forced every aim to one ring.
+      const d = REACH * TILE * 0.8 * this.aimMagnitude;
 
       this.state.aimX = cx + this.aimDir.x * d;
       this.state.aimY = cy + this.aimDir.y * d;
