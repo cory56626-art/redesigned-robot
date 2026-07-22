@@ -25,6 +25,21 @@ export function generateWorld(seed) {
     surface[x] = Math.max(30, Math.min(UNDERGROUND_Y - 6, Math.round(hgt)));
   }
 
+  // Keep the playable surface continuous. Raw noise can create multi-tile
+  // jumps between adjacent columns, but the player is intentionally limited to
+  // climbing one-tile ledges. Two passes in each direction turn those jumps into
+  // natural stair steps without flattening the hills.
+  for (let pass = 0; pass < 2; pass++) {
+    for (let x = 1; x < w; x++) {
+      const prev = surface[x - 1];
+      surface[x] = Math.max(prev - 1, Math.min(prev + 1, surface[x]));
+    }
+    for (let x = w - 2; x >= 0; x--) {
+      const next = surface[x + 1];
+      surface[x] = Math.max(next - 1, Math.min(next + 1, surface[x]));
+    }
+  }
+
   // Fill solid terrain (no caves yet — those are tunnelled next).
   for (let x = 0; x < w; x++) {
     const corrupt = x >= CORRUPT_X;
