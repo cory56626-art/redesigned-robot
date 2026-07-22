@@ -1,7 +1,7 @@
 // Summoner Realms — runtime world: tile grid, collision, mining, lighting, diffs.
 import { WORLD_W, WORLD_H, TILE, UNDERGROUND_Y, CORRUPT_X, CAVERN_Y } from '../config.js';
 import { T, TILES, tileDef, isSolid, tileLight } from './tiles.js';
-import { generateWorld } from './worldgen.js';
+import { generateWorld } from './worldgen.js?build=30f8ec0';
 
 export class World {
   constructor(seed) {
