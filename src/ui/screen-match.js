@@ -241,8 +241,17 @@ function buildOpponentLineup(opp, home) {
     ? home.players.reduce((sum, entry) => sum + Number(entry.player?.ovr || 0), 0) / home.players.length
     : 68;
   const isNationalOpponent = !!opp.flag;
+  // World Cup nations should be credible opponents without creating an impossible
+  // rating cliff. Elite clubs should have a small advantage, while developing clubs
+  // still face a genuinely strong national side.
   const balancedRating = isNationalOpponent
-    ? Math.min(rating, Math.max(76, homeRating >= 90 ? homeRating - 22 : homeRating + 8))
+    ? clamp(
+        homeRating >= 90
+          ? homeRating - 6
+          : Math.max(rating, homeRating + 6),
+        82,
+        92,
+      )
     : rating;
   const tier = clamp(Math.round((balancedRating - 55) / 8), 0, 5);
   const posAdj = { GK: 0, ST: 2, W: 1, CB: -1 };
