@@ -170,13 +170,19 @@ export class Enemy {
     if (this.dead) return;
     const kbResist = 1 - (this.def.kbResist || 0);
     this.hp -= amount;
+    game?.audio?.enemyHurt();
     this.hurtFlash = 0.12;
     this.iframes = 0.05;
     this.vx += kbx * 24 * kbResist;
     if (kby) this.vy += kby * 40 * kbResist; else this.vy -= 40 * kbResist;
     if (effect) this._applyEffect(effect);
     if (game) game.floatText(this.x + this.w / 2, this.y, Math.round(amount) + (crit ? '!' : ''), crit ? '#ffcf6b' : '#ffffff');
-    if (this.hp <= 0) { this.hp = 0; this.dead = true; if (game) game.onEnemyDeath(this); }
+    if (this.hp <= 0) {
+      this.hp = 0;
+      this.dead = true;
+      game?.audio?.enemyDeath();
+      if (game) game.onEnemyDeath(this);
+    }
   }
 
   _applyEffect(effect) {
