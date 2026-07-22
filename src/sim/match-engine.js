@@ -16,6 +16,7 @@ const MAX_SUBSTEPS = 34;
 export class MatchEngine {
   constructor(home, away, opts = {}) {
     this.rng = new RNG(opts.seed ?? (Date.now() ^ (Math.random() * 1e9)));
+    this.worldCup = !!opts.worldCup;
     this.teams = [this._prepTeam(home, 0), this._prepTeam(away, 1)];
     this.profiles = [buildProfile(home.tactics), buildProfile(away.tactics)];
     this.players = [...this.teams[0].players, ...this.teams[1].players];
