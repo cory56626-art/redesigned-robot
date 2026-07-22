@@ -6,7 +6,8 @@ import { aabb, dist2 } from '../utils.js';
 // Keep spawns off-screen-ish but not so far they never arrive (tiles).
 const MIN_SPAWN_DIST = 13;
 const MAX_SPAWN_DIST = 30;
-const SPAWN_INTERVAL = 1.05;
+const SPAWN_INTERVAL = 2.25;
+const SPAWN_CHANCE = 0.6;
 const LOCAL_ACTIVITY_RADIUS = 58 * TILE;
 
 export class Spawner {
@@ -21,10 +22,13 @@ export class Spawner {
     const players = [...game.players.values()].filter(p => p.alive);
     if (!players.length) return;
 
-    // Keep the overall limit high enough for a healthy single-player world, but
-    // reserve room for every active player instead of letting one distant group
-    // consume the entire budget.
-    const globalCap = Math.min(MAX_ENEMIES, 10 + players.length * 4);
+    // Natural spawns are deliberately paced. A guaranteed spawn every timer tick
+    // filled the world too quickly and made single-player combat unplayable.
+    if (Math.random() > SPAWN_CHANCE) return;
+
+    // Keep a small, readable population near each player while still scaling
+    // gently for co-op instead of flooding the world.
+    const globalCap = Math.min(MAX_ENEMIES, 6 + players.length * 2);
     const active = game.enemies.filter(e => !e.fromBoss && !e.dead).length;
     if (active >= globalCap) return;
 
@@ -39,7 +43,7 @@ export class Spawner {
       }))
       .sort((a, b) => a.nearby - b.nearby);
 
-    const localCap = Math.min(globalCap, 8 + players.length * 2);
+    const localCap = Math.min(globalCap, 4 + players.length);
     for (const { p, nearby } of candidates) {
       if (nearby >= localCap) continue;
       if (this._trySpawnAround(game, p, players)) return;
@@ -53,8 +57,8 @@ export class Spawner {
     const isDay = game.time.isDay;
 
     // More attempts matter in caves, where most random columns are solid or
-    // lack enough headroom. This is still tiny work: it runs once per second.
-    for (let attempt = 0; attempt < 14; attempt++) {
+    // lack enough headroom. This runs only after the paced spawn roll above.
+    for (let attempt = 0; attempt < 12; attempt++) {
       const side = Math.random() < 0.5 ? -1 : 1;
       const dist = MIN_SPAWN_DIST + ((Math.random() * (MAX_SPAWN_DIST - MIN_SPAWN_DIST + 1)) | 0);
       const sx = Math.max(3, Math.min(game.world.width - 4, pTileX + side * dist));
