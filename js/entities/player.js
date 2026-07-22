@@ -186,8 +186,13 @@ export class Player {
       if (this.placeTimer <= 0) { if (combat.placeSelected(game, this)) this.placeTimer = 0.12; }
     }
 
+    // Mobile Terraria-style Aim & Use: holding the right aim stick also uses
+    // tools and non-summon weapons. Summon weapons intentionally stay manual so
+    // a cursor adjustment never accidentally spawns/replaces a minion.
+    const aimUse = input.aimHeld && aimUseItem(sel);
+
     // Primary use.
-    if (input.primaryHeld && sel) {
+    if ((input.primaryHeld || aimUse) && sel) {
       if (sel.category === 'tool') {
         combat.mineAt(game, this, dt, { tool: sel });
       } else if (sel.category === 'block' || sel.category === 'station') {
@@ -283,6 +288,12 @@ export class Player {
     this.facing = s.facing; this.alive = s.alive; this.selectedId = s.selectedId;
     this.walkAnim = (s.walk || 0) / 10;
   }
+}
+
+function aimUseItem(item) {
+  if (!item) return false;
+  if (item.category === 'tool') return true; // axes and pickaxes
+  return item.category === 'weapon' && item.weaponClass !== 'summon';
 }
 
 export function assignColor(index) {
