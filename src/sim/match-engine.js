@@ -8,7 +8,7 @@ import { RNG } from '../core/rng.js';
 import { clamp, lerp, dist2 } from '../core/util.js';
 import { formation, POS_GROUP } from '../data/formations.js';
 import { buildProfile, formationHome, computeAnchor } from './tactics.js';
-import { decideOnBall, offBallIntent, defendIntent, gkIntent, attachBias } from './ai.js?build=d9e11ec5';
+import { decideOnBall, offBallIntent, defendIntent, gkIntent, attachBias } from './ai.js?build=d9e11ec6';
 
 const DECISION_INTERVAL = 0.1; // game-seconds between AI re-decisions
 const MAX_SUBSTEPS = 34;
@@ -307,7 +307,7 @@ export class MatchEngine {
       const near = Math.abs(b.y - gy) < 16;
       if (!near || !towardGoal || b.z > PITCH.GOAL_H + 0.4) continue;
       const reach = (3.0 + (gk.gk.reflexes / 99) * 2.4 + (gk.gk.diving / 99) * 1.7)
-        * (this.worldCup ? 1.25 : 1);
+        * (this.worldCup ? 1.38 : 1);
       const d = dist2(gk.pos.x, gk.pos.y, b.x, b.y);
       if (d > reach) continue;
       const skill = 0.5 * gk.gk.reflexes / 99 + 0.28 * gk.gk.positioning / 99 + 0.22 * gk.gk.diving / 99;
@@ -453,7 +453,7 @@ export class MatchEngine {
 
     if (kick.type === 'shot') {
       p.stats.shots++; this.stats[p.team].shots++;
-      this._shotCd[p.team] = this.worldCup ? 3.0 : 1.8;
+      this._shotCd[p.team] = this.worldCup ? 3.8 : 1.8;
       if (this._shotBlocked(p, ndx, ndy)) {
         const defTeam = p.team === 0 ? 1 : 0;
         b.vx = -ndx * 4 + this.rng.gaussian(0, 3); b.vy = -ndy * 4 + this.rng.gaussian(0, 3); b.vz = 2;
