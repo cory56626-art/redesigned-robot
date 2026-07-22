@@ -48,12 +48,30 @@ export class MatchEngine {
     return { possTicks: 0, shots: 0, onTarget: 0, goals: 0, passes: 0, passesOk: 0, tackles: 0, interceptions: 0, corners: 0, fouls: 0, offsides: 0, saves: 0 };
   }
 
+  _worldCupPlayer(player) {
+    // Compress the club-vs-country rating gap for tournament fixtures only.
+    // Keep individual differences, but prevent an elite club XI from making the
+    // national opponent effectively non-competitive.
+    const compressStats = (stats) => {
+      if (!stats) return stats;
+      return Object.fromEntries(Object.entries(stats).map(([key, value]) => [
+        key,
+        typeof value === 'number' ? Math.round(clamp(82 + (value - 82) * 0.35, 65, 92)) : value,
+      ]));
+    };
+    return {
+      ...player,
+      attributes: compressStats(player.attributes),
+      gk: compressStats(player.gk),
+    };
+  }
+
   _prepTeam(spec, teamIndex) {
     const f = formation(spec.formation || '442');
     const widthFactor = 0.9 + ((spec.tactics?.width ?? 55) / 100) * 0.3;
     const players = spec.players.map((slotEntry, i) => {
       const slot = f.slots[slotEntry.slotIndex ?? i];
-      const ref = slotEntry.player;
+      const ref = this.worldCup ? this._worldCupPlayer(slotEntry.player) : slotEntry.player;
       const group = POS_GROUP[slot.pos] || 'CM';
       const home = formationHome(slot, teamIndex, widthFactor);
       const p = {
