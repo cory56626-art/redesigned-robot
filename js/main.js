@@ -8,6 +8,7 @@ import { World } from './world/world.js?build=30f8ec0';
 import { T } from './world/tiles.js';
 import { Sprites } from './art/sprites.js';
 import { Camera } from './engine/camera.js';
+import { AudioManager } from './engine/audio.js';
 import { Input } from './engine/input.js?build=826f56ee';
 import { Renderer } from './engine/renderer.js';
 import { DayNight } from './systems/daynight.js';
@@ -38,6 +39,8 @@ import * as sync from './net/sync.js';
 class Game {
   constructor() {
     this.canvas = document.getElementById('game');
+    this.audio = new AudioManager();
+    this.audio.attach();
     this.camera = new Camera();
     this.input = new Input(this.canvas);
     this.input.setCamera(this.camera);
@@ -180,6 +183,7 @@ class Game {
     this.input.resolveAim(lc.x, lc.y, this.canvas.width, this.canvas.height);
 
     this.time.update(dt);
+    this.audio.update(this, dt);
 
     // Players
     for (const p of this.players.values()) p.update(dt, this);
@@ -713,7 +717,8 @@ class Game {
     if (drop.ghost) { if (!drop.requested) { drop.requested = true; this.net.toHost({ t: MSG.PICKUP, netId: drop.netId }); } return; }
     if (this.isHost || !this.net) this.grantDropTo(player.id, drop);
     else { // client local drop
-      player.inventory.add(drop.itemId, drop.count); drop.dead = true; this.dropById.delete(drop.netId);
+      player.inventory.add(drop.itemId, drop.count); this.playPickupSound(drop.itemId);
+      drop.dead = true; this.dropById.delete(drop.netId);
       this.floatText(drop.x, drop.y, '+' + drop.count, '#7ee0c0');
     }
   }
@@ -721,7 +726,7 @@ class Game {
     const player = this.players.get(playerId);
     drop.dead = true; this.dropById.delete(drop.netId);
     if (!player) return;
-    if (player.isLocal) { player.inventory.add(drop.itemId, drop.count); this.floatText(drop.x, drop.y, '+' + drop.count, '#7ee0c0'); this.markDirty(); }
+    if (player.isLocal) { player.inventory.add(drop.itemId, drop.count); this.playPickupSound(drop.itemId); this.floatText(drop.x, drop.y, '+' + drop.count, '#7ee0c0'); this.markDirty(); }
     else if (this.net) this.net.toPeer(playerId, { t: MSG.GRANT, item: drop.itemId, count: drop.count });
   }
 
@@ -732,6 +737,11 @@ class Game {
   }
 
   toast(msg, kind) { this.ui.hud.toast(msg, kind); }
+
+  playPickupSound(itemId) {
+    this.audio?.itemPickup();
+    if (/coin|gold|silver|copper/i.test(String(itemId))) this.audio?.coin();
+  }
 
   // ============ COMMANDS ============
   hostCommand(cmd, args) {
