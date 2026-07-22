@@ -1,7 +1,7 @@
 // Home screen: hero, next fixture with Play button, quick actions, and navigation cards.
 import { el } from '../core/util.js';
 import { state } from '../core/store.js';
-import { playerFixture, currentCompetition, leagueStandings } from '../game/progression.js';
+import { playerFixture, currentCompetition, leagueStandings } from '../game/progression-wc.js';
 import { validateSquad, teamRating } from '../game/squad.js';
 
 export function renderMenu(app) {
