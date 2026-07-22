@@ -8,7 +8,7 @@ import { RNG } from '../core/rng.js';
 import { clamp, lerp, dist2 } from '../core/util.js';
 import { formation, POS_GROUP } from '../data/formations.js';
 import { buildProfile, formationHome, computeAnchor } from './tactics.js';
-import { decideOnBall, offBallIntent, defendIntent, gkIntent, attachBias } from './ai.js';
+import { decideOnBall, offBallIntent, defendIntent, gkIntent, attachBias } from './ai.js?build=0f97195b';
 
 const DECISION_INTERVAL = 0.1; // game-seconds between AI re-decisions
 const MAX_SUBSTEPS = 34;
