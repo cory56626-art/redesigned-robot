@@ -117,8 +117,8 @@ export class Player {
       clampToWorld(this, game.world);
     } else {
       if (canAct && input.jumpPressed) {
-        if (this.onGround) { this.vy = -JUMP_VELOCITY; this.jumpsLeft = extraJumps; }
-        else if (this.jumpsLeft > 0) { this.vy = -JUMP_VELOCITY * 0.92; this.jumpsLeft--; }
+        if (this.onGround) { this.vy = -JUMP_VELOCITY; this.jumpsLeft = extraJumps; game.audio?.jump(); }
+        else if (this.jumpsLeft > 0) { this.vy = -JUMP_VELOCITY * 0.92; this.jumpsLeft--; game.audio?.jump(); }
       }
       // Variable jump height
       if (!input.jumpHeld && this.vy < -140) this.vy *= 0.55;
@@ -234,6 +234,7 @@ export class Player {
     let dmg = Math.max(1, Math.round(amount - def * 0.5));
     for (const b of this.buffs) if (b.type === 'ironskin') dmg = Math.max(1, dmg - b.defense);
     this.hp -= dmg;
+    game.audio?.playerHurt();
     this.iframes = 0.6;
     this.combatTimer = 4;
     this.kbTimer = 0.2;
