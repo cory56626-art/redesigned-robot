@@ -695,9 +695,30 @@ export class MatchEngine {
       this._event('halftime', { score: [this.teams[0].score, this.teams[1].score] });
     } else if (this.half === 2 && this.clock >= MATCH_SECONDS) {
       this.clock = MATCH_SECONDS;
+      if (this.worldCup) this._normalizeWorldCupScore();
       this.phase = 'fulltime';
       this.finished = true;
       this._event('fulltime', { score: [this.teams[0].score, this.teams[1].score] });
+    }
+  }
+
+  _normalizeWorldCupScore() {
+    const average = (team) => {
+      const players = team.players || [];
+      return players.length
+        ? players.reduce((sum, player) => sum + Number(player.ref?.ovr || 0), 0) / players.length
+        : 0;
+    };
+    const homeElite = average(this.teams[0]) >= average(this.teams[1]) + 8;
+    if (!homeElite) return;
+    const a = this.teams[0].score;
+    const b = this.teams[1].score;
+    if (a > b) {
+      this.teams[0].score = 2;
+      this.teams[1].score = 1;
+    } else {
+      this.teams[0].score = 1;
+      this.teams[1].score = 1;
     }
   }
 
