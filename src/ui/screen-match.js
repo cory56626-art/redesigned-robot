@@ -22,7 +22,7 @@ export function launchMatchFlow(app, { fixture }) {
   const home = buildPlayerLineup(s);
   const away = buildOpponentLineup(fixture.opponent, home);
   avoidKitClash(home, away);
-  const engine = new MatchEngine(home, away);
+  const engine = new MatchEngine(home, away, { worldCup: !!fixture.opponent.flag });
 
   // DOM
   const canvas = el('canvas', { id: 'matchCanvas' });
