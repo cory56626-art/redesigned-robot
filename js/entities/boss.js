@@ -68,9 +68,9 @@ export class Boss {
     // Special states override normal movement.
     if (this.state && this.state.type === 'charge') {
       this.state.time -= dt;
-      if (this.movement === 'ground') applyGravity(this, dt);
+      if (this.movement === 'ground' || this.movement === 'gravemaw') applyGravity(this, dt);
       this.vx = this.state.vx;
-      if (this.movement !== 'ground') this.vy = this.state.vy;
+      if (this.movement !== 'ground' && this.movement !== 'gravemaw') this.vy = this.state.vy;
       this._move(game, dt);
       if (this.state.time <= 0) this.state = null;
     } else if (this.state && this.state.type === 'burrow') {
