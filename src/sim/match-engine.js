@@ -293,7 +293,7 @@ export class MatchEngine {
       const skill = 0.5 * gk.gk.reflexes / 99 + 0.28 * gk.gk.positioning / 99 + 0.22 * gk.gk.diving / 99;
       const q = this._shotLive.quality ?? 0.3;
       // Better chances beat the keeper; better keepers save more. Reach edge also matters.
-      const saveP = clamp(0.8 + skill * 0.3 - q * 0.55 - (d / reach) * 0.08, 0.3, 0.98);
+      const saveP = clamp(0.9 + skill * 0.24 - q * 0.38 - (d / reach) * 0.05, 0.4, 0.995);
       if (this.rng.chance(saveP)) {
         this.stats[gk.team].saves++;
         gk.stats.tackles += 0; // handled as save
