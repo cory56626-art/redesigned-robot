@@ -20,7 +20,7 @@ const CAMERAS = ['broadcast', 'high', 'end'];
 export function launchMatchFlow(app, { fixture }) {
   const s = state();
   const home = buildPlayerLineup(s);
-  const away = buildOpponentLineup(fixture.opponent);
+  const away = buildOpponentLineup(fixture.opponent, home);
   avoidKitClash(home, away);
   const engine = new MatchEngine(home, away);
 
@@ -229,18 +229,28 @@ function buildPlayerLineup(s) {
   return { name: s.club.name, colors: s.club.colors, formation: s.squad.formation, tactics: s.squad.tactics, players };
 }
 
-function buildOpponentLineup(opp) {
+function buildOpponentLineup(opp, home) {
   const rng = new RNG((opp.name || 'AI') + '-' + Math.floor(Math.random() * 1e9));
   const fId = rng.pick(['442', '433', '4231', '352', '4231']);
   const f = formation(fId);
   const rating = opp.rating || 72;
-  const tier = clamp(Math.round((rating - 55) / 8), 0, 5);
+  // World Cup nations are intentionally strong, but they must remain beatable by a
+  // genuinely elite club. Previously national opponents were generated independently
+  // at up to 96 OVR, which let a 98 OVR Prime Icon XI lose by absurd margins.
+  const homeRating = home?.players?.length
+    ? home.players.reduce((sum, entry) => sum + Number(entry.player?.ovr || 0), 0) / home.players.length
+    : 68;
+  const isNationalOpponent = !!opp.flag;
+  const balancedRating = isNationalOpponent
+    ? Math.min(rating, Math.max(84, homeRating >= 90 ? homeRating - 6 : homeRating + 8))
+    : rating;
+  const tier = clamp(Math.round((balancedRating - 55) / 8), 0, 5);
   const posAdj = { GK: 0, ST: 2, W: 1, CB: -1 };
   const players = f.slots.map((slot, i) => ({
     slotIndex: i,
     player: generatePlayer({
       rng, tier, isGK: slot.pos === 'GK', positionHint: slot.pos,
-      targetOvr: clamp(Math.round(rating + (posAdj[slot.group] || 0) + rng.gaussian(0, 3)), 40, 96),
+      targetOvr: clamp(Math.round(balancedRating + (posAdj[slot.group] || 0) + rng.gaussian(0, 2)), 40, 96),
     }),
   }));
   const styles = ['possession', 'balanced', 'counter', 'direct'];
