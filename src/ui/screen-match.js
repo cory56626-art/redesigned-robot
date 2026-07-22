@@ -4,7 +4,7 @@
 import { el, fmtClock, fmtCoins, clamp } from '../core/util.js';
 import { state, settings } from '../core/store.js';
 import { RNG } from '../core/rng.js';
-import { MatchEngine } from '../sim/match-engine.js?build=d9e11ec4';
+import { MatchEngine } from '../sim/match-engine.js?build=d9e11ec5';
 import { SIM_RATE } from '../sim/const.js';
 import { Scene3D } from '../render/scene3d.js';
 import { Scene2D } from '../render/scene2d.js';
@@ -247,10 +247,9 @@ function buildOpponentLineup(opp, home) {
   const balancedRating = isNationalOpponent
     ? clamp(
         homeRating >= 90
-          ? homeRating - 12
-          : Math.max(rating, homeRating + 6),
-        78,
-        88,
+          ? homeRating - 8
+          : Math.max(rating, homeRating + 4),
+        82,\n        92,
       )
     : rating;
   const tier = clamp(Math.round((balancedRating - 55) / 8), 0, 5);
