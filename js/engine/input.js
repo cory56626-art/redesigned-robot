@@ -30,6 +30,7 @@ export class Input {
     // Keeps very brief keyboard taps visible to the fixed-step game loop.
     this._moveTapX = 0;
     this._moveTapUntil = 0;
+    this._lastJumpQueue = 0;
 
     this.aimMode = 'point';
     this.mouseScreen = { x: 0, y: 0 };
@@ -71,6 +72,17 @@ export class Input {
   isTyping() {
     const el = document.activeElement;
     return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+  }
+
+  _queueJump() {
+    // Touchscreens can deliver pointer/touch events between fixed simulation
+    // steps. Keep the edge-triggered press latched until the next step so a
+    // short tap cannot turn into a jump on release.
+    const now = performance.now();
+    if (now - this._lastJumpQueue > 35 || !this.state.jumpHeld) {
+      this._queueJump();
+    }
+    this._lastJumpQueue = now;
   }
 
   // ---- Keyboard ----
@@ -115,7 +127,7 @@ export class Input {
         this.fire('hotbar', 9);
       } else if (k === ' ' || k === 'w' || k === 'arrowup') {
         if (!this.state.jumpHeld) {
-          this.state.jumpPressed = true;
+          this._queueJump();
         }
 
         this.state.jumpHeld = true;
@@ -234,7 +246,7 @@ export class Input {
 
         if (active && vy < -0.6) {
           if (!this.state.jumpHeld) {
-            this.state.jumpPressed = true;
+            this._queueJump();
           }
 
           this.state.jumpHeld = true;
@@ -364,7 +376,7 @@ export class Input {
         this._mobileJumpBtnHeld = true;
 
         if (!this.state.jumpHeld) {
-          this.state.jumpPressed = true;
+          this._queueJump();
         }
 
         this.state.jumpHeld = true;
@@ -399,6 +411,11 @@ export class Input {
     el.addEventListener('pointerup', up);
     el.addEventListener('pointercancel', up);
     el.addEventListener('pointerleave', up);
+    // iPad/iPhone Safari can expose the touch edge before the pointer edge.
+    // Listen to both so Jump commits on touch-down, never on touch-release.
+    el.addEventListener('touchstart', down, { passive: false });
+    el.addEventListener('touchend', up, { passive: false });
+    el.addEventListener('touchcancel', up, { passive: false });
   }
 
   _tapBtn(id, cb) {
