@@ -17,7 +17,7 @@ export class AudioManager {
     this.samplesLoading = false;
     this.sampleAmbient = null;
     this.sampleFiles = {
-      pickaxe: 'pickaxe', axe: 'axe', sword: 'sword',
+      pickaxe: 'pickaxe', axe: 'axe', sword: 'sword', bow: 'bow', magic: 'magic',
       enemyHurt: 'enemy-hurt', enemyDeath: 'enemy-death',
       playerHurt: 'player-hurt', jump: 'jump', pickup: 'pickup',
       coin: 'coin', ui: 'ui-click', place: 'block-place',
@@ -224,17 +224,17 @@ export class AudioManager {
   _forestMotif() {
     const notes = [196, 233, 262, 294, 349, 294, 262];
     const root = notes[this.musicStep % notes.length];
-    this._osc(root, 0.52, { endFreq: root * 0.995, volume: 0.025, type: 'sine', attack: 0.08, release: 0.2 });
-    this._osc(root * 2, 0.28, { endFreq: root * 1.98, volume: 0.012, type: 'triangle', delay: 0.16, attack: 0.04, release: 0.12 });
-    this._pluck(root * 1.5, 0.018, 0.36);
+    this._osc(root, 0.52, { endFreq: root * 0.995, volume: 0.055, type: 'sine', attack: 0.08, release: 0.2 });
+    this._osc(root * 2, 0.28, { endFreq: root * 1.98, volume: 0.025, type: 'triangle', delay: 0.16, attack: 0.04, release: 0.12 });
+    this._pluck(root * 1.5, 0.035, 0.36);
   }
 
   _caveMotif() {
     const roots = [73.4, 82.4, 65.4, 61.7];
     const root = roots[this.musicStep % roots.length];
-    this._osc(root, 1.3, { endFreq: root * 0.98, volume: 0.045, type: 'sine', attack: 0.18, release: 0.35 });
-    this._osc(root * 1.5, 0.9, { endFreq: root * 1.47, volume: 0.018, type: 'triangle', delay: 0.22, attack: 0.14, release: 0.25 });
-    this._pluck(root * 3, 0.012, 0.8);
+    this._osc(root, 1.3, { endFreq: root * 0.98, volume: 0.065, type: 'sine', attack: 0.18, release: 0.35 });
+    this._osc(root * 1.5, 0.9, { endFreq: root * 1.47, volume: 0.028, type: 'triangle', delay: 0.22, attack: 0.14, release: 0.25 });
+    this._pluck(root * 3, 0.024, 0.8);
   }
 
   update(game, dt) {
@@ -257,9 +257,9 @@ export class AudioManager {
     const now = this.ctx.currentTime;
 
     const bed = this.sampleAmbient || this.ambient;
-    bed.forest.gain.setTargetAtTime(forest ? 0.065 : 0, now, 0.9);
-    bed.cave.gain.setTargetAtTime(cave ? 0.075 : 0, now, 0.9);
-    bed.wind.gain.setTargetAtTime(wind ? 0.045 : 0, now, 0.9);
+    bed.forest.gain.setTargetAtTime(forest ? 0.16 : 0, now, 0.9);
+    bed.cave.gain.setTargetAtTime(cave ? 0.18 : 0, now, 0.9);
+    bed.wind.gain.setTargetAtTime(wind ? 0.08 : 0, now, 0.9);
     if (this.sampleAmbient) {
       this.ambient.forest.gain.setTargetAtTime(0, now, 0.9);
       this.ambient.cave.gain.setTargetAtTime(0, now, 0.9);
@@ -305,6 +305,7 @@ export class AudioManager {
 
   bowShot() {
     if (!this._throttle('bow', 90)) return;
+    if (this._sample('bow', 0.72, 0, 0.96 + Math.random() * 0.1)) return;
     this._noise(0.08, 0.055, 2600, { filterType: 'bandpass', endFilter: 850, smooth: 0.28 });
     this._osc(320, 0.12, { endFreq: 180, volume: 0.06, type: 'triangle' });
     this._pluck(640, 0.025, 0.035);
@@ -312,6 +313,7 @@ export class AudioManager {
 
   magicCast() {
     if (!this._throttle('magic', 90)) return;
+    if (this._sample('magic', 0.68, 0, 0.96 + Math.random() * 0.08)) return;
     this._osc(392, 0.34, { endFreq: 784, volume: 0.055, type: 'sine', attack: 0.025, release: 0.14 });
     this._osc(523, 0.28, { endFreq: 1046, volume: 0.035, type: 'triangle', delay: 0.04, attack: 0.02, release: 0.12 });
     this._pluck(784, 0.03, 0.16);

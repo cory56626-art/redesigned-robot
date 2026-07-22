@@ -18,6 +18,8 @@ export class Projectile {
     this.knockback = opts.knockback != null ? opts.knockback : 3;
     this.life = opts.life || 3;
     this.homing = !!opts.homing;
+    this.homingStrength = opts.homingStrength || 3.5;
+    this.destructible = !!opts.destructible;
     this.visualOnly = !!opts.visualOnly;
     this.dead = false;
     this.hitSet = new Set();
@@ -49,6 +51,10 @@ export class Projectile {
 
     if (this.visualOnly) return;
 
+    if (this.ownerType === 'player' || this.ownerType === 'minion') {
+      this._cutBossProjectiles(game);
+    }
+
     if (this.ownerType === 'player' || this.ownerType === 'minion') this._hitEnemies(game);
     else if (this.ownerType === 'enemy' || this.ownerType === 'boss') this._hitPlayers(game);
   }
@@ -66,7 +72,7 @@ export class Projectile {
       const tx = target.x + target.w / 2, ty = target.y + target.h / 2;
       const ang = Math.atan2(ty - cy, tx - cx);
       const spd = Math.hypot(this.vx, this.vy);
-      const steer = 3.5 * dt;
+      const steer = this.homingStrength * dt;
       let cur = Math.atan2(this.vy, this.vx);
       let diff = ang - cur;
       while (diff > Math.PI) diff -= Math.PI * 2;
@@ -95,6 +101,19 @@ export class Projectile {
         game.hurtBoss(b, this.damage, this.ownerId, this.crit);
         game.addHitParticles(this.x, this.y, this.color, 4);
         if (this.pierce-- <= 0) { this.dead = true; return; }
+      }
+    }
+  }
+
+  _cutBossProjectiles(game) {
+    const box = { x: this.x, y: this.y, w: this.w, h: this.h };
+    for (const other of game.projectiles) {
+      if (other === this || other.dead || other.ownerType !== 'boss' || !other.destructible) continue;
+      if (aabb(box, other)) {
+        other.dead = true;
+        game.addHitParticles(other.x + other.w / 2, other.y + other.h / 2, other.color, 6);
+        if (this.pierce <= 0) { this.dead = true; return; }
+        this.pierce--;
       }
     }
   }

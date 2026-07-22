@@ -29,6 +29,7 @@ export class Player {
     this.maxMana = BASE_MANA; this.mana = BASE_MANA;
     this.useTimer = 0;
     this.placeTimer = 0;
+    this.mineSoundTimer = 0;
     this.iframes = 0;
     this.kbTimer = 0;
     // Consumable + casting cooldowns (persist across inventory/hotbar/death so

@@ -25,10 +25,23 @@ encode axe \
   -t 0.22
 
 encode sword \
-  -f lavfi -i "anoisesrc=color=white:duration=0.2:amplitude=0.24" \
+  -f lavfi -i "anoisesrc=color=white:duration=0.2:amplitude=0.11" \
   -f lavfi -i "sine=frequency=980:duration=0.2" \
-  -filter_complex "[0:a]bandpass=f=2500:w=1.1,afade=t=out:st=0.015:d=0.18,volume=0.8[a];[1:a]afade=t=out:st=0.025:d=0.175,volume=0.22[b];[a][b]amix=inputs=2:duration=shortest,alimiter=limit=0.95" \
+  -filter_complex "[0:a]bandpass=f=2500:w=1.1,afade=t=out:st=0.015:d=0.18,volume=0.3[a];[1:a]afade=t=out:st=0.025:d=0.175,volume=0.42[b];[a][b]amix=inputs=2:duration=shortest,alimiter=limit=0.95" \
   -t 0.2
+
+encode bow \
+  -f lavfi -i "sine=frequency=260:duration=0.2" \
+  -f lavfi -i "sine=frequency=520:duration=0.13" \
+  -filter_complex "[0:a]afade=t=out:st=0.03:d=0.17,volume=0.5[a];[1:a]adelay=38|38,afade=t=out:st=0.02:d=0.11,volume=0.4[b];[a][b]amix=inputs=2:duration=longest,alimiter=limit=0.95" \
+  -t 0.22
+
+encode magic \
+  -f lavfi -i "sine=frequency=392:duration=0.42" \
+  -f lavfi -i "sine=frequency=523:duration=0.34" \
+  -f lavfi -i "sine=frequency=784:duration=0.25" \
+  -filter_complex "[0:a]afade=t=in:st=0:d=0.025,afade=t=out:st=0.2:d=0.22,volume=0.34[a];[1:a]adelay=75|75,afade=t=out:st=0.16:d=0.18,volume=0.27[b];[2:a]adelay=155|155,afade=t=out:st=0.1:d=0.14,volume=0.2[c];[a][b][c]amix=inputs=3:duration=longest,alimiter=limit=0.95" \
+  -t 0.45
 
 encode enemy-hurt \
   -f lavfi -i "sine=frequency=210:duration=0.13" \

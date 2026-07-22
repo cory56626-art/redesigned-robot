@@ -269,6 +269,11 @@ export class Input {
             this.aimDir.x = vx / len;
             this.aimDir.y = vy / len;
           }
+        } else {
+          // Terraria-style radial cursor: releasing the aim stick recenters
+          // the cursor on the player instead of leaving a stale crosshair in
+          // the world.
+          this.aimMagnitude = 0;
         }
       }
     );
@@ -452,7 +457,7 @@ export class Input {
       // Mobile aim is a radial cursor: joystick direction chooses the angle,
       // while joystick distance chooses how close the cursor is. Keeping the
       // magnitude was important; normalizing it forced every aim to one ring.
-      const d = REACH * TILE * 0.8 * this.aimMagnitude;
+      const d = this.state.aimHeld ? REACH * TILE * 0.8 * this.aimMagnitude : 0;
 
       this.state.aimX = cx + this.aimDir.x * d;
       this.state.aimY = cy + this.aimDir.y * d;

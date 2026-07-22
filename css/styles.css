@@ -250,7 +250,8 @@ input[type="text"]:focus { outline: none; border-color: var(--teal); }
 
 /* ---------------- Inventory / crafting screen ---------------- */
 .overlay.inv { background: rgba(5, 8, 18, 0.82); backdrop-filter: blur(2px); align-items: flex-start; padding-top: max(40px, env(safe-area-inset-top)); }
-.inv-panel { display: flex; gap: 18px; flex-wrap: wrap; width: min(860px, 96vw); }
+.inv-panel { display: flex; gap: 18px; flex-wrap: wrap; width: min(860px, 96vw); position: relative; }
+.inv-close { position: absolute; top: -34px; right: 0; z-index: 2; touch-action: manipulation; }
 .inv-col { flex: 1; min-width: 280px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); }
 .equip-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
 .inv-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; }

@@ -71,6 +71,10 @@ export class Menus {
     $('btnQuitMenu').onclick = () => this.confirm('Quit to Menu?', 'The game will autosave first.', () => g.quitToMenu());
 
     // ---- Inventory ----
+    $('invClose').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this.closeInventory();
+    });
     $('invGrid').addEventListener('pointerdown', (e) => this._slotClick(e, 'inv'));
     $('equipGrid').addEventListener('pointerdown', (e) => this._slotClick(e, 'equip'));
     $('invGrid').addEventListener('contextmenu', (e) => e.preventDefault());

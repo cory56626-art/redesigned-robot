@@ -1,6 +1,6 @@
 // Summoner Realms — boss entity. Multi-phase AI, host-authoritative.
 import { TILE } from '../config.js';
-import { BOSSES } from '../data/bosses.js?build=b6815b8';
+import { BOSSES } from '../data/bosses.js?build=sovereign-melee-2';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js';
 import { aabb, angleTo, randRange } from '../utils.js';
 import { Projectile } from './projectile.js';
@@ -109,10 +109,12 @@ export class Boss {
         this.x += this.vx * dt; this.y += this.vy * dt;
       } else if (this.movement === 'sovereign') {
         // The Sovereign keeps a moving orbit around the player and teleports
-        // between attack cycles. It should never feel like a larger slime.
+        // between attack cycles. It periodically dips into melee range so the
+        // fight has a real close-range answer instead of being airborne-only.
         const orbit = this.spawnTime * 0.9;
-        const desiredX = tc.x + Math.cos(orbit) * 155;
-        const desiredY = tc.y - (this.def.floatHeight || 135) + Math.sin(orbit * 1.7) * 42;
+        const dive = Math.sin(orbit * 1.7) > 0.35;
+        const desiredX = tc.x + Math.cos(orbit) * (dive ? 72 : 108);
+        const desiredY = tc.y - (dive ? 42 : (this.def.floatHeight || 72)) + Math.sin(orbit * 1.7) * (dive ? 18 : 32);
         this.vx = Math.max(-ph.speed, Math.min(ph.speed, (desiredX - cx) * 0.9));
         this.vy = Math.max(-ph.speed, Math.min(ph.speed, (desiredY - cy) * 0.9));
         this.x += this.vx * dt; this.y += this.vy * dt;
@@ -195,7 +197,7 @@ export class Boss {
           game.addProjectile(new Projectile({
             x: cx, y: cy, vx: Math.cos(a) * atk.projSpeed, vy: Math.sin(a) * atk.projSpeed,
             damage: atk.damage, ownerType: 'boss', kind: atk.projKind, color, life: 5,
-            w: 7, h: 7,
+            w: 7, h: 7, destructible: true,
           }), true);
         }
         break;
@@ -238,7 +240,8 @@ export class Boss {
           const a = angleTo(cx, cy, tc.x, tc.y) + randRange(Math.random, -0.8, 0.8);
           game.addProjectile(new Projectile({
             x: cx, y: cy, vx: Math.cos(a) * atk.projSpeed, vy: Math.sin(a) * atk.projSpeed,
-            damage: atk.damage, ownerType: 'boss', kind: atk.projKind, color, life: 6, homing: true,
+            damage: atk.damage, ownerType: 'boss', kind: atk.projKind, color, life: 5, homing: true,
+            homingStrength: 1.8, destructible: true,
           }), true);
         }
         break;

@@ -53,22 +53,22 @@ export const BOSSES = {
   blightSovereign: {
     key: 'blightSovereign', name: 'Blight Sovereign', maxHp: 2200, w: 54, h: 64,
     color: '#693b91', color2: '#df8cff', biome: 'corrupt', summonItem: 'blightIdol',
-    movement: 'sovereign', floatHeight: 135, contactBase: 26,
+    movement: 'sovereign', floatHeight: 72, contactBase: 26,
     phases: [
       { name: 'Phase I — The Court', at: 1.0, contact: 26, speed: 72, attacks: [
-        { type: 'crystalRing', cooldown: 2.8, count: 8, projKind: 'crystal', projSpeed: 180, damage: 16 },
+        { type: 'crystalRing', cooldown: 3.4, count: 6, projKind: 'crystal', projSpeed: 165, damage: 12 },
         { type: 'teleport', cooldown: 5.5, damage: 0 },
-        { type: 'volley', cooldown: 2.6, count: 4, spread: 0.55, projKind: 'blight', projSpeed: 250, damage: 17 },
+        { type: 'volley', cooldown: 3.0, count: 3, spread: 0.55, projKind: 'blight', projSpeed: 230, damage: 14 },
       ] },
       { name: 'Phase II — The Rot', at: 0.66, contact: 32, speed: 96, attacks: [
-        { type: 'seedRain', cooldown: 2.0, count: 6, spread: 72, projKind: 'blight', projSpeed: 270, damage: 19 },
-        { type: 'crystalRing', cooldown: 2.4, count: 12, projKind: 'crystal', projSpeed: 220, damage: 18 },
+        { type: 'seedRain', cooldown: 2.4, count: 5, spread: 72, projKind: 'blight', projSpeed: 250, damage: 15 },
+        { type: 'crystalRing', cooldown: 3.0, count: 8, projKind: 'crystal', projSpeed: 200, damage: 14 },
         { type: 'teleport', cooldown: 4.2, damage: 0 },
         { type: 'spawnAdds', cooldown: 7, enemy: 'blightshade', addCount: 2 },
       ] },
       { name: 'Phase III — The Collapse', at: 0.33, contact: 40, speed: 125, attacks: [
-        { type: 'homingBarrage', cooldown: 1.8, count: 8, projKind: 'voidorb', projSpeed: 190, damage: 22, homing: true },
-        { type: 'crystalRing', cooldown: 2.2, count: 16, projKind: 'crystal', projSpeed: 270, damage: 21 },
+        { type: 'homingBarrage', cooldown: 2.5, count: 5, projKind: 'voidorb', projSpeed: 175, damage: 16, homing: true },
+        { type: 'crystalRing', cooldown: 2.8, count: 10, projKind: 'crystal', projSpeed: 235, damage: 16 },
         { type: 'teleport', cooldown: 3.4, damage: 0 },
         { type: 'spawnAdds', cooldown: 8, enemy: 'blightshade', addCount: 3 },
       ] },

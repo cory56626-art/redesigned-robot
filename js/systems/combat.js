@@ -6,6 +6,7 @@ import { Projectile } from '../entities/projectile.js';
 import { angleTo, aabb, clamp } from '../utils.js';
 
 const MINE_RATE = 95;
+const MINE_SOUND_INTERVAL = 0.32;
 // Melee swings are limited to a side-view arc: at most ~49° above/below level so
 // there is never an instant straight-up swipe, and the arc never reaches behind.
 const MELEE_MAX_TILT = 0.85;
@@ -46,6 +47,24 @@ export function useWeapon(game, player, item) {
     const dmg = item.damage * (player.stats ? player.stats.meleeMul : 1) * (crit ? 2 : 1);
     const reachPx = item.reach + 8;
     const arc = item.arc || 1.6;
+
+    // Blight's crystals are threatening but not untouchable. A sword swing
+    // can clear one when it is close enough, giving melee players a real
+    // defensive answer during the Sovereign's ring attacks.
+    for (const pr of game.projectiles) {
+      if (pr.dead || pr.ownerType !== 'boss' || !pr.destructible) continue;
+      const pcx2 = pr.x + pr.w / 2, pcy2 = pr.y + pr.h / 2;
+      const d = Math.hypot(pcx2 - pc.x, pcy2 - pc.y);
+      if (d > reachPx + 24) continue;
+      const ang = Math.atan2(pcy2 - pc.y, pcx2 - pc.x);
+      let diff = Math.abs(ang - aimAng);
+      while (diff > Math.PI) diff = Math.abs(diff - Math.PI * 2);
+      if (diff <= arc / 2 + 0.3) {
+        pr.dead = true;
+        game.addHitParticles(pcx2, pcy2, pr.color, 6);
+      }
+    }
+
     const targets = [];
     for (const e of game.enemies) targets.push(e);
     for (const b of game.bosses) targets.push(b);
@@ -167,10 +186,12 @@ export function mineAt(game, player, dt, source) {
   const rightTool = !need || haveKind === need;
   const factor = rightTool ? 1 : 0.25;
   const res = game.world.damageTile(tx, ty, power * MINE_RATE * factor * dt, rightTool ? power : 0);
-  if (res) {
+  if (player.mineSoundTimer > 0) player.mineSoundTimer -= dt;
+  if (res && !res.broken && player.mineSoundTimer <= 0) {
     const hitKind = haveKind || need;
     if (hitKind === 'axe') game.audio?.axeHit();
     else game.audio?.pickaxeHit();
+    player.mineSoundTimer = MINE_SOUND_INTERVAL;
   }
   player.mineTarget = { tx, ty, ratio: res ? (res.progress || (res.broken ? 1 : 0)) : 0 };
 
