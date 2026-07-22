@@ -242,7 +242,7 @@ function buildOpponentLineup(opp, home) {
     : 68;
   const isNationalOpponent = !!opp.flag;
   // World Cup nations should be credible opponents without creating an impossible
-  // rating cliff. Elite clubs should have a small advantage, while developing clubs
+  // rating cliff. Elite clubs should have only a small advantage, while developing clubs
   // still face a genuinely strong national side.
   const balancedRating = isNationalOpponent
     ? clamp(
