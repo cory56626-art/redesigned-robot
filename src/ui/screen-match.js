@@ -12,7 +12,7 @@ import { generatePlayer } from '../game/player-gen.js';
 import { formation } from '../data/formations.js';
 import { starterSlots, collectionMap } from '../game/squad.js';
 import { addCoins, addXp, matchReward } from '../game/economy.js';
-import { recordPlayerResult, currentCompetition, CAMPAIGN } from '../game/progression.js';
+import { recordPlayerResult, currentCompetition, CAMPAIGN } from '../game/progression.js?build=d9e11ec10';
 
 const SPEEDS = [0.5, 1, 2, 4];
 const CAMERAS = ['broadcast', 'high', 'end'];
