@@ -249,7 +249,8 @@ function buildOpponentLineup(opp, home) {
         homeRating >= 90
           ? homeRating - 8
           : Math.max(rating, homeRating + 4),
-        82,\n        92,
+                82,
+        92,
       )
     : rating;
   const tier = clamp(Math.round((balancedRating - 55) / 8), 0, 5);
