@@ -4,7 +4,7 @@
 import { el, fmtClock, fmtCoins, clamp } from '../core/util.js';
 import { state, settings } from '../core/store.js';
 import { RNG } from '../core/rng.js';
-import { MatchEngine } from '../sim/match-engine.js?build=0f97195b';
+import { MatchEngine } from '../sim/match-engine.js?build=5832ec97';
 import { SIM_RATE } from '../sim/const.js';
 import { Scene3D } from '../render/scene3d.js';
 import { Scene2D } from '../render/scene2d.js';
