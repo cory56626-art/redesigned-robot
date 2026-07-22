@@ -307,7 +307,7 @@ export class MatchEngine {
       const near = Math.abs(b.y - gy) < 16;
       if (!near || !towardGoal || b.z > PITCH.GOAL_H + 0.4) continue;
       const reach = (3.0 + (gk.gk.reflexes / 99) * 2.4 + (gk.gk.diving / 99) * 1.7)
-        * (this.worldCup ? 1.6 : 1);
+        * (this.worldCup ? 1.72 : 1);
       const d = dist2(gk.pos.x, gk.pos.y, b.x, b.y);
       if (d > reach) continue;
       const skill = 0.5 * gk.gk.reflexes / 99 + 0.28 * gk.gk.positioning / 99 + 0.22 * gk.gk.diving / 99;
