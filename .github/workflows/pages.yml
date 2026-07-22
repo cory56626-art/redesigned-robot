@@ -2,7 +2,7 @@ name: Deploy Summoner Realms to GitHub Pages
 
 on:
   push:
-    branches: [main, claude/summoner-realms-demo-qshnrm]
+    branches: [main, claude/summoner-realms-demo-qshnrm, claude/terraria-game-bugfix-jnptcy]
   workflow_dispatch:
 
 permissions:
