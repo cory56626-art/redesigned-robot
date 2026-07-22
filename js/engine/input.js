@@ -80,7 +80,7 @@ export class Input {
     // short tap cannot turn into a jump on release.
     const now = performance.now();
     if (now - this._lastJumpQueue > 35 || !this.state.jumpHeld) {
-      this._queueJump();
+      this.state.jumpPressed = true;
     }
     this._lastJumpQueue = now;
   }
