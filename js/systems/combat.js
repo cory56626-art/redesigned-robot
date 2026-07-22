@@ -40,6 +40,7 @@ export function useWeapon(game, player, item) {
     const tilt = clamp(Math.atan2(dy, Math.abs(dx) + 0.001), -MELEE_MAX_TILT, MELEE_MAX_TILT);
     const aimAng = facing > 0 ? tilt : (Math.PI - tilt);
     player.useTimer = item.useTime;
+    game.audio?.swordSwing();
     player.swing = { time: 0, dur: item.useTime, angle: aimAng, item: item.id, reach: item.reach };
     const crit = rollCrit(item.crit || 0.06);
     const dmg = item.damage * (player.stats ? player.stats.meleeMul : 1) * (crit ? 2 : 1);
@@ -80,6 +81,7 @@ export function useWeapon(game, player, item) {
     const crit = rollCrit(item.crit || 0.06);
     const dmg = item.damage * (player.stats ? player.stats.rangedMul : 1) * (crit ? 2 : 1);
     _fireProjectiles(game, player, item, rawAng, dmg, crit, 'ranged');
+    if (item.rangedKind === 'bow') game.audio?.bowShot();
     return;
   }
 
@@ -96,6 +98,7 @@ export function useWeapon(game, player, item) {
     const crit = rollCrit(item.crit || 0.06);
     const dmg = item.damage * (player.stats ? player.stats.mageMul : 1) * (crit ? 2 : 1);
     _fireProjectiles(game, player, item, rawAng, dmg, crit, 'mage');
+    game.audio?.magicCast();
     game.spawnCastFx && game.spawnCastFx(player, rawAng, item);
     return;
   }
@@ -164,10 +167,16 @@ export function mineAt(game, player, dt, source) {
   const rightTool = !need || haveKind === need;
   const factor = rightTool ? 1 : 0.25;
   const res = game.world.damageTile(tx, ty, power * MINE_RATE * factor * dt, rightTool ? power : 0);
+  if (res) {
+    const hitKind = haveKind || need;
+    if (hitKind === 'axe') game.audio?.axeHit();
+    else game.audio?.pickaxeHit();
+  }
   player.mineTarget = { tx, ty, ratio: res ? (res.progress || (res.broken ? 1 : 0)) : 0 };
 
   if (res && res.broken) {
     player.mineTarget = null;
+    game.audio?.blockBreak();
     const cx = tx * TILE + TILE / 2, cy = ty * TILE + TILE / 2;
     if (isTree(id)) {
       // Base trunk segment: gives its own wood, then fells everything above it.
@@ -286,6 +295,7 @@ export function placeSelected(game, player) {
   game.netEditTile(tx, ty, sel.place);
   game.markDirty();
   game.addHitParticles(tx * TILE + TILE / 2, ty * TILE + TILE / 2, tileDef(sel.place).color || '#888', 3);
+  game.audio?.blockPlace();
   game.floatText(tx * TILE + TILE / 2, ty * TILE, getItem(sel.id).name.split(' ')[0] + ' placed', '#7ee0c0');
   return true;
 }
