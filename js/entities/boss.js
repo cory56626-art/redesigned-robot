@@ -1,6 +1,6 @@
 // Summoner Realms — boss entity. Multi-phase AI, host-authoritative.
 import { TILE } from '../config.js';
-import { BOSSES } from '../data/bosses.js';
+import { BOSSES } from '../data/bosses.js?build=b6815b8';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js';
 import { aabb, angleTo, randRange } from '../utils.js';
 import { Projectile } from './projectile.js';
@@ -29,6 +29,7 @@ export class Boss {
     this.invuln = 0;
     this.bob = Math.random() * 6;
     this.spawnTime = 0;
+    this.attackPulse = 0;
   }
 
   center() { return { x: this.x + this.w / 2, y: this.y + this.h / 2 }; }
@@ -55,6 +56,7 @@ export class Boss {
   update(dt, game) {
     this.spawnTime += dt;
     if (this.hurtFlash > 0) this.hurtFlash -= dt;
+    if (this.attackPulse > 0) this.attackPulse -= dt;
     if (this.invuln > 0) this.invuln -= dt;
     this.bob += dt * 3;
     this._updatePhase(game);
@@ -75,22 +77,48 @@ export class Boss {
       this.state.time -= dt;
       this.invuln = 0.2;
       if (this.state.time <= 0) {
-        // Re-emerge near target.
+        // Re-emerge near target with a clear warning burst.
         if (target) { this.x = target.x + (Math.random() < 0.5 ? -80 : 80); this.y = target.y - 40; }
         this.state = null;
-        game.addHitParticles(this.x + this.w / 2, this.y + this.h / 2, this.color2, 16);
+        game.addHitParticles(this.x + this.w / 2, this.y + this.h / 2, this.color2, 22);
+      }
+    } else if (this.state && this.state.type === 'teleport') {
+      this.state.time -= dt;
+      this.invuln = 0.5;
+      if (this.state.time <= 0) {
+        if (target) {
+          this.x = target.x + (Math.random() < 0.5 ? -185 : 185);
+          this.y = target.y - (this.def.floatHeight || 120) - 10;
+        }
+        this.state = null;
+        game.addHitParticles(this.x + this.w / 2, this.y + this.h / 2, this.color2, 26);
       }
     } else if (target) {
       const tc = target.center();
       const dx = tc.x - cx;
       this.facing = dx < 0 ? -1 : 1;
-      if (this.movement === 'float') {
-        const desiredY = tc.y - (this.def.floatHeight || 90);
+      if (this.movement === 'grovekeeper') {
+        // The Grovekeeper circles the player through the air instead of
+        // tracking in a straight line. Its vertical sway makes the seed rain
+        // readable and gives melee players windows to approach.
+        const desiredY = tc.y - (this.def.floatHeight || 105) + Math.sin(this.spawnTime * 1.7) * 28;
         const dy = desiredY - cy;
-        this.vx = Math.max(-ph.speed, Math.min(ph.speed, dx)) * 0.9;
-        this.vy = Math.max(-ph.speed, Math.min(ph.speed, dy)) * 0.9 + Math.sin(this.bob) * 10;
+        const orbitX = Math.sin(this.spawnTime * 0.85) * 34;
+        this.vx = Math.max(-ph.speed, Math.min(ph.speed, dx * 0.65 + orbitX));
+        this.vy = Math.max(-ph.speed, Math.min(ph.speed, dy * 0.8));
+        this.x += this.vx * dt; this.y += this.vy * dt;
+      } else if (this.movement === 'sovereign') {
+        // The Sovereign keeps a moving orbit around the player and teleports
+        // between attack cycles. It should never feel like a larger slime.
+        const orbit = this.spawnTime * 0.9;
+        const desiredX = tc.x + Math.cos(orbit) * 155;
+        const desiredY = tc.y - (this.def.floatHeight || 135) + Math.sin(orbit * 1.7) * 42;
+        this.vx = Math.max(-ph.speed, Math.min(ph.speed, (desiredX - cx) * 0.9));
+        this.vy = Math.max(-ph.speed, Math.min(ph.speed, (desiredY - cy) * 0.9));
         this.x += this.vx * dt; this.y += this.vy * dt;
       } else {
+        // Gravemaw is the grounded boss. It commits to the floor, hops over
+        // ledges, and uses shockwaves and leaps to punish staying grounded.
         applyGravity(this, dt);
         this.vx = Math.sign(dx) * ph.speed;
         if (this.onGround && this.hitWallX) this.vy = -320;
@@ -120,10 +148,68 @@ export class Boss {
   }
 
   _performAttack(atk, game, target) {
+    this.attackPulse = 0.22;
+    game.audio?.bossAttack?.(atk.type);
     const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
     const tc = target.center();
     const color = PROJ_COLOR[atk.projKind] || '#ffffff';
     switch (atk.type) {
+      case 'seedRain': {
+        const n = atk.count || 3;
+        for (let i = 0; i < n; i++) {
+          const x = tc.x + (i - (n - 1) / 2) * (atk.spread || 42);
+          game.addProjectile(new Projectile({
+            x, y: tc.y - 170 - Math.random() * 35, vx: 0, vy: atk.projSpeed,
+            damage: atk.damage, ownerType: 'boss', kind: atk.projKind, color, life: 5,
+            w: 5, h: 10,
+          }), true);
+        }
+        break;
+      }
+      case 'vineBurst': {
+        const n = atk.count || 5;
+        for (let i = 0; i < n; i++) {
+          const a = -Math.PI / 2 + (i - (n - 1) / 2) * 0.42;
+          game.addProjectile(new Projectile({
+            x: cx, y: cy, vx: Math.cos(a) * atk.projSpeed, vy: Math.sin(a) * atk.projSpeed,
+            damage: atk.damage, ownerType: 'boss', kind: atk.projKind, color, life: 4,
+          }), true);
+        }
+        break;
+      }
+      case 'shockwave': {
+        const y = this.y + this.h - 7;
+        for (const dir of [-1, 1]) {
+          game.addProjectile(new Projectile({
+            x: cx, y, vx: dir * atk.speed, vy: 0, w: 14, h: 6,
+            damage: atk.damage, ownerType: 'boss', kind: 'shock', color: '#d3b985', life: 3,
+          }), true);
+        }
+        break;
+      }
+      case 'crystalRing': {
+        const n = atk.count || 8;
+        const offset = this.spawnTime * 0.7;
+        for (let i = 0; i < n; i++) {
+          const a = offset + (i / n) * Math.PI * 2;
+          game.addProjectile(new Projectile({
+            x: cx, y: cy, vx: Math.cos(a) * atk.projSpeed, vy: Math.sin(a) * atk.projSpeed,
+            damage: atk.damage, ownerType: 'boss', kind: atk.projKind, color, life: 5,
+            w: 7, h: 7,
+          }), true);
+        }
+        break;
+      }
+      case 'teleport': {
+        this.state = { type: 'teleport', time: 0.62 };
+        game.addHitParticles(cx, cy, this.color2, 20);
+        break;
+      }
+      case 'leap': {
+        const dir = Math.sign(tc.x - cx) || this.facing;
+        this.state = { type: 'charge', time: 0.78, vx: dir * atk.speed, vy: -390 };
+        break;
+      }
       case 'volley': {
         const base = angleTo(cx, cy, tc.x, tc.y);
         const n = atk.count;
