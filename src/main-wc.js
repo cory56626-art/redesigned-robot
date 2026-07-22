@@ -1,7 +1,7 @@
 // Boot: load settings + save, run the new-career flow if needed, then mount the app.
 import { el } from './core/util.js';
 import { loadSettings, hasSave, loadSave, setState, save as persist } from './core/store.js';
-import { createNewCareer } from './game/newgame.js';
+import { createNewCareer } from './game/newgame-wc.js';
 import { app } from './ui/app-wc.js';
 import { runPackOpening } from './ui/pack-open.js';
 
