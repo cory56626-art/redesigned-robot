@@ -126,6 +126,25 @@ export function claudeNotesHTML() {
       (e.g. <code>__game.startNewWorld(name, seed)</code>) or click by visible coordinates after the overlay is settled.</li>
   </ul>
 
+  <h4>New this pass — Terraria-style feel</h4>
+  <ul>
+    <li><b class="cn-fix">Smart cursor.</b> Mining/building no longer need pixel precision: the cursor snaps to the
+      block you most likely mean and, crucially, <b>never interacts through solid walls</b>. Aim at ore hidden behind
+      stone and it retargets the visible tile in front instead of reaching through it. Placement snaps to nearby valid
+      spots, favours blocks that <i>connect</i> to what's already there, and refuses to build through terrain or into
+      unreachable pockets. A precise aim that's already valid is never overridden. (<code>systems/smartcursor.js</code>)</li>
+    <li><b class="cn-fix">Auto-target / lock-on.</b> Press <kbd>R</kbd> / middle-click / the mobile <b>Target</b> button —
+      or just aim near an enemy while facing it — to lock the nearest valid enemy, marked by <b>four slowly rotating,
+      pulsing yellow arrows</b>. Ranged, magic and melee attacks then aim at it when you're pointing its way; aim clearly
+      elsewhere and manual aim wins (it never fights you). Targets need line of sight (no shooting through walls) and
+      summons are ignored. (<code>systems/autotarget.js</code>)</li>
+    <li><b class="cn-fix">Smarter, more varied enemy AI.</b> Each enemy has a little personality (pace, timing,
+      aggression), hops ledges <i>and</i> leaps real gaps (never into bottomless pits), and detours when wedged. Behaviours
+      read distinctly now: slimes vary their hops, chargers wind up before dashing, bats weave, and casters keep their
+      distance, strafe, blink away when cornered and only fire when they can actually see you. Line-of-sight is sampled a
+      few times a second, so it stays cheap with a screen full of enemies. (<code>entities/enemy.js</code>)</li>
+  </ul>
+
   <h4>How to test quickly (for GPT)</h4>
   <ul>
     <li><code>window.__game</code> is the live game. Handy: <code>__game.startNewWorld('Name','seed')</code>,

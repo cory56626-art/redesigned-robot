@@ -38,6 +38,24 @@ export const MAX_DROPS = 200;
 // Mining reach in tiles.
 export const REACH = 6;
 
+// ---- Smart cursor (Terraria-style forgiving tile targeting). ----
+// How far (tiles) from the exact aim tile the smart cursor may snap to find a
+// valid, *visible* tile to mine or a valid spot to build. Kept small so it stays
+// predictable and never overrides a precise aim that is already valid.
+export const SMART_SNAP_RADIUS = 3;
+
+// ---- Auto-target / lock-on (mandatory targeting system). ----
+// Max distance (tiles) at which an enemy can be acquired or kept as the target.
+export const TARGET_RANGE = 34;
+// Cursor proximity (tiles) that soft-locks the enemy nearest the cursor when the
+// player is facing its general direction.
+export const TARGET_CURSOR_TILES = 2.2;
+// Aim-assist cones (radians): a soft (proximity) lock only bends the shot when
+// you are already aiming within this cone of the target; a hard (button) lock is
+// much more forgiving so a pressed lock reliably fires at the target.
+export const TARGET_SOFT_CONE = 0.55;
+export const TARGET_HARD_CONE = 1.75;
+
 // Inventory sizes.
 export const HOTBAR_SIZE = 10;
 export const INV_ROWS = 4;      // additional inventory rows beyond hotbar

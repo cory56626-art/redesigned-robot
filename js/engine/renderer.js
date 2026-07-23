@@ -4,6 +4,8 @@ import { T, isSolid } from '../world/tiles.js';
 import { Sprites } from '../art/sprites.js';
 import { item as getItem } from '../data/items.js';
 import { canPlaceAt } from '../systems/combat.js';
+import { resolveMineTarget, resolvePlaceTarget } from '../systems/smartcursor.js';
+import { currentTarget } from '../systems/autotarget.js';
 
 const PROJ_GLOW = { thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff', spark: '#9ec3ff', wispbolt: '#9ec3ff', emberball: '#ff8c3b' };
 
@@ -55,6 +57,8 @@ export class Renderer {
 
     // Float texts (screen space via camera projection).
     this._drawFloatTexts(game, W, H);
+    // Auto-target reticle (screen space, above lighting so it's always visible).
+    this._drawTargetReticle(game, W, H);
     if (dbg && dbg.biome) this._drawBiomeLabel(game, W, H);
   }
 
@@ -185,20 +189,63 @@ export class Renderer {
     const p = game.localPlayer; if (!p || !p.alive) return;
     const sel = p.inventory.selectedItem();
     const s = game.input.state;
-    const tx = Math.floor(s.aimX / TILE), ty = Math.floor(s.aimY / TILE);
     if (sel && (sel.place != null)) {
-      // Ghost preview: green = can place here, red = cannot, with the block's
-      // own icon shown faintly so you see exactly what/where you'll build.
+      // Ghost preview at the smart-snapped spot: green = can place, red = cannot,
+      // with the block's own icon shown faintly so you see what/where you'll build.
+      const { tx, ty } = resolvePlaceTarget(game, p, sel);
       const valid = canPlaceAt(game, p, tx, ty, sel).ok;
       const icon = Sprites.getIcon(sel);
       if (icon) { ctx.globalAlpha = valid ? 0.5 : 0.28; ctx.drawImage(icon, tx * TILE, ty * TILE, TILE, TILE); ctx.globalAlpha = 1; }
       ctx.strokeStyle = valid ? 'rgba(126,224,138,0.95)' : 'rgba(255,107,125,0.9)';
       ctx.lineWidth = 1.5;
       ctx.strokeRect(tx * TILE + 0.75, ty * TILE + 0.75, TILE - 1.5, TILE - 1.5);
-    } else if (sel && (sel.category === 'tool')) {
-      ctx.strokeStyle = 'rgba(255,207,107,0.6)'; ctx.lineWidth = 1;
-      ctx.strokeRect(tx * TILE + 0.5, ty * TILE + 0.5, TILE - 1, TILE - 1);
+      return;
     }
+    // Mining reticle at the tile the smart cursor will actually break — shown for
+    // a held tool or whenever the dedicated mine button is down.
+    if ((sel && sel.category === 'tool') || s.mineHeld) {
+      const tgt = resolveMineTarget(game, p);
+      if (tgt) {
+        ctx.strokeStyle = 'rgba(255,207,107,0.7)'; ctx.lineWidth = 1;
+        ctx.strokeRect(tgt.tx * TILE + 0.5, tgt.ty * TILE + 0.5, TILE - 1, TILE - 1);
+      }
+    }
+  }
+
+  // Four small yellow arrows around the locked enemy that slowly rotate and pulse
+  // in size, so the current auto-target is obvious without being distracting.
+  // Drawn in screen space (after lighting) so it stays crisp and readable in caves.
+  _drawTargetReticle(game, W, H) {
+    const p = game.localPlayer; if (!p || !p.alive) return;
+    const t = currentTarget(game, p); if (!t) return;
+    const cam = this.camera, ctx = this.ctx;
+    const sc = cam.worldToScreen(t.x + t.w / 2, t.y + t.h / 2, W, H);
+    const s = cam.scale;
+    const now = performance.now() / 1000;
+    const pulse = 0.5 + 0.5 * Math.sin(now * 3.0);        // smooth 0..1
+    const half = Math.max(t.w, t.h) * 0.5 * s;
+    const radius = half + (7 + pulse * 4) * s;             // breathing gap
+    const arm = (4.5 + pulse * 1.8) * s;                   // arrow size, also pulses
+    const rot = now * 0.9;                                 // slow rotation
+    ctx.save();
+    ctx.fillStyle = '#ffd23f';
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+    ctx.lineWidth = Math.max(1, s * 0.5);
+    for (let i = 0; i < 4; i++) {
+      const a = rot + i * (Math.PI / 2);
+      ctx.save();
+      ctx.translate(sc.x + Math.cos(a) * radius, sc.y + Math.sin(a) * radius);
+      ctx.rotate(a);                     // local +x points outward from the enemy
+      ctx.beginPath();
+      ctx.moveTo(-arm, 0);               // tip toward the enemy centre
+      ctx.lineTo(arm * 0.72, -arm * 0.82);
+      ctx.lineTo(arm * 0.72, arm * 0.82);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+    ctx.restore();
   }
 
   _drawFallingTrees(game, ctx) {

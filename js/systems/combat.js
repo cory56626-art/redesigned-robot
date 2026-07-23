@@ -4,17 +4,14 @@ import { T, tileDef, isTree, isLeaf } from '../world/tiles.js';
 import { item as getItem } from '../data/items.js';
 import { Projectile } from '../entities/projectile.js';
 import { angleTo, aabb, clamp } from '../utils.js';
+import { resolveMineTarget, resolvePlaceTarget, placeReachable } from './smartcursor.js';
+import { effectiveAim } from './autotarget.js';
 
 const MINE_RATE = 95;
 // Melee swings are limited to a side-view arc: at most ~49° above/below level so
 // there is never an instant straight-up swipe, and the arc never reaches behind.
 const MELEE_MAX_TILT = 0.85;
 const NEIGHBORS8 = [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]];
-
-function aimTile(game, player) {
-  const s = game.input.state;
-  return { tx: Math.floor(s.aimX / TILE), ty: Math.floor(s.aimY / TILE), ax: s.aimX, ay: s.aimY };
-}
 
 function withinReach(player, tx, ty) {
   const pcx = (player.x + player.w / 2) / TILE;
@@ -26,9 +23,12 @@ function withinReach(player, tx, ty) {
 function rollCrit(chance) { return Math.random() < chance; }
 
 export function useWeapon(game, player, item) {
-  const s = game.input.state;
   const pc = player.center();
-  const rawAng = angleTo(pc.x, pc.y, s.aimX, s.aimY);
+  // Auto-target may redirect the shot toward the locked enemy when appropriate
+  // (never for summons); otherwise this is just the cursor point.
+  const aim = effectiveAim(game, player, item, pc.x, pc.y);
+  const aimX = aim.x, aimY = aim.y;
+  const rawAng = angleTo(pc.x, pc.y, aimX, aimY);
   const facing = Math.cos(rawAng) < 0 ? -1 : 1;
   player.facing = facing;
 
@@ -36,7 +36,7 @@ export function useWeapon(game, player, item) {
     // Clamp to a believable side-view arc. `tilt` is the vertical lean of the
     // swing (+down / -up), limited so you can angle a hit but never swipe
     // straight up or hook an enemy standing behind you.
-    const dx = s.aimX - pc.x, dy = s.aimY - pc.y;
+    const dx = aimX - pc.x, dy = aimY - pc.y;
     const tilt = clamp(Math.atan2(dy, Math.abs(dx) + 0.001), -MELEE_MAX_TILT, MELEE_MAX_TILT);
     const aimAng = facing > 0 ? tilt : (Math.PI - tilt);
     player.useTimer = item.useTime;
@@ -141,8 +141,11 @@ function bestAnyToolPower(player) {
 // source: { tool: <itemDef> } for an explicitly selected tool, or { auto:true }
 // for the dedicated mine action (auto-picks the correct tool for the tile).
 export function mineAt(game, player, dt, source) {
-  const { tx, ty } = aimTile(game, player);
-  if (!withinReach(player, tx, ty)) return;
+  // Smart cursor picks the nearest visible, in-reach tile you're likely aiming
+  // at, so mining never reaches through walls and doesn't demand pixel precision.
+  const target = resolveMineTarget(game, player);
+  if (!target) { player.mineTarget = null; return; }
+  const { tx, ty } = target;
   const id = game.world.get(tx, ty);
   if (id === T.AIR) return;
   const def = tileDef(id);
@@ -264,13 +267,18 @@ export function canPlaceAt(game, player, tx, ty, sel) {
   const pcx = (player.x + player.w / 2) / TILE, pcy = (player.y + player.h / 2) / TILE;
   const near = Math.abs(tx + 0.5 - pcx) < 3 && Math.abs(ty + 0.5 - pcy) < 3;
   if (!neighborSolid && !near) return { ok: false, reason: 'Needs a solid neighbour' };
+  // Never build through terrain: the spot (or an open face of it) must be
+  // reachable in a straight line, so you can't wall off tiles behind a barrier.
+  const eye = player.center();
+  if (!placeReachable(game.world, eye.x, eye.y, tx, ty)) return { ok: false, reason: 'Blocked by terrain' };
   return { ok: true };
 }
 
 export function placeSelected(game, player) {
   const sel = player.inventory.selectedItem();
   if (!sel || sel.place == null) return false;
-  const { tx, ty } = aimTile(game, player);
+  // Smart cursor snaps to a nearby valid, connected, reachable spot.
+  const { tx, ty } = resolvePlaceTarget(game, player, sel);
   const check = canPlaceAt(game, player, tx, ty, sel);
   if (!check.ok) {
     // Throttled so a deliberate misclick is explained without spamming while the

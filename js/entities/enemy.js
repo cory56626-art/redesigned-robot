@@ -1,8 +1,20 @@
 // Summoner Realms — enemy entity. Simulated on the host; replicated to clients.
+//
+// AI is reactive steering plus jump heuristics — the same lightweight approach
+// Terraria itself uses (no per-frame pathfinding), so it stays cheap with a full
+// screen of enemies. What makes it *feel* smarter:
+//   • Each enemy gets a little personality (pace, timing, aggression) so a pack
+//     doesn't move in lockstep.
+//   • Ground enemies hop ledges AND leap real gaps (but not into bottomless
+//     pits), and take a detour when genuinely wedged, so they rarely get stuck.
+//   • Every behaviour reads distinctly: slimes vary their hops, chargers wind up
+//     before a dash, bats weave, casters keep their distance / strafe / blink and
+//     only fire when they can actually see you.
+//   • Expensive line-of-sight is sampled a few times a second, not every frame.
 import { TILE } from '../config.js';
 import { ENEMIES } from '../data/enemies.js';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js';
-import { dist2, aabb } from '../utils.js';
+import { aabb } from '../utils.js';
 import { Projectile } from './projectile.js';
 
 export class Enemy {
@@ -24,14 +36,24 @@ export class Enemy {
     this.iframes = 0;
     this.attackCd = 0;
     this.fireCd = Math.random() * 1.2;
-    this.jumpCd = 0;
+    this.jumpCd = Math.random() * 0.6;
     this.climbCd = 0;
     this.dashCd = 1 + Math.random() * 2;
+    this.dashTime = 0; this.dashVel = 0; this.windup = 0;
     // Stuck detection / detour routing for ground navigation.
     this._lastX = x;
     this.stuckTimer = 0;
     this.detourDir = 0;
     this.detourTimer = 0;
+    // Per-enemy personality so encounters don't feel uniform.
+    this.speedVar = 0.85 + Math.random() * 0.3;     // ±15% pace
+    this.aggression = 0.8 + Math.random() * 0.4;     // eagerness to dash / rarity of pauses
+    this.wobblePhase = Math.random() * Math.PI * 2;  // flyer weave / caster strafe phase
+    this.pauseTimer = 0;                             // brief walker hesitations
+    this.blinkCd = 2 + Math.random() * 2;            // caster teleport cooldown
+    // Throttled awareness (line of sight to the target), refreshed a few times/sec.
+    this.senseCd = Math.random() * 0.2;
+    this.hasLOS = false;
     this.dead = false;
     this.hurtFlash = 0;
     this.walkAnim = 0;
@@ -51,28 +73,56 @@ export class Enemy {
     const tc = target.center ? target.center() : { x: target.x + target.w / 2, y: target.y + target.h / 2 };
     const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
     const dx = tc.x - cx, dy = tc.y - cy;
-    this.facing = dx < 0 ? -1 : 1;
+    if (this.behavior !== 'charger' || (this.windup <= 0 && this.dashTime <= 0)) {
+      this.facing = dx < 0 ? -1 : 1;
+    }
 
-    // Ground navigation: if we're pinned against terrain making no progress,
-    // briefly route the other way instead of walking into the same block forever.
+    // Refresh line of sight on a stagger so it's cheap across many enemies.
+    this.senseCd -= dt;
+    if (this.senseCd <= 0) {
+      this.senseCd = 0.18 + Math.random() * 0.08;
+      this.hasLOS = game.world.hasLineOfSight(cx, cy, tc.x, tc.y);
+    }
+
+    // Chilled enemies (frost weapons) actually move slower now.
+    const spd = this.speed * this.speedVar * (this.slowT > 0 ? 0.55 : 1);
+    // Ground navigation: if pinned against terrain making no progress, route the
+    // other way briefly instead of grinding into the same block forever.
     const moveDir = this._navDir(dt, dx);
 
     switch (this.behavior) {
       case 'flyer': {
-        // Flying enemies ignore terrain but nudge out if they clip into it.
+        // Weaving pursuit: heading toward the player plus a sideways flutter and a
+        // gentle bob, eased in so bats flit rather than track in a dead-straight line.
+        this.wobblePhase += dt * 6;
         const len = Math.hypot(dx, dy) || 1;
-        this.vx = (dx / len) * this.speed;
-        this.vy = (dy / len) * this.speed;
+        const nx = dx / len, ny = dy / len;
+        const weave = Math.sin(this.wobblePhase) * 0.6;      // perpendicular flutter
+        const bob = Math.cos(this.wobblePhase * 0.5) * 0.15;
+        const vxT = (nx + -ny * weave) * spd;
+        const vyT = (ny + nx * weave + bob) * spd;
+        const k = Math.min(1, dt * 4);
+        this.vx += (vxT - this.vx) * k;
+        this.vy += (vyT - this.vy) * k;
         this.x += this.vx * dt; this.y += this.vy * dt;
-        if (game.world.rectHitsSolid(this.x, this.y, this.w, this.h)) { this.x -= this.vx * dt; this.y -= this.vy * dt * 1.2; this.y -= 6; }
+        if (game.world.rectHitsSolid(this.x, this.y, this.w, this.h)) {
+          this.x -= this.vx * dt; this.y -= this.vy * dt;
+          this.vx *= -0.4; this.vy -= 40; this.y -= 2; // peel off the wall it clipped
+        }
         break;
       }
       case 'hopper': {
         applyGravity(this, dt);
         if (this.onGround) {
+          this.vx *= 0.7; // settle between hops
           this.jumpCd -= dt;
-          this.vx = 0;
-          if (this.jumpCd <= 0) { this.vy = -300; this.vx = moveDir * this.speed * 3; this.jumpCd = 1.1; }
+          if (this.jumpCd <= 0) {
+            // Vary cadence and height; bigger leap to reach a player above or far off.
+            const big = dy < -20 || (Math.abs(dx) > 120 && Math.random() < 0.4);
+            this.vy = big ? -430 : -240 - Math.random() * 90;
+            this.vx = moveDir * spd * (big ? 3.4 : 2.4);
+            this.jumpCd = (big ? 1.3 : 0.85) + Math.random() * 0.5 / this.aggression;
+          }
         }
         moveAndCollide(this, game.world, dt);
         break;
@@ -80,24 +130,41 @@ export class Enemy {
       case 'charger': {
         applyGravity(this, dt);
         this.dashCd -= dt;
-        if (this.dashCd <= 0 && Math.abs(dy) < 60 && Math.abs(dx) < 240 && this.detourTimer <= 0) { this.dashVel = Math.sign(dx) * this.speed * 3.2; this.dashTime = 0.5; this.dashCd = 2.5; }
-        if (this.dashTime > 0) { this.dashTime -= dt; this.vx = this.dashVel; }
-        else this.vx = moveDir * this.speed;
-        this._climb(game, dt, moveDir);
+        if (this.windup > 0) {
+          // Telegraph: plant, face the target, then launch — readable and fair.
+          this.windup -= dt; this.vx = 0;
+          if (this.windup <= 0) { this.dashVel = this.facing * spd * 3.4; this.dashTime = 0.45; }
+        } else if (this.dashTime > 0) {
+          this.dashTime -= dt; this.vx = this.dashVel;
+        } else {
+          this.vx = moveDir * spd;
+          if (this.dashCd <= 0 && this.hasLOS && Math.abs(dy) < 60 && Math.abs(dx) < 260 && this.detourTimer <= 0) {
+            this.windup = 0.35; this.dashCd = 2.6 + Math.random() * 1.5 / this.aggression;
+            this.facing = dx < 0 ? -1 : 1;
+            game.addHitParticles(cx, cy, this.color2 || this.color, 4);
+          }
+          this._climb(game, dt, moveDir);
+        }
         moveAndCollide(this, game.world, dt);
         break;
       }
       case 'caster': {
         applyGravity(this, dt);
+        this.blinkCd -= dt;
         const d = Math.hypot(dx, dy);
-        if (d < 150) this.vx = -Math.sign(dx) * this.speed;
-        else if (d > 240) this.vx = moveDir * this.speed;
-        else this.vx = 0;
-        this._climb(game, dt, Math.sign(this.vx));
+        if (d < 140) this.vx = -Math.sign(dx) * spd;        // too close: give ground
+        else if (d > 260) this.vx = moveDir * spd;          // too far: close in
+        else { this.wobblePhase += dt * 2; this.vx = Math.sin(this.wobblePhase) * spd * 0.85; } // strafe
+        this._climb(game, dt, Math.sign(this.vx) || moveDir);
         moveAndCollide(this, game.world, dt);
+        // Blink out if cornered or sight has been blocked while pursuing.
+        if (this.blinkCd <= 0 && (d < 90 || (!this.hasLOS && d < 340))) {
+          this._blink(game, tc);
+          this.blinkCd = 3.5 + Math.random() * 2;
+        }
         this.fireCd -= dt;
-        if (this.fireCd <= 0 && d < 380) {
-          this.fireCd = 2.0;
+        if (this.fireCd <= 0 && d < 360 && this.hasLOS) {   // only shoot with a clear line
+          this.fireCd = 1.7 + Math.random() * 0.6;
           const pj = this.def.projectile;
           const len = Math.hypot(dx, dy) || 1;
           game.addProjectile(new Projectile({
@@ -107,10 +174,17 @@ export class Enemy {
         }
         break;
       }
-      default: { // walker
+      default: { // walker (fighter): press toward the player, hop terrain, hesitate rarely
         applyGravity(this, dt);
-        this.vx = moveDir * this.speed;
-        this._climb(game, dt, moveDir);
+        if (this.pauseTimer > 0) { this.pauseTimer -= dt; this.vx = 0; }
+        else {
+          this.vx = moveDir * spd;
+          // Only hesitate at a distance (never freeze mid-melee); high aggression pauses less.
+          if (this.onGround && Math.abs(dx) > 80 && Math.random() < 0.004 * (2 - this.aggression)) {
+            this.pauseTimer = 0.3 + Math.random() * 0.4;
+          }
+          this._climb(game, dt, moveDir);
+        }
         moveAndCollide(this, game.world, dt);
       }
     }
@@ -150,20 +224,67 @@ export class Enemy {
     return this.detourTimer > 0 ? this.detourDir : desired;
   }
 
-  // Hop small ledges when blocked — but only with headroom (never headbutt a
-  // ceiling) and on a cooldown (so ground enemies don't jump constantly).
+  // Hop ledges/obstacles (up to 2 tiles) AND leap crossable gaps while on the
+  // ground — with headroom to rise and land (never headbutt a ceiling), never
+  // into a bottomless pit, and on a short cooldown so enemies don't pogo. Taller
+  // walls are left to the stuck-detour logic. A firm horizontal carry is applied
+  // so even slow enemies actually clear what they jump.
   _climb(game, dt, dir) {
     if (this.climbCd > 0) this.climbCd -= dt;
-    if (!this.onGround || !this.hitWallX || this.climbCd > 0) return;
+    if (!this.onGround || this.climbCd > 0) return;
     dir = dir || this.facing;
     const w = game.world;
-    const headTy = Math.floor((this.y - 2) / TILE);
     const cxTile = Math.floor((this.x + this.w / 2) / TILE);
+    const footTy = Math.floor((this.y + this.h + 1) / TILE); // solid floor row underfoot
     const aheadTile = cxTile + (dir >= 0 ? 1 : -1);
-    // Require clear space above our head and above the obstacle we're hopping.
-    const headClear = !w.isSolidAt(cxTile, headTy);
-    const ledgeTopClear = !w.isSolidAt(aheadTile, headTy) && !w.isSolidAt(aheadTile, headTy + 1);
-    if (headClear && ledgeTopClear) { this.vy = -300; this.climbCd = 0.5; }
+    const bodyTiles = Math.max(1, Math.round(this.h / TILE));
+
+    // How tall is the obstacle right ahead (blocks stacked at foot level)?
+    let obH = 0;
+    while (obH < 3 && w.isSolidAt(aheadTile, footTy - 1 - obH)) obH++;
+    const wantHop = obH > 0 || this.hitWallX;
+    if (obH >= 3) return; // unclimbable here — the detour will route around it
+
+    // A gap to leap: no floor in the next column, but ground resumes within reach.
+    const gap = !w.isSolidAt(aheadTile, footTy) && !w.isSolidAt(aheadTile, footTy - 1);
+    let landing = false;
+    if (gap) for (let k = 2; k <= 3; k++) if (w.isSolidAt(cxTile + (dir >= 0 ? k : -k), footTy)) { landing = true; break; }
+
+    if (!wantHop && !(gap && landing)) return;
+
+    if (wantHop) {
+      // Need clear air to rise where we are and to land on top of the obstacle.
+      const topRow = footTy - obH;            // surface we'd land on
+      for (let r = 1; r <= bodyTiles; r++) {
+        if (w.isSolidAt(cxTile, footTy - bodyTiles - r + 1)) return; // no headroom to rise
+        if (w.isSolidAt(aheadTile, topRow - r)) return;              // landing blocked
+      }
+    }
+
+    this.vy = obH >= 2 ? -400 : -320;
+    this.vx = dir * Math.max(80, this.speed * this.speedVar);
+    this.climbCd = 0.5;
+  }
+
+  // Corruption blink: reappear a short way off, level with the target and with a
+  // clear line to it. Gives casters an evasive, distinct feel.
+  _blink(game, tc) {
+    const w = game.world;
+    const tyRow = Math.floor(tc.y / TILE);
+    for (let i = 0; i < 8; i++) {
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const tx = Math.floor((tc.x + side * (120 + Math.random() * 130)) / TILE);
+      for (let ty = tyRow - 2; ty <= tyRow + 3; ty++) {
+        if (w.isSolidAt(tx, ty) || w.isSolidAt(tx, ty - 1) || !w.isSolidAt(tx, ty + 1)) continue;
+        const nx = tx * TILE + (TILE - this.w) / 2, ny = ty * TILE - this.h + (TILE - 1);
+        if (w.rectHitsSolid(nx, ny, this.w, this.h)) continue;
+        if (!w.hasLineOfSight(nx + this.w / 2, ny + this.h / 2, tc.x, tc.y)) continue;
+        game.addHitParticles(this.x + this.w / 2, this.y + this.h / 2, this.color2 || this.color, 10);
+        this.x = nx; this.y = ny; this.vx = 0; this.vy = 0;
+        game.addHitParticles(nx + this.w / 2, ny + this.h / 2, this.color2 || this.color, 10);
+        return;
+      }
+    }
   }
 
   takeDamage(amount, kbx, kby, game, effect, crit) {

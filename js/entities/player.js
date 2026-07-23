@@ -10,6 +10,7 @@ import { moveAndCollide, applyGravity, clampToWorld } from './physics.js';
 import { Inventory } from '../systems/inventory.js';
 import { item as getItem } from '../data/items.js';
 import * as combat from '../systems/combat.js';
+import { updateAutoTarget, clearTarget } from '../systems/autotarget.js';
 import { clamp } from '../utils.js';
 
 export class Player {
@@ -44,6 +45,13 @@ export class Player {
     this.inventory = new Inventory();
     this.cheats = { fly: false, godmode: false };
     this.selectedId = null; // for remote render
+    // Auto-target / lock-on state (local player only; see systems/autotarget.js).
+    this.targetEnemy = null;
+    this.targetHard = false;   // true = explicit button lock (sticky, cycles)
+    this._targetScanCd = 0;
+    this._targetLostT = 0;
+    this._targetIdleT = 0;
+    this._targetLOS = false;
     this.netTarget = null;  // {x,y} for remote interpolation
     this.combatTimer = 0;   // time since last hit (for regen gating)
     this.walkAnim = 0;
@@ -129,6 +137,9 @@ export class Player {
     }
 
     if (Math.abs(this.vx) > 5) this.walkAnim += dt * 12; else this.walkAnim = 0;
+
+    // ---- Auto-target ---- (before actions, so this frame's shot can use it)
+    if (canAct) updateAutoTarget(game, this, dt);
 
     // ---- Actions ----
     if (canAct) this._handleActions(dt, game, input);
@@ -246,6 +257,7 @@ export class Player {
     this.alive = false;
     this.respawnTimer = 3;
     this.vx = 0; this.vy = 0;
+    clearTarget(this);
     if (game) {
       game.addHitParticles(this.x + this.w / 2, this.y + this.h / 2, '#ff6b7d', 24);
       if (this.isLocal) game.onLocalDeath(srcName);
@@ -259,6 +271,7 @@ export class Player {
     this.hp = this.maxHp;
     this.mana = this.maxMana;
     this.iframes = 2;
+    clearTarget(this);
     const sx = game.world.spawnX, sy = game.world.spawnPixelY(Math.floor(game.world.spawnX / TILE), this.h);
     this.x = sx; this.y = sy;
     this.vx = 0; this.vy = 0;

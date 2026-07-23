@@ -178,11 +178,17 @@ export class Menus {
         <li><kbd>A</kbd>/<kbd>D</kbd> or arrows — move · <kbd>W</kbd>/<kbd>Space</kbd> — jump (double-jump with Cloudstep Charm)</li>
         <li><b>Left-click</b> — use item (attack / cast / summon / place / mine or chop with the held tool)</li>
         <li><b>Right-click</b> — dig/chop the targeted tile with the best tool for it (pickaxe for stone, axe for trees)</li>
+        <li><kbd>R</kbd> / <b>middle-click</b> — <b>lock on</b> the nearest enemy; press again to switch targets</li>
         <li><kbd>1</kbd>–<kbd>0</kbd> / scroll — select hotbar · <kbd>E</kbd> — inventory & crafting · <kbd>Q</kbd> — use potion</li>
         <li><kbd>Esc</kbd> — pause · <kbd>Enter</kbd> — chat (multiplayer)</li>
       </ul>
       <h4>Mobile Controls</h4>
-      <ul><li>Left stick moves, right stick aims. Buttons: Jump, Use, Mine, Place, Bag, Item. Tap an item in your bag to inspect it.</li></ul>
+      <ul><li>Left stick moves, right stick aims. Buttons: Target (lock on), Jump, Use, Mine, Place, Bag, Item. Tap an item in your bag to inspect it.</li></ul>
+      <h4>Smart Cursor &amp; Lock-On</h4>
+      <ul>
+        <li><b>Mining &amp; building don't need pixel precision</b> — the cursor snaps to the block you most likely mean, prefers spots that connect to what's already there, and never reaches or builds <b>through</b> solid walls.</li>
+        <li><b>Lock-on</b> marks an enemy with four spinning arrows; ranged, magic and melee attacks then aim at it for you when you're pointing its way. Aim clearly elsewhere and you take back full manual control. Summons keep their own AI.</li>
+      </ul>
       <h4>Tips</h4>
       <ul>
         <li>You start with only a <b>pickaxe</b>, an <b>axe</b>, and a <b>sword</b>. Chop trees with the axe (they topple and drop wood — leaves only give twigs), mine stone &amp; ore with the pickaxe.</li>

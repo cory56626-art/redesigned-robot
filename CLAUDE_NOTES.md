@@ -133,6 +133,51 @@ adds mid-fight) and now says so when a boss is present.
 
 ---
 
+## New this pass — Terraria-style feel
+
+Grounded in how Terraria actually plays (Smart Cursor, lock-on, and fighter/slime/
+caster AI), not just its look.
+
+### Smart cursor (`js/systems/smartcursor.js`)
+- Mining and building no longer need pixel precision. The cursor snaps to the tile
+  you most likely mean and **never interacts through solid walls**: aim at ore
+  hidden behind stone and it retargets the visible tile in front of it instead of
+  reaching through. A precise aim that is already valid is left untouched, so
+  careful play is never overridden.
+- Placement snaps to nearby valid spots, **favours blocks that connect** to what's
+  already there, and refuses to build through terrain or into unreachable pockets
+  (`canPlaceAt` gained a line-of-sight/"reachable" check; the ghost turns red with
+  reason *"Blocked by terrain"*).
+- Visibility is a short raycast from the player's eye that stops at the target tile
+  (`tileVisible`), so it's cheap and runs every frame for the mine reticle and
+  placement ghost.
+
+### Auto-target / lock-on (`js/systems/autotarget.js`)
+- Press **R** / **middle-click** / the mobile **Target** button to hard-lock the
+  nearest enemy (press again to cycle), or simply aim near an enemy while facing it
+  to soft-lock it. Either way the current target is marked with **four slowly
+  rotating, smoothly pulsing yellow arrows** (`renderer._drawTargetReticle`, drawn
+  in screen space so it stays crisp and bright even in caves).
+- Ranged, magic and melee attacks auto-aim at the target **when you're already
+  pointing roughly at it** (a wide cone for a deliberate hard lock, a narrow one for
+  a soft lock). Aim clearly elsewhere and the shot goes exactly where you point — it
+  never fights you. Targets require line of sight (no firing through walls) and
+  **summons are ignored** (minions have their own AI). `combat.useWeapon` routes its
+  aim through `effectiveAim`.
+
+### Smarter, more varied enemy AI (`js/entities/enemy.js`)
+- Per-enemy personality (pace, timing, aggression) so packs don't move in lockstep.
+- Better navigation: hops ledges **and leaps real gaps** (up to ~2 tiles, with
+  headroom and a landing check, never into a bottomless pit), plus a firm horizontal
+  carry so even slow enemies clear what they jump; the existing stuck-detour handles
+  taller walls.
+- Distinct behaviours: slimes vary hop height/cadence, chargers **wind up** before a
+  dash, bats **weave** instead of beelining, and casters keep their distance,
+  strafe, **blink away** when cornered, and only fire with a clear line of sight.
+- Performance: line-of-sight/awareness is sampled a few times a second (staggered
+  per enemy), not every frame, so it stays efficient with a full screen of enemies.
+- Bonus: chilling effects (frost weapons) now actually slow enemy movement.
+
 ## Testing crib sheet (for GPT)
 
 `window.__game` is the live game object. Useful entry points:

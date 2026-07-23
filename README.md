@@ -69,6 +69,7 @@ Switch between **PC** and **Mobile** controls on the main menu (auto-detected).
 | Jump (double-jump with Cloudstep Charm) | `W` / `Space` |
 | Use selected item (attack / cast / summon / **place** / mine-with-pickaxe) | **Left mouse** |
 | Mine targeted tile with your best pickaxe | **Right mouse** |
+| Lock on / cycle nearest enemy (auto-target) | `R` or **middle mouse** |
 | Select hotbar slot | `1`–`0` or scroll wheel |
 | Inventory & crafting | `E` |
 | Use potion | `Q` |
@@ -79,8 +80,20 @@ Switch between **PC** and **Mobile** controls on the main menu (auto-detected).
 ### Mobile (touch)
 
 Two virtual joysticks — **left = move, right = aim** — plus on-screen buttons for
-**Jump, Use, Mine, Place, Bag (inventory), Item (potion)** and the menu. The
-whole UI is responsive and safe-area aware for phones and iPads.
+**Target (lock on), Jump, Use, Mine, Place, Bag (inventory), Item (potion)** and
+the menu. The whole UI is responsive and safe-area aware for phones and iPads.
+
+### Smart cursor & lock-on
+
+Mining and building use a **smart cursor**: you don't need pixel precision — the
+game snaps to the block you most likely mean, favours placements that connect to
+existing blocks, and never lets you mine or build **through** solid walls (a tile
+hidden behind terrain retargets to the nearest visible one). Combat has a
+**lock-on**: press the target button (`R` / middle-click / the mobile **Target**
+button) or simply aim near an enemy, and the nearest valid enemy is marked with
+four rotating arrows. Ranged, magic and melee attacks then auto-aim at it while
+you're pointing its way; aim clearly elsewhere and you keep full manual control.
+Summoned minions are never redirected — they follow their own AI.
 
 ---
 

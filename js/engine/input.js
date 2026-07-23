@@ -22,6 +22,7 @@ export class Input {
       placeHeld: false,
       placePressed: false,
       consumePressed: false,
+      autoTargetPressed: false,
     };
 
     this.keys = new Set();
@@ -107,6 +108,9 @@ export class Input {
         this.fire('commandPanel');
       } else if (k === 'q') {
         this.state.consumePressed = true;
+      } else if (k === 'r') {
+        // Lock on / cycle the nearest enemy (auto-target).
+        this.state.autoTargetPressed = true;
       } else if (k >= '1' && k <= '9') {
         this.fire('hotbar', parseInt(k, 10) - 1);
       } else if (k === '0') {
@@ -191,6 +195,9 @@ export class Input {
       if (e.button === 0) {
         this.state.primaryHeld = true;
         this.state.primaryPressed = true;
+      } else if (e.button === 1) {
+        // Middle click: lock on / cycle the nearest enemy (auto-target).
+        this.state.autoTargetPressed = true;
       } else if (e.button === 2) {
         this.state.mineHeld = true;
       }
@@ -330,6 +337,10 @@ export class Input {
       this.state.consumePressed = true;
     });
 
+    this._tapBtn('mbTarget', () => {
+      this.state.autoTargetPressed = true;
+    });
+
     this._tapBtn('mbPause', () => {
       this.fire('pause');
     });
@@ -436,6 +447,7 @@ export class Input {
     this.state.primaryPressed = false;
     this.state.placePressed = false;
     this.state.consumePressed = false;
+    this.state.autoTargetPressed = false;
   }
 
   snapshot(selectedSlot) {
