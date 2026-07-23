@@ -1,0 +1,48 @@
+{
+  "format_version": "1.14.0",
+  "sound_definitions": {
+    "knocker.scream": {
+      "category": "hostile",
+      "min_distance": 1.0,
+      "max_distance": 80.0,
+      "sounds": [
+        { "name": "sounds/custom/knocker_scream", "volume": 1.0, "pitch": 1.0, "stream": true }
+      ]
+    },
+    "knocker.knock": {
+      "category": "hostile",
+      "max_distance": 48.0,
+      "sounds": [
+        { "name": "sounds/custom/knocker_knock", "volume": 1.0, "pitch": [0.95, 1.05] }
+      ]
+    },
+    "knocker.ambient": {
+      "category": "hostile",
+      "max_distance": 40.0,
+      "sounds": [
+        { "name": "sounds/custom/knocker_ambient", "volume": 0.85, "pitch": [0.9, 1.05] }
+      ]
+    },
+    "knocker.heartbeat": {
+      "category": "hostile",
+      "max_distance": 24.0,
+      "sounds": [
+        { "name": "sounds/custom/knocker_heartbeat", "volume": 0.9, "pitch": 1.0 }
+      ]
+    },
+    "knocker.whisper": {
+      "category": "hostile",
+      "max_distance": 20.0,
+      "sounds": [
+        { "name": "sounds/custom/knocker_whisper", "volume": 0.75, "pitch": [0.9, 1.1] }
+      ]
+    },
+    "knocker.break": {
+      "category": "hostile",
+      "max_distance": 32.0,
+      "sounds": [
+        { "name": "sounds/custom/knocker_break", "volume": 0.9, "pitch": [0.9, 1.1] }
+      ]
+    }
+  }
+}
