@@ -20,6 +20,17 @@ export class Projectile {
     this.homing = !!opts.homing;
     this.homingStrength = opts.homingStrength || 3.5;
     this.destructible = !!opts.destructible;
+    // Impact burst metadata is used by the Diamond Heart's large spear. Keeping
+    // it on the projectile makes wall hits, enemy hits, and timeout hits behave
+    // consistently without special-casing the main loop.
+    this.burstCount = opts.burstCount || 0;
+    this.burstDamage = opts.burstDamage || 0;
+    this.burstKind = opts.burstKind || null;
+    this.burstColor = opts.burstColor || null;
+    this.burstSpeed = opts.burstSpeed || 220;
+    this.burstLife = opts.burstLife || 1.25;
+    this.burstGravity = !!opts.burstGravity;
+    this.burstDone = false;
     this.visualOnly = !!opts.visualOnly;
     this.dead = false;
     this.hitSet = new Set();
@@ -30,7 +41,11 @@ export class Projectile {
 
   update(dt, game) {
     this.life -= dt;
-    if (this.life <= 0) { this.dead = true; return; }
+    if (this.life <= 0) {
+      this._burst(game);
+      this.dead = true;
+      return;
+    }
 
     if (this.gravity) this.vy += GRAVITY * 0.5 * dt;
 
@@ -47,6 +62,7 @@ export class Projectile {
       this.y += this.vy * sdt;
       const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
       if (game.world.isSolidAt(Math.floor(cx / TILE), Math.floor(cy / TILE))) {
+        this._burst(game, cx, cy);
         this.dead = true;
         game.addHitParticles(cx, cy, this.color, 4);
         return;
@@ -65,7 +81,11 @@ export class Projectile {
 
     // Out of world.
     const cx2 = this.x + this.w / 2, cy2 = this.y + this.h / 2;
-    if (cx2 < 0 || cx2 > game.world.width * TILE || cy2 > game.world.height * TILE) { this.dead = true; return; }
+    if (cx2 < 0 || cx2 > game.world.width * TILE || cy2 > game.world.height * TILE) {
+      this._burst(game, cx2, cy2);
+      this.dead = true;
+      return;
+    }
 
     if (this.visualOnly) return;
 
@@ -84,7 +104,13 @@ export class Projectile {
       for (const e of game.enemies) { const d = dist2(cx, cy, e.x + e.w / 2, e.y + e.h / 2); if (d < best) { best = d; target = e; } }
       for (const b of game.bosses) { const d = dist2(cx, cy, b.x + b.w / 2, b.y + b.h / 2); if (d < best) { best = d; target = b; } }
     } else {
-      for (const p of game.players.values()) { if (!p.alive) continue; const d = dist2(cx, cy, p.x + p.w / 2, p.y + p.h / 2); if (d < best) { best = d; target = p; } }
+      const targets = [...game.players.values()];
+      if (game.npc && game.npc.alive) targets.push(game.npc);
+      for (const m of (game.minions || [])) if (m.alive !== false && !m.dead) targets.push(m);
+      for (const p of targets) {
+        const d = dist2(cx, cy, p.x + p.w / 2, p.y + p.h / 2);
+        if (d < best) { best = d; target = p; }
+      }
     }
     if (target) {
       const tx = target.x + target.w / 2, ty = target.y + target.h / 2;
@@ -109,7 +135,11 @@ export class Projectile {
         this.hitSet.add(e.netId || e);
         game.hurtEnemy(e, this.damage, Math.sign(this.vx) * this.knockback, -1, this.effect, this.ownerId, this.crit);
         game.addHitParticles(this.x, this.y, this.color, 4);
-        if (this.pierce-- <= 0) { this.dead = true; return; }
+        if (this.pierce-- <= 0) {
+          this._burst(game, this.x + this.w / 2, this.y + this.h / 2);
+          this.dead = true;
+          return;
+        }
       }
     }
     for (const b of game.bosses) {
@@ -118,9 +148,42 @@ export class Projectile {
         this.hitSet.add(b);
         game.hurtBoss(b, this.damage, this.ownerId, this.crit);
         game.addHitParticles(this.x, this.y, this.color, 4);
-        if (this.pierce-- <= 0) { this.dead = true; return; }
+        if (this.pierce-- <= 0) {
+          this._burst(game, this.x + this.w / 2, this.y + this.h / 2);
+          this.dead = true;
+          return;
+        }
       }
     }
+  }
+
+  _burst(game, x = this.x + this.w / 2, y = this.y + this.h / 2) {
+    if (this.burstDone || !this.burstCount || !this.burstKind || !game) return;
+    this.burstDone = true;
+    const color = this.burstColor || this.color;
+    const n = Math.max(1, Math.floor(this.burstCount));
+    const phase = Math.random() * Math.PI * 2;
+    for (let i = 0; i < n; i++) {
+      const a = phase + (i / n) * Math.PI * 2;
+      const speed = this.burstSpeed * (0.86 + Math.random() * 0.22);
+      game.addProjectile(new Projectile({
+        x: x - 4, y: y - 2,
+        vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
+        w: 8, h: 4,
+        damage: this.burstDamage,
+        ownerType: this.ownerType,
+        ownerId: this.ownerId,
+        kind: this.burstKind,
+        color,
+        gravity: this.burstGravity,
+        knockback: 2.5,
+        life: this.burstLife,
+        trail: color,
+      }), true);
+    }
+    game.fx?.ring(x, y, color, 40, { life: 0.28, width: 2 });
+    game.fx?.burst(x, y, color, 20, { speed: 150, life: 0.5, size: 2, glow: true });
+    game.shake?.(1.5, 0.12);
   }
 
   _cutBossProjectiles(game) {
@@ -140,15 +203,18 @@ export class Projectile {
     const box = { x: this.x, y: this.y, w: this.w, h: this.h };
     const targets = [...game.players.values()];
     if (game.npc && game.npc.alive) targets.push(game.npc);
+    for (const m of (game.minions || [])) {
+      if (m.alive !== false && !m.dead && m.maxHp != null) targets.push(m);
+    }
 
     for (const p of targets) {
-      if (!p.alive) continue;
-      const hitId = p.id || p;
+      if (p.alive === false || p.dead) continue;
+      const hitId = p.id || p.netId || p;
       if (this.hitSet.has(hitId)) continue;
       if (aabb(box, p)) {
         this.hitSet.add(hitId);
         const knockback = Math.sign(this.vx) * this.knockback;
-        if (p === game.npc) p.takeDamage(this.damage, knockback, game, 'enemy');
+        if (p === game.npc || p.isMinion) p.takeDamage(this.damage, knockback, game, 'enemy');
         else game.applyEnemyDamageToPlayer(p, this.damage, knockback);
         this.dead = true;
         return;
