@@ -1048,7 +1048,7 @@ export class Renderer {
 
       const active = m.beamActive > 0;
       const flash = m.beamFlash > 0;
-      const color = active ? '#fff4b0' : flash ? '#ffd34e' : '#8dd9e9';
+      const color = active ? '#fff4b0' : flash ? '#ffd34e' : '#05070b';
       const y0 = m.beamY0 || 0;
       const y1 = m.beamY1 || 0;
 
@@ -1057,8 +1057,8 @@ export class Renderer {
       ctx.lineCap = 'round';
       for (const x of m.beamLines) {
         if (active) {
-          // A broad glow plus a bright core makes the 0.1s attack read as a
-          // beam, not another telegraph flash.
+          // A broad glow plus a bright core keeps the full channel visibly
+          // continuous instead of turning it into another telegraph flash.
           ctx.globalAlpha = 0.22;
           ctx.strokeStyle = '#ffe98a';
           ctx.lineWidth = 13;
@@ -1071,13 +1071,14 @@ export class Renderer {
           ctx.lineWidth = 1;
           ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
         } else {
-          // The two 0.3s marks are yellow pulses without turning the final
-          // beam into a flashing strobe.
-          ctx.globalAlpha = flash ? 0.95 : 0.62;
+          // The telegraph is black, then turns yellow for 0.1s at each
+          // 0.3s mark. It returns to black between flashes.
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.globalAlpha = flash ? 0.96 : 0.9;
           ctx.strokeStyle = color;
-          ctx.lineWidth = flash ? 3 : 1.5;
+          ctx.lineWidth = flash ? 3 : 2.5;
           ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
-          ctx.globalAlpha = flash ? 0.35 : 0.16;
+          ctx.globalAlpha = flash ? 0.35 : 0.2;
           ctx.lineWidth = flash ? 10 : 6;
           ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
         }
