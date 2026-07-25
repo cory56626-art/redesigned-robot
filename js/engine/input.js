@@ -32,6 +32,7 @@ export class Input {
     this._moveTapUntil = 0;
     this._lastJumpQueue = 0;
     this._jumpQueuedUntil = 0;
+    this._primaryQueuedUntil = 0;
 
     // Smart Cursor: held on desktop (Left Ctrl), latched by a button on mobile.
     // systems/smartcursor.js reads `smartHeld`; the game's setting decides
@@ -90,6 +91,13 @@ export class Input {
     this.state.jumpPressed = true;
     this._jumpQueuedUntil = now + 160;
     this._lastJumpQueue = now;
+  }
+
+  _queuePrimary() {
+    // Preserve a very short desktop click until the fixed-step simulation
+    // observes it. This makes a quick PC summon click as reliable as a hold.
+    this.state.primaryPressed = true;
+    this._primaryQueuedUntil = performance.now() + 160;
   }
 
   // ---- Keyboard ----
@@ -172,6 +180,8 @@ export class Input {
       this.state.jumpHeld = false;
       this.state.aimHeld = false;
       this.state.primaryHeld = false;
+      this.state.primaryPressed = false;
+      this._primaryQueuedUntil = 0;
       this.state.mineHeld = false;
       this.state.placeHeld = false;
     });
@@ -219,7 +229,7 @@ export class Input {
 
       if (e.button === 0) {
         this.state.primaryHeld = true;
-        this.state.primaryPressed = true;
+        this._queuePrimary();
       } else if (e.button === 2) {
         this.state.mineHeld = true;
       }
@@ -411,7 +421,7 @@ export class Input {
         this.state.jumpHeld = true;
       } else if (intent === 'primary') {
         this.state.primaryHeld = true;
-        this.state.primaryPressed = true;
+        this._queuePrimary();
       } else if (intent === 'mine') {
         this.state.mineHeld = true;
       } else if (intent === 'place') {
@@ -506,7 +516,9 @@ export class Input {
     if (performance.now() >= this._jumpQueuedUntil) {
       this.state.jumpPressed = false;
     }
-    this.state.primaryPressed = false;
+    if (performance.now() >= this._primaryQueuedUntil) {
+      this.state.primaryPressed = false;
+    }
     this.state.placePressed = false;
     this.state.consumePressed = false;
   }
