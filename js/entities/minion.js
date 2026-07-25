@@ -461,7 +461,7 @@ export class Minion {
       const t = Math.max(0, Math.min(0.7, (rx * vx + ry * vy) / speed2));
       const nx = px + vx * t, ny = py + vy * t;
       const dd = Math.hypot(cx - nx, cy - ny);
-      const danger = 52 + Math.max(pr.w, pr.h) * 0.6;
+      const danger = 92 + Math.max(pr.w, pr.h) * 0.6;
       if (dd >= danger) continue;
       const away = Math.max(0.1, danger - dd) / danger;
       pushX += (cx - nx) / Math.max(1, dd) * away;
@@ -631,7 +631,7 @@ export class Minion {
     if (this.dead || !this.isMinion || this.maxHp == null || this.iframes > 0) return;
     const dmg = Math.max(1, Math.round(amount));
     this.hp = Math.max(0, this.hp - dmg);
-    this.iframes = this.def.behavior === 'diamondHeart' ? 0.42 : 0.28;
+    this.iframes = this.def.behavior === 'diamondHeart' ? 0.55 : 0.28;
     this.hurtFlash = 0.16;
     this.vx += (knockbackX || 0) * 5;
     if (this.def.behavior === 'diamondHeart') {
