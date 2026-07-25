@@ -1181,89 +1181,190 @@ export class Renderer {
     }
   }
 
+
   _drawGrovekeeper(ctx, b) {
-    // Canopy leans against the direction of travel, which turns the orbit from
-    // a slide into something that looks like it has weight.
     const lean = clamp((b.vx || 0) / 260, -0.5, 0.5);
+    const sway = Math.sin(b.bob * 1.25) * 2.2;
     const x = b.x, y = b.y + Math.sin(b.bob) * 3, w = b.w, h = b.h;
     const cx = x + w / 2;
     ctx.save();
-    this._bossAura(ctx, b, b.color2, 36);
+    this._bossAura(ctx, b, b.color2, 40);
 
+    // Roots and the moving shadow anchor the floating tree to the world.
+    ctx.fillStyle = 'rgba(8,16,12,0.24)';
+    ctx.beginPath(); ctx.ellipse(cx, y + h + 5, 21, 4, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Branch arms sit behind the body and sway independently from the canopy.
     ctx.save();
-    ctx.translate(cx, y + 26); ctx.rotate(-lean * 0.35); ctx.translate(-cx, -(y + 26));
-    ctx.strokeStyle = '#264f2b'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.translate(cx, y + 27);
+    ctx.rotate(-lean * 0.34);
+    ctx.translate(-cx, -(y + 27));
+    ctx.strokeStyle = '#263f28';
+    ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.beginPath();
-    ctx.moveTo(cx, y + 25); ctx.lineTo(cx - 13, y + 9);
-    ctx.moveTo(cx, y + 22); ctx.lineTo(cx + 14, y + 7);
-    ctx.moveTo(cx - 10, y + 14); ctx.lineTo(cx - 18, y + 4);
-    ctx.moveTo(cx + 11, y + 13); ctx.lineTo(cx + 19, y + 2);
+    ctx.moveTo(cx, y + 30); ctx.lineTo(cx - 14, y + 12); ctx.lineTo(cx - 21, y + 5);
+    ctx.moveTo(cx, y + 25); ctx.lineTo(cx + 15, y + 10); ctx.lineTo(cx + 23, y + 1);
+    ctx.moveTo(cx - 13, y + 13); ctx.lineTo(cx - 22, y + 15);
+    ctx.moveTo(cx + 14, y + 11); ctx.lineTo(cx + 23, y + 12);
     ctx.stroke();
-    for (const leaf of [[cx - 18, y + 4, 9], [cx + 18, y + 3, 10], [cx - 7, y + 5, 12], [cx + 7, y + 5, 12]]) {
-      const sway = Math.sin(b.bob * 1.3 + leaf[0] * 0.1) * 1.6;
-      ctx.fillStyle = leaf[2] > 10 ? '#6fbf55' : '#4b9b45';
-      ctx.beginPath(); ctx.arc(leaf[0] + sway, leaf[1], leaf[2], 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(0,0,0,0.16)';
-      ctx.beginPath(); ctx.arc(leaf[0] + sway + 2, leaf[1] + 3, leaf[2] * 0.72, 0, Math.PI * 2); ctx.fill();
-    }
+    ctx.strokeStyle = '#6d9d4c'; ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(cx - 1, y + 28); ctx.lineTo(cx - 14, y + 13);
+    ctx.moveTo(cx + 1, y + 25); ctx.lineTo(cx + 15, y + 11);
+    ctx.stroke();
     ctx.restore();
 
-    ctx.fillStyle = '#6b442d';
-    this._roundRect(ctx, x + 9, y + 16, w - 18, h - 17, 8); ctx.fill();
-    ctx.fillStyle = '#a36b3c';
-    ctx.fillRect(cx - 3, y + 19, 4, h - 22);
-    // Eyes brighten as an attack charges.
-    const glow = b.telegraph > 0 ? '#fff2b0' : '#ffcf6b';
-    ctx.fillStyle = glow;
-    ctx.fillRect(x + 16, y + 28, 4, 4); ctx.fillRect(x + w - 20, y + 28, 4, 4);
-    ctx.fillStyle = '#1a2419';
-    ctx.fillRect(x + 17, y + 29, 2, 2); ctx.fillRect(x + w - 19, y + 29, 2, 2);
-    ctx.fillStyle = '#264f2b';
-    ctx.fillRect(x + 4, y + h - 6, 14, 5); ctx.fillRect(x + w - 18, y + h - 6, 14, 5);
-    if (b.hurtFlash > 0) { ctx.fillStyle = 'rgba(255,255,255,0.55)'; this._roundRect(ctx, x + 8, y + 15, w - 16, h - 15, 7); ctx.fill(); }
-    if (b.invuln > 0) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; this._roundRect(ctx, x + 5, y + 1, w - 10, h - 2, 8); ctx.stroke(); }
+    // Layered canopy clusters give the boss a readable silhouette at a distance.
+    const leaves = [
+      [cx - 20 + sway, y + 3, 11, '#3e8740'],
+      [cx + 20 + sway * 0.5, y + 2, 12, '#4b9b45'],
+      [cx - 8 + sway * 0.7, y - 2, 14, '#5fae4a'],
+      [cx + 8 - sway * 0.4, y - 3, 14, '#6fbf55'],
+      [cx + sway, y - 9, 10, '#78c85b'],
+    ];
+    for (let i = 0; i < leaves.length; i++) {
+      const leaf = leaves[i];
+      ctx.fillStyle = leaf[3];
+      ctx.beginPath(); ctx.ellipse(leaf[0], leaf[1], leaf[2], leaf[2] * 0.82, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(24,54,28,0.26)';
+      ctx.beginPath(); ctx.ellipse(leaf[0] + 3, leaf[1] + 4, leaf[2] * 0.7, leaf[2] * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(193,235,126,0.48)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(leaf[0] - leaf[2] * 0.45, leaf[1] - 1); ctx.lineTo(leaf[0] + leaf[2] * 0.35, leaf[1] - 3); ctx.stroke();
+    }
+
+    // Hanging vines react to motion and to the attack wind-up.
+    ctx.strokeStyle = '#3b773d'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+    for (let i = 0; i < 4; i++) {
+      const vx = cx - 20 + i * 13;
+      const length = 7 + (i % 2) * 4 + (b.telegraph > 0 ? 3 : 0);
+      ctx.beginPath();
+      ctx.moveTo(vx, y + 7);
+      ctx.quadraticCurveTo(vx + Math.sin(b.bob + i) * 3, y + 11, vx + sway * (i % 2 ? -0.4 : 0.4), y + length);
+      ctx.stroke();
+    }
+
+    // Carved trunk, bark plates, knots, and roots.
+    ctx.fillStyle = '#4d3024';
+    ctx.beginPath();
+    ctx.moveTo(cx - 13, y + 17); ctx.lineTo(cx - 10, y + h - 8);
+    ctx.quadraticCurveTo(cx, y + h - 3, cx + 11, y + h - 8);
+    ctx.lineTo(cx + 13, y + 17); ctx.quadraticCurveTo(cx, y + 12, cx - 13, y + 17); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#815236';
+    ctx.beginPath();
+    ctx.moveTo(cx - 6, y + 18); ctx.quadraticCurveTo(cx - 2, y + 27, cx - 4, y + h - 10);
+    ctx.lineTo(cx + 1, y + h - 7); ctx.lineTo(cx + 2, y + 20); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#b17a46'; ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(cx - 9, y + 25); ctx.quadraticCurveTo(cx - 4, y + 23, cx - 7, y + 19);
+    ctx.moveTo(cx + 7, y + 35); ctx.quadraticCurveTo(cx + 2, y + 38, cx + 6, y + 44);
+    ctx.stroke();
+    ctx.fillStyle = '#281d19';
+    ctx.beginPath(); ctx.ellipse(cx - 4, y + 31, 2.5, 3, -0.2, 0, Math.PI * 2); ctx.fill();
+
+    // Eyes brighten during every attack tell.
+    const eye = b.telegraph > 0 ? '#fff4b0' : '#ffcf6b';
+    ctx.fillStyle = '#1b271c';
+    ctx.fillRect(cx - 11, y + 28, 8, 6); ctx.fillRect(cx + 3, y + 28, 8, 6);
+    ctx.fillStyle = eye;
+    ctx.fillRect(cx - 9, y + 29, 4, 3); ctx.fillRect(cx + 5, y + 29, 4, 3);
+    ctx.fillStyle = '#273620';
+    ctx.fillRect(cx - 7, y + 30, 2, 2); ctx.fillRect(cx + 5, y + 30, 2, 2);
+
+    ctx.strokeStyle = '#264f2b'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx - 13, y + h - 7); ctx.quadraticCurveTo(cx - 19, y + h - 2, cx - 24, y + h - 4);
+    ctx.moveTo(cx + 13, y + h - 7); ctx.quadraticCurveTo(cx + 19, y + h - 2, cx + 24, y + h - 4);
+    ctx.stroke();
+
+    if (b.telegraph > 0) {
+      const k = 1 - b.telegraph / (b.telegraphMax || 0.6);
+      ctx.strokeStyle = '#d7f58a'; ctx.globalAlpha = 0.45 + k * 0.45; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, y + 28, 18 + k * 10, Math.PI * 0.12, Math.PI * 0.88); ctx.stroke();
+      ctx.fillStyle = 'rgba(167,227,111,0.26)';
+      ctx.beginPath(); ctx.arc(cx, y + 25, 24 + k * 5, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    if (b.hurtFlash > 0) { ctx.fillStyle = 'rgba(255,255,255,0.52)'; this._roundRect(ctx, x + 6, y + 13, w - 12, h - 10, 8); ctx.fill(); }
+    if (b.invuln > 0) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; this._roundRect(ctx, x + 4, y + 1, w - 8, h - 2, 10); ctx.stroke(); }
     ctx.restore();
   }
 
   _drawGravemaw(ctx, b) {
     const x = b.x, y = b.y, w = b.w, h = b.h;
     ctx.save();
-    this._bossAura(ctx, b, b.color2, 39);
+    this._bossAura(ctx, b, b.color2, 42);
 
-    // Segments trail the head with spring lag (see Boss._updateAnim), so the
-    // body follows through a leap instead of every piece bobbing on its own.
     const seg = b.segments || [];
+    // Layered stone segments have individual plates and moving seams.
     for (let i = 2; i >= 0; i--) {
       const s = seg[i] || { x: x + 4 + i * 17, y: y + 12 };
-      ctx.fillStyle = i === 0 ? '#5f4b3b' : '#75624b';
-      this._roundRect(ctx, s.x, s.y, 25, 27, 9); ctx.fill();
-      ctx.fillStyle = 'rgba(0,0,0,0.22)';
-      this._roundRect(ctx, s.x + 2, s.y + 15, 21, 11, 6); ctx.fill();
-      ctx.fillStyle = '#b69a6c'; ctx.globalAlpha = 0.55;
-      ctx.fillRect(s.x + 5, s.y + 5, 8, 3); ctx.globalAlpha = 1;
-    }
-    // Open jaw at the facing end. `jaw` is how wide it is gaping right now.
-    const jaw = b.jaw != null ? b.jaw : 0;
-    const mouthX = b.facing > 0 ? x + w - 19 : x + 4;
-    ctx.fillStyle = '#211923';
-    this._roundRect(ctx, mouthX, y + 18 - jaw * 3, 17, 17 + jaw * 6, 6); ctx.fill();
-    ctx.fillStyle = '#e8d6a6';
-    for (let i = 0; i < 3; i++) {
-      const tx = b.facing > 0 ? mouthX + 2 + i * 5 : mouthX + 12 - i * 5;
+      const sw = 25, sh = 29;
+      ctx.fillStyle = i === 0 ? '#5d4938' : (i === 1 ? '#705940' : '#806648');
+      this._roundRect(ctx, s.x, s.y, sw, sh, 9); ctx.fill();
+      ctx.fillStyle = 'rgba(24,18,18,0.28)';
+      this._roundRect(ctx, s.x + 2, s.y + 16, sw - 4, 11, 6); ctx.fill();
+      ctx.fillStyle = '#b69a6c'; ctx.globalAlpha = 0.58;
       ctx.beginPath();
-      ctx.moveTo(tx, y + 21 - jaw * 3);
-      ctx.lineTo(tx + (b.facing > 0 ? 3 : -3), y + 28 - jaw * 3);
-      ctx.lineTo(tx + (b.facing > 0 ? 6 : -6), y + 21 - jaw * 3);
+      ctx.moveTo(s.x + 5, s.y + 7); ctx.lineTo(s.x + 12, s.y + 4); ctx.lineTo(s.x + 18, s.y + 7);
+      ctx.lineTo(s.x + 15, s.y + 10); ctx.lineTo(s.x + 7, s.y + 10); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = '#3c2f2a'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(s.x + 4, s.y + 15); ctx.lineTo(s.x + 20, s.y + 13);
+      ctx.moveTo(s.x + 8, s.y + 21); ctx.lineTo(s.x + 17, s.y + 22);
+      ctx.stroke();
+      // Small spikes make the body read as a living armored tunnel-creature.
+      ctx.fillStyle = '#927852';
+      ctx.beginPath();
+      ctx.moveTo(s.x + 4, s.y + 4); ctx.lineTo(s.x + 1, s.y - 3); ctx.lineTo(s.x + 8, s.y + 3);
+      ctx.moveTo(s.x + 17, s.y + 4); ctx.lineTo(s.x + 21, s.y - 2); ctx.lineTo(s.x + 22, s.y + 7);
       ctx.fill();
     }
-    ctx.fillStyle = b.telegraph > 0 ? '#ffb37d' : '#ff6b4d';
-    ctx.fillRect(x + (b.facing > 0 ? w - 26 : 11), y + 9, 5, 4);
-    ctx.fillStyle = '#1d1818';
-    ctx.fillRect(x + (b.facing > 0 ? w - 24 : 12), y + 10, 2, 2);
-    ctx.fillStyle = '#493b34';
-    ctx.fillRect(x + 2, y + h - 5, 22, 5); ctx.fillRect(x + w - 24, y + h - 5, 22, 5);
-    if (b.hurtFlash > 0) { ctx.fillStyle = 'rgba(255,255,255,0.55)'; this._roundRect(ctx, x + 3, y + 10, w - 6, h - 10, 8); ctx.fill(); }
-    if (b.invuln > 0) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; this._roundRect(ctx, x + 1, y + 8, w - 2, h - 8, 9); ctx.stroke(); }
+
+    const headX = b.facing > 0 ? x + w - 22 : x + 5;
+    const headY = y + 13;
+    ctx.fillStyle = '#8f734d';
+    ctx.beginPath(); ctx.ellipse(headX + (b.facing > 0 ? 3 : 0), headY + 7, 15, 15, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#b8945e';
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath(); ctx.ellipse(headX + (b.facing > 0 ? 0 : 5), headY + 1, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Jaw gape is simulation-driven: it opens during the telegraph and snaps
+    // shut on release.
+    const jaw = b.jaw != null ? b.jaw : 0;
+    const mouthX = b.facing > 0 ? x + w - 21 : x + 4;
+    ctx.fillStyle = '#1c1720';
+    this._roundRect(ctx, mouthX, y + 17 - jaw * 4, 18, 16 + jaw * 8, 7); ctx.fill();
+    ctx.fillStyle = '#ead8a5';
+    for (let i = 0; i < 4; i++) {
+      const tx = b.facing > 0 ? mouthX + 1 + i * 5 : mouthX + 17 - i * 5;
+      ctx.beginPath();
+      ctx.moveTo(tx, y + 19 - jaw * 3);
+      ctx.lineTo(tx + (b.facing > 0 ? 3 : -3), y + 27 - jaw * 3);
+      ctx.lineTo(tx + (b.facing > 0 ? 6 : -6), y + 19 - jaw * 3);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = b.telegraph > 0 ? '#ffd28c' : '#ff6b4d';
+    ctx.fillRect(b.facing > 0 ? x + w - 30 : x + 13, y + 8, 6, 5);
+    ctx.fillStyle = '#25191b';
+    ctx.fillRect(b.facing > 0 ? x + w - 28 : x + 14, y + 9, 2, 2);
+
+    // Stone tendrils and feet dig into the ground when it is not airborne.
+    ctx.strokeStyle = '#493a32'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x + 12, y + h - 4); ctx.lineTo(x + 7, y + h + 3);
+    ctx.moveTo(x + 27, y + h - 3); ctx.lineTo(x + 30, y + h + 4);
+    ctx.moveTo(x + 47, y + h - 4); ctx.lineTo(x + 53, y + h + 2);
+    ctx.stroke();
+    if (b.telegraph > 0) {
+      ctx.strokeStyle = '#d3b985'; ctx.globalAlpha = 0.55; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(x + w / 2, y + h - 2, 22 + (1 - b.telegraph / (b.telegraphMax || 0.6)) * 10, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    if (b.hurtFlash > 0) { ctx.fillStyle = 'rgba(255,255,255,0.54)'; this._roundRect(ctx, x + 2, y + 7, w - 4, h - 4, 10); ctx.fill(); }
+    if (b.invuln > 0) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; this._roundRect(ctx, x + 1, y + 7, w - 2, h - 5, 10); ctx.stroke(); }
     ctx.restore();
   }
 
@@ -1271,57 +1372,100 @@ export class Renderer {
     const x = b.x, y = b.y + Math.sin(b.bob) * 4, w = b.w, h = b.h;
     const cx = x + w / 2, cy = y + h / 2;
     ctx.save();
-    this._bossAura(ctx, b, b.color2, 45);
+    this._bossAura(ctx, b, b.color2, 48);
 
-    // After-images at speed: the Sovereign smears when it moves fast.
+    // High-speed after-images make teleporting and dashes readable.
     const speed = Math.hypot(b.vx || 0, b.vy || 0);
     if (speed > 90 && b.ghostTrail) {
       for (let i = 0; i < b.ghostTrail.length; i++) {
         const gt = b.ghostTrail[i];
-        ctx.globalAlpha = 0.06 + 0.05 * (i / b.ghostTrail.length);
+        ctx.globalAlpha = 0.045 + 0.045 * (i / Math.max(1, b.ghostTrail.length));
         ctx.fillStyle = b.color2;
         ctx.beginPath();
-        ctx.moveTo(gt.x + w / 2, gt.y + 2); ctx.lineTo(gt.x + w - 4, gt.y + h / 2);
-        ctx.lineTo(gt.x + w / 2, gt.y + h - 2); ctx.lineTo(gt.x + 4, gt.y + h / 2);
+        ctx.moveTo(gt.x + w / 2, gt.y + 3); ctx.lineTo(gt.x + w - 3, gt.y + h / 2);
+        ctx.lineTo(gt.x + w / 2, gt.y + h - 3); ctx.lineTo(gt.x + 3, gt.y + h / 2);
         ctx.closePath(); ctx.fill();
       }
       ctx.globalAlpha = 1;
     }
 
-    // Crown shards orbit, easing faster while an attack charges.
     const spin = b.shardSpin != null ? b.shardSpin : b.bob * 0.7;
-    ctx.strokeStyle = '#8b4bb8'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    const tight = b.telegraph > 0 ? (1 - b.telegraph / (b.telegraphMax || 0.6)) : 0;
+    // A thin void halo and four independently faceted crown shards.
+    ctx.strokeStyle = '#8b4bb8'; ctx.globalAlpha = 0.42; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(cx, cy, 33 + Math.sin(b.bob) * 2, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
     for (let i = 0; i < 4; i++) {
       const a = spin + i * Math.PI / 2;
-      const rad = 31 - (b.telegraph > 0 ? (1 - b.telegraph / (b.telegraphMax || 0.6)) * 10 : 0);
+      const rad = 31 - tight * 10;
       const sx = cx + Math.cos(a) * rad, sy = cy + Math.sin(a) * rad;
+      const shard = 6 + tight * 2;
       ctx.fillStyle = i % 2 ? '#b45de0' : '#df8cff';
       ctx.beginPath();
-      ctx.moveTo(sx, sy - 7); ctx.lineTo(sx + 6, sy); ctx.lineTo(sx, sy + 7); ctx.lineTo(sx - 6, sy); ctx.closePath(); ctx.fill();
+      ctx.moveTo(sx, sy - shard); ctx.lineTo(sx + shard * 0.78, sy);
+      ctx.lineTo(sx, sy + shard); ctx.lineTo(sx - shard * 0.78, sy); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#f0baff'; ctx.globalAlpha = 0.65;
+      ctx.beginPath(); ctx.moveTo(sx, sy - shard + 1); ctx.lineTo(sx + 2, sy); ctx.lineTo(sx, sy + 2); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1;
     }
-    ctx.fillStyle = '#512572';
+
+    // Layered diamond armor, shoulder hooks, and a torn lower cloak.
+    ctx.fillStyle = '#321746';
     ctx.beginPath();
-    ctx.moveTo(cx, y + 2); ctx.lineTo(x + w - 4, cy); ctx.lineTo(cx, y + h - 2); ctx.lineTo(x + 4, cy); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#d996ff';
+    ctx.moveTo(cx, y + 1); ctx.lineTo(x + w - 2, cy); ctx.lineTo(cx, y + h - 2);
+    ctx.lineTo(x + 2, cy); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#5d2b79';
     ctx.beginPath();
-    ctx.moveTo(cx, y + 10); ctx.lineTo(x + w - 13, cy); ctx.lineTo(cx, y + h - 10); ctx.lineTo(x + 13, cy); ctx.closePath(); ctx.fill();
+    ctx.moveTo(cx, y + 7); ctx.lineTo(x + w - 10, cy); ctx.lineTo(cx, y + h - 9);
+    ctx.lineTo(x + 10, cy); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#a65ad1';
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.moveTo(cx, y + 11); ctx.lineTo(x + 15, cy); ctx.lineTo(cx, y + h - 13); ctx.lineTo(cx - 5, cy); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#df8cff'; ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    ctx.moveTo(cx, y + 8); ctx.lineTo(x + w - 12, cy); ctx.lineTo(cx, y + h - 10);
+    ctx.stroke();
+
+    // The eye has a bright iris, a dark pupil, and a charge-reactive core.
+    const core = 6.5 + Math.sin(b.bob * 2) * 1.2 + tight * 3;
     ctx.fillStyle = '#fff0ff';
-    const core = 7 + Math.sin(b.bob * 2) * 1.5 + (b.telegraph > 0 ? 3 : 0);
+    ctx.beginPath(); ctx.arc(cx, cy, core + 2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = b.telegraph > 0 ? '#f7c5ff' : '#d996ff';
     ctx.beginPath(); ctx.arc(cx, cy, core, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#5b237d';
-    ctx.beginPath(); ctx.arc(cx + (b.facing > 0 ? 2 : -2), cy, 3, 0, Math.PI * 2); ctx.fill();
-    // Trailing void ribbons, drifting with velocity.
-    const drag = clamp(-(b.vx || 0) / 200, -1, 1) * 6;
+    ctx.fillStyle = '#3b174d';
+    ctx.beginPath(); ctx.arc(cx + (b.facing > 0 ? 2 : -2), cy, 3.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(cx - 2, cy - 3, 2, 2);
+
+    // Clawed shoulder hooks and three trailing void ribbons.
+    ctx.strokeStyle = '#8b4bb8'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x + 11, cy - 8); ctx.quadraticCurveTo(x + 3, cy - 15, x + 7, cy - 22);
+    ctx.moveTo(x + w - 11, cy - 8); ctx.quadraticCurveTo(x + w - 3, cy - 15, x + w - 7, cy - 22);
+    ctx.stroke();
+    const drag = clamp(-(b.vx || 0) / 200, -1, 1) * 7;
     ctx.strokeStyle = '#8b4bb8'; ctx.lineWidth = 3;
     for (let i = 0; i < 3; i++) {
-      ctx.beginPath(); ctx.moveTo(cx - 12 + i * 12, y + h - 4);
-      ctx.quadraticCurveTo(cx - 22 + i * 20 + drag, y + h + 12, cx - 14 + i * 14 + drag * 1.6, y + h + 19); ctx.stroke();
+      const from = cx - 13 + i * 13;
+      ctx.beginPath();
+      ctx.moveTo(from, y + h - 5);
+      ctx.quadraticCurveTo(from - 10 + drag, y + h + 11, from - 2 + drag * 1.4, y + h + 21);
+      ctx.stroke();
     }
-    if (b.hurtFlash > 0) { ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.arc(cx, cy, 22, 0, Math.PI * 2); ctx.fill(); }
-    if (b.invuln > 0) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, 31, 0, Math.PI * 2); ctx.stroke(); }
+
+    if (b.telegraph > 0) {
+      ctx.strokeStyle = '#f0baff'; ctx.globalAlpha = 0.55 + tight * 0.45; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, cy, 36 - tight * 7, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(223,140,255,0.14)';
+      ctx.beginPath(); ctx.arc(cx, cy, 26 + tight * 12, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    if (b.hurtFlash > 0) { ctx.fillStyle = 'rgba(255,255,255,0.52)'; ctx.beginPath(); ctx.arc(cx, cy, 25, 0, Math.PI * 2); ctx.fill(); }
+    if (b.invuln > 0) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, 34, 0, Math.PI * 2); ctx.stroke(); }
     ctx.restore();
   }
-
   _drawPlayers(game, ctx) {
     for (const p of game.players.values()) {
       if (!p.alive) continue; // hidden while dead
