@@ -449,7 +449,9 @@ input[type="range"]::-moz-range-thumb {
 .npc-body .npc-stat { color: var(--muted); }
 .npc-topics { display: flex; flex-wrap: wrap; gap: var(--s1); margin-top: var(--s3); }
 .npc-topics .btn { padding: 7px 12px; min-height: 36px; font-size: 13px; }
-.npc-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: var(--s1); margin-top: var(--s2); max-height: 26vh; overflow-y: auto; }
+/* Takes a full row of the flex container so it wraps into a real grid instead
+   of collapsing to one column beside the Back button. */
+.npc-items { flex: 0 0 100%; display: grid; grid-template-columns: repeat(auto-fill, var(--slot)); gap: var(--s1); margin-bottom: var(--s2); max-height: 24vh; overflow-y: auto; }
 
 /* ---------------- Multiplayer sidebar ---------------- */
 .mp-sidebar { position: fixed; top: 0; right: 0; height: 100%; z-index: 20; pointer-events: none; padding: var(--s2); }

@@ -190,6 +190,9 @@ export class Player {
     const sel = this.inventory.selectedItem();
     this.selectedId = sel ? sel.id : null;
 
+    // Clicking the Guide talks to them rather than swinging at them.
+    if (input.primaryPressed && game.clickedNpc && game.clickedNpc(input.aimX, input.aimY)) return;
+
     // Consume (potion) via dedicated button/key.
     if (input.consumePressed && sel && sel.category === 'potion') combat.consumeSelected(game, this);
 

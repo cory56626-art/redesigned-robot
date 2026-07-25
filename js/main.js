@@ -33,6 +33,7 @@ import { BOSSES } from './data/bosses.js';
 import { item as getItem } from './data/items.js';
 import { HUD } from './ui/hud.js';
 import { Menus } from './ui/menus.js';
+import { NpcDialog } from './ui/npcdialog.js';
 import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js';
 import { SaveManager, setSaveIndicator } from './save.js';
 import { CommandConsole } from './commands.js';
@@ -108,7 +109,7 @@ class Game {
     };
     this.smartTarget = null;
 
-    this.ui = { hud: null, menus: null };
+    this.ui = { hud: null, menus: null, npcDialog: null };
     this.commands = null;
   }
 
@@ -118,6 +119,7 @@ class Game {
     Sprites.init();
     this.ui.hud = new HUD(this);
     this.ui.menus = new Menus(this);
+    this.ui.npcDialog = new NpcDialog(this);
     this.commands = new CommandConsole(this);
     this._wireInputActions();
     this.ui.menus.refreshContinue(); // reflect any existing saves on first paint
@@ -533,6 +535,17 @@ class Game {
     else this.ui.menus.hidePause();
   }
   openCommandPanel() { this.commands.open(); }
+  // Clicking directly on the Guide is the other way in, alongside F / the
+  // mobile Talk button.
+  clickedNpc(worldX, worldY) {
+    const n = this.npc;
+    if (!n || !this.localPlayer) return false;
+    if (worldX < n.x - 4 || worldX > n.x + n.w + 4 || worldY < n.y - 6 || worldY > n.y + n.h + 4) return false;
+    if (!n.canTalkTo(this.localPlayer)) { this.toast('Too far away to talk', 'info'); return false; }
+    this.ui.npcDialog.toggle(n);
+    return true;
+  }
+
   // Context action: talk to the Guide if we're standing next to them.
   interact() {
     if (this.state !== 'playing' || !this.localPlayer || !this.localPlayer.alive) return;
