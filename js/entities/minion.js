@@ -288,7 +288,7 @@ export class Minion {
     // The sky-beam is a deliberate rotation anchor. Once it is ready, use it
     // from the Heart's flight lane instead of waiting for an unusually long
     // line of sight; this guarantees the new move actually appears in play.
-    if (this.diamondRetreat <= 0 && this.beamCd <= 0 && los && distance > 190) {
+    if (this.diamondRetreat <= 0 && this.beamCd <= 0 && distance > 190) {
       this._beginDiamondBeam(game, target);
       return;
     }
