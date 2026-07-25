@@ -68,6 +68,7 @@ export class Renderer {
     this._drawMinions(game, ctx);
     this._drawEnemies(game, ctx);
     this._drawBosses(game, ctx);
+    this._drawDiamondBeamTelegraphs(game, ctx);
     this._drawThrown(game, ctx);
     this._drawProjectiles(game, ctx);
     this._drawPlayers(game, ctx);
@@ -1037,6 +1038,52 @@ export class Renderer {
       this._enemyFlashLocal(ctx, e, e.w, e.h, 5);
     });
   }
+  _drawDiamondBeamTelegraphs(game, ctx) {
+    for (const m of game.minions) {
+      if (m.dead || m.key !== 'diamondHeart' ||
+          (!m.beamWindup && !m.beamActive) ||
+          !m.beamLines?.length) continue;
+
+      const active = m.beamActive > 0;
+      const flash = m.beamFlash > 0;
+      const color = active ? '#fff4b0' : flash ? '#ffd34e' : '#8dd9e9';
+      const y0 = m.beamY0 || 0;
+      const y1 = m.beamY1 || 0;
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineCap = 'round';
+      for (const x of m.beamLines) {
+        if (active) {
+          // A broad glow plus a bright core makes the 0.1s attack read as a
+          // beam, not another telegraph flash.
+          ctx.globalAlpha = 0.22;
+          ctx.strokeStyle = '#ffe98a';
+          ctx.lineWidth = 13;
+          ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 3.5;
+          ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
+        } else {
+          // The two 0.3s marks are yellow pulses without turning the final
+          // beam into a flashing strobe.
+          ctx.globalAlpha = flash ? 0.95 : 0.62;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = flash ? 3 : 1.5;
+          ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
+          ctx.globalAlpha = flash ? 0.35 : 0.16;
+          ctx.lineWidth = flash ? 10 : 6;
+          ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+  }
+
   _drawMinions(game, ctx) {
     for (const m of game.minions) {
       if (m.dead) continue;
@@ -1138,7 +1185,8 @@ export class Renderer {
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(m.dashAngle || 0);
-      ctx.strokeStyle = '#8be9ff'; ctx.lineWidth = 2; ctx.globalAlpha = 0.55;
+      ctx.strokeStyle = m.dashVariant ? '#ffd86b' : '#8be9ff';
+      ctx.lineWidth = 2; ctx.globalAlpha = 0.55;
       for (let i = 1; i <= 3; i++) {
         ctx.beginPath(); ctx.moveTo(-i * 10, -5 - i); ctx.lineTo(-i * 20, -5 - i); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(-i * 10, 5 + i); ctx.lineTo(-i * 20, 5 + i); ctx.stroke();
