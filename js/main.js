@@ -117,6 +117,8 @@ class Game {
 
   init() {
     Sprites.init();
+    this.audio.applyVolumes(this.settings);
+    this.audio.playMenuMusic();
     this.ui.hud = new HUD(this);
     this.ui.menus = new Menus(this);
     this.ui.npcDialog = new NpcDialog(this);
@@ -201,6 +203,12 @@ class Game {
       while (this._acc >= SIM_DT && steps < 5) { this._step(SIM_DT); this._acc -= SIM_DT; steps++; }
     } else {
       this._acc = 0; // don't bank time while frozen, or it fast-forwards on resume
+    }
+
+    if (this.state !== 'playing') {
+      // The simulation is what normally drives audio, so keep the soundtrack
+      // ticking in the menu too.
+      this.audio.update(this, dt);
     }
 
     if (this.state === 'playing') {

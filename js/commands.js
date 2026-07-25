@@ -2,6 +2,7 @@
 import { ITEMS, DEMO_GIVE_ALL } from './data/items.js';
 import { ENEMY_KEYS, ENEMIES } from './data/enemies.js';
 import { BOSS_KEYS, BOSSES } from './data/bosses.js';
+import { TRACKS } from './engine/music.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -48,6 +49,7 @@ export class CommandConsole {
       resetcooldowns: { args: '', desc: 'Clear attack/mana/heal cooldowns', run: () => this._resetCooldowns() },
       save: { args: '', desc: 'Manually save the game', run: () => { g.saveGame(true); return ok('Game saved.'); } },
       resetdemo: { args: '', desc: 'Reset the demo world', run: () => { g.resetDemo(); return ok('Demo world reset.'); } },
+      music: { args: '[context|off|status|rescan]', desc: 'Play/stop a music context', run: (a) => this._music(a) },
       // ---- Debug overlays ----
       debugcollision: { args: '', desc: 'Toggle collision hitbox overlay', run: () => this._toggleDebug('collision') },
       debugai: { args: '', desc: 'Toggle enemy/minion target overlay', run: () => this._toggleDebug('ai') },
@@ -56,6 +58,20 @@ export class CommandConsole {
       debugcaves: { args: '', desc: 'Toggle cave-void overlay', run: () => this._toggleDebug('caves') },
       debugwalls: { args: '', desc: 'Toggle background-wall overlay', run: () => this._toggleDebug('walls') },
     };
+  }
+
+  _music(a) {
+    const m = this.game.audio && this.game.audio.music;
+    if (!m) return err('Audio is not available.');
+    const arg = (a[0] || 'status').toLowerCase();
+    if (arg === 'status') return ok(m.statusText());
+    if (arg === 'rescan') { m.rescan(); return ok('Rescanning assets/music/ …'); }
+    if (arg === 'off') { m.stop(); return ok('Music stopped.'); }
+    if (!Object.prototype.hasOwnProperty.call(TRACKS, arg)) {
+      return err('Unknown context. Try: ' + Object.keys(TRACKS).join(', '));
+    }
+    m.play(arg);
+    return ok('Requested "' + arg + '". ' + m.statusText());
   }
 
   _toggleDebug(key) {

@@ -1,6 +1,8 @@
 // Summoner Realms — authored procedural game audio.
 // Uses authored OGG sample assets for the primary sound, with the procedural
 // layers kept as a graceful fallback if a browser blocks asset loading.
+import { Music } from './music.js';
+
 const AudioContextCtor = () => window.AudioContext || window.webkitAudioContext;
 
 export class AudioManager {
@@ -18,6 +20,9 @@ export class AudioManager {
     this.sampleAmbient = null;
     // Volumes may be set from saved settings before the context exists.
     this._pendingVolumes = null;
+    // Drop-in soundtrack. Does nothing at all until files appear in
+    // assets/music/ — see that folder's README.
+    this.music = new Music(this);
     this.sampleFiles = {
       pickaxe: 'pickaxe', axe: 'axe', sword: 'sword', bow: 'bow', magic: 'magic',
       enemyHurt: 'enemy-hurt', enemyDeath: 'enemy-death',
@@ -47,6 +52,8 @@ export class AudioManager {
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
     this._startAmbience();
     this._loadSamples();
+    // The first interaction is also when browsers will let music start.
+    if (this._pendingMusicContext) this.music.play(this._pendingMusicContext);
   }
 
   _create() {
@@ -264,7 +271,9 @@ export class AudioManager {
   }
 
   update(game, dt) {
-    if (!this.ambientStarted || !this.ctx || this.ctx.state === 'suspended') return;
+    if (!this.ctx || this.ctx.state === 'suspended') return;
+    this.music.update(game, dt);
+    if (!this.ambientStarted) return;
     this.ambientTimer -= dt;
     if (this.ambientTimer > 0) return;
     this.ambientTimer = 4.8 + Math.random() * 3.5;
@@ -282,16 +291,20 @@ export class AudioManager {
     const wind = !cave;
     const now = this.ctx.currentTime;
 
+    // A real soundtrack takes the foreground; the ambient beds duck under it
+    // rather than competing with it.
+    const duck = this.music && this.music.current ? 0.4 : 1;
     const bed = this.sampleAmbient || this.ambient;
-    bed.forest.gain.setTargetAtTime(forest ? 0.16 : 0, now, 0.9);
-    bed.cave.gain.setTargetAtTime(cave ? 0.18 : 0, now, 0.9);
-    bed.wind.gain.setTargetAtTime(wind ? 0.08 : 0, now, 0.9);
+    bed.forest.gain.setTargetAtTime(forest ? 0.16 * duck : 0, now, 0.9);
+    bed.cave.gain.setTargetAtTime(cave ? 0.18 * duck : 0, now, 0.9);
+    bed.wind.gain.setTargetAtTime(wind ? 0.08 * duck : 0, now, 0.9);
     if (this.sampleAmbient) {
       this.ambient.forest.gain.setTargetAtTime(0, now, 0.9);
       this.ambient.cave.gain.setTargetAtTime(0, now, 0.9);
       this.ambient.wind.gain.setTargetAtTime(0, now, 0.9);
     }
 
+    if (this.music && this.music.current) return; // a track is playing; no motifs
     if (forest) {
       this._forestMotif();
       if (Math.random() < 0.6) this._noise(0.8, 0.018, 1200, { filterType: 'bandpass', endFilter: 500, smooth: 0.9 });
@@ -409,6 +422,13 @@ export class AudioManager {
     this._kick(0.12);
     this._noise(0.06, 0.08, 720, { endFilter: 260, smooth: 0.45 });
     this._pluck(180, 0.04, 0.025);
+  }
+
+  // Called from the menu, before a world exists, so the menu theme can start as
+  // soon as the browser allows audio at all.
+  playMenuMusic() {
+    if (!this.ctx) { this._pendingMusicContext = 'menu'; return; }
+    this.music.play('menu');
   }
 
   // A boss winding up: a rising tone that tells you something is coming.
