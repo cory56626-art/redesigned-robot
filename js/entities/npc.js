@@ -3,9 +3,9 @@
 // Vesper Thane keeps a camp on the spawn plain from the moment a world is
 // created. He wanders a short leash, faces whoever is nearest, and can be spoken
 // to for advice or to have an item explained (see ui/npcdialog.js).
-import { TILE } from '../config.js?v=realms-2';
+import { TILE, GRAVITY } from '../config.js?v=realms-2';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-2';
-import { Projectile } from './projectile.js?v=realms-3';
+import { Projectile } from './projectile.js?v=realms-4';
 
 const NPC_W = 12, NPC_H = 26;
 // How far the Guide will stray from his camp, in world pixels.
@@ -44,6 +44,22 @@ export class Npc {
     this.shootWindupMax = 0.38;
     this.shootAngle = 0;
     this._shootTarget = null;
+
+    // Keep enough space to react to melee enemies, but don't let the Guide
+    // flee forever because the danger and safe ranges are intentionally different.
+    this.dangerRange = 3.5 * TILE;
+    this.safeRange = 7 * TILE;
+    this.retreating = false;
+    this.arrowSpeed = 420;
+
+    // The Guide can be hurt and staggered, but is not permanently removable from
+    // the world. He recovers after a few seconds without taking damage.
+    this.alive = true;
+    this.maxHp = 60;
+    this.hp = this.maxHp;
+    this.iframes = 0;
+    this.hurtFlash = 0;
+    this.combatTimer = 0;
   }
 
   // Build the Guide for a world, restoring saved state when there is any.
@@ -75,17 +91,38 @@ export class Npc {
     this.bob += dt * 2.2;
     this.blink -= dt;
     if (this.blink <= -0.12) this.blink = 2.5 + Math.random() * 3.5;
+    if (this.iframes > 0) this.iframes -= dt;
+    if (this.hurtFlash > 0) this.hurtFlash -= dt;
+    if (this.combatTimer > 0) this.combatTimer -= dt;
+    else if (this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + 5 * dt);
 
-    const target = game.nearestPlayer(this.x + this.w / 2, this.y + this.h / 2);
+    const nc = this.center();
+    const target = game.nearestPlayer(nc.x, nc.y);
     const talking = game.ui && game.ui.npcDialog && game.ui.npcDialog.isOpen();
     const near = target && Math.abs(target.x - this.x) < TALK_RANGE * 1.6;
-    const enemyTarget = !talking
-      ? game.nearestReachableEnemyOrBoss(this.x + this.w / 2, this.y + this.h / 2, this.shootRange)
+
+    // Threat detection ignores line of sight on purpose: a melee enemy that is
+    // already inside the danger radius must make the Guide retreat immediately.
+    let threat = !talking ? game.nearestEnemyOrBoss(nc.x, nc.y, this.dangerRange) : null;
+    if (threat && threat.dead) threat = null;
+    if (threat) {
+      this.retreating = true;
+    } else if (this.retreating) {
+      const stillClose = game.nearestEnemyOrBoss(nc.x, nc.y, this.safeRange);
+      this.retreating = !!(stillClose && !stillClose.dead);
+      threat = this.retreating && stillClose && !stillClose.dead ? stillClose : null;
+    }
+
+    const candidateTarget = !talking && !this.retreating
+      ? game.nearestReachableEnemyOrBoss(nc.x, nc.y, this.shootRange)
       : null;
+    const enemyTarget = candidateTarget && !candidateTarget.dead ? candidateTarget : null;
 
-    this._updateCombat(dt, game, enemyTarget);
+    this._updateCombat(dt, game, enemyTarget, this.retreating);
 
-    if (talking || near) {
+    if (this.retreating && threat) {
+      this._retreatFrom(threat, game);
+    } else if (talking || near) {
       // Stop and turn to face whoever is close enough to talk.
       this.vx = 0;
       if (target) this.facing = target.x + target.w / 2 < this.x + this.w / 2 ? -1 : 1;
@@ -93,9 +130,7 @@ export class Npc {
       // Hold position while aiming so the bow visibly tracks its target.
       this.vx = 0;
       const aimTarget = enemyTarget || this._shootTarget;
-      if (aimTarget && !aimTarget.dead) {
-        this._aimAt(aimTarget);
-      }
+      if (aimTarget && !aimTarget.dead) this._aimAt(aimTarget);
     } else {
       this._wander(dt);
     }
@@ -114,8 +149,28 @@ export class Npc {
     }
   }
 
-  _updateCombat(dt, game, target) {
+  _retreatFrom(threat, game) {
+    const tc = threat.center ? threat.center() : { x: threat.x + threat.w / 2, y: threat.y + threat.h / 2 };
+    const nc = this.center();
+    let dir = Math.sign(nc.x - tc.x);
+    if (!dir) dir = this.facing || 1;
+    this.facing = dir;
+    this.vx = dir * 86;
+
+    // Try to hop a wall or one-tile obstruction instead of getting pinned
+    // beside the enemy.
+    const blockedAhead = game.world.rectHitsSolid(this.x + dir * 18, this.y, this.w, this.h);
+    if (this.onGround && blockedAhead) this.vy = -250;
+  }
+
+  _updateCombat(dt, game, target, retreating = false) {
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
+
+    if (retreating) {
+      this.shootWindup = 0;
+      this._shootTarget = null;
+      return;
+    }
 
     if (this.shootWindup > 0) {
       this.shootWindup -= dt;
@@ -136,15 +191,30 @@ export class Npc {
   }
 
   _aimAt(target) {
-    const tc = { x: target.x + target.w / 2, y: target.y + target.h / 2 };
+    const tc = target.center ? target.center() : { x: target.x + target.w / 2, y: target.y + target.h / 2 };
     const nc = this.center();
-    this.shootAngle = Math.atan2(tc.y - nc.y, tc.x - nc.x);
-    this.facing = Math.cos(this.shootAngle) < 0 ? -1 : 1;
+    const gravity = GRAVITY * 0.5; // Projectile applies half gravity to arrows.
+    const vx = target.vx || 0, vy = target.vy || 0;
+    let t = Math.max(0.08, Math.hypot(tc.x - nc.x, tc.y - nc.y) / this.arrowSpeed);
+    let predictedX = tc.x, predictedY = tc.y;
+
+    // Iterate the intercept time and compensate for arrow drop. This makes the
+    // visible bow angle match the actual trajectory instead of aiming under it.
+    for (let i = 0; i < 3; i++) {
+      predictedX = tc.x + vx * t;
+      predictedY = tc.y + vy * t;
+      t = Math.max(0.08, Math.hypot(predictedX - nc.x, predictedY - nc.y) / this.arrowSpeed);
+    }
+
+    const horizontal = predictedX - nc.x;
+    const initialVertical = (predictedY - nc.y - 0.5 * gravity * t * t) / t;
+    this.shootAngle = Math.atan2(initialVertical, horizontal);
+    this.facing = horizontal < 0 ? -1 : 1;
   }
 
   _fireArrow(game, target) {
     const nc = this.center();
-    const speed = 330;
+    const speed = this.arrowSpeed;
     const x = nc.x + Math.cos(this.shootAngle) * 9 - 3;
     const y = nc.y + Math.sin(this.shootAngle) * 9 - 3;
     game.addProjectile(new Projectile({
@@ -184,6 +254,20 @@ export class Npc {
       this._pause += dt * 2;
       if (this._pause >= 0) { this._dir = 0; this._pause = 1.5 + Math.random() * 3; }
     }
+  }
+
+  takeDamage(amount, knockbackX, game, srcName) {
+    if (!this.alive || this.iframes > 0) return;
+    const dmg = Math.max(1, Math.round(amount));
+    this.hp = Math.max(1, this.hp - dmg);
+    this.iframes = 0.45;
+    this.hurtFlash = 0.16;
+    this.combatTimer = 4;
+    this.vx = knockbackX || 0;
+    this.vy = -120;
+    game?.audio?.playerHurt?.();
+    game?.addHitParticles(this.x + this.w / 2, this.y + this.h / 2, '#ff6b7d', 6);
+    game?.floatText(this.x + this.w / 2, this.y, '-' + dmg, '#ff6b7d');
   }
 
   canTalkTo(player) {
