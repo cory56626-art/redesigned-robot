@@ -3,9 +3,9 @@
 // Vesper Thane keeps a camp on the spawn plain from the moment a world is
 // created. He wanders a short leash, faces whoever is nearest, and can be spoken
 // to for advice or to have an item explained (see ui/npcdialog.js).
-import { TILE, GRAVITY } from '../config.js?v=realms-2';
+import { TILE } from '../config.js?v=realms-2';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-2';
-import { Projectile } from './projectile.js?v=realms-4';
+import { Projectile } from './projectile.js?v=realms-5';
 
 const NPC_W = 12, NPC_H = 26;
 // How far the Guide will stray from his camp, in world pixels.
@@ -193,23 +193,12 @@ export class Npc {
   _aimAt(target) {
     const tc = target.center ? target.center() : { x: target.x + target.w / 2, y: target.y + target.h / 2 };
     const nc = this.center();
-    const gravity = GRAVITY * 0.5; // Projectile applies half gravity to arrows.
-    const vx = target.vx || 0, vy = target.vy || 0;
-    let t = Math.max(0.08, Math.hypot(tc.x - nc.x, tc.y - nc.y) / this.arrowSpeed);
-    let predictedX = tc.x, predictedY = tc.y;
 
-    // Iterate the intercept time and compensate for arrow drop. This makes the
-    // visible bow angle match the actual trajectory instead of aiming under it.
-    for (let i = 0; i < 3; i++) {
-      predictedX = tc.x + vx * t;
-      predictedY = tc.y + vy * t;
-      t = Math.max(0.08, Math.hypot(predictedX - nc.x, predictedY - nc.y) / this.arrowSpeed);
-    }
-
-    const horizontal = predictedX - nc.x;
-    const initialVertical = (predictedY - nc.y - 0.5 * gravity * t * t) / t;
-    this.shootAngle = Math.atan2(initialVertical, horizontal);
-    this.facing = horizontal < 0 ? -1 : 1;
+    // Keep the bow, muzzle, and arrow flight on one simple line. The Guide's
+    // training bow is intentionally forgiving: no drop compensation or wild
+    // prediction that could make the visible aim point away from the enemy.
+    this.shootAngle = Math.atan2(tc.y - nc.y, tc.x - nc.x);
+    this.facing = tc.x < nc.x ? -1 : 1;
   }
 
   _fireArrow(game, target) {
@@ -226,7 +215,7 @@ export class Npc {
       ownerId: this.key,
       kind: 'arrow',
       color: '#e9e2c8',
-      gravity: true,
+      gravity: false,
       knockback: 1,
       life: 2.5,
     }), true);
