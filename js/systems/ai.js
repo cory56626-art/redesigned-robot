@@ -41,7 +41,19 @@ export function perceive(e, game, dt, opts = {}) {
   const memory = opts.memory || 4;
 
   const cx = e.x + e.w / 2, cy = e.y + e.h / 2;
-  const p = game.nearestPlayer(cx, cy);
+  // Enemies can aggro either a player or the Guide. Pick the nearest living
+  // target so a hostile that reaches the Guide actually turns on him.
+  const candidates = [];
+  for (const p of game.players.values()) if (p.alive) candidates.push(p);
+  if (game.npc && game.npc.alive !== false) candidates.push(game.npc);
+
+  let p = null, nearest = Infinity;
+  for (const candidate of candidates) {
+    const cc = candidate.center ? candidate.center() : { x: candidate.x + candidate.w / 2, y: candidate.y + candidate.h / 2 };
+    const d2 = (cc.x - cx) * (cc.x - cx) + (cc.y - cy) * (cc.y - cy);
+    if (d2 < nearest) { nearest = d2; p = candidate; }
+  }
+
   e.target = p || null;
   if (!p) { e.aware = false; e.lastSeen = null; return null; }
 
