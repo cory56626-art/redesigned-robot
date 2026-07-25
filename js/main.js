@@ -2,7 +2,7 @@
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty,
-} from './config.js?v=realms-difficulty-20';
+} from './config.js?v=realms-difficulty-21';
 import { hashString, mulberry32, dist2, uid } from './utils.js?v=realms-2';
 import { World } from './world/world.js?v=realms-2';
 import { T } from './world/tiles.js?v=realms-2';
@@ -20,9 +20,9 @@ import * as craftSys from './systems/crafting.js?v=realms-diamond-1';
 import { applyPotion } from './systems/combat.js?v=realms-diamond-1';
 import { smartTarget } from './systems/smartcursor.js?v=realms-2';
 import { Player, assignColor } from './entities/player.js?v=realms-diamond-1';
-import { Enemy } from './entities/enemy.js?v=realms-diamond-1';
-import { Boss } from './entities/boss.js?v=realms-difficulty-20';
-import { Minion } from './entities/minion.js?v=realms-diamond-19';
+import { Enemy } from './entities/enemy.js?v=realms-difficulty-21';
+import { Boss } from './entities/boss.js?v=realms-difficulty-21';
+import { Minion } from './entities/minion.js?v=realms-difficulty-21';
 import { Npc } from './entities/npc.js?v=realms-diamond-1';
 import { Projectile } from './entities/projectile.js?v=realms-diamond-3';
 import { DropItem } from './entities/droppeditem.js?v=realms-2';
@@ -32,14 +32,14 @@ import { ENEMIES } from './data/enemies.js?v=realms-2';
 import { BOSSES } from './data/bosses.js?v=realms-2';
 import { item as getItem } from './data/items.js?v=realms-diamond-1';
 import { HUD } from './ui/hud.js?v=realms-diamond-1';
-import { Menus } from './ui/menus.js?v=realms-difficulty-20';
+import { Menus } from './ui/menus.js?v=realms-difficulty-21';
 import { NpcDialog } from './ui/npcdialog.js?v=realms-2';
 import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=realms-2';
-import { SaveManager, setSaveIndicator } from './save.js?v=realms-difficulty-20';
+import { SaveManager, setSaveIndicator } from './save.js?v=realms-difficulty-21';
 import { CommandConsole } from './commands.js?v=realms-diamond-1';
 import { Net } from './net/net.js?v=realms-2';
 import { MSG } from './net/protocol.js?v=realms-2';
-import * as sync from './net/sync.js?v=realms-difficulty-20';
+import * as sync from './net/sync.js?v=realms-difficulty-21';
 
 class Game {
   constructor() {
@@ -848,7 +848,7 @@ class Game {
   spawnEnemy(key, x, y) {
     if (!this.isHost) return null;
     if (this.enemies.length > 60) return null;
-    const e = new Enemy(key, x, y, this.nextNetId());
+    const e = new Enemy(key, x, y, this.nextNetId(), this.difficulty);
     this.enemies.push(e); this.enemyById.set(e.netId, e);
     return e;
   }
