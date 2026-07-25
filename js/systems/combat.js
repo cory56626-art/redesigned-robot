@@ -3,6 +3,7 @@ import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN,
 import { T, tileDef, isTree, isLeaf } from '../world/tiles.js';
 import { item as getItem } from '../data/items.js';
 import { Projectile } from '../entities/projectile.js';
+import { ThrownItem } from '../entities/thrown.js';
 import { angleTo, aabb, clamp } from '../utils.js';
 
 const MINE_RATE = 95;
@@ -80,6 +81,7 @@ export function useWeapon(game, player, item) {
       }
     }
     game.spawnSwingFx(player, aimAng, item);
+    if (item.fx && item.fx.swing) swingFx(game, player, item, aimAng, dmg, crit);
     return;
   }
 
@@ -101,6 +103,7 @@ export function useWeapon(game, player, item) {
     const dmg = item.damage * (player.stats ? player.stats.rangedMul : 1) * (crit ? 2 : 1);
     _fireProjectiles(game, player, item, rawAng, dmg, crit, 'ranged');
     if (item.rangedKind === 'bow') game.audio?.bowShot();
+    if (item.fx && item.fx.shot) shotFx(game, player, item, rawAng);
     return;
   }
 
@@ -119,6 +122,7 @@ export function useWeapon(game, player, item) {
     _fireProjectiles(game, player, item, rawAng, dmg, crit, 'mage');
     game.audio?.magicCast();
     game.spawnCastFx && game.spawnCastFx(player, rawAng, item);
+    if (item.fx && item.fx.cast) castFx(game, player, item, rawAng);
     return;
   }
 
@@ -137,6 +141,127 @@ export function useWeapon(game, player, item) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Weapon effects
+//
+// Only weapons that declare an `fx` in data/items.js get one — most weapons are
+// deliberately plain, so the ones that do flash, burn or throw an arc feel like
+// an upgrade rather than more of the same noise.
+// ---------------------------------------------------------------------------
+
+function swingFx(game, player, item, angle, dmg, crit) {
+  const pc = player.center();
+  const reach = item.reach || 30;
+  const tipX = pc.x + Math.cos(angle) * reach;
+  const tipY = pc.y + Math.sin(angle) * reach;
+
+  switch (item.fx.swing) {
+    case 'flame': {
+      // Embers thrown along the whole arc, drifting up as they die.
+      for (let i = 0; i < 14; i++) {
+        const a = angle + (Math.random() - 0.5) * (item.arc || 1.6);
+        const r = reach * (0.4 + Math.random() * 0.7);
+        game.fx.push({
+          x: pc.x + Math.cos(a) * r, y: pc.y + Math.sin(a) * r,
+          vx: Math.cos(a) * 40, vy: Math.sin(a) * 40 - 50,
+          life: 0.42, max: 0.42, size: 2.5,
+          color: Math.random() < 0.5 ? '#ff8c3b' : '#ffcf6b',
+          gravity: -60, drag: 2, glow: true, shrink: true,
+        });
+      }
+      game.fx.smoke(tipX, tipY, '#6b5348', 3, { jitter: 8 });
+      player.swing.color = 'rgba(255,150,70,0.85)';
+      break;
+    }
+    case 'gleam': {
+      game.fx.streak(tipX, tipY, angle, '#fff2c0', 6, { speed: 200, spread: 0.7, life: 0.2, size: 2 });
+      game.fx.ring(pc.x, pc.y, 'rgba(255,232,160,0.7)', reach + 6, { life: 0.18, width: 2 });
+      player.swing.color = 'rgba(255,240,180,0.9)';
+      break;
+    }
+    case 'arcwave': {
+      // The greatblade projects its arc: a real damaging crescent, which is what
+      // makes the top-tier melee weapon feel like an endgame item.
+      const speed = 320;
+      game.addProjectile(new Projectile({
+        x: pc.x, y: pc.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        damage: dmg * 0.6, ownerType: 'player', ownerId: player.id,
+        kind: 'arcwave', color: '#bfe9ff', w: 18, h: 18,
+        pierce: 3, life: 0.8, crit, trail: '#8ad9ff',
+      }), true);
+      game.fx.streak(tipX, tipY, angle, '#bfe9ff', 8, { speed: 240, spread: 0.6, life: 0.22, size: 3 });
+      player.swing.color = 'rgba(180,230,255,0.95)';
+      break;
+    }
+  }
+}
+
+function castFx(game, player, item, angle) {
+  const pc = player.center();
+  const hx = pc.x + Math.cos(angle) * 14, hy = pc.y + Math.sin(angle) * 14;
+  switch (item.fx.cast) {
+    case 'lightning': {
+      // A branching bolt drawn ahead of the shot, plus a white flash.
+      game.fx.ring(hx, hy, 'rgba(255,255,220,0.85)', 26, { life: 0.12, width: 3 });
+      let bx = hx, by = hy, a = angle;
+      for (let i = 0; i < 7; i++) {
+        a += (Math.random() - 0.5) * 0.7;
+        bx += Math.cos(a) * 16; by += Math.sin(a) * 16;
+        game.fx.push({
+          x: bx, y: by, vx: 0, vy: 0, life: 0.12, max: 0.12,
+          size: 3, color: '#fff6b0', gravity: 0, glow: true, shrink: true,
+        });
+      }
+      game.fx.shake(1.5, 0.12);
+      break;
+    }
+    case 'void': {
+      // Light pulled inward rather than thrown outward.
+      for (let i = 0; i < 12; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = 20 + Math.random() * 16;
+        game.fx.push({
+          x: hx + Math.cos(a) * r, y: hy + Math.sin(a) * r,
+          vx: -Math.cos(a) * 90, vy: -Math.sin(a) * 90,
+          life: 0.3, max: 0.3, size: 2.5, color: '#b06bff',
+          gravity: 0, drag: 0.5, glow: true, shrink: true,
+        });
+      }
+      game.fx.ring(hx, hy, '#6a2f9a', 30, { life: 0.22, width: 2 });
+      break;
+    }
+    case 'prism': {
+      const cols = ['#ff8fb0', '#ffd58a', '#9ce8a0', '#8ad9ff', '#c58bff'];
+      for (let i = 0; i < 12; i++) {
+        game.fx.streak(hx, hy, angle, cols[i % cols.length], 1, { speed: 170, spread: 1.1, life: 0.3, size: 2 });
+      }
+      break;
+    }
+    case 'frost': {
+      game.fx.streak(hx, hy, angle, '#e6f6ff', 8, { speed: 90, spread: 1.4, life: 0.45, size: 2, gravity: 40 });
+      game.fx.ring(hx, hy, 'rgba(190,235,255,0.6)', 22, { life: 0.2, width: 2 });
+      break;
+    }
+  }
+}
+
+function shotFx(game, player, item, angle) {
+  const pc = player.center();
+  const mx = pc.x + Math.cos(angle) * 15, my = pc.y + Math.sin(angle) * 15;
+  switch (item.fx.shot) {
+    case 'muzzle':
+      game.fx.muzzle(mx, my, angle, item.projColor || '#ffcf6b');
+      // Guns kick.
+      player.vx -= Math.cos(angle) * 26;
+      game.fx.shake(1.2, 0.1);
+      break;
+    case 'storm':
+      game.fx.streak(mx, my, angle, '#bfe9ff', 8, { speed: 260, spread: 0.4, life: 0.2, size: 2 });
+      game.fx.ring(mx, my, 'rgba(140,220,255,0.6)', 18, { life: 0.14, width: 2 });
+      break;
+  }
+}
+
 function _fireProjectiles(game, player, item, aimAng, dmg, crit, cls) {
   const pc = player.center();
   const count = item.multishot || 1;
@@ -149,9 +274,38 @@ function _fireProjectiles(game, player, item, aimAng, dmg, crit, cls) {
       damage: dmg, ownerType: cls === 'ranged' ? 'player' : 'player', ownerId: player.id,
       kind: item.rangedKind || item.mageKind || 'spark', color: item.projColor || item.color,
       pierce: item.pierce || 0, gravity: !!item.gravity, effect: item.effect || null,
-      knockback: item.knockback || 3, crit, life: 3,
+      knockback: item.knockback || 3, crit, life: 3, trail: item.trail || null,
     }), true);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Throwables
+// ---------------------------------------------------------------------------
+
+// Launch the selected throwable along the aim direction. Gravity does the rest,
+// which is what gives the arc — no special-case trajectory code needed.
+export function throwItem(game, player, item) {
+  if (!item || item.category !== 'throwable') return false;
+  if (player.useTimer > 0) return false;
+  if (!player.inventory.remove(item.id, 1)) return false;
+
+  const s = game.input.state;
+  const pc = player.center();
+  const ang = angleTo(pc.x, pc.y, s.aimX, s.aimY);
+  player.facing = Math.cos(ang) < 0 ? -1 : 1;
+  player.useTimer = item.useTime || 0.32;
+
+  const speed = item.throwSpeed || 420;
+  // A slight upward bias so a flat throw still arcs rather than nosediving.
+  const vx = Math.cos(ang) * speed + player.vx * 0.35;
+  const vy = Math.sin(ang) * speed - 60;
+
+  const t = new ThrownItem(item, pc.x - 4, pc.y - 4, vx, vy, player.id);
+  game.addThrown(t, true);
+  game.audio?.throwItem?.();
+  game.fx.streak(pc.x, pc.y, ang, item.color, 3, { speed: 60, life: 0.15, size: 2, glow: false });
+  return true;
 }
 
 function bestAnyToolPower(player) {

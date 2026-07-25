@@ -24,6 +24,7 @@ export class Projectile {
     this.dead = false;
     this.hitSet = new Set();
     this.crit = !!opts.crit;
+    this.trail = opts.trail || null; // colour of the trailing streak, if any
     this.rot = Math.atan2(this.vy, this.vx);
   }
 
@@ -35,19 +36,36 @@ export class Projectile {
 
     if (this.homing) this._homeIn(dt, game);
 
-    this.x += this.vx * dt;
-    this.y += this.vy * dt;
+    // Swept movement. Testing only the end point once per step let fast
+    // projectiles (the rifle is ~15 px/frame) pass straight through one-tile
+    // walls; stepping in sub-tile increments makes that impossible.
+    const dist = Math.hypot(this.vx, this.vy) * dt;
+    const steps = Math.max(1, Math.ceil(dist / (TILE * 0.5)));
+    const sdt = dt / steps;
+    for (let i = 0; i < steps; i++) {
+      this.x += this.vx * sdt;
+      this.y += this.vy * sdt;
+      const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
+      if (game.world.isSolidAt(Math.floor(cx / TILE), Math.floor(cy / TILE))) {
+        this.dead = true;
+        game.addHitParticles(cx, cy, this.color, 4);
+        return;
+      }
+    }
     this.rot = Math.atan2(this.vy, this.vx);
 
-    // Tile collision.
-    const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
-    if (game.world.isSolidAt(Math.floor(cx / TILE), Math.floor(cy / TILE))) {
-      this.dead = true;
-      game.addHitParticles(cx, cy, this.color, 4);
-      return;
+    // A trailing streak for the weapons that declare one.
+    if (this.trail) {
+      this._trailT = (this._trailT || 0) - dt;
+      if (this._trailT <= 0) {
+        this._trailT = 0.02;
+        game.fx.trail(this.x + this.w / 2, this.y + this.h / 2, this.trail, { size: 2, life: 0.2 });
+      }
     }
+
     // Out of world.
-    if (cx < 0 || cx > game.world.width * TILE || cy > game.world.height * TILE) { this.dead = true; return; }
+    const cx2 = this.x + this.w / 2, cy2 = this.y + this.h / 2;
+    if (cx2 < 0 || cx2 > game.world.width * TILE || cy2 > game.world.height * TILE) { this.dead = true; return; }
 
     if (this.visualOnly) return;
 

@@ -416,10 +416,24 @@ export class Menus {
       if (e.buff) stat('Effect', e.buff.type + ' for ' + e.buff.duration + 's', 'tt-good');
     } else if (def.category === 'ammo') {
       stat('Type', 'Ammunition');
+    } else if (def.category === 'throwable') {
+      stat('Type', 'Thrown');
+      if (def.contactDamage) stat('Impact damage', def.contactDamage);
+      if (def.blastDamage) stat('Blast damage', def.blastDamage, 'tt-good');
+      if (def.blastRadius) stat('Blast radius', def.blastRadius + ' tiles');
+      if (def.fuse) stat('Fuse', def.fuse + 's');
+      if (def.explodeOnImpact) stat('Detonates', 'on impact');
+      if (def.sticky) stat('Sticks', 'to terrain', 'tt-good');
+      if (def.breaksBlocks) stat('Breaks blocks', 'Yes', 'tt-good');
+      else if (def.explode) stat('Breaks blocks', 'No');
+      if (def.pierce) stat('Pierce', def.pierce);
+      if (def.recoverChance) stat('Recoverable', Math.round(def.recoverChance * 100) + '%');
+      if (def.effect) stat('Effect', Object.keys(def.effect).join(', '), 'tt-good');
     }
 
     const tag = def.category === 'weapon' ? (CLASS_LABEL[def.weaponClass] + ' weapon')
       : def.category === 'summonitem' ? 'Boss summon'
+      : def.category === 'throwable' ? 'Throwable'
       : def.category.charAt(0).toUpperCase() + def.category.slice(1);
     return `<div class="tt-name" style="color:${rar.color}">${def.name}</div>`
       + `<div class="tt-tag" style="color:${rar.color}">${rar.name} · ${tag}</div>`

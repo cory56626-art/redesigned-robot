@@ -67,8 +67,9 @@ export class Renderer {
     this._drawProjectiles(game, ctx);
     this._drawPlayers(game, ctx);
     this._drawAimHighlight(game, ctx);
-    this._drawParticles(game, ctx);
-    this._drawRings(game, ctx);
+    // Ordinary particles sit under the lighting; glowing ones are drawn after it
+    // (see below) because they are light, and shouldn't be dimmed by darkness.
+    this._drawParticles(game, ctx, false);
     const dbg = game.debug;
     if (dbg && (dbg.collision || dbg.ai || dbg.spawn || dbg.caves || dbg.walls)) {
       this._drawDebugWorld(game, ctx, tx0, ty0, tx1, ty1);
@@ -79,6 +80,14 @@ export class Renderer {
     // Lighting overlay (screen-space, smooth). Skipped for the collision/cave
     // debug views so the outlines stay readable.
     if (!(dbg && (dbg.collision || dbg.caves))) this._drawLighting(game, tx0, ty0, tx1, ty1, W2, H, camX, camY);
+
+    // Emissive pass, over the darkness: sparks, embers, explosions, shockwaves.
+    ctx.save();
+    ctx.translate(W2 / 2 - camX * cam.scale, H / 2 - camY * cam.scale);
+    ctx.scale(cam.scale, cam.scale);
+    this._drawParticles(game, ctx, true);
+    this._drawRings(game, ctx);
+    ctx.restore();
 
     // Float texts (screen space via camera projection).
     this._drawFloatTexts(game, W2, H);
@@ -849,14 +858,13 @@ export class Renderer {
     ctx.fillStyle = color; ctx.fillRect(x, y + 0.5, w * Math.max(0, ratio), 2);
   }
 
-  _drawParticles(game, ctx) {
-    let additive = false;
+  // `emissive` selects which half of the particle list to draw: the dull ones
+  // (dust, debris, smoke) below the lighting overlay, the glowing ones above it.
+  _drawParticles(game, ctx, emissive) {
+    if (emissive) ctx.globalCompositeOperation = 'lighter';
     for (const pt of game.particles) {
+      if (!!pt.glow !== !!emissive) continue;
       const k = Math.max(0, pt.life / pt.max);
-      if (!!pt.glow !== additive) {
-        additive = !!pt.glow;
-        ctx.globalCompositeOperation = additive ? 'lighter' : 'source-over';
-      }
       ctx.globalAlpha = k;
       ctx.fillStyle = pt.color;
       const s = pt.shrink === false ? pt.size : pt.size * (0.35 + k * 0.65);
@@ -909,6 +917,12 @@ export class Renderer {
       for (const t of game.thrown) {
         if (!t.light) continue;
         extra.push({ tx: Math.floor(t.x / TILE), ty: Math.floor(t.y / TILE), level: t.light });
+      }
+    }
+    // Explosion flashes, fading out over their life.
+    if (game.flashes) {
+      for (const f of game.flashes) {
+        extra.push({ tx: Math.floor(f.x / TILE), ty: Math.floor(f.y / TILE), level: f.level * (f.life / f.max) });
       }
     }
     const buf = game.world.computeLightWindow(tx0, ty0, cols, rows, game.time.brightness, extra);

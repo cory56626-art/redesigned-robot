@@ -216,6 +216,9 @@ export class Player {
         if (input.primaryPressed) combat.consumeSelected(game, this);
       } else if (sel.category === 'weapon') {
         if (this.useTimer <= 0) combat.useWeapon(game, this, sel);
+      } else if (sel.category === 'throwable') {
+        // One throw per press: holding the button should not empty the stack.
+        if (input.primaryPressed) combat.throwItem(game, this, sel);
       } else if (sel.category === 'summonitem') {
         if (input.primaryPressed) combat.useSummonItem(game, this, sel);
       }

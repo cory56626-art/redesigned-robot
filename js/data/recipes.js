@@ -28,6 +28,16 @@ export const RECIPES = [
   { out: { item: 'healLesser', count: 2 }, in: [{ item: 'fiber', count: 3 }, { item: 'clay', count: 1 }], station: 'bench' },
   { out: { item: 'verdantEffigy', count: 1 }, in: [{ item: 'wood', count: 12 }, { item: 'fiber', count: 8 }, { item: 'clay', count: 2 }], station: 'bench' },
 
+  // --- Throwables ---
+  // Deliberately cheap and craftable early: bombs are a mining tool as much as a
+  // weapon, and running out of them shouldn't be a wall.
+  { out: { item: 'shuriken', count: 8 }, in: [{ item: 'stone', count: 4 }, { item: 'stick', count: 1 }], station: 'bench' },
+  { out: { item: 'bomb', count: 3 }, in: [{ item: 'clay', count: 2 }, { item: 'emberDust', count: 1 }, { item: 'fiber', count: 2 }], station: 'bench' },
+  { out: { item: 'fireFlask', count: 3 }, in: [{ item: 'clay', count: 2 }, { item: 'emberDust', count: 2 }], station: 'bench' },
+  { out: { item: 'throwingKnife', count: 6 }, in: [{ item: 'cupriteBar', count: 2 }, { item: 'wood', count: 1 }], station: 'forge' },
+  { out: { item: 'dynamite', count: 3 }, in: [{ item: 'bomb', count: 3 }, { item: 'emberDust', count: 3 }, { item: 'ironveinBar', count: 1 }], station: 'forge' },
+  { out: { item: 'stickyBomb', count: 3 }, in: [{ item: 'bomb', count: 3 }, { item: 'fiber', count: 6 }, { item: 'sapling', count: 2 }], station: 'forge' },
+
   // --- Smeltery: ore -> bars ---
   { out: { item: 'cupriteBar', count: 1 }, in: [{ item: 'cupriteOre', count: 3 }], station: 'smeltery' },
   { out: { item: 'ironveinBar', count: 1 }, in: [{ item: 'ironveinOre', count: 4 }], station: 'smeltery' },

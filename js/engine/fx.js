@@ -159,10 +159,19 @@ export class Fx {
     if (this.game.rings.length > 40) this.game.rings.shift();
   }
 
+  // A short-lived light source fed into the world light map, so a blast actually
+  // illuminates the cave it just carved instead of glowing behind the darkness.
+  flash(x, y, level = 0.9, life = 0.35) {
+    if (!this.game.flashes) this.game.flashes = [];
+    this.game.flashes.push({ x, y, level, life, max: life });
+    if (this.game.flashes.length > 12) this.game.flashes.shift();
+  }
+
   // The full explosion package: flash, fireball, sparks, smoke, shockwave, shake.
   explosion(x, y, radiusPx, opts = {}) {
     const hot = opts.hot || ['#fff2c0', '#ffcf6b', '#ff8c3b'];
     const scale = radiusPx / 48;
+    this.flash(x, y, 1, 0.45);
     this.ring(x, y, opts.ringColor || '#ffd08a', radiusPx, { life: 0.32, width: 3 });
     this.ring(x, y, 'rgba(255,255,255,0.5)', radiusPx * 0.55, { life: 0.16, width: 6 });
     this.burst(x, y, hot, Math.round(26 * scale), {
@@ -195,6 +204,10 @@ export class Fx {
     if (g.rings && g.rings.length) {
       for (const r of g.rings) r.life -= dt;
       g.rings = g.rings.filter(r => r.life > 0);
+    }
+    if (g.flashes && g.flashes.length) {
+      for (const f of g.flashes) f.life -= dt;
+      g.flashes = g.flashes.filter(f => f.life > 0);
     }
     this.update(dt);
   }

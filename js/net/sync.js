@@ -3,6 +3,8 @@ import { MSG } from './protocol.js';
 import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js';
 import { Player, assignColor } from '../entities/player.js';
 import { Projectile } from '../entities/projectile.js';
+import { ThrownItem } from '../entities/thrown.js';
+import { ITEMS } from '../data/items.js';
 import { ENEMIES } from '../data/enemies.js';
 import { BOSSES } from '../data/bosses.js';
 
@@ -255,6 +257,17 @@ export function handleMessage(game, fromId, msg, conn) {
       if (!net.isHost) break;
       const d = game.dropById.get(msg.netId);
       if (d) { game.grantDropTo(fromId, d); }
+      break;
+    }
+    case MSG.THROW: {
+      // A peer threw something: mirror it locally so everyone sees the arc and
+      // the blast. Tile destruction still only happens on the host.
+      const def = ITEMS[msg.id];
+      if (def) {
+        const t = new ThrownItem(def, msg.x, msg.y, msg.vx, msg.vy, fromId);
+        game.thrown.push(t);
+      }
+      if (net.isHost) net.broadcast(msg, fromId);
       break;
     }
     case MSG.PROJFX: {

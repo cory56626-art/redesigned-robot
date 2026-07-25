@@ -159,6 +159,12 @@ export class HUD {
       this.el.ammo.innerHTML = n > 0
         ? `${ammoName}: <span class="ammo-ok">${n}</span>`
         : `Out of ${ammoName}!`;
+    } else if (sel && sel.category === 'throwable') {
+      // Throwables consume themselves, so the count that matters is the stack.
+      const n = p.inventory.count(sel.id);
+      this.el.ammo.classList.remove('hidden');
+      this.el.ammo.classList.toggle('empty', n <= 0);
+      this.el.ammo.innerHTML = `${sel.name}: <span class="ammo-ok">${n}</span> left`;
     } else {
       this.el.ammo.classList.add('hidden');
     }

@@ -1,7 +1,7 @@
 // Summoner Realms — game orchestrator, main loop, and all cross-system glue.
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
-  HOTBAR_SIZE, MAX_PROJECTILES,
+  HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN,
 } from './config.js';
 import { hashString, mulberry32, dist2, uid } from './utils.js';
 import { World } from './world/world.js';
@@ -26,6 +26,7 @@ import { Npc } from './entities/npc.js';
 import { Projectile } from './entities/projectile.js';
 import { DropItem } from './entities/droppeditem.js';
 import { FallingTree } from './entities/fallingtree.js';
+import { ThrownItem } from './entities/thrown.js';
 import { ENEMIES } from './data/enemies.js';
 import { BOSSES } from './data/bosses.js';
 import { item as getItem } from './data/items.js';
@@ -70,6 +71,7 @@ class Game {
     this.dropById = new Map();
     this.particles = [];
     this.rings = [];         // expanding shockwave / telegraph rings
+    this.flashes = [];       // transient light sources (explosions)
     this.floatTexts = [];
     this.fallingTrees = [];  // cosmetic tree-topple animations
     this.thrown = [];        // bombs, dynamite, shurikens in flight
@@ -276,7 +278,7 @@ class Game {
   _resetEntities() {
     this.players.clear(); this.enemies = []; this.enemyById.clear(); this.minions = [];
     this.bosses = []; this.projectiles = []; this.drops = []; this.dropById.clear();
-    this.particles = []; this.rings = []; this.floatTexts = []; this.fallingTrees = []; this.thrown = [];
+    this.particles = []; this.rings = []; this.flashes = []; this.floatTexts = []; this.fallingTrees = []; this.thrown = [];
     this.npc = null;
   }
 
@@ -362,7 +364,7 @@ class Game {
     this.progression = new Progression();
     this.progression.deserialize(progression);
     this.enemies = []; this.enemyById.clear(); this.minions = []; this.bosses = [];
-    this.projectiles = []; this.drops = []; this.dropById.clear(); this.particles = []; this.rings = []; this.floatTexts = [];
+    this.projectiles = []; this.drops = []; this.dropById.clear(); this.particles = []; this.rings = []; this.flashes = []; this.floatTexts = [];
     this.fallingTrees = []; this.thrown = [];
     // keep players map empty except local (added here)
     this.players.clear();
@@ -551,6 +553,7 @@ class Game {
     this.thrown = [];
     this.particles = [];
     this.rings = [];
+    this.flashes = [];
     this.floatTexts = [];
     const p = this.localPlayer;
     if (p) { p.iframes = Math.max(p.iframes, 1.5); p.kbTimer = 0; p.combatTimer = 0; p.hazardTimer = 0; }
@@ -562,6 +565,16 @@ class Game {
     this.projectiles.push(proj);
     if (broadcast && this.net && this.net.status === 'connected') {
       this.net.relay({ t: MSG.PROJFX, x: Math.round(proj.x), y: Math.round(proj.y), vx: Math.round(proj.vx), vy: Math.round(proj.vy), kind: proj.kind, color: proj.color, gravity: proj.gravity, life: proj.life });
+    }
+  }
+
+  // Thrown items are simulated by whoever threw them and mirrored to everyone
+  // else, the same way projectiles are. Explosion tile edits stay host-owned.
+  addThrown(t, broadcast) {
+    if (this.thrown.length > MAX_THROWN) this.thrown.shift();
+    this.thrown.push(t);
+    if (broadcast && this.net && this.net.status === 'connected') {
+      this.net.relay(Object.assign({ t: MSG.THROW }, t.netState()));
     }
   }
 

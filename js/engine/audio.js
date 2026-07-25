@@ -385,6 +385,45 @@ export class AudioManager {
     this._pluck(180, 0.04, 0.025);
   }
 
+  // A boss winding up: a rising tone that tells you something is coming.
+  bossTelegraph() {
+    if (!this._throttle('bossTel', 250)) return;
+    this._osc(140, 0.5, { endFreq: 320, volume: 0.06, type: 'sawtooth', attack: 0.08, release: 0.2 });
+    this._osc(210, 0.42, { endFreq: 470, volume: 0.03, type: 'triangle', delay: 0.05, attack: 0.06 });
+  }
+
+  bossAttack(type) {
+    if (!this._throttle('bossAtk', 90)) return;
+    if (type === 'shockwave' || type === 'leap' || type === 'burrow') {
+      this._kick(0.2);
+      this._noise(0.22, 0.1, 700, { endFilter: 180, smooth: 0.5 });
+    } else {
+      this._osc(300, 0.24, { endFreq: 140, volume: 0.08, type: 'sawtooth' });
+      this._noise(0.14, 0.05, 1600, { filterType: 'bandpass', endFilter: 500, smooth: 0.5 });
+    }
+  }
+
+  throwItem() {
+    if (!this._throttle('throw', 90)) return;
+    this._noise(0.12, 0.05, 2200, { filterType: 'bandpass', endFilter: 700, smooth: 0.3 });
+    this._osc(420, 0.14, { endFreq: 240, volume: 0.045, type: 'triangle' });
+  }
+
+  thrownBounce() {
+    if (!this._throttle('bounce', 70)) return;
+    this._osc(220, 0.07, { endFreq: 150, volume: 0.04, type: 'square', attack: 0.002 });
+    this._noise(0.04, 0.03, 1500, { endFilter: 500, smooth: 0.4 });
+  }
+
+  // A blast: low body, mid crack, long debris tail.
+  explosion() {
+    if (!this._throttle('boom', 60)) return;
+    this._osc(90, 0.55, { endFreq: 28, volume: 0.24, type: 'sine', attack: 0.003, release: 0.25 });
+    this._osc(170, 0.3, { endFreq: 50, volume: 0.14, type: 'sawtooth', attack: 0.002 });
+    this._noise(0.42, 0.2, 2600, { endFilter: 160, smooth: 0.32 });
+    this._noise(0.7, 0.06, 900, { endFilter: 120, smooth: 0.7, delay: 0.12 });
+  }
+
   blockBreak() {
     if (!this._throttle('break', 55)) return;
     if (this._sample('break', 0.72, 0, 0.95 + Math.random() * 0.1)) return;

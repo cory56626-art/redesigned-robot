@@ -31,9 +31,9 @@ melee('bonefangDagger', 'Bonefang Dagger', '#e9e2c8', 6, 0.18, 0, { knockback: 2
 melee('cupriteSword', 'Cuprite Sword', '#c47b4a', 13, 0.34, 1);
 melee('thornspikeSpear', 'Thornspike Spear', '#5a7a3a', 15, 0.42, 1, { meleeKind: 'spear', reach: 46, arc: 0.6, knockback: 6, desc: 'Long thrust with extended reach.' });
 melee('ironveinSaber', 'Ironvein Saber', '#a9b0bd', 19, 0.30, 2, { crit: 0.10 });
-melee('emberaxe', 'Emberaxe', '#ff7a3b', 24, 0.55, 2, { meleeKind: 'heavy', reach: 34, arc: 2.0, knockback: 8, effect: { burn: 3 }, desc: 'Heavy swing that sets foes ablaze.' });
-melee('glimmerGlaive', 'Glimmer Glaive', '#ffe08a', 28, 0.34, 3, { meleeKind: 'spear', reach: 44, crit: 0.10 });
-melee('aetheredgeGreatblade', 'Aetheredge Greatblade', '#8ad9ff', 40, 0.5, 4, { meleeKind: 'heavy', reach: 40, arc: 2.2, knockback: 10, crit: 0.12, desc: 'Massive arc of arcane steel.' });
+melee('emberaxe', 'Emberaxe', '#ff7a3b', 24, 0.55, 2, { meleeKind: 'heavy', reach: 34, arc: 2.0, knockback: 8, effect: { burn: 3 }, fx: { swing: 'flame' }, desc: 'Heavy swing that sets foes ablaze.' });
+melee('glimmerGlaive', 'Glimmer Glaive', '#ffe08a', 28, 0.34, 3, { meleeKind: 'spear', reach: 44, crit: 0.10, fx: { swing: 'gleam' } });
+melee('aetheredgeGreatblade', 'Aetheredge Greatblade', '#8ad9ff', 40, 0.5, 4, { meleeKind: 'heavy', reach: 40, arc: 2.2, knockback: 10, crit: 0.12, fx: { swing: 'arcwave' }, desc: 'Massive arc of arcane steel.' });
 
 // ---------- Ranged weapons (8) ----------
 const ranged = (id, name, color, dmg, useTime, tier, extra = {}) =>
@@ -43,21 +43,21 @@ ranged('slingcaster', 'Slingcaster', '#b0895a', 7, 0.30, 0, { projSpeed: 420, gr
 ranged('cupriteRepeater', 'Cuprite Repeater', '#c47b4a', 11, 0.22, 1, { ammo: 'bolt', projSpeed: 560, desc: 'Rapid crossbow. Uses Bolts.' });
 ranged('huntersLongbow', "Hunter's Longbow", '#8a6a3a', 14, 0.45, 1, { ammo: 'flintArrow', gravity: true, projSpeed: 620, desc: 'Powerful draw. Uses Flint Arrows.' });
 ranged('boltflinger', 'Boltflinger', '#9aa6c0', 16, 0.20, 2, { projSpeed: 640, desc: 'Auto-flings energy bolts. No ammo.' });
-ranged('emberlockMusket', 'Emberlock Musket', '#5a4a3a', 26, 0.6, 2, { ammo: 'shot', rangedKind: 'gun', projSpeed: 760, projColor: '#ffcf6b', effect: { burn: 2 }, desc: 'Slow, heavy gun. Uses Shot.' });
-ranged('glimmerRifle', 'Glimmer Rifle', '#ffe08a', 22, 0.26, 3, { ammo: 'shot', rangedKind: 'gun', projSpeed: 820, crit: 0.10, desc: 'Fast rifle. Uses Shot.' });
-ranged('stormpiercer', 'Stormpiercer', '#8ad9ff', 20, 0.30, 3, { projSpeed: 700, pierce: 2, projColor: '#bfe9ff', desc: 'Piercing storm arrows. No ammo.' });
+ranged('emberlockMusket', 'Emberlock Musket', '#5a4a3a', 26, 0.6, 2, { ammo: 'shot', rangedKind: 'gun', projSpeed: 760, projColor: '#ffcf6b', effect: { burn: 2 }, fx: { shot: 'muzzle' }, desc: 'Slow, heavy gun. Uses Shot.' });
+ranged('glimmerRifle', 'Glimmer Rifle', '#ffe08a', 22, 0.26, 3, { ammo: 'shot', rangedKind: 'gun', projSpeed: 820, crit: 0.10, fx: { shot: 'muzzle' }, desc: 'Fast rifle. Uses Shot.' });
+ranged('stormpiercer', 'Stormpiercer', '#8ad9ff', 20, 0.30, 3, { projSpeed: 700, pierce: 2, projColor: '#bfe9ff', fx: { shot: 'storm' }, trail: '#bfe9ff', desc: 'Piercing storm arrows. No ammo.' });
 
 // ---------- Mage weapons (8) ----------
 const mage = (id, name, color, dmg, useTime, tier, mana, extra = {}) =>
   def(Object.assign({ id, name, category: 'weapon', weaponClass: 'mage', color, damage: dmg, useTime, tier, manaCost: mana, knockback: 2, crit: 0.06, projSpeed: 420, projColor: color, mageKind: 'staff', desc: `${name} — ${dmg} magic damage, ${mana} Aether.` }, extra));
 mage('sparkWand', 'Spark Wand', '#9ec3ff', 10, 0.32, 0, 7);
 mage('emberTome', 'Ember Tome', '#ff7a3b', 12, 0.5, 0, 11, { mageKind: 'tome', effect: { burn: 3 }, gravity: false, desc: 'Lobs burning embers.' });
-mage('frostshardStaff', 'Frostshard Staff', '#bfe9ff', 14, 0.36, 1, 10, { effect: { slow: 1.6 }, desc: 'Chilling shards that slow foes.' });
+mage('frostshardStaff', 'Frostshard Staff', '#bfe9ff', 14, 0.36, 1, 10, { effect: { slow: 1.6 }, fx: { cast: 'frost' }, desc: 'Chilling shards that slow foes.' });
 mage('venomWand', 'Venom Wand', '#7ee08a', 11, 0.32, 1, 9, { effect: { poison: 4 }, desc: 'Spits venom that poisons.' });
 mage('aetherboltStaff', 'Aetherbolt Staff', '#8ad9ff', 18, 0.32, 2, 13);
-mage('thunderRod', 'Thunder Rod', '#fff2a0', 22, 0.45, 2, 18, { pierce: 3, projSpeed: 900, desc: 'Piercing bolt of lightning.' });
-mage('prismScepter', 'Prism Scepter', '#c58bff', 20, 0.30, 3, 16, { multishot: 3, spread: 0.4, desc: 'Fires a fan of prism shards.' });
-mage('voidlance', 'Voidlance', '#b06bff', 34, 0.5, 4, 24, { pierce: 4, projSpeed: 640, desc: 'A lancing beam of void energy.' });
+mage('thunderRod', 'Thunder Rod', '#fff2a0', 22, 0.45, 2, 18, { pierce: 3, projSpeed: 900, fx: { cast: 'lightning' }, trail: '#fff2a0', desc: 'Piercing bolt of lightning.' });
+mage('prismScepter', 'Prism Scepter', '#c58bff', 20, 0.30, 3, 16, { multishot: 3, spread: 0.4, fx: { cast: 'prism' }, desc: 'Fires a fan of prism shards.' });
+mage('voidlance', 'Voidlance', '#b06bff', 34, 0.5, 4, 24, { pierce: 4, projSpeed: 640, fx: { cast: 'void' }, trail: '#b06bff', desc: 'A lancing beam of void energy.' });
 
 // ---------- Summoner weapons (6) ----------
 const summon = (id, name, color, useTime, tier, mana, minion, extra = {}) =>
@@ -68,6 +68,60 @@ summon('ravenTotem', 'Raven Totem', '#7a6a9a', 0.5, 1, 16, 'raven');
 summon('emberlingStaff', 'Emberling Staff', '#ff7a3b', 0.5, 2, 18, 'emberling');
 summon('thornguardIdol', 'Thornguard Idol', '#5a7a3a', 0.5, 2, 20, 'sentinel');
 summon('wraithBell', 'Wraith Bell', '#b06bff', 0.5, 3, 24, 'wraith');
+
+// ---------- Throwables ----------
+// Thrown along the aim direction and pulled into an arc by gravity, bouncing off
+// terrain. See entities/thrown.js for the physics and systems/explosions.js for
+// what the explosive ones do on detonation.
+//
+//   throwKind      icon/behaviour family: bomb | stick | shuriken | knife
+//   blastPower     what it is strong enough to break (see tiles.js blastResist)
+//   blastRadius    tiles of destruction · blastDamage peak damage at the centre
+//   fuse           seconds before it goes off; explodeOnImpact detonates on
+//                  contact instead; sticky latches on and finishes its fuse
+//   recoverChance  odds it drops back as a pickup instead of being consumed
+const throwable = (id, name, o) =>
+  def(Object.assign({ id, name, category: 'throwable', maxStack: 30, throwSpeed: 420, throwKind: 'bomb' }, o));
+
+throwable('bomb', 'Blast Bomb', {
+  color: '#3b4150', color2: '#ffcf6b', tier: 1, throwSize: 9,
+  fuse: 2.2, blastPower: 1, blastRadius: 3, blastDamage: 46, explode: true, breaksBlocks: true,
+  bounce: 0.42, spin: 6,
+  desc: 'Fuse-lit bomb. Blows a small crater in dirt and stone, and hurts anything nearby — including you.',
+});
+throwable('dynamite', 'Dynamite', {
+  color: '#b1362f', color2: '#e8d6a6', tier: 2, throwSize: 10, throwSpeed: 380,
+  fuse: 3.0, blastPower: 2, blastRadius: 6, blastDamage: 95, explode: true, breaksBlocks: true,
+  bounce: 0.3, spin: 8, gravityScale: 1.1,
+  desc: 'A far bigger blast with a longer fuse. Breaks tougher stone. Throw it and then be somewhere else.',
+});
+throwable('stickyBomb', 'Cling Charge', {
+  color: '#4f7a4a', color2: '#a7e36f', tier: 2, throwSize: 9,
+  fuse: 2.6, blastPower: 2, blastRadius: 4, blastDamage: 62, explode: true, breaksBlocks: true,
+  sticky: true, bounce: 0, spin: 5,
+  desc: 'Latches onto the first surface it touches, then detonates. For blasting ceilings and shafts.',
+});
+throwable('fireFlask', 'Ember Flask', {
+  color: '#ff7a3b', color2: '#ffcf6b', tier: 1, throwSize: 8,
+  explodeOnImpact: true, blastPower: 0, blastRadius: 2, blastDamage: 34, explode: true,
+  breaksBlocks: false, blastColors: ['#fff2c0', '#ff8c3b', '#ff5a2b'],
+  bounce: 0, spin: 10, effect: { burn: 4 },
+  desc: 'Shatters on impact in a gout of flame. Sets foes alight but leaves the terrain standing.',
+});
+throwable('shuriken', 'Iron Shuriken', {
+  color: '#b8bfcc', color2: '#6f7484', tier: 0, throwKind: 'shuriken', throwSize: 8,
+  throwSpeed: 560, gravityScale: 0.35, bounce: 0.55, friction: 0.8, spin: 26,
+  contactDamage: 14, knockback: 3, pierce: 0, breakOnImpact: false,
+  recoverChance: 0.5, maxLife: 6,
+  desc: 'Flat, fast and barely affected by gravity. Often recoverable after it lands.',
+});
+throwable('throwingKnife', 'Balanced Knife', {
+  color: '#d8d2c0', color2: '#7a5a2a', tier: 1, throwKind: 'knife', throwSize: 8,
+  throwSpeed: 500, gravityScale: 0.7, bounce: 0.2, spin: 20,
+  contactDamage: 22, knockback: 4, pierce: 1, breakOnImpact: true,
+  recoverChance: 0.35, maxLife: 6,
+  desc: 'Heavier than a shuriken and it punches through one foe before stopping.',
+});
 
 // ---------- Armor sets (helmet/chest/legs each) ----------
 const armor = (id, name, color, slot, defense, tier, setKey, setBonus) =>
