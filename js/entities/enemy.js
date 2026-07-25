@@ -3,7 +3,7 @@
 // Each enemy runs the same loop: perceive (do I know where the player is?),
 // decide (idle / approach / attack / retreat), then act. Perception, pathing and
 // steering live in systems/ai.js so every creature reasons the same way.
-import { TILE } from '../config.js?v=realms-2';
+import { TILE, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=realms-difficulty-21';
 import { ENEMIES } from '../data/enemies.js?v=realms-2';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-2';
 import { aabb } from '../utils.js?v=realms-2';
@@ -11,10 +11,31 @@ import { Projectile } from './projectile.js?v=realms-diamond-3';
 import * as AI from '../systems/ai.js?v=realms-diamond-18';
 
 export class Enemy {
-  constructor(key, x, y, netId) {
-    const d = ENEMIES[key];
+  constructor(key, x, y, netId, difficulty = 'normal') {
+    const source = ENEMIES[key];
+    const tuning = ENEMY_DIFFICULTY_TUNING[normalizeDifficulty(difficulty)] || ENEMY_DIFFICULTY_TUNING.normal;
+    const projectile = source.projectile
+      ? {
+        ...source.projectile,
+        damage: Math.max(1, Math.round((source.projectile.damage || 0) * tuning.projectile)),
+        speed: (source.projectile.speed || 0) * tuning.projectile,
+      }
+      : source.projectile;
+    const d = {
+      ...source,
+      hp: Math.max(1, Math.round(source.hp * tuning.hp)),
+      damage: Math.max(1, Math.round(source.damage * tuning.damage)),
+      speed: source.speed * tuning.speed,
+      aggroRange: source.aggroRange * tuning.aggro,
+      loseRange: source.loseRange * tuning.aggro,
+      memory: source.memory * tuning.memory,
+      telegraph: source.telegraph != null ? source.telegraph * tuning.telegraph : source.telegraph,
+      fireRate: source.fireRate != null ? source.fireRate * tuning.cooldown : source.fireRate,
+      projectile,
+    };
     this.key = key;
     this.def = d;
+    this.tuning = tuning;
     this.netId = netId;
     this.name = d.name;
     this.x = x; this.y = y; this.vx = 0; this.vy = 0;
@@ -31,9 +52,10 @@ export class Enemy {
     this.stepHeight = d.behavior === 'flyer' ? 0 : TILE + 2;
     this.iframes = 0;
     this.attackCd = 0;
-    this.fireCd = Math.random() * 1.2;
+    this.fireCd = Math.random() * 1.2 * tuning.cooldown;
     this.jumpCd = 0;
-    this.dashCd = 1 + Math.random() * 2;
+    this.dashCd = (1 + Math.random() * 2) * tuning.cooldown;
+    this.contactCooldown = 0.6 * tuning.cooldown;
     // Perception state (see systems/ai.js).
     this.aware = false;
     this.awareTimer = 0;
@@ -232,7 +254,7 @@ export class Enemy {
     if (kind === 'charge') {
       this.dashVel = Math.sign(goal.x - cx) * this.speed * 3.4;
       this.dashTime = 0.5;
-      this.dashCd = 2.6;
+      this.dashCd = 2.6 * this.tuning.cooldown;
       game.fx.streak(cx, cy, this.dashVel > 0 ? 0 : Math.PI, this.color2 || this.color, 5, { speed: 130 });
     } else if (kind === 'cast') {
       this.fireCd = this.def.fireRate || 2.0;
@@ -261,7 +283,7 @@ export class Enemy {
         const knockback = Math.sign(p.x - this.x) * 4 + this.facing * 2;
         if (p === game.npc || p.isMinion) p.takeDamage(this.damage, knockback, game, this.name);
         else game.applyEnemyDamageToPlayer(p, this.damage, knockback);
-        this.attackCd = 0.6;
+        this.attackCd = this.contactCooldown;
         break;
       }
     }
