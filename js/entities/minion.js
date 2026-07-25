@@ -1,7 +1,7 @@
 // Summoner Realms — minion entity. Owned by a player; the owner's client
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
-import { minionDef } from '../data/minions.js?v=realms-2';
+import { minionDef } from '../data/minions.js?v=realms-diamond-1';
 import { dist2, aabb, angleTo } from '../utils.js?v=realms-2';
 import { Projectile } from './projectile.js?v=realms-diamond-1';
 import * as AI from '../systems/ai.js?v=realms-diamond-1';
