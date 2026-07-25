@@ -1,6 +1,6 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
 import { MSG } from './protocol.js?v=realms-2';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=realms-difficulty-20';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=realms-difficulty-21';
 import { Player, assignColor } from '../entities/player.js?v=realms-diamond-1';
 import { Projectile } from '../entities/projectile.js?v=realms-diamond-3';
 import { ThrownItem } from '../entities/thrown.js?v=realms-2';
