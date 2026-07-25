@@ -1,7 +1,7 @@
 // Summoner Realms — minion entity. Owned by a player; the owner's client
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
-import { minionDef } from '../data/minions.js?v=realms-diamond-14';
+import { minionDef } from '../data/minions.js?v=realms-diamond-15';
 import { dist2, aabb, angleTo } from '../utils.js?v=realms-2';
 import { TILE } from '../config.js?v=realms-2';
 import { Projectile } from './projectile.js?v=realms-diamond-3';
@@ -347,18 +347,21 @@ export class Minion {
 
     if (this.beamWindup > 0) {
       this.beamTimer += dt;
-      const nextBlink = Math.min(2, Math.floor(this.beamTimer / 0.3));
+      const blinkInterval = this.def.beamBlinkInterval || 0.3;
+      const nextBlink = Math.min(2, Math.floor(this.beamTimer / blinkInterval));
       if (nextBlink > this.beamBlinkCount) {
         this.beamBlinkCount = nextBlink;
-        this.beamFlash = 0.14;
+        this.beamFlash = this.def.beamFlashDuration || 0.1;
         for (const x of this.beamLines) {
-          game.fx?.ring(x, this.beamY1, '#ffd34e', 16, { life: 0.16, width: 2 });
+          game.fx?.ring(x, this.beamY1, '#ffd34e', 16, { life: 0.1, width: 2 });
           game.fx?.streak(x, this.beamY1, -Math.PI / 2, '#ffe27a', 3, {
-            speed: 110, spread: 0.16, life: 0.16, size: 2, glow: true,
+            speed: 110, spread: 0.16, life: 0.1, size: 2, glow: true,
           });
         }
       }
-      if (this.beamTimer >= 0.6) this._fireDiamondBeam(game);
+      // Two yellow flashes at 0.3s and 0.6s. The final beam starts only
+      // after the second flash has returned to black.
+      if (this.beamTimer >= (this.def.beamWindup || 0.7)) this._fireDiamondBeam(game);
       return;
     }
 
@@ -388,8 +391,8 @@ export class Minion {
     this.beamTimer = 0;
     this.beamTickTimer = 0;
     this.beamBlinkCount = 0;
-    this.beamFlash = 0.12;
-    this.beamWindup = 0.6;
+    this.beamFlash = 0;
+    this.beamWindup = this.def.beamWindup || 0.7;
     this.beamActive = 0;
     this.beamHit = false;
     this.beamCd = this.def.beamRate || 5.2;
@@ -400,15 +403,15 @@ export class Minion {
     this.dashVariant = false;
     this.lastAttack = 'beam';
 
-    for (const x of this.beamLines) {
-      game.fx?.ring(x, this.beamY1, '#9be8f5', 18, { life: 0.3, width: 1.5 });
-    }
+    // The telegraph itself is rendered as three dark lines. The only color
+    // changes before impact are the two short yellow flashes above.
+
   }
 
   _fireDiamondBeam(game) {
     const target = this.beamTarget;
     this.beamWindup = 0;
-    this.beamActive = this.def.beamDuration || 1.7;
+    this.beamActive = this.def.beamDuration || 2.5;
     this.beamTickTimer = 0;
     this.beamHit = true;
 
