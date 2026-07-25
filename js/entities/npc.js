@@ -5,6 +5,7 @@
 // to for advice or to have an item explained (see ui/npcdialog.js).
 import { TILE } from '../config.js?v=realms-2';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-2';
+import { Projectile } from './projectile.js?v=realms-2';
 
 const NPC_W = 12, NPC_H = 26;
 // How far the Guide will stray from his camp, in world pixels.
@@ -33,6 +34,16 @@ export class Npc {
     // Wander state: alternates between pausing and strolling.
     this._pause = 1 + Math.random() * 2;
     this._dir = 0;
+
+    // The Guide has a deliberately weak, infinite-ammo bow so he can defend
+    // the camp without becoming a replacement for the player's combat build.
+    this.shootRange = 15 * TILE;
+    this.shootDamage = 3;
+    this.shootCooldown = 0;
+    this.shootWindup = 0;
+    this.shootWindupMax = 0.38;
+    this.shootAngle = 0;
+    this._shootTarget = null;
   }
 
   // Build the Guide for a world, restoring saved state when there is any.
@@ -68,11 +79,23 @@ export class Npc {
     const target = game.nearestPlayer(this.x + this.w / 2, this.y + this.h / 2);
     const talking = game.ui && game.ui.npcDialog && game.ui.npcDialog.isOpen();
     const near = target && Math.abs(target.x - this.x) < TALK_RANGE * 1.6;
+    const enemyTarget = !talking
+      ? game.nearestReachableEnemyOrBoss(this.x + this.w / 2, this.y + this.h / 2, this.shootRange)
+      : null;
+
+    this._updateCombat(dt, game, enemyTarget);
 
     if (talking || near) {
       // Stop and turn to face whoever is close enough to talk.
       this.vx = 0;
       if (target) this.facing = target.x + target.w / 2 < this.x + this.w / 2 ? -1 : 1;
+    } else if (enemyTarget || this.shootWindup > 0) {
+      // Hold position while aiming so the bow visibly tracks its target.
+      this.vx = 0;
+      const aimTarget = enemyTarget || this._shootTarget;
+      if (aimTarget && !aimTarget.dead) {
+        this._aimAt(aimTarget);
+      }
     } else {
       this._wander(dt);
     }
@@ -89,6 +112,58 @@ export class Npc {
       this.y = game.world.spawnPixelY(tx, this.h);
       this.vx = 0; this.vy = 0;
     }
+  }
+
+  _updateCombat(dt, game, target) {
+    if (this.shootCooldown > 0) this.shootCooldown -= dt;
+
+    if (this.shootWindup > 0) {
+      this.shootWindup -= dt;
+      const liveTarget = target && !target.dead ? target : this._shootTarget;
+      if (liveTarget && !liveTarget.dead) this._aimAt(liveTarget);
+      if (this.shootWindup <= 0) {
+        this.shootWindup = 0;
+        if (liveTarget && !liveTarget.dead) this._fireArrow(game, liveTarget);
+        else this._shootTarget = null;
+      }
+      return;
+    }
+
+    if (!target || this.shootCooldown > 0) return;
+    this._shootTarget = target;
+    this._aimAt(target);
+    this.shootWindup = this.shootWindupMax;
+  }
+
+  _aimAt(target) {
+    const tc = { x: target.x + target.w / 2, y: target.y + target.h / 2 };
+    const nc = this.center();
+    this.shootAngle = Math.atan2(tc.y - nc.y, tc.x - nc.x);
+    this.facing = Math.cos(this.shootAngle) < 0 ? -1 : 1;
+  }
+
+  _fireArrow(game, target) {
+    const nc = this.center();
+    const speed = 330;
+    const x = nc.x + Math.cos(this.shootAngle) * 9 - 3;
+    const y = nc.y + Math.sin(this.shootAngle) * 9 - 3;
+    game.addProjectile(new Projectile({
+      x, y,
+      vx: Math.cos(this.shootAngle) * speed,
+      vy: Math.sin(this.shootAngle) * speed,
+      damage: this.shootDamage,
+      ownerType: 'npc',
+      ownerId: this.key,
+      kind: 'arrow',
+      color: '#e9e2c8',
+      gravity: true,
+      knockback: 1,
+      life: 2.5,
+    }), true);
+    game.audio?.bowShot();
+    game.fx?.streak(nc.x, nc.y, this.shootAngle, '#e9e2c8', 3, { speed: 55, life: 0.14, size: 2 });
+    this.shootCooldown = 1.05;
+    this._shootTarget = null;
   }
 
   _wander(dt) {
