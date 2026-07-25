@@ -3,7 +3,7 @@
 // drawn as lightweight ghosts (see renderer).
 import { minionDef } from '../data/minions.js?v=realms-diamond-19';
 import { dist2, aabb, angleTo } from '../utils.js?v=realms-2';
-import { TILE } from '../config.js?v=realms-2';
+import { TILE } from '../config.js?v=realms-difficulty-21';
 import { Projectile } from './projectile.js?v=realms-diamond-3';
 import * as AI from '../systems/ai.js?v=realms-diamond-1';
 
@@ -84,6 +84,7 @@ export class Minion {
     this.beamY1 = 0;
     this.beamHit = false;
     this.target = null;
+    this.targetScanCd = 0;
     this.swordAngle = 0;
     this.diamondRetreat = 0;
     // AI bookkeeping.
@@ -259,9 +260,18 @@ export class Minion {
       return;
     }
 
+    this.targetScanCd -= dt;
     let target = this.target;
-    if (!target || target.dead || target.alive === false || target.hp <= 0) {
-      target = this._findDiamondTarget(game, cx, cy);
+    const invalidTarget = !target || target.dead || target.alive === false || target.hp <= 0;
+    if (invalidTarget || this.targetScanCd <= 0) {
+      const highest = this._findDiamondTarget(game, cx, cy);
+      // Re-scan often enough to notice a boss arriving after the Heart was
+      // summoned, while keeping the target stable during a committed move.
+      if (invalidTarget || !target || !highest || highest === target ||
+          Number(highest.hp) >= Number(target.hp) || game.bosses.includes(highest)) {
+        target = highest;
+      }
+      this.targetScanCd = 0.25;
     }
     this.target = target;
 
@@ -326,6 +336,7 @@ export class Minion {
     const dx = tc.x - cx, dy = tc.y - cy;
     const distance = Math.hypot(dx, dy);
     const los = game.world.hasLineOfSight(cx, cy, tc.x, tc.y);
+    const targetIsBoss = game.bosses.includes(target);
     this.facing = dx < 0 ? -1 : 1;
     this.swordAngle = Math.atan2(dy, dx);
 
@@ -335,7 +346,7 @@ export class Minion {
     // cooldown make it a regular part of the rotation without turning it into
     // a spam button.
     if (this.diamondRetreat <= 0 && this.spearCd <= 0 && this.beamCd > 0 &&
-        los && distance > 300) {
+        (los || targetIsBoss) && distance > 260) {
       this._beginDiamondSpear(game, target);
       return;
     }
@@ -351,7 +362,8 @@ export class Minion {
     // Close the lane deliberately and dash from a real approach distance.
     // The Heart now commits whenever it is in the broad approach window, so it
     // cannot orbit forever without performing the melee part of its kit.
-    if (this.diamondRetreat <= 0 && this.dashCd <= 0 && los && distance > 115 && distance < 300) {
+    if (this.diamondRetreat <= 0 && this.dashCd <= 0 && (los || targetIsBoss) &&
+        distance > 105 && distance < 360) {
       this._beginDiamondDash(game, target);
       return;
     }
