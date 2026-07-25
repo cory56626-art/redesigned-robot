@@ -1,7 +1,7 @@
 // Summoner Realms — minion entity. Owned by a player; the owner's client
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
-import { minionDef } from '../data/minions.js?v=realms-diamond-16';
+import { minionDef } from '../data/minions.js?v=realms-diamond-17';
 import { dist2, aabb, angleTo } from '../utils.js?v=realms-2';
 import { TILE } from '../config.js?v=realms-2';
 import { Projectile } from './projectile.js?v=realms-diamond-3';
@@ -426,10 +426,28 @@ export class Minion {
     this.lastAttack = 'beamFire';
   }
 
+  _diamondBeamHitsTarget(target) {
+    const top = Math.min(this.beamY0, this.beamY1);
+    const bottom = Math.max(this.beamY0, this.beamY1);
+    if (target.y > bottom || target.y + target.h < top) return false;
+
+    const halfWidth = (this.def.beamHitWidth || 18) / 2;
+    return this.beamLines.some((lineX) =>
+      target.x <= lineX + halfWidth &&
+      target.x + target.w >= lineX - halfWidth
+    );
+  }
+
   _tickDiamondBeam(game) {
-    const target = this.beamTarget;
-    if (!target || target.dead || target.alive === false || target.hp <= 0) return;
-    game.hurtEnemyOrBoss(target, this.def.beamDamage || 3, 0, this.ownerId);
+    // The beam is a real three-column hazard. It can hit any enemy or boss
+    // whose hitbox overlaps a column, but cannot damage a target that moved
+    // outside all three visible lines.
+    const targets = [...game.enemies, ...game.bosses];
+    for (const target of targets) {
+      if (!target || target.dead || target.alive === false || target.hp <= 0) continue;
+      if (!this._diamondBeamHitsTarget(target)) continue;
+      game.hurtEnemyOrBoss(target, this.def.beamDamage || 3, 0, this.ownerId);
+    }
   }
 
   _diamondHover(game, owner, target, dt, retreat = false) {
