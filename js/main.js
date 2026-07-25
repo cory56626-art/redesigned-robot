@@ -1,8 +1,8 @@
 // Summoner Realms — game orchestrator, main loop, and all cross-system glue.
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
-  HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN,
-} from './config.js?v=realms-2';
+  HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty,
+} from './config.js?v=realms-difficulty-20';
 import { hashString, mulberry32, dist2, uid } from './utils.js?v=realms-2';
 import { World } from './world/world.js?v=realms-2';
 import { T } from './world/tiles.js?v=realms-2';
@@ -21,7 +21,7 @@ import { applyPotion } from './systems/combat.js?v=realms-diamond-1';
 import { smartTarget } from './systems/smartcursor.js?v=realms-2';
 import { Player, assignColor } from './entities/player.js?v=realms-diamond-1';
 import { Enemy } from './entities/enemy.js?v=realms-diamond-1';
-import { Boss } from './entities/boss.js?v=realms-diamond-1';
+import { Boss } from './entities/boss.js?v=realms-difficulty-20';
 import { Minion } from './entities/minion.js?v=realms-diamond-19';
 import { Npc } from './entities/npc.js?v=realms-diamond-1';
 import { Projectile } from './entities/projectile.js?v=realms-diamond-3';
@@ -32,14 +32,14 @@ import { ENEMIES } from './data/enemies.js?v=realms-2';
 import { BOSSES } from './data/bosses.js?v=realms-2';
 import { item as getItem } from './data/items.js?v=realms-diamond-1';
 import { HUD } from './ui/hud.js?v=realms-diamond-1';
-import { Menus } from './ui/menus.js?v=realms-diamond-1';
+import { Menus } from './ui/menus.js?v=realms-difficulty-20';
 import { NpcDialog } from './ui/npcdialog.js?v=realms-2';
 import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=realms-2';
-import { SaveManager, setSaveIndicator } from './save.js?v=realms-2';
+import { SaveManager, setSaveIndicator } from './save.js?v=realms-difficulty-20';
 import { CommandConsole } from './commands.js?v=realms-diamond-1';
 import { Net } from './net/net.js?v=realms-2';
 import { MSG } from './net/protocol.js?v=realms-2';
-import * as sync from './net/sync.js?v=realms-diamond-1';
+import * as sync from './net/sync.js?v=realms-difficulty-20';
 
 class Game {
   constructor() {
@@ -89,6 +89,7 @@ class Game {
 
     this.worldName = 'Realm';
     this.seed = 0;
+    this.difficulty = 'normal';
     this.currentSaveId = null;
     this.dirty = false;
     this._autosaveTimer = AUTOSAVE_INTERVAL;
@@ -337,9 +338,10 @@ class Game {
     return hashString(str);
   }
 
-  startNewWorld(name, seedStr) {
+  startNewWorld(name, seedStr, difficulty = 'normal') {
     this.seed = this._seedFromString(seedStr);
     this.worldName = name;
+    this.difficulty = normalizeDifficulty(difficulty);
     this.world = new World(this.seed);
     this.progression = new Progression();
     this._resetEntities();
@@ -364,6 +366,7 @@ class Game {
     if (!data) { this.toast('Save not found', 'bad'); return; }
     this.seed = data.seed;
     this.worldName = data.name;
+    this.difficulty = normalizeDifficulty(data.difficulty);
     this.world = new World(this.seed);
     this.world.applyDiffArray(data.diffs);
     this.world.applyWallDiffArray(data.wallDiffs);
@@ -405,8 +408,9 @@ class Game {
     this.players.set(p.id, p);
   }
 
-  startClientWorld(seed, name, diffs, time, progression, wallDiffs, day = 1) {
+  startClientWorld(seed, name, diffs, time, progression, wallDiffs, day = 1, difficulty = 'normal') {
     this.seed = seed; this.worldName = name || 'Realm';
+    this.difficulty = normalizeDifficulty(difficulty);
     this.world = new World(seed);
     this.world.applyDiffArray(diffs);
     this.world.applyWallDiffArray(wallDiffs);
@@ -476,7 +480,7 @@ class Game {
 
   resetDemo() {
     this.progression = new Progression();
-    this.startNewWorld(this.worldName || 'Realm', String(this.seed));
+    this.startNewWorld(this.worldName || 'Realm', String(this.seed), this.difficulty);
     this.toast('Demo world reset', 'info');
   }
 
@@ -484,7 +488,7 @@ class Game {
   buildSaveData() {
     const p = this.localPlayer;
     return {
-      version: SAVE_VERSION, name: this.worldName, seed: this.seed, time: this.time.t, day: this.time.day,
+      version: SAVE_VERSION, name: this.worldName, seed: this.seed, difficulty: this.difficulty, time: this.time.t, day: this.time.day,
       width: this.world.width, height: this.world.height,
       diffs: this.world.getDiffArray(),
       wallDiffs: this.world.getWallDiffArray(),
@@ -863,7 +867,7 @@ class Game {
     // a boss summoned in a tight cave doesn't start the fight embedded in rock.
     const spot = this._findClearSpot(bx, by, def.w, def.h);
     bx = spot.x; by = spot.y;
-    const b = new Boss(key, bx, by);
+    const b = new Boss(key, bx, by, this.difficulty);
     this.bosses.push(b);
     this.toast(def.name + ' has appeared!', 'bad');
     this.addHitParticles(bx + b.w / 2, by + b.h / 2, def.color2, 24);
