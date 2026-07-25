@@ -10,36 +10,36 @@ import { Sprites } from './art/sprites.js?v=realms-2';
 import { Camera } from './engine/camera.js?v=realms-2';
 import { Input } from './engine/input.js?v=realms-2';
 import { AudioManager } from './engine/audio.js?v=realms-2';
-import { Renderer } from './engine/renderer.js?v=realms-8';
+import { Renderer } from './engine/renderer.js?v=realms-diamond-1';
 import { Fx } from './engine/fx.js?v=realms-2';
-import { DayNight } from './systems/daynight.js?v=realms-2';
-import { Spawner } from './systems/spawner.js?v=realms-2';
-import { Progression } from './systems/progression.js?v=realms-2';
-import { starterInventory } from './systems/inventory.js?v=realms-2';
-import * as craftSys from './systems/crafting.js?v=realms-2';
-import { applyPotion } from './systems/combat.js?v=realms-2';
+import { DayNight } from './systems/daynight.js?v=realms-diamond-1';
+import { Spawner } from './systems/spawner.js?v=realms-diamond-1';
+import { Progression } from './systems/progression.js?v=realms-diamond-1';
+import { starterInventory } from './systems/inventory.js?v=realms-diamond-1';
+import * as craftSys from './systems/crafting.js?v=realms-diamond-1';
+import { applyPotion } from './systems/combat.js?v=realms-diamond-1';
 import { smartTarget } from './systems/smartcursor.js?v=realms-2';
-import { Player, assignColor } from './entities/player.js?v=realms-2';
-import { Enemy } from './entities/enemy.js?v=realms-7';
-import { Boss } from './entities/boss.js?v=realms-5';
-import { Minion } from './entities/minion.js?v=realms-2';
-import { Npc } from './entities/npc.js?v=realms-6';
-import { Projectile } from './entities/projectile.js?v=realms-5';
+import { Player, assignColor } from './entities/player.js?v=realms-diamond-1';
+import { Enemy } from './entities/enemy.js?v=realms-diamond-1';
+import { Boss } from './entities/boss.js?v=realms-diamond-1';
+import { Minion } from './entities/minion.js?v=realms-diamond-1';
+import { Npc } from './entities/npc.js?v=realms-diamond-1';
+import { Projectile } from './entities/projectile.js?v=realms-diamond-1';
 import { DropItem } from './entities/droppeditem.js?v=realms-2';
 import { FallingTree } from './entities/fallingtree.js?v=realms-2';
 import { ThrownItem } from './entities/thrown.js?v=realms-2';
 import { ENEMIES } from './data/enemies.js?v=realms-2';
 import { BOSSES } from './data/bosses.js?v=realms-2';
-import { item as getItem } from './data/items.js?v=realms-2';
-import { HUD } from './ui/hud.js?v=realms-2';
-import { Menus } from './ui/menus.js?v=realms-2';
+import { item as getItem } from './data/items.js?v=realms-diamond-1';
+import { HUD } from './ui/hud.js?v=realms-diamond-1';
+import { Menus } from './ui/menus.js?v=realms-diamond-1';
 import { NpcDialog } from './ui/npcdialog.js?v=realms-2';
 import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=realms-2';
 import { SaveManager, setSaveIndicator } from './save.js?v=realms-2';
-import { CommandConsole } from './commands.js?v=realms-2';
+import { CommandConsole } from './commands.js?v=realms-diamond-1';
 import { Net } from './net/net.js?v=realms-2';
 import { MSG } from './net/protocol.js?v=realms-2';
-import * as sync from './net/sync.js?v=realms-2';
+import * as sync from './net/sync.js?v=realms-diamond-1';
 
 class Game {
   constructor() {
@@ -370,7 +370,7 @@ class Game {
     this.progression = new Progression();
     this.progression.deserialize(data.progression);
     this._resetEntities();
-    this.time = new DayNight(data.time || 0);
+    this.time = new DayNight(data.time || 0, data.day || 1);
     this._createLocalPlayer(false);
     this._spawnGuide(data.npc);
     const pd = data.player;
@@ -405,7 +405,7 @@ class Game {
     this.players.set(p.id, p);
   }
 
-  startClientWorld(seed, name, diffs, time, progression, wallDiffs) {
+  startClientWorld(seed, name, diffs, time, progression, wallDiffs, day = 1) {
     this.seed = seed; this.worldName = name || 'Realm';
     this.world = new World(seed);
     this.world.applyDiffArray(diffs);
@@ -417,7 +417,7 @@ class Game {
     this.fallingTrees = []; this.thrown = [];
     // keep players map empty except local (added here)
     this.players.clear();
-    this.time = new DayNight(time || 0);
+    this.time = new DayNight(time || 0, day || 1);
     this._createLocalPlayer(true);
     this._spawnGuide(null);
     this.currentSaveId = null; // clients never autosave the host's world
@@ -484,7 +484,7 @@ class Game {
   buildSaveData() {
     const p = this.localPlayer;
     return {
-      version: SAVE_VERSION, name: this.worldName, seed: this.seed, time: this.time.t,
+      version: SAVE_VERSION, name: this.worldName, seed: this.seed, time: this.time.t, day: this.time.day,
       width: this.world.width, height: this.world.height,
       diffs: this.world.getDiffArray(),
       wallDiffs: this.world.getWallDiffArray(),
@@ -745,6 +745,19 @@ class Game {
     for (const p of this.players.values()) { if (!p.alive) continue; const d = dist2(x, y, p.x + p.w / 2, p.y + p.h / 2); if (d < bd) { bd = d; best = p; } }
     return best;
   }
+
+  nearestHostileTarget(x, y) {
+    let best = null, bd = Infinity;
+    const consider = (t) => {
+      if (!t || t.alive === false || t.dead) return;
+      const d = dist2(x, y, t.x + t.w / 2, t.y + t.h / 2);
+      if (d < bd) { bd = d; best = t; }
+    };
+    for (const p of this.players.values()) consider(p);
+    if (this.npc) consider(this.npc);
+    for (const m of this.minions) if (m.maxHp != null) consider(m);
+    return best;
+  }
   minDistToAnyPlayer(x, y) {
     let bd = Infinity;
     for (const p of this.players.values()) { if (!p.alive) continue; const d = dist2(x, y, p.x + p.w / 2, p.y + p.h / 2); if (d < bd) bd = d; }
@@ -795,8 +808,9 @@ class Game {
     const mine = this.minions.filter(m => m.ownerId === player.id && !m.dead);
     while (mine.length >= cap) { mine.shift().dead = true; }
     const pc = player.center();
-    this.minions.push(new Minion(key, player.id, pc.x, pc.y - 30));
-    this.toast('Summoned ' + key, 'good');
+    const minion = new Minion(key, player.id, pc.x, pc.y - 30);
+    this.minions.push(minion);
+    this.toast('Summoned ' + (minion.def?.name || key), 'good');
     this.addHitParticles(pc.x, pc.y - 20, '#c58bff', 8);
   }
   removeMinionsOf(id) { for (const m of this.minions) if (m.ownerId === id) m.dead = true; }
