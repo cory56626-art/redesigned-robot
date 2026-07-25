@@ -35,7 +35,7 @@ export const MINIONS = {
   },
   diamondHeart: {
     key: 'diamondHeart', name: 'Diamond Heart', behavior: 'diamondHeart',
-    damage: 0, speed: 235, range: 620, color: '#dffcff', color2: '#62c9e8',
+    damage: 0, speed: 280, range: 620, color: '#dffcff', color2: '#62c9e8',
     w: 30, h: 42, maxHp: 100, flying: true,
     spearDamage: 16, spearRate: 5.8,
     dashDamage: 20, dashRate: 1.85, dashSpeed: 820, dashDuration: 0.30,
