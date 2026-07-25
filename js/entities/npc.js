@@ -3,7 +3,7 @@
 // Vesper Thane keeps a camp on the spawn plain from the moment a world is
 // created. He wanders a short leash, faces whoever is nearest, and can be spoken
 // to for advice or to have an item explained (see ui/npcdialog.js).
-import { TILE } from '../config.js?v=realms-2';
+import { TILE, GRAVITY } from '../config.js?v=realms-2';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-2';
 import { Projectile } from './projectile.js?v=realms-5';
 
@@ -44,6 +44,8 @@ export class Npc {
     this.shootWindupMax = 0.38;
     this.shootAngle = 0;
     this._shootTarget = null;
+    this._shotAimError = 0;
+    this._shotLeadFactor = 0.62;
 
     // Keep enough space to react to melee enemies, but don't let the Guide
     // flee forever because the danger and safe ranges are intentionally different.
@@ -169,6 +171,7 @@ export class Npc {
     if (retreating) {
       this.shootWindup = 0;
       this._shootTarget = null;
+      this._shotAimError = 0;
       return;
     }
 
@@ -186,6 +189,10 @@ export class Npc {
 
     if (!target || this.shootCooldown > 0) return;
     this._shootTarget = target;
+    // Keep each shot readable and consistent during its wind-up, but give the
+    // Guide a small human-sized miss chance instead of perfect tracking.
+    this._shotAimError = (Math.random() * 2 - 1) * 0.06;
+    this._shotLeadFactor = 0.55 + Math.random() * 0.18;
     this._aimAt(target);
     this.shootWindup = this.shootWindupMax;
   }
@@ -194,13 +201,22 @@ export class Npc {
     const tc = target.center ? target.center() : { x: target.x + target.w / 2, y: target.y + target.h / 2 };
     const nc = this.center();
 
-    // Keep the bow, muzzle, and arrow flight on one simple line. The Guide's
-    // training bow is intentionally forgiving: no drop compensation or wild
-    // prediction that could make the visible aim point away from the enemy.
-    this.shootAngle = Math.atan2(tc.y - nc.y, tc.x - nc.x);
-    this.facing = tc.x < nc.x ? -1 : 1;
-  }
+    // Use a practical lead and compensate for normal arrow drop, but do not
+    // solve a perfect intercept. The Guide should land useful shots while
+    // still missing enough that he cannot carry a boss on his own.
+    const distance = Math.hypot(tc.x - nc.x, tc.y - nc.y);
+    const flightTime = Math.max(0.12, Math.min(1.35, distance / this.arrowSpeed));
+    const leadTime = flightTime * this._shotLeadFactor;
+    const predictedX = tc.x + (target.vx || 0) * leadTime;
+    const predictedY = tc.y + (target.vy || 0) * leadTime;
+    const gravity = GRAVITY * 0.5;
+    const drop = 0.5 * gravity * flightTime * flightTime;
+    const horizontal = predictedX - nc.x;
+    const vertical = predictedY - nc.y - drop;
 
+    this.shootAngle = Math.atan2(vertical, horizontal) + this._shotAimError;
+    this.facing = horizontal < 0 ? -1 : 1;
+  }
   _fireArrow(game, target) {
     const nc = this.center();
     const speed = this.arrowSpeed;
@@ -215,7 +231,7 @@ export class Npc {
       ownerId: this.key,
       kind: 'arrow',
       color: '#e9e2c8',
-      gravity: false,
+      gravity: true,
       knockback: 1,
       life: 2.5,
     }), true);
