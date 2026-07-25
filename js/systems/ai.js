@@ -52,10 +52,31 @@ export function perceive(e, game, dt, opts = {}) {
   }
 
   let p = null, nearest = Infinity;
-  for (const candidate of candidates) {
-    const cc = candidate.center ? candidate.center() : { x: candidate.x + candidate.w / 2, y: candidate.y + candidate.h / 2 };
-    const d2 = (cc.x - cx) * (cc.x - cx) + (cc.y - cy) * (cc.y - cy);
-    if (d2 < nearest) { nearest = d2; p = candidate; }
+  // Diamond Heart is a deliberate hostile target, not just another nearby
+  // body. If it is inside this enemy's awareness range and visible, prioritize
+  // it over the player so the summon cannot trivialize every encounter.
+  const heart = candidates.find((candidate) =>
+    candidate.isMinion && candidate.key === 'diamondHeart'
+  );
+  if (heart) {
+    const hc = heart.center ? heart.center() : {
+      x: heart.x + heart.w / 2, y: heart.y + heart.h / 2,
+    };
+    const hdx = hc.x - cx, hdy = hc.y - cy;
+    const hdist2 = hdx * hdx + hdy * hdy;
+    const hLos = game.world.hasLineOfSight(cx, cy, hc.x, hc.y);
+    const hRange = e.aware ? lose : aggro;
+    if (hdist2 <= hRange * hRange && hLos) {
+      p = heart;
+      nearest = hdist2;
+    }
+  }
+  if (!p) {
+    for (const candidate of candidates) {
+      const cc = candidate.center ? candidate.center() : { x: candidate.x + candidate.w / 2, y: candidate.y + candidate.h / 2 };
+      const d2 = (cc.x - cx) * (cc.x - cx) + (cc.y - cy) * (cc.y - cy);
+      if (d2 < nearest) { nearest = d2; p = candidate; }
+    }
   }
 
   e.target = p || null;
