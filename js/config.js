@@ -4,13 +4,13 @@
 // Single build stamp for every cache-busted module import. Bump this once per
 // release instead of editing per-module `?build=` strings (which drifted out of
 // sync and could ship a half-updated module graph).
-export const BUILD = 'realms-difficulty-20';
+export const BUILD = 'realms-difficulty-21';
 
 export const WORLD_DIFFICULTIES = Object.freeze([
-  { key: 'normal', label: 'Normal', tier: 'Buffed baseline', hint: 'Bosses are tougher than the old baseline, with readable attack tells.' },
-  { key: 'hard', label: 'Hard', tier: 'Aggressive patterns', hint: 'Bosses move faster, attack more often, and add extra projectiles.' },
-  { key: 'master', label: 'Master', tier: 'Punishing mastery', hint: 'Expect heavier hits, tighter tells, denser patterns, and more adds.' },
-  { key: 'masochist', label: 'Masochist', tier: 'No safety net', hint: 'Maximum boss pressure: brutal damage, speed, cadence, and attack density.' },
+  { key: 'normal', label: 'Normal', tier: 'Buffed baseline', hint: 'Enemies and bosses are tougher than the old baseline, but attacks stay readable.' },
+  { key: 'hard', label: 'Hard', tier: 'Aggressive patterns', hint: 'Enemies hit harder and bosses attack faster without becoming a damage wall.' },
+  { key: 'master', label: 'Master', tier: 'Punishing mastery', hint: 'Denser enemy pressure, tighter boss windows, and one extra pattern projectile.' },
+  { key: 'masochist', label: 'Masochist', tier: 'Brutal but clearable', hint: 'The highest pressure and damage, tuned for a demanding full-game clear.' },
 ]);
 
 export function normalizeDifficulty(value) {
@@ -25,6 +25,31 @@ export function difficultyInfo(value) {
   const key = normalizeDifficulty(value);
   return WORLD_DIFFICULTIES.find(d => d.key === key) || WORLD_DIFFICULTIES[0];
 }
+
+// Enemy pressure rises with the world mode, but the curve is deliberately
+// gentler than boss HP scaling so the opening biome remains playable.
+export const ENEMY_DIFFICULTY_TUNING = Object.freeze({
+  normal: {
+    hp: 1.08, damage: 1.08, speed: 1.03, projectile: 1.04, cooldown: 0.96,
+    telegraph: 1.00, aggro: 1.04, memory: 1.05,
+    spawnInterval: 2.15, spawnChance: 0.66, globalCapBonus: 1, localCapBonus: 0,
+  },
+  hard: {
+    hp: 1.16, damage: 1.16, speed: 1.06, projectile: 1.09, cooldown: 0.91,
+    telegraph: 0.96, aggro: 1.08, memory: 1.10,
+    spawnInterval: 2.05, spawnChance: 0.70, globalCapBonus: 2, localCapBonus: 1,
+  },
+  master: {
+    hp: 1.26, damage: 1.26, speed: 1.09, projectile: 1.14, cooldown: 0.86,
+    telegraph: 0.92, aggro: 1.12, memory: 1.16,
+    spawnInterval: 1.95, spawnChance: 0.74, globalCapBonus: 3, localCapBonus: 1,
+  },
+  masochist: {
+    hp: 1.38, damage: 1.36, speed: 1.12, projectile: 1.19, cooldown: 0.81,
+    telegraph: 0.88, aggro: 1.16, memory: 1.22,
+    spawnInterval: 1.85, spawnChance: 0.78, globalCapBonus: 4, localCapBonus: 2,
+  },
+});
 
 export const TILE = 16; // world pixels per tile
 
