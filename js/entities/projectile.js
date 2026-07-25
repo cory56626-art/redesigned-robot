@@ -9,7 +9,7 @@ export class Projectile {
     this.w = opts.w || 6; this.h = opts.h || 6;
     this.damage = opts.damage || 0;
     this.ownerId = opts.ownerId || null;
-    this.ownerType = opts.ownerType || 'player'; // player | minion | enemy | boss | fx
+    this.ownerType = opts.ownerType || 'player'; // player | minion | npc | enemy | boss | fx
     this.kind = opts.kind || 'spark';
     this.color = opts.color || '#ffffff';
     this.pierce = opts.pierce || 0;
@@ -69,11 +69,11 @@ export class Projectile {
 
     if (this.visualOnly) return;
 
-    if (this.ownerType === 'player' || this.ownerType === 'minion') {
+    if (this.ownerType === 'player' || this.ownerType === 'minion' || this.ownerType === 'npc') {
       this._cutBossProjectiles(game);
     }
 
-    if (this.ownerType === 'player' || this.ownerType === 'minion') this._hitEnemies(game);
+    if (this.ownerType === 'player' || this.ownerType === 'minion' || this.ownerType === 'npc') this._hitEnemies(game);
     else if (this.ownerType === 'enemy' || this.ownerType === 'boss') this._hitPlayers(game);
   }
 
