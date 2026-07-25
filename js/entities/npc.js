@@ -5,7 +5,7 @@
 // to for advice or to have an item explained (see ui/npcdialog.js).
 import { TILE, GRAVITY } from '../config.js?v=realms-2';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-2';
-import { Projectile } from './projectile.js?v=realms-5';
+import { Projectile } from './projectile.js?v=realms-diamond-1';
 
 const NPC_W = 12, NPC_H = 26;
 // How far the Guide will stray from his camp, in world pixels.
