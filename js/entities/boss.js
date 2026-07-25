@@ -15,8 +15,8 @@ import { TILE } from '../config.js?v=realms-2';
 import { BOSSES } from '../data/bosses.js?v=realms-2';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-2';
 import { aabb, angleTo, randRange, clamp } from '../utils.js?v=realms-2';
-import { Projectile } from './projectile.js?v=realms-5';
-import * as AI from '../systems/ai.js?v=realms-5';
+import { Projectile } from './projectile.js?v=realms-diamond-1';
+import * as AI from '../systems/ai.js?v=realms-diamond-1';
 
 const PROJ_COLOR = { thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff' };
 
@@ -116,7 +116,9 @@ export class Boss {
     for (const [k, v] of this.cooldowns) if (v > 0) this.cooldowns.set(k, v - dt);
     this._updatePhase(game);
 
-    const target = game.nearestPlayer(this.x + this.w / 2, this.y + this.h / 2);
+    const target = game.nearestHostileTarget
+      ? game.nearestHostileTarget(this.x + this.w / 2, this.y + this.h / 2)
+      : game.nearestPlayer(this.x + this.w / 2, this.y + this.h / 2);
     this._updateLeash(dt, game, target);
     if (this.dead) return; // fled
 
@@ -402,9 +404,15 @@ export class Boss {
 
   _contactDamage(game, ph) {
     if (this.hidden) return; // can't be hit by something that isn't there
-    for (const p of game.players.values()) {
-      if (p.alive && aabb(this, p)) {
-        game.applyEnemyDamageToPlayer(p, ph.contact, Math.sign(p.x - this.x) * 6);
+    const targets = [...game.players.values()];
+    for (const m of (game.minions || [])) {
+      if (m.alive !== false && !m.dead && m.maxHp != null) targets.push(m);
+    }
+    for (const p of targets) {
+      if (p.alive !== false && !p.dead && aabb(this, p)) {
+        const knockback = Math.sign(p.x - this.x) * 6;
+        if (p.isMinion) p.takeDamage(ph.contact, knockback, game, this.name);
+        else game.applyEnemyDamageToPlayer(p, ph.contact, knockback);
       }
     }
   }
