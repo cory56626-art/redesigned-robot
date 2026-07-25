@@ -200,6 +200,22 @@ code { background: var(--bg2); border: 1px solid var(--border); border-radius: 4
 .dialog-panel label { display: block; color: var(--muted); font-size: 13px; margin: var(--s3) 0 var(--s1); }
 .dialog-panel input[type="text"] { width: 100%; }
 .dialog-buttons { display: flex; gap: var(--s2); justify-content: flex-end; margin-top: var(--s5); }
+.difficulty-picker {
+  background: rgba(8, 11, 22, 0.46);
+  border: 1px solid rgba(126, 224, 192, 0.18);
+  border-radius: var(--radius-sm);
+  padding: var(--s3);
+  margin-top: var(--s1);
+}
+.difficulty-picker-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s2); }
+.difficulty-picker-head output { color: var(--teal); font-weight: 800; letter-spacing: 0.3px; }
+.difficulty-picker-head span { color: var(--faint); font-size: 11px; }
+.difficulty-picker input[type="range"] { width: 100%; margin: 12px 0 8px; }
+.difficulty-picker-scale { display: flex; justify-content: space-between; color: var(--faint); font-size: 10px; }
+.difficulty-picker-scale span { width: 25%; text-align: center; }
+.difficulty-picker-scale span:first-child { text-align: left; }
+.difficulty-picker-scale span:last-child { text-align: right; }
+
 
 /* ---------------- Settings ---------------- */
 .set-row { display: flex; align-items: center; gap: var(--s3); margin: var(--s2) 0; }
