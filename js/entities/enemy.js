@@ -48,6 +48,7 @@ export class Enemy {
     this.dead = false;
     this.hurtFlash = 0;
     this.walkAnim = 0;
+    this.animTime = Math.random() * Math.PI * 2;
     this.fromBoss = false;
   }
 
@@ -59,6 +60,7 @@ export class Enemy {
     if (this.hurtFlash > 0) this.hurtFlash -= dt;
     if (this.jumpCd > 0) this.jumpCd -= dt;
     this.walkAnim += Math.abs(this.vx) * dt * 0.1;
+    this.animTime += dt;
 
     const d = this.def;
     const goal = AI.perceive(this, game, dt, {
