@@ -31,6 +31,13 @@ export class Projectile {
     this.burstLife = opts.burstLife || 1.25;
     this.burstGravity = !!opts.burstGravity;
     this.burstDone = false;
+    // Timed fuse metadata is used by the Diamond Heart spear. A fuse projectile
+    // always releases its burst on schedule instead of detonating on contact.
+    this.burstDelay = opts.burstDelay != null ? Math.max(0, opts.burstDelay) : null;
+    this.burstTimer = this.burstDelay;
+    this.burstHoming = !!opts.burstHoming;
+    this.burstHomingStrength = opts.burstHomingStrength || 2.2;
+    this.fuseAnchored = false;
     this.visualOnly = !!opts.visualOnly;
     this.dead = false;
     this.hitSet = new Set();
@@ -41,10 +48,23 @@ export class Projectile {
 
   update(dt, game) {
     this.life -= dt;
+    if (this.burstTimer != null) {
+      this.burstTimer -= dt;
+      if (this.burstTimer <= 0) {
+        this._burst(game);
+        this.dead = true;
+        return;
+      }
+    }
     if (this.life <= 0) {
-      this._burst(game);
-      this.dead = true;
-      return;
+      if (this.burstTimer == null) {
+        this._burst(game);
+        this.dead = true;
+        return;
+      }
+      // A timed fuse is authoritative; keep the projectile alive until it
+      // reaches its promised detonation time.
+      this.life = 0.05;
     }
 
     if (this.gravity) this.vy += GRAVITY * 0.5 * dt;
@@ -54,18 +74,28 @@ export class Projectile {
     // Swept movement. Testing only the end point once per step let fast
     // projectiles (the rifle is ~15 px/frame) pass straight through one-tile
     // walls; stepping in sub-tile increments makes that impossible.
-    const dist = Math.hypot(this.vx, this.vy) * dt;
-    const steps = Math.max(1, Math.ceil(dist / (TILE * 0.5)));
-    const sdt = dt / steps;
-    for (let i = 0; i < steps; i++) {
-      this.x += this.vx * sdt;
-      this.y += this.vy * sdt;
-      const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
-      if (game.world.isSolidAt(Math.floor(cx / TILE), Math.floor(cy / TILE))) {
-        this._burst(game, cx, cy);
-        this.dead = true;
-        game.addHitParticles(cx, cy, this.color, 4);
-        return;
+    if (!this.fuseAnchored) {
+      const dist = Math.hypot(this.vx, this.vy) * dt;
+      const steps = Math.max(1, Math.ceil(dist / (TILE * 0.5)));
+      const sdt = dt / steps;
+      for (let i = 0; i < steps; i++) {
+        this.x += this.vx * sdt;
+        this.y += this.vy * sdt;
+        const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
+        if (game.world.isSolidAt(Math.floor(cx / TILE), Math.floor(cy / TILE))) {
+          if (this.burstTimer != null) {
+            // Stick to the wall, but honor the full fuse instead of detonating
+            // on the first collision.
+            this.vx = 0;
+            this.vy = 0;
+            this.fuseAnchored = true;
+            break;
+          }
+          this._burst(game, cx, cy);
+          this.dead = true;
+          game.addHitParticles(cx, cy, this.color, 4);
+          return;
+        }
       }
     }
     this.rot = Math.atan2(this.vy, this.vx);
@@ -82,9 +112,14 @@ export class Projectile {
     // Out of world.
     const cx2 = this.x + this.w / 2, cy2 = this.y + this.h / 2;
     if (cx2 < 0 || cx2 > game.world.width * TILE || cy2 > game.world.height * TILE) {
-      this._burst(game, cx2, cy2);
-      this.dead = true;
-      return;
+      if (this.burstTimer == null) {
+        this._burst(game, cx2, cy2);
+        this.dead = true;
+        return;
+      }
+      this.vx = 0;
+      this.vy = 0;
+      this.fuseAnchored = true;
     }
 
     if (this.visualOnly) return;
@@ -135,7 +170,7 @@ export class Projectile {
         this.hitSet.add(e.netId || e);
         game.hurtEnemy(e, this.damage, Math.sign(this.vx) * this.knockback, -1, this.effect, this.ownerId, this.crit);
         game.addHitParticles(this.x, this.y, this.color, 4);
-        if (this.pierce-- <= 0) {
+        if (this.pierce-- <= 0 && this.burstDelay == null) {
           this._burst(game, this.x + this.w / 2, this.y + this.h / 2);
           this.dead = true;
           return;
@@ -148,7 +183,7 @@ export class Projectile {
         this.hitSet.add(b);
         game.hurtBoss(b, this.damage, this.ownerId, this.crit);
         game.addHitParticles(this.x, this.y, this.color, 4);
-        if (this.pierce-- <= 0) {
+        if (this.pierce-- <= 0 && this.burstDelay == null) {
           this._burst(game, this.x + this.w / 2, this.y + this.h / 2);
           this.dead = true;
           return;
@@ -178,6 +213,8 @@ export class Projectile {
         gravity: this.burstGravity,
         knockback: 2.5,
         life: this.burstLife,
+        homing: this.burstHoming,
+        homingStrength: this.burstHomingStrength,
         trail: color,
       }), true);
     }
