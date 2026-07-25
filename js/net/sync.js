@@ -1,6 +1,6 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
 import { MSG } from './protocol.js?v=realms-2';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=realms-2';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=realms-difficulty-20';
 import { Player, assignColor } from '../entities/player.js?v=realms-diamond-1';
 import { Projectile } from '../entities/projectile.js?v=realms-diamond-3';
 import { ThrownItem } from '../entities/thrown.js?v=realms-2';
@@ -16,6 +16,7 @@ export function buildWelcome(game, forId) {
     hostId: game.net.hostId,
     seed: game.world.seed,
     name: game.worldName,
+    difficulty: game.difficulty,
     diffs: game.world.getDiffArray(),
     wallDiffs: game.world.getWallDiffArray(),
     time: game.time.t,
@@ -31,7 +32,7 @@ export function buildWelcome(game, forId) {
 export function applyWelcome(game, msg) {
   game.selfId = msg.id;
   game.net.hostId = msg.hostId;
-  game.startClientWorld(msg.seed, msg.name, msg.diffs, msg.time, msg.progression, msg.wallDiffs, msg.day || 1);
+  game.startClientWorld(msg.seed, msg.name, msg.diffs, msg.time, msg.progression, msg.wallDiffs, msg.day || 1, msg.difficulty);
   // Remote players (everyone except us).
   for (const ps of msg.players) {
     if (ps.id === msg.id) continue;
