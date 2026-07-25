@@ -40,7 +40,7 @@ export const MINIONS = {
     spearDamage: 16, spearRate: 5.8,
     dashDamage: 20, dashRate: 1.85, dashSpeed: 820, dashDuration: 0.30,
     dashTripleChance: 0.34,
-    beamDamage: 3, beamTick: 0.1, beamDuration: 2.5, beamWindup: 0.8, beamBlinkInterval: 0.3, beamFlashDuration: 0.1, beamHitWidth: 18, beamRate: 5.2,
+    beamDamage: 3, beamTick: 0.1, beamDuration: 2.5, beamWindup: 0.8, beamBlinkInterval: 0.3, beamFlashDuration: 0.1, beamHitWidth: 18, dodgeSpeed: 720, dodgeDuration: 0.22, dodgeRate: 1.0, beamRate: 5.2,
     desc: 'A winged crystal avatar with a great sword, explosive spear, triple dash, and sky beams.',
   },
 };
