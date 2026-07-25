@@ -1,10 +1,10 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
 import { MSG } from './protocol.js?v=realms-2';
 import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=realms-2';
-import { Player, assignColor } from '../entities/player.js?v=realms-2';
-import { Projectile } from '../entities/projectile.js?v=realms-2';
+import { Player, assignColor } from '../entities/player.js?v=realms-diamond-1';
+import { Projectile } from '../entities/projectile.js?v=realms-diamond-1';
 import { ThrownItem } from '../entities/thrown.js?v=realms-2';
-import { ITEMS } from '../data/items.js?v=realms-2';
+import { ITEMS } from '../data/items.js?v=realms-diamond-1';
 import { ENEMIES } from '../data/enemies.js?v=realms-2';
 import { BOSSES } from '../data/bosses.js?v=realms-2';
 
@@ -19,6 +19,7 @@ export function buildWelcome(game, forId) {
     diffs: game.world.getDiffArray(),
     wallDiffs: game.world.getWallDiffArray(),
     time: game.time.t,
+    day: game.time.day,
     progression: game.progression.serialize(),
     players: [...game.players.values()].map(p => p.netState()),
     enemies: game.enemies.map(e => e.netState()),
@@ -30,7 +31,7 @@ export function buildWelcome(game, forId) {
 export function applyWelcome(game, msg) {
   game.selfId = msg.id;
   game.net.hostId = msg.hostId;
-  game.startClientWorld(msg.seed, msg.name, msg.diffs, msg.time, msg.progression, msg.wallDiffs);
+  game.startClientWorld(msg.seed, msg.name, msg.diffs, msg.time, msg.progression, msg.wallDiffs, msg.day || 1);
   // Remote players (everyone except us).
   for (const ps of msg.players) {
     if (ps.id === msg.id) continue;
@@ -47,6 +48,7 @@ export function buildSnapshot(game) {
   return {
     t: MSG.SNAPSHOT,
     time: game.time.t,
+    day: game.time.day,
     players: [...game.players.values()].map(p => {
       const s = p.netState();
       if (p.isLocal) s.mins = game.minions.filter(m => m.ownerId === p.id).map(m => m.netInfo());
@@ -61,6 +63,7 @@ export function buildSnapshot(game) {
 
 export function applySnapshot(game, msg) {
   game.time.t = msg.time;
+  if (msg.day != null) game.time.day = Math.max(1, Math.floor(msg.day));
   // Players
   const seen = new Set();
   for (const ps of msg.players) {
