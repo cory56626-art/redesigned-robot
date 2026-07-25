@@ -92,6 +92,45 @@ export class Inventory {
     const t = this.slots[a]; this.slots[a] = this.slots[b]; this.slots[b] = t;
   }
 
+  // Drag one bag slot onto another. Two stacks of the same item merge up to the
+  // stack limit (with any remainder left behind); anything else swaps.
+  moveSlot(a, b) {
+    if (a === b) return false;
+    const src = this.slots[a], dst = this.slots[b];
+    if (!src) return false;
+    if (dst && dst.id === src.id) {
+      const max = (ITEMS[src.id] && ITEMS[src.id].maxStack) || 99;
+      const room = max - dst.count;
+      if (room > 0) {
+        const moved = Math.min(room, src.count);
+        dst.count += moved;
+        src.count -= moved;
+        if (src.count <= 0) this.slots[a] = null;
+        return true;
+      }
+    }
+    this.swap(a, b);
+    return true;
+  }
+
+  // Read/write an equipment slot by its UI key ('head' | 'chest' | 'legs' |
+  // 'acc0'…). Returns undefined for an unknown key rather than throwing.
+  getEquip(key) {
+    if (key.startsWith('acc')) return this.equip.acc[+key.slice(3)];
+    return this.equip[key];
+  }
+  setEquip(key, ref) {
+    if (key.startsWith('acc')) this.equip.acc[+key.slice(3)] = ref;
+    else this.equip[key] = ref;
+  }
+
+  // Can this item legally go in that equipment slot?
+  fitsEquip(key, def) {
+    if (!def) return false;
+    if (key.startsWith('acc')) return def.category === 'accessory';
+    return def.category === 'armor' && def.slot === key;
+  }
+
   // Equip an item from an inventory slot into the right equipment slot.
   equipFromSlot(index) {
     const s = this.slots[index];

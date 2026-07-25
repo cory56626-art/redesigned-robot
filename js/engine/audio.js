@@ -16,6 +16,8 @@ export class AudioManager {
     this.samples = Object.create(null);
     this.samplesLoading = false;
     this.sampleAmbient = null;
+    // Volumes may be set from saved settings before the context exists.
+    this._pendingVolumes = null;
     this.sampleFiles = {
       pickaxe: 'pickaxe', axe: 'axe', sword: 'sword', bow: 'bow', magic: 'magic',
       enemyHurt: 'enemy-hurt', enemyDeath: 'enemy-death',
@@ -53,14 +55,38 @@ export class AudioManager {
     if (!Ctor) { this.enabled = false; return false; }
     try {
       this.ctx = new Ctor();
+      // master -> { sfx, ambient, music }: one place to mix, and the settings
+      // sliders map onto the buses directly.
       this.master = this.ctx.createGain();
       this.master.gain.value = 0.32;
       this.master.connect(this.ctx.destination);
+      this.sfxBus = this.ctx.createGain();
+      this.sfxBus.gain.value = 1;
+      this.sfxBus.connect(this.master);
+      this.musicBus = this.ctx.createGain();
+      this.musicBus.gain.value = 1;
+      this.musicBus.connect(this.master);
+      this.applyVolumes(this._pendingVolumes);
       return true;
     } catch {
       this.enabled = false;
       return false;
     }
+  }
+
+  // Apply the player's volume settings to the mix buses. Safe to call before
+  // the audio context exists; the values are stashed and applied on creation.
+  applyVolumes(settings) {
+    if (!settings) return;
+    this._pendingVolumes = settings;
+    if (!this.ctx) return;
+    const master = settings.masterVolume != null ? settings.masterVolume : 0.8;
+    const sfx = settings.sfxVolume != null ? settings.sfxVolume : 0.9;
+    const music = settings.musicVolume != null ? settings.musicVolume : 0.55;
+    this.master.gain.value = 0.4 * master;
+    if (this.sfxBus) this.sfxBus.gain.value = sfx;
+    if (this.musicBus) this.musicBus.gain.value = music;
+    if (this.music) this.music.setVolume(music * master);
   }
 
   _ready() {
@@ -97,7 +123,7 @@ export class AudioManager {
     source.buffer = buffer;
     source.playbackRate.value = rate;
     gain.gain.value = volume;
-    source.connect(gain).connect(this.master);
+    source.connect(gain).connect(this.sfxBus || this.master);
     source.start(this.ctx.currentTime + delay);
     return true;
   }
@@ -131,7 +157,7 @@ export class AudioManager {
     if (opts.curve === 'linear') osc.frequency.linearRampToValueAtTime(end, now + duration);
     else osc.frequency.exponentialRampToValueAtTime(end, now + Math.max(0.01, duration));
     this._envelope(gain, now, opts.volume == null ? 0.12 : opts.volume, duration, opts.attack || 0.004, opts.release || 0.06);
-    osc.connect(gain).connect(this.master);
+    osc.connect(gain).connect(this.sfxBus || this.master);
     osc.start(now);
     osc.stop(now + duration + 0.03);
   }
@@ -157,7 +183,7 @@ export class AudioManager {
     if (opts.endFilter) filter.frequency.exponentialRampToValueAtTime(Math.max(60, opts.endFilter), now + duration);
     this._envelope(gain, now, volume, duration, opts.attack || 0.002, opts.release || 0.04);
     source.buffer = buffer;
-    source.connect(filter).connect(gain).connect(this.master);
+    source.connect(filter).connect(gain).connect(this.sfxBus || this.master);
     source.start(now);
     source.stop(now + duration + 0.03);
   }

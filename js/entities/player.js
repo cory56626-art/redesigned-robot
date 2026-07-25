@@ -3,7 +3,7 @@ import {
   PLAYER_W, PLAYER_H, BASE_HP, BASE_MANA, MOVE_SPEED, JUMP_VELOCITY,
   MANA_REGEN, HP_REGEN, TILE,
   HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN,
-  CAST_REGEN_DELAY, CAST_REGEN_MULT,
+  CAST_REGEN_DELAY, CAST_REGEN_MULT, RESPAWN_DELAY, RESPAWN_DELAY_BOSS,
 } from '../config.js';
 import { tileDef } from '../world/tiles.js';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js';
@@ -87,7 +87,7 @@ export class Player {
     this._tickTimers(dt);
 
     if (!this.alive) {
-      this.respawnTimer -= dt;
+      if (this.respawnTimer > 0) this.respawnTimer = Math.max(0, this.respawnTimer - dt);
       return;
     }
 
@@ -268,7 +268,10 @@ export class Player {
 
   die(game, srcName) {
     this.alive = false;
-    this.respawnTimer = 3;
+    // Dying mid-boss costs real time, so trading your life for a free reset is
+    // no longer the cheapest way through a fight.
+    const bossActive = game && game.bosses && game.bosses.length > 0;
+    this.respawnTimer = bossActive ? RESPAWN_DELAY_BOSS : RESPAWN_DELAY;
     this.vx = 0; this.vy = 0;
     if (game) {
       game.addHitParticles(this.x + this.w / 2, this.y + this.h / 2, '#ff6b7d', 24);

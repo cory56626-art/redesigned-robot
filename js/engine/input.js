@@ -33,6 +33,12 @@ export class Input {
     this._lastJumpQueue = 0;
     this._jumpQueuedUntil = 0;
 
+    // Smart Cursor: held on desktop (Left Ctrl), latched by a button on mobile.
+    // systems/smartcursor.js reads `smartHeld`; the game's setting decides
+    // whether holding is required at all.
+    this.smartHeld = false;
+    this.smartLatched = false;
+
     this.aimMode = 'point';
     this.mouseScreen = { x: 0, y: 0 };
     this.aimDir = { x: 1, y: 0 };
@@ -122,6 +128,10 @@ export class Input {
         this.fire('commandPanel');
       } else if (k === 'q') {
         this.state.consumePressed = true;
+      } else if (k === 'f') {
+        this.fire('interact');
+      } else if (k === 'control') {
+        this.smartHeld = true;
       } else if (k >= '1' && k <= '9') {
         this.fire('hotbar', parseInt(k, 10) - 1);
       } else if (k === '0') {
@@ -143,6 +153,8 @@ export class Input {
       const k = e.key.toLowerCase();
       this.keys.delete(k);
 
+      if (k === 'control') this.smartHeld = false;
+
       if (k === ' ' || k === 'w' || k === 'arrowup') {
         if (
           !this.keys.has(' ') &&
@@ -156,6 +168,7 @@ export class Input {
 
     window.addEventListener('blur', () => {
       this.keys.clear();
+      this.smartHeld = false;
       this.state.jumpHeld = false;
       this.state.aimHeld = false;
       this.state.primaryHeld = false;
@@ -358,6 +371,19 @@ export class Input {
     this._tapBtn('mbPause', () => {
       this.fire('pause');
     });
+
+    // Touch has no modifier key, so the Smart Cursor button latches instead.
+    this._tapBtn('mbSmart', () => {
+      this.smartLatched = !this.smartLatched;
+      this.smartHeld = this.smartLatched;
+      const el = document.getElementById('mbSmart');
+      if (el) el.classList.toggle('on', this.smartLatched);
+      this.fire('smartToggle', this.smartLatched);
+    });
+
+    this._tapBtn('mbTalk', () => {
+      this.fire('interact');
+    });
   }
 
   _holdBtn(intent) {
@@ -457,7 +483,19 @@ export class Input {
       // Mobile aim is a radial cursor: joystick direction chooses the angle,
       // while joystick distance chooses how close the cursor is. Keeping the
       // magnitude was important; normalizing it forced every aim to one ring.
-      const d = this.state.aimHeld ? REACH * TILE * 0.8 * this.aimMagnitude : 0;
+      //
+      // With the stick at rest the distance used to collapse to zero, which put
+      // the aim point inside the player — so mining targeted the tile you were
+      // standing in. It now falls back to a short reach in the facing
+      // direction, which is what Smart Cursor then refines.
+      if (!this.state.aimHeld && this.state.moveX !== 0) {
+        // Resting stick: aim ahead of wherever you're walking.
+        this.aimDir.x = Math.sign(this.state.moveX);
+        this.aimDir.y = 0;
+      }
+      const d = this.state.aimHeld
+        ? REACH * TILE * 0.8 * this.aimMagnitude
+        : TILE * 1.6;
 
       this.state.aimX = cx + this.aimDir.x * d;
       this.state.aimY = cy + this.aimDir.y * d;

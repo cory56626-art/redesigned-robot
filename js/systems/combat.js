@@ -13,8 +13,14 @@ const MINE_SOUND_INTERVAL = 0.32;
 const MELEE_MAX_TILT = 0.85;
 const NEIGHBORS8 = [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]];
 
+// The tile the player is acting on. With Smart Cursor active this is the tile
+// the game chose (see systems/smartcursor.js, resolved once per step in
+// main._step); otherwise it is simply whatever the pointer is over.
 function aimTile(game, player) {
   const s = game.input.state;
+  if (game.smartTarget) {
+    return { tx: game.smartTarget.tx, ty: game.smartTarget.ty, ax: s.aimX, ay: s.aimY };
+  }
   return { tx: Math.floor(s.aimX / TILE), ty: Math.floor(s.aimY / TILE), ax: s.aimX, ay: s.aimY };
 }
 

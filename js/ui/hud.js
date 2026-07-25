@@ -24,6 +24,7 @@ export class HUD {
       hotbar: document.getElementById('hotbar'),
       buffBar: document.getElementById('buffBar'),
       netStatus: document.getElementById('netStatus'),
+      smartChip: document.getElementById('smartCursorChip'),
       toasts: document.getElementById('toasts'),
       ammo: document.getElementById('ammoIndicator'),
     };
@@ -97,15 +98,23 @@ export class HUD {
       this.el.buffBar.appendChild(d);
     }
 
+    // Smart Cursor indicator: on whenever it is actually influencing your aim.
+    const smartOn = g.settings && (g.settings.smartCursor === 'on' ||
+      (g.settings.smartCursor === 'hold' && g.input.smartHeld));
+    this.el.smartChip.classList.toggle('hidden', !smartOn);
+
     // Boss bar (first boss)
     if (g.bosses.length) {
       const b = g.bosses[0];
       this.el.bossBar.classList.remove('hidden');
-      this.el.bossName.textContent = b.name;
+      this.el.bossName.textContent = b.name + (b.enraged ? ' — ENRAGED' : '');
       const pct = Math.max(0, (b.hp / b.maxHp) * 100);
       this.el.bossHpFill.style.width = pct + '%';
       if (this.el.bossHpText) this.el.bossHpText.textContent = `${Math.max(0, Math.ceil(b.hp))} / ${b.maxHp}  (${Math.round(pct)}%)`;
       this.el.bossPhase.textContent = b.phase ? b.phase().name : (b.phaseName || '');
+      // The bar flashes with the boss's wind-up, so the tell is visible even
+      // when the fight has scrolled the boss off the edge of the screen.
+      this.el.bossBar.classList.toggle('telegraph', b.telegraph > 0);
     } else {
       this.el.bossBar.classList.add('hidden');
     }
@@ -114,7 +123,7 @@ export class HUD {
     if (g.net) {
       this.el.netStatus.classList.remove('hidden');
       this.el.netStatus.textContent = g.net.statusText();
-      this.el.netStatus.className = 'net-status ' + g.net.statusClass();
+      this.el.netStatus.className = 'chip net-status ' + g.net.statusClass();
     } else {
       this.el.netStatus.classList.add('hidden');
     }

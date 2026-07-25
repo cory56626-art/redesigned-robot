@@ -75,6 +75,7 @@ export class SaveManager {
 export function setSaveIndicator(state) {
   const el = document.getElementById('saveIndicator');
   if (!el) return;
-  el.className = 'save-indicator ' + state;
-  el.textContent = state === 'saving' ? 'Saving…' : state === 'unsaved' ? 'Unsaved Changes' : 'Saved';
+  // Keep the shared `chip` styling and swap only the state class.
+  el.className = 'chip ' + state;
+  el.textContent = state === 'saving' ? 'Saving…' : state === 'unsaved' ? 'Unsaved' : 'Saved';
 }

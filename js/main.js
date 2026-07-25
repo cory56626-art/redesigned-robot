@@ -18,6 +18,7 @@ import { Progression } from './systems/progression.js';
 import { starterInventory } from './systems/inventory.js';
 import * as craftSys from './systems/crafting.js';
 import { applyPotion } from './systems/combat.js';
+import { smartTarget } from './systems/smartcursor.js';
 import { Player, assignColor } from './entities/player.js';
 import { Enemy } from './entities/enemy.js';
 import { Boss } from './entities/boss.js';
@@ -91,11 +92,21 @@ class Game {
     this.dirty = false;
     this._autosaveTimer = AUTOSAVE_INTERVAL;
 
-    // Settings
+    // Settings. Smart Cursor defaults on for touch (where picking one tile with
+    // a stick is impractical) and to hold-to-enable on desktop, where the
+    // pointer is already precise.
     const s = this.saves.readSettings();
     this.playerName = s.name || 'Summoner';
     this.playerColorIndex = s.colorIndex || 0;
     this.playerColor = assignColor(this.playerColorIndex);
+    this.settings = {
+      smartCursor: s.smartCursor || (detectDefaultMode() === 'mobile' ? 'on' : 'hold'),
+      screenShake: s.screenShake !== false,
+      masterVolume: s.masterVolume != null ? s.masterVolume : 0.8,
+      musicVolume: s.musicVolume != null ? s.musicVolume : 0.55,
+      sfxVolume: s.sfxVolume != null ? s.sfxVolume : 0.9,
+    };
+    this.smartTarget = null;
 
     this.ui = { hud: null, menus: null };
     this.commands = null;
@@ -140,17 +151,34 @@ class Game {
     inp.on('commandPanel', () => { if (this.state === 'playing') this.openCommandPanel(); });
     inp.on('hotbar', (i) => this.selectHotbar(i));
     inp.on('hotbarScroll', (d) => { if (this.localPlayer) { let n = (this.localPlayer.inventory.selected + d + HOTBAR_SIZE) % HOTBAR_SIZE; this.selectHotbar(n); } });
+    inp.on('interact', () => this.interact());
+    inp.on('smartToggle', () => { /* the input layer owns the latch; nothing else to do */ });
   }
 
+  // Escape resolves one layer at a time, outermost first, so it never both
+  // closes a dialog and pauses the game in a single press.
   _handleEscape() {
     const m = this.ui.menus;
     if (this.commands.isOpen()) { this.commands.close(); return; }
+    if (m.isOpen('npcDialog')) { if (this.ui.npcDialog) this.ui.npcDialog.close(); else m.hide('npcDialog'); return; }
+    if (m.isOpen('settingsDialog')) { m.hide('settingsDialog'); return; }
     if (m.isOpen('howtoDialog')) { m.hide('howtoDialog'); return; }
     if (m.isOpen('claudeNotesDialog')) { m.hide('claudeNotesDialog'); return; }
     if (m.isOpen('confirmDialog')) { m.hide('confirmDialog'); return; }
     if (m.invOpen) { m.closeInventory(); return; }
     if (m.isOpen('newWorldDialog') || m.isOpen('loadWorldDialog') || m.isOpen('mpMenu')) { m.hide('newWorldDialog'); m.hide('loadWorldDialog'); m.hide('mpMenu'); return; }
     if (this.state === 'playing') this.setPaused(!this.paused);
+  }
+
+  // Mobile has no keyboard, so the Talk prompt is a real button that appears
+  // only while the Guide is actually within range.
+  _updateTalkButton() {
+    const el = document.getElementById('mbTalk');
+    if (!el) return;
+    const show = this.controlMode === 'mobile' && this.npc && this.localPlayer &&
+      this.npc.canTalkTo(this.localPlayer) &&
+      !(this.ui.npcDialog && this.ui.npcDialog.isOpen());
+    el.classList.toggle('hidden', !show);
   }
 
   _resize() {
@@ -176,6 +204,7 @@ class Game {
     if (this.state === 'playing') {
       this.renderer.draw(this);
       this.ui.hud.update();
+      this._updateTalkButton();
       this.ui.menus.tick(dt);
       this._autosaveTick(dt);
       // death screen toggle
@@ -190,12 +219,17 @@ class Game {
     const lc = this.localPlayer ? this.localPlayer.center() : { x: 0, y: 0 };
     this.input.resolveAim(lc.x, lc.y, this.canvas.width, this.canvas.height);
 
+    // Resolve the Smart Cursor target once per step so the renderer, the
+    // placement preview and the action code all agree on one tile.
+    this.smartTarget = this.localPlayer && this.localPlayer.alive
+      ? smartTarget(this, this.localPlayer, this.localPlayer.inventory.selectedItem())
+      : null;
+
     this.time.update(dt);
     this.audio.update(this, dt);
 
     // Players
     for (const p of this.players.values()) p.update(dt, this);
-    if (this.localPlayer && !this.localPlayer.alive) { this.localPlayer.respawnTimer -= 0; }
 
     if (this.isHost) {
       this.spawner.update(dt, this);
@@ -260,9 +294,12 @@ class Game {
     this.fallingTrees = this.fallingTrees.filter(t => !t.dead);
   }
 
+  // Can the player move and use items right now? The inventory deliberately
+  // does *not* block this — in Terraria the world keeps running and you keep
+  // playing with your bag open. Blocking dialogs still do.
   canAct() {
     return this.state === 'playing' && !this.paused && this.localPlayer && this.localPlayer.alive
-      && !this.ui.menus.anyModalOpen() && !this.input.isTyping();
+      && !this.ui.menus.anyBlockingModalOpen() && !this.input.isTyping();
   }
 
   // While these single-player overlays are open the world simulation is frozen
@@ -271,7 +308,9 @@ class Game {
   // frozen unilaterally, so it keeps running there.
   _simFrozen() {
     if (this.net) return false;
-    return (this.commands && this.commands.isOpen()) || (this.ui.menus && this.ui.menus.invOpen);
+    // Only the debug console freezes the world. The inventory used to as well,
+    // which is the opposite of how Terraria plays.
+    return (this.commands && this.commands.isOpen());
   }
 
   // ============ WORLD LIFECYCLE ============
@@ -472,7 +511,18 @@ class Game {
     if (this.state === 'playing' && this.dirty) this.saveGame(false);
   }
 
-  saveSettings() { this.saves.writeSettings({ name: this.playerName, colorIndex: this.playerColorIndex, controlMode: this.controlMode }); }
+  saveSettings() {
+    this.saves.writeSettings(Object.assign({
+      name: this.playerName,
+      colorIndex: this.playerColorIndex,
+      controlMode: this.controlMode,
+    }, this.settings));
+  }
+  setSetting(key, value) {
+    this.settings[key] = value;
+    if (key === 'masterVolume' || key === 'musicVolume' || key === 'sfxVolume') this.audio.applyVolumes(this.settings);
+    this.saveSettings();
+  }
   cyclePlayerColor() { this.playerColorIndex = (this.playerColorIndex + 1) % 8; this.playerColor = assignColor(this.playerColorIndex); if (this.localPlayer) this.localPlayer.color = this.playerColor; this.saveSettings(); }
   setControlMode(mode) { applyControlMode(this, mode); this.saveSettings(); }
 
@@ -483,6 +533,13 @@ class Game {
     else this.ui.menus.hidePause();
   }
   openCommandPanel() { this.commands.open(); }
+  // Context action: talk to the Guide if we're standing next to them.
+  interact() {
+    if (this.state !== 'playing' || !this.localPlayer || !this.localPlayer.alive) return;
+    if (this.npc && this.npc.canTalkTo(this.localPlayer) && this.ui.npcDialog) {
+      this.ui.npcDialog.toggle(this.npc);
+    }
+  }
   // Shared by the Esc key and the always-visible HUD ☰ button, so PC players have
   // a visible pause affordance (the review flagged that Esc was the only way).
   menuButton() { this._handleEscape(); }
@@ -503,6 +560,51 @@ class Game {
     // Routes through the shared handler so the healing cooldown applies here too.
     applyPotion(this, p, index, def);
   }
+  // Drag-and-drop between inventory slots, including on and off the equipment
+  // slots. Illegal moves (a sword into a helmet slot) are simply refused.
+  moveInventoryItem(src, dst) {
+    const inv = this.localPlayer && this.localPlayer.inventory;
+    if (!inv) return;
+    const bag = (s) => s.kind === 'inv';
+
+    if (bag(src) && bag(dst)) {
+      if (inv.moveSlot(+src.index, +dst.index)) this.markDirty();
+      return;
+    }
+    if (bag(src) && !bag(dst)) {
+      const ref = inv.slots[+src.index];
+      if (!ref || !inv.fitsEquip(dst.index, getItem(ref.id))) return;
+      const cur = inv.getEquip(dst.index);
+      inv.setEquip(dst.index, { id: ref.id, count: 1 });
+      // Equipment holds one item, so anything beyond the first stays behind.
+      if (ref.count > 1) { ref.count -= 1; if (cur) inv.add(cur.id, 1); }
+      else inv.slots[+src.index] = cur || null;
+      this.localPlayer.recomputeStats();
+      this.markDirty();
+      return;
+    }
+    if (!bag(src) && bag(dst)) {
+      const ref = inv.getEquip(src.index);
+      if (!ref) return;
+      const target = inv.slots[+dst.index];
+      if (target && !inv.fitsEquip(src.index, getItem(target.id))) return;
+      inv.setEquip(src.index, target ? { id: target.id, count: 1 } : null);
+      inv.slots[+dst.index] = { id: ref.id, count: 1 };
+      this.localPlayer.recomputeStats();
+      this.markDirty();
+      return;
+    }
+    // Equipment to equipment: only if the item is legal in the destination.
+    const ref = inv.getEquip(src.index);
+    if (!ref || !inv.fitsEquip(dst.index, getItem(ref.id))) return;
+    const cur = inv.getEquip(dst.index);
+    if (cur && !inv.fitsEquip(src.index, getItem(cur.id))) return;
+    inv.setEquip(dst.index, ref);
+    inv.setEquip(src.index, cur || null);
+    this.localPlayer.recomputeStats();
+    this.markDirty();
+  }
+
   dropInventoryItem(index) {
     const p = this.localPlayer; const s = p.inventory.slots[index];
     if (!s) return;
@@ -519,6 +621,9 @@ class Game {
 
   respawnLocal() {
     if (!this.localPlayer) return;
+    // The death screen disables its button until the countdown ends; this is the
+    // authoritative check, so a stray click or a script can't skip it either.
+    if (this.localPlayer.respawnTimer > 0) return;
     this.localPlayer.respawn(this);
     // Clear leftover combat so you never respawn straight into a projectile or a
     // lingering damage state. (Bosses are already despawned on death below.)
@@ -527,11 +632,18 @@ class Game {
   }
   onLocalDeath(srcName) {
     this.ui.menus.showDeath(srcName ? 'Slain by ' + srcName : undefined);
-    // In single-player, dying ends the encounter: the boss (and its adds and
-    // projectiles) despawn so respawn is a clean slate — no stale boss surviving
-    // across death like the stress test reported. In multiplayer the host keeps
-    // the fight alive for the other players.
-    if (!this.net) { this.clearBosses(true); this.resetCombatState(); }
+    // Dying ends the encounter. The boss, its adds and its projectiles all
+    // despawn, so respawning is a clean slate rather than a way to whittle a
+    // boss down across lives — the summon item was already consumed, so
+    // re-engaging costs another one.
+    const anyAlive = [...this.players.values()].some(p => p.alive);
+    this.ui.menus._deathWasBossFight = this.bosses.length > 0;
+    if (!this.net || !anyAlive) {
+      const had = this.bosses.length;
+      this.clearBosses(true);
+      this.resetCombatState();
+      if (had) this.toast('The encounter ends. Summon it again to try once more.', 'info');
+    }
   }
 
   // Remove every active boss plus the adds it spawned and any boss projectiles.

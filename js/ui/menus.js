@@ -17,13 +17,22 @@ const RARITY = [
 ];
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
 
+// Equipment slots, in the order they appear in the grid.
+const EQUIP_SLOTS = [
+  { kind: 'head', label: 'Head' }, { kind: 'chest', label: 'Chest' }, { kind: 'legs', label: 'Legs' },
+  { kind: 'acc0', label: 'Acc' }, { kind: 'acc1', label: 'Acc' }, { kind: 'acc2', label: 'Acc' },
+];
+
 const $ = (id) => document.getElementById(id);
 
 export class Menus {
   constructor(game) {
     this.game = game;
     this.invOpen = false;
-    this._invTimer = 0;
+    this._craftTimer = 0;
+    this._slotsBuilt = false;
+    this._craftSig = '';
+    this._deathWasBossFight = false;
     this._wire();
   }
 
@@ -34,6 +43,7 @@ export class Menus {
     $('btnNewWorld').onclick = () => this.show('newWorldDialog');
     $('btnLoadWorld').onclick = () => this.openLoadDialog();
     $('btnMultiplayer').onclick = () => this.show('mpMenu');
+    $('btnSettings').onclick = () => this.openSettings();
     $('btnHowto').onclick = () => this.showHowTo();
     $('btnClaudeNotes').onclick = () => this.showClaudeNotes();
     $('controlModeSeg').querySelectorAll('.seg-btn').forEach(b => {
@@ -64,11 +74,33 @@ export class Menus {
     // ---- Pause menu ----
     $('btnResume').onclick = () => g.setPaused(false);
     $('btnSaveGame').onclick = () => { g.saveGame(true); };
+    $('btnSettingsPause').onclick = () => this.openSettings();
     $('btnDemoCommands').onclick = () => g.openCommandPanel();
     $('btnClaudeNotesPause').onclick = () => this.showClaudeNotes();
     $('btnResetWorld').onclick = () => this.confirm('Reset World?', 'This regenerates the world from its seed and clears your placed/mined blocks. Your inventory is kept.', () => g.resetWorld());
     $('btnLeaveServer').onclick = () => g.leaveServer();
     $('btnQuitMenu').onclick = () => this.confirm('Quit to Menu?', 'The game will autosave first.', () => g.quitToMenu());
+
+    // ---- Settings ----
+    $('settingsClose').onclick = () => { this.hide('settingsDialog'); };
+    for (const [segId, key] of [['smartCursorSeg', 'smartCursor'], ['screenShakeSeg', 'screenShake']]) {
+      $(segId).querySelectorAll('.seg-btn').forEach(b => {
+        b.onclick = () => {
+          const v = key === 'screenShake' ? b.dataset.mode === 'on' : b.dataset.mode;
+          g.setSetting(key, v);
+          this._syncSettings();
+        };
+      });
+    }
+    $('settingsControlSeg').querySelectorAll('.seg-btn').forEach(b => {
+      b.onclick = () => { g.setControlMode(b.dataset.mode); this._syncSettings(); };
+    });
+    for (const [id, key] of [['setMaster', 'masterVolume'], ['setMusic', 'musicVolume'], ['setSfx', 'sfxVolume']]) {
+      $(id).addEventListener('input', (e) => {
+        g.setSetting(key, e.target.value / 100);
+        this._syncSettings();
+      });
+    }
 
     // ---- Inventory ----
     $('invClose').addEventListener('pointerdown', (e) => {
@@ -77,6 +109,7 @@ export class Menus {
     });
     $('invGrid').addEventListener('pointerdown', (e) => this._slotClick(e, 'inv'));
     $('equipGrid').addEventListener('pointerdown', (e) => this._slotClick(e, 'equip'));
+    this._wireDragAndDrop();
     $('invGrid').addEventListener('contextmenu', (e) => e.preventDefault());
     $('equipGrid').addEventListener('contextmenu', (e) => e.preventDefault());
     // Desktop hover tooltips (delegated so grid rebuilds don't drop handlers).
@@ -124,7 +157,17 @@ export class Menus {
   isOpen(id) { return !$(id).classList.contains('hidden'); }
 
   anyModalOpen() {
-    return ['mainMenu', 'pauseMenu', 'inventoryScreen', 'newWorldDialog', 'loadWorldDialog', 'mpMenu', 'commandPanel', 'howtoDialog', 'claudeNotesDialog', 'confirmDialog', 'deathScreen']
+    return ['mainMenu', 'pauseMenu', 'inventoryScreen', 'newWorldDialog', 'loadWorldDialog', 'mpMenu',
+      'commandPanel', 'howtoDialog', 'claudeNotesDialog', 'confirmDialog', 'deathScreen', 'settingsDialog', 'npcDialog']
+      .some(id => this.isOpen(id));
+  }
+
+  // Overlays that actually stop you playing. The inventory is deliberately not
+  // one of them: in Terraria the world keeps running and you keep moving and
+  // using items with your bag open, which is what this list encodes.
+  anyBlockingModalOpen() {
+    return ['mainMenu', 'pauseMenu', 'newWorldDialog', 'loadWorldDialog', 'mpMenu',
+      'commandPanel', 'howtoDialog', 'claudeNotesDialog', 'confirmDialog', 'deathScreen', 'settingsDialog', 'npcDialog']
       .some(id => this.isOpen(id));
   }
 
@@ -148,8 +191,36 @@ export class Menus {
   _updatePauseSaveState() { $('pauseSaveState').textContent = this.game.saveStateText(); }
 
   // ---- Death ----
-  showDeath(msg) { $('deathMessage').textContent = msg || 'The realm claims another summoner…'; this.show('deathScreen'); }
+  showDeath(msg) {
+    $('deathMessage').textContent = msg || 'The realm claims another summoner…';
+    this.show('deathScreen');
+    this._updateRespawnButton();
+  }
   hideDeath() { this.hide('deathScreen'); }
+
+  // The Respawn button stays disabled until the countdown ends. Dying while a
+  // boss is up costs noticeably longer, so throwing yourself at an encounter is
+  // never the cheap option.
+  _updateRespawnButton() {
+    const p = this.game.localPlayer;
+    const btn = $('btnRespawn');
+    const note = $('respawnNote');
+    if (!p || !btn) return;
+    const t = Math.max(0, p.respawnTimer || 0);
+    if (t > 0) {
+      btn.disabled = true;
+      btn.textContent = `Respawn in ${Math.ceil(t)}s`;
+      note.textContent = this._deathWasBossFight
+        ? 'The encounter has ended — the boss must be summoned again.'
+        : '';
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Respawn';
+      note.textContent = this._deathWasBossFight
+        ? 'The encounter has ended — the boss must be summoned again.'
+        : '';
+    }
+  }
 
   // ---- Load dialog ----
   openLoadDialog() {
@@ -180,22 +251,60 @@ export class Menus {
       <h4>PC Controls</h4>
       <ul>
         <li><kbd>A</kbd>/<kbd>D</kbd> or arrows — move · <kbd>W</kbd>/<kbd>Space</kbd> — jump (double-jump with Cloudstep Charm)</li>
-        <li><b>Left-click</b> — use item (attack / cast / summon / place / mine or chop with the held tool)</li>
+        <li><b>Left-click</b> — use item (attack / cast / summon / throw / place / mine or chop with the held tool)</li>
         <li><b>Right-click</b> — dig/chop the targeted tile with the best tool for it (pickaxe for stone, axe for trees)</li>
-        <li><kbd>1</kbd>–<kbd>0</kbd> / scroll — select hotbar · <kbd>E</kbd> — inventory & crafting · <kbd>Q</kbd> — use potion</li>
+        <li><kbd>1</kbd>–<kbd>0</kbd> / scroll — select hotbar · <kbd>E</kbd> — inventory &amp; crafting · <kbd>Q</kbd> — use potion</li>
+        <li><kbd>F</kbd> — talk to the Guide · <kbd>Ctrl</kbd> — hold for <b>Smart Cursor</b> (or set it to Always in Settings)</li>
         <li><kbd>Esc</kbd> — pause · <kbd>Enter</kbd> — chat (multiplayer)</li>
       </ul>
       <h4>Mobile Controls</h4>
-      <ul><li>Left stick moves, right stick aims. Buttons: Jump, Use, Mine, Place, Bag, Item. Tap an item in your bag to inspect it.</li></ul>
+      <ul>
+        <li>Left stick moves, right stick aims. Buttons: Jump, Use, Mine, Place, Bag, Item.</li>
+        <li><b>◎</b> toggles Smart Cursor, which picks the best tile for you — essential when aiming with a stick.</li>
+        <li>Tap an item in your bag to inspect it, or drag it to another slot to rearrange.</li>
+      </ul>
+      <h4>Playing with the bag open</h4>
+      <ul>
+        <li>The world keeps running while your inventory is open, and you can still <b>move, jump and use items</b>. The panel sits in the corner rather than covering the screen.</li>
+      </ul>
       <h4>Tips</h4>
       <ul>
         <li>You start with only a <b>pickaxe</b>, an <b>axe</b>, and a <b>sword</b>. Chop trees with the axe (they topple and drop wood — leaves only give twigs), mine stone &amp; ore with the pickaxe.</li>
         <li>Craft a <b>Crafting Bench</b> from wood, then build a Smeltery, Forge and Aether Altar as you progress.</li>
+        <li><b>Bombs</b> are a mining tool as much as a weapon — they arc, bounce, and blow craters in dirt and stone. Stand clear: the blast hurts you too.</li>
         <li>Bows need <b>arrows</b>, magic drains <b>Aether</b>, and healing has a <b>cooldown</b> — watch the hotbar timers.</li>
-        <li>Craft a <b>Verdant Effigy</b> and use it in the Forest to summon the first boss.</li>
+        <li>Craft a <b>Verdant Effigy</b> and use it in the Forest to summon the first boss. Bosses <b>telegraph</b> every attack — watch for the charge-up.</li>
+        <li>Dying during a boss fight ends the encounter and costs a longer respawn, so the boss has to be summoned again.</li>
+        <li>Lost? Talk to <b>Vesper Thane</b>, the Guide who lives at your spawn. He'll explain any item you're carrying.</li>
         <li>Stuck? Open the pause menu → <b>Demo Commands</b> for testing tools like <code>/giveall</code> or <code>/debugai</code>.</li>
       </ul>`;
     this.show('howtoDialog');
+  }
+
+  // ---- Settings ----
+  openSettings() { this._syncSettings(); this.show('settingsDialog'); }
+
+  _syncSettings() {
+    const g = this.game;
+    const st = g.settings;
+    const setSeg = (id, value) => {
+      $(id).querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === value));
+    };
+    setSeg('smartCursorSeg', st.smartCursor);
+    setSeg('screenShakeSeg', st.screenShake ? 'on' : 'off');
+    setSeg('settingsControlSeg', g.controlMode);
+    const slider = (id, outId, v) => {
+      const el = $(id);
+      el.value = Math.round(v * 100);
+      // Paint the filled portion of the track.
+      el.style.setProperty('--fill', el.value + '%');
+      $(outId).textContent = el.value + '%';
+    };
+    slider('setMaster', 'setMasterOut', st.masterVolume);
+    slider('setMusic', 'setMusicOut', st.musicVolume);
+    slider('setSfx', 'setSfxOut', st.sfxVolume);
+    const ms = $('musicStatus');
+    if (ms) ms.textContent = g.audio && g.audio.music ? g.audio.music.statusText() : 'Music tracks live in assets/music/.';
   }
 
   // ---- Claude's Notes (dev annotations for the stress-test review) ----
@@ -217,35 +326,77 @@ export class Menus {
 
   tick(dt) {
     if (this.invOpen) {
-      this._invTimer -= dt;
-      // Don't rebuild the grids out from under an open tooltip / hover.
-      if (this._invTimer <= 0 && !this._ttOpen) { this._invTimer = 0.25; this.renderInventory(); }
+      // Slots are diffed in place every frame — cheap, and it means counts and
+      // the selected-slot highlight track the world in real time now that the
+      // world keeps running while the bag is open.
+      this._syncSlots();
+      this._craftTimer -= dt;
+      if (this._craftTimer <= 0) { this._craftTimer = 0.4; this.renderCrafting(); this._renderStats(this.game.localPlayer); }
+    }
+    if (this.isOpen('deathScreen')) this._updateRespawnButton();
+  }
+
+  // Build the slot DOM exactly once. It used to be torn down and rebuilt four
+  // times a second along with the whole ~80-row crafting list, which is what
+  // made the panel flicker, drop hover state, and feel janky.
+  _buildSlots() {
+    if (this._slotsBuilt) return;
+    const eg = $('equipGrid');
+    eg.innerHTML = '';
+    for (const ed of EQUIP_SLOTS) eg.appendChild(this._slotEl('equip', ed.kind, ed.label));
+    const ig = $('invGrid');
+    ig.innerHTML = '';
+    for (let i = 0; i < INV_SIZE; i++) ig.appendChild(this._slotEl('inv', i));
+    this._slotsBuilt = true;
+  }
+
+  // Update the existing slot elements in place, redrawing an icon only when the
+  // item in that slot actually changed.
+  _syncSlots() {
+    const p = this.game.localPlayer;
+    if (!p) return;
+    this._buildSlots();
+    const inv = p.inventory;
+
+    const paint = (el, ref) => {
+      const id = ref ? ref.id : null;
+      const count = ref ? ref.count : 0;
+      if (el._itemId !== id) {
+        el._itemId = id;
+        const cv = el.querySelector('canvas');
+        const ctx = cv.getContext('2d');
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        if (ref) {
+          const icon = Sprites.getIcon(getItem(ref.id));
+          if (icon) ctx.drawImage(icon, 0, 0, cv.width, cv.height);
+        }
+        el.classList.toggle('empty', !ref);
+      }
+      if (el._count !== count) {
+        el._count = count;
+        el.querySelector('.slot-count').textContent = count > 1 ? count : '';
+      }
+    };
+
+    const eg = $('equipGrid').children;
+    for (let i = 0; i < EQUIP_SLOTS.length; i++) {
+      const ed = EQUIP_SLOTS[i];
+      const ref = ed.kind.startsWith('acc') ? inv.equip.acc[+ed.kind.slice(3)] : inv.equip[ed.kind];
+      paint(eg[i], ref);
+    }
+    const ig = $('invGrid').children;
+    for (let i = 0; i < INV_SIZE; i++) {
+      const el = ig[i];
+      paint(el, inv.slots[i]);
+      if (i < HOTBAR_SIZE) el.classList.toggle('selected', i === inv.selected);
     }
   }
 
   renderInventory() {
     const p = this.game.localPlayer;
     if (!p) return;
-    // Equipment
-    const eg = $('equipGrid');
-    eg.innerHTML = '';
-    const equipDefs = [
-      { kind: 'head', label: 'Head' }, { kind: 'chest', label: 'Chest' }, { kind: 'legs', label: 'Legs' },
-      { kind: 'acc0', label: 'Acc' }, { kind: 'acc1', label: 'Acc' }, { kind: 'acc2', label: 'Acc' },
-    ];
-    for (const ed of equipDefs) {
-      let ref;
-      if (ed.kind.startsWith('acc')) ref = p.inventory.equip.acc[+ed.kind.slice(3)];
-      else ref = p.inventory.equip[ed.kind];
-      eg.appendChild(this._slotEl(ref, 'equip', ed.kind, ed.label));
-    }
-    // Inventory grid
-    const ig = $('invGrid');
-    ig.innerHTML = '';
-    for (let i = 0; i < INV_SIZE; i++) ig.appendChild(this._slotEl(p.inventory.slots[i], 'inv', i));
-    // Player stats / class panel
+    this._syncSlots();
     this._renderStats(p);
-    // Crafting
     this.renderCrafting();
   }
 
@@ -273,20 +424,26 @@ export class Menus {
     $('playerStats').innerHTML = rows.join('');
   }
 
-  _slotEl(ref, kind, index, label) {
+  // An empty shell. Contents are filled in by _syncSlots, so this runs once per
+  // slot for the lifetime of the page.
+  _slotEl(kind, index, label) {
     const d = document.createElement('div');
-    d.className = 'inv-slot' + (kind === 'equip' ? ' equip' : '');
+    d.className = 'inv-slot empty' + (kind === 'equip' ? ' equip' : '');
+    if (kind === 'inv' && index < HOTBAR_SIZE) d.classList.add('hotbar');
     d.dataset.kind = kind; d.dataset.index = index;
-    if (ref) {
-      const cv = document.createElement('canvas'); cv.width = 24; cv.height = 24;
-      const icon = Sprites.getIcon(getItem(ref.id));
-      if (icon) cv.getContext('2d').drawImage(icon, 0, 0, 24, 24);
-      d.appendChild(cv);
-      if (ref.count > 1) { const c = document.createElement('span'); c.className = 'slot-count'; c.textContent = ref.count; d.appendChild(c); }
-      // Custom tooltip (see _hoverSlot / _showTooltip) replaces the native title.
-    } else if (kind === 'equip') {
-      d.classList.add('empty'); d.dataset.label = label;
+    if (label) d.dataset.label = label;
+    const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32;
+    d.appendChild(cv);
+    // The first row is the hotbar, so it carries the same select keys the HUD
+    // shows — the connection between bag row one and the hotbar is the point.
+    if (kind === 'inv' && index < HOTBAR_SIZE) {
+      const k = document.createElement('span');
+      k.className = 'slot-key';
+      k.textContent = (index + 1) % 10;
+      d.appendChild(k);
     }
+    const c = document.createElement('span'); c.className = 'slot-count';
+    d.appendChild(c);
     return d;
   }
 
@@ -307,7 +464,72 @@ export class Menus {
     // Mouse: act immediately (hover already surfaced the tooltip).
     if (kind === 'equip') this.game.unequip(index);
     else { if (e.button === 2) this.game.dropInventoryItem(+index); else this.game.useInventoryItem(+index); }
-    this.renderInventory();
+    this._syncSlots();
+    this._renderStats(this.game.localPlayer);
+  }
+
+  // Pointer drag between slots, so items can be rearranged the way they can in
+  // any inventory the player has used before. A drag that doesn't move far
+  // enough falls through to the click handler above.
+  _wireDragAndDrop() {
+    const DRAG_THRESHOLD = 6;
+    let from = null, startX = 0, startY = 0, dragging = false;
+
+    const slotAt = (x, y) => {
+      const el = document.elementFromPoint(x, y);
+      return el ? el.closest('.inv-slot') : null;
+    };
+    const clearHighlight = () => {
+      document.querySelectorAll('.inv-slot.drag-over').forEach(el => el.classList.remove('drag-over'));
+    };
+
+    const onDown = (e) => {
+      if (e.button === 2) return; // right-click drops; never starts a drag
+      const slot = e.target.closest('.inv-slot');
+      if (!slot) return;
+      from = slot; startX = e.clientX; startY = e.clientY; dragging = false;
+    };
+    const onMove = (e) => {
+      if (!from) return;
+      if (!dragging && Math.hypot(e.clientX - startX, e.clientY - startY) > DRAG_THRESHOLD) {
+        dragging = true;
+        from.classList.add('dragging');
+        this.hideTooltip();
+      }
+      if (!dragging) return;
+      clearHighlight();
+      const over = slotAt(e.clientX, e.clientY);
+      if (over && over !== from) over.classList.add('drag-over');
+    };
+    const onUp = (e) => {
+      if (!from) return;
+      const wasDragging = dragging;
+      from.classList.remove('dragging');
+      clearHighlight();
+      const target = wasDragging ? slotAt(e.clientX, e.clientY) : null;
+      const src = from;
+      from = null; dragging = false;
+      if (!wasDragging || !target || target === src) return;
+      // A drag consumed the gesture, so suppress the click that follows it.
+      e.preventDefault();
+      e.stopPropagation();
+      this.game.moveInventoryItem(
+        { kind: src.dataset.kind, index: src.dataset.index },
+        { kind: target.dataset.kind, index: target.dataset.index },
+      );
+      this._syncSlots();
+      this._renderStats(this.game.localPlayer);
+    };
+
+    for (const gid of ['invGrid', 'equipGrid']) {
+      $(gid).addEventListener('pointerdown', onDown);
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp, true);
+    window.addEventListener('pointercancel', () => {
+      if (from) from.classList.remove('dragging');
+      clearHighlight(); from = null; dragging = false;
+    });
   }
 
   _slotDef(kind, index) {
@@ -441,11 +663,18 @@ export class Menus {
       + (def.desc ? `<div class="tt-desc">${def.desc}</div>` : '');
   }
 
-  renderCrafting() {
+  renderCrafting(force) {
     const p = this.game.localPlayer;
+    if (!p) return;
     const list = $('craftList');
-    list.innerHTML = '';
     const recs = availableRecipes(this.game, p);
+    // Rebuilding ~80 rows every tick was most of the inventory's cost. Only do
+    // it when what's craftable (or the material counts shown) actually changed.
+    const sig = recs.map(r => r.recipe.id + (r.craftable ? '1' : '0') +
+      r.recipe.in.map(i => p.inventory.count(i.item)).join(',')).join('|');
+    if (!force && sig === this._craftSig) return;
+    this._craftSig = sig;
+    list.innerHTML = '';
     const stations = [...new Set(recs.map(r => r.recipe.station))];
     $('craftStationLabel').textContent = `(near: ${stations.filter(Boolean).join(', ') || 'hand only — place a Crafting Bench'})`;
     // sort craftable first

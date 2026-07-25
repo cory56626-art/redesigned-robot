@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1020" />
   <title>Summoner Realms</title>
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/styles.css?v=realms-2" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230b1020'/%3E%3Crect x='5' y='2' width='6' height='6' fill='%237ee0c0'/%3E%3Crect x='6' y='9' width='4' height='5' fill='%23c58bff'/%3E%3C/svg%3E" />
 </head>
 <body>
@@ -23,11 +23,14 @@
     </div>
 
     <div class="hud-top-right">
-      <button id="hudMenuBtn" class="hud-menu-btn" title="Pause / menu (Esc)">☰</button>
-      <div id="clock" class="clock">☀ Day</div>
-      <div id="saveIndicator" class="save-indicator saved">Saved</div>
-      <div id="netStatus" class="net-status hidden">Offline</div>
-      <div id="minionCount" class="minion-count hidden">Minions 0/1</div>
+      <div class="hud-chips">
+        <div id="clock" class="chip">☀ Day</div>
+        <div id="saveIndicator" class="chip saved">Saved</div>
+        <button id="hudMenuBtn" class="icon-btn" title="Pause / menu (Esc)">☰</button>
+      </div>
+      <div id="netStatus" class="chip net-status hidden">Offline</div>
+      <div id="minionCount" class="chip minion-count hidden">Minions 0/1</div>
+      <div id="smartCursorChip" class="chip smart-chip hidden">Smart Cursor</div>
     </div>
 
     <!-- Boss health bar -->
@@ -60,8 +63,10 @@
     <div class="mobile-buttons-top">
       <button class="mbtn small" id="mbInv" data-act="inv">Bag</button>
       <button class="mbtn small" id="mbUseItem" data-act="useitem">Item</button>
+      <button class="mbtn small" id="mbSmart" data-act="smart" title="Smart Cursor">◎</button>
       <button class="mbtn small" id="mbPause" data-act="pause">☰</button>
     </div>
+    <button class="mbtn talk hidden" id="mbTalk" data-act="talk">Talk</button>
   </div>
 
   <!-- ============ MAIN MENU ============ -->
@@ -75,23 +80,24 @@
         <button class="btn primary" id="btnNewWorld">New World</button>
         <button class="btn" id="btnLoadWorld">Load World</button>
         <button class="btn" id="btnMultiplayer">Multiplayer</button>
+        <button class="btn" id="btnSettings">Settings</button>
         <button class="btn" id="btnHowto">How to Play</button>
         <button class="btn" id="btnClaudeNotes">Claude's Notes</button>
       </div>
 
       <div class="menu-row">
-        <label>Controls:</label>
+        <label>Controls</label>
         <div class="seg" id="controlModeSeg">
           <button data-mode="pc" class="seg-btn active">PC</button>
           <button data-mode="mobile" class="seg-btn">Mobile</button>
         </div>
       </div>
       <div class="menu-row">
-        <label>Player name:</label>
+        <label>Player name</label>
         <input type="text" id="playerNameInput" maxlength="14" placeholder="Summoner" />
         <span class="color-swatch" id="playerColorSwatch" title="Your color (click to change)"></span>
       </div>
-      <p class="version">v1.0 demo · original art & content</p>
+      <p class="version">v1.1 · original art &amp; content</p>
     </div>
   </div>
 
@@ -117,6 +123,60 @@
       <div id="saveList" class="save-list"></div>
       <div class="dialog-buttons">
         <button class="btn" id="loadWorldClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SETTINGS ============ -->
+  <div id="settingsDialog" class="overlay dialog hidden">
+    <div class="dialog-panel">
+      <h2>Settings</h2>
+
+      <h3>Audio</h3>
+      <div class="set-row">
+        <label for="setMaster">Master</label>
+        <input type="range" id="setMaster" min="0" max="100" step="1" />
+        <output id="setMasterOut">80%</output>
+      </div>
+      <div class="set-row">
+        <label for="setMusic">Music</label>
+        <input type="range" id="setMusic" min="0" max="100" step="1" />
+        <output id="setMusicOut">55%</output>
+      </div>
+      <div class="set-row">
+        <label for="setSfx">Effects</label>
+        <input type="range" id="setSfx" min="0" max="100" step="1" />
+        <output id="setSfxOut">90%</output>
+      </div>
+      <p class="hint small" id="musicStatus">Music tracks live in <code>assets/music/</code>.</p>
+
+      <h3>Gameplay</h3>
+      <div class="set-row">
+        <label>Smart Cursor</label>
+        <div class="seg" id="smartCursorSeg">
+          <button data-mode="off" class="seg-btn">Off</button>
+          <button data-mode="hold" class="seg-btn">Hold Ctrl</button>
+          <button data-mode="on" class="seg-btn">Always</button>
+        </div>
+      </div>
+      <p class="hint small">Automatically targets the most useful tile — the nearest block worth mining, the next legal spot to build, or a dark wall that wants a torch.</p>
+      <div class="set-row">
+        <label>Screen shake</label>
+        <div class="seg" id="screenShakeSeg">
+          <button data-mode="off" class="seg-btn">Off</button>
+          <button data-mode="on" class="seg-btn">On</button>
+        </div>
+      </div>
+      <div class="set-row">
+        <label>Controls</label>
+        <div class="seg" id="settingsControlSeg">
+          <button data-mode="pc" class="seg-btn">PC</button>
+          <button data-mode="mobile" class="seg-btn">Mobile</button>
+        </div>
+      </div>
+
+      <div class="dialog-buttons">
+        <button class="btn primary" id="settingsClose">Done</button>
       </div>
     </div>
   </div>
@@ -153,6 +213,7 @@
       <div class="menu-buttons">
         <button class="btn primary" id="btnResume">Resume</button>
         <button class="btn" id="btnSaveGame">Save Game</button>
+        <button class="btn" id="btnSettingsPause">Settings</button>
         <button class="btn" id="btnDemoCommands">Demo Commands</button>
         <button class="btn" id="btnClaudeNotesPause">Claude's Notes</button>
         <button class="btn" id="btnResetWorld">Reset World</button>
@@ -163,24 +224,56 @@
     </div>
   </div>
 
-  <!-- ============ INVENTORY / CRAFTING ============ -->
+  <!-- ============ INVENTORY / CRAFTING ============
+       Anchored to a corner rather than covering the screen, and the backdrop
+       does not take pointer events, so the world stays visible and playable
+       while the bag is open. -->
   <div id="inventoryScreen" class="overlay inv hidden">
-    <div class="inv-panel">
-      <button class="btn tiny inv-close" id="invClose">Close</button>
-      <div class="inv-col">
-        <h3>Equipment <span class="hint small" id="equipDefense"></span></h3>
-        <div class="equip-grid" id="equipGrid"></div>
-        <div class="player-stats" id="playerStats"></div>
-        <h3>Inventory</h3>
-        <div class="inv-grid" id="invGrid"></div>
-        <p class="hint small" id="invHint">Click an item to use/equip. Right-click to drop one. Hover to inspect.</p>
-      </div>
-      <div class="inv-col">
-        <h3>Crafting <span class="hint small" id="craftStationLabel">(near: none)</span></h3>
+    <div class="inv-wrap">
+      <section class="panel inv-main">
+        <div class="panel-head">
+          <h3>Inventory</h3>
+          <span class="spacer"></span>
+          <button class="icon-btn" id="invClose" title="Close (E)">✕</button>
+        </div>
+        <div class="inv-body">
+          <div class="inv-left">
+            <div class="inv-grid" id="invGrid"></div>
+            <p class="hint small" id="invHint">Click to use or equip · Right-click to drop one · Drag to rearrange</p>
+          </div>
+          <div class="inv-right">
+            <h4>Equipment <span class="hint small" id="equipDefense"></span></h4>
+            <div class="equip-grid" id="equipGrid"></div>
+            <div class="player-stats" id="playerStats"></div>
+          </div>
+        </div>
+      </section>
+      <section class="panel inv-craft">
+        <div class="panel-head">
+          <h3>Crafting</h3>
+          <span class="hint small" id="craftStationLabel">(near: none)</span>
+        </div>
         <div class="craft-list" id="craftList"></div>
-      </div>
+      </section>
     </div>
     <div id="itemTooltip" class="item-tooltip hidden"></div>
+  </div>
+
+  <!-- ============ GUIDE NPC DIALOGUE ============ -->
+  <div id="npcDialog" class="overlay npc hidden">
+    <div class="npc-panel">
+      <div class="npc-head">
+        <canvas id="npcPortrait" class="npc-portrait" width="48" height="48"></canvas>
+        <div class="npc-id">
+          <div class="npc-name" id="npcName">Vesper Thane</div>
+          <div class="npc-title" id="npcTitle">the Guide</div>
+        </div>
+        <span class="spacer"></span>
+        <button class="icon-btn" id="npcClose" title="Close (Esc)">✕</button>
+      </div>
+      <div class="npc-body" id="npcBody"></div>
+      <div class="npc-topics" id="npcTopics"></div>
+    </div>
   </div>
 
   <!-- ============ MULTIPLAYER SIDEBAR (players + chat) ============ -->
@@ -263,6 +356,7 @@
       <h1>You Fell</h1>
       <p id="deathMessage">The realm claims another summoner…</p>
       <button class="btn primary" id="btnRespawn">Respawn</button>
+      <div id="respawnNote" class="hint small"></div>
     </div>
   </div>
 
@@ -282,6 +376,9 @@
     window.SUMMONER_SERVER_URL = 'https://redesigned-robot-1-57oq.onrender.com';
   </script>
 
-  <script type="module" src="js/main.js?build=audio-mobile-2"></script>
+  <!-- The ?v= stamp is applied to every module by tools/stamp-build.mjs, driven
+       by the BUILD constant in js/config.js, so a release can never ship a
+       half-updated module graph out of the browser cache. -->
+  <script type="module" src="js/main.js?v=realms-2"></script>
 </body>
 </html>
