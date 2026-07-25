@@ -68,7 +68,6 @@ export class Renderer {
     this._drawMinions(game, ctx);
     this._drawEnemies(game, ctx);
     this._drawBosses(game, ctx);
-    this._drawDiamondBeamTelegraphs(game, ctx);
     this._drawThrown(game, ctx);
     this._drawProjectiles(game, ctx);
     this._drawPlayers(game, ctx);
@@ -91,6 +90,9 @@ export class Renderer {
     ctx.save();
     ctx.translate(W2 / 2 - camX * cam.scale, H / 2 - camY * cam.scale);
     ctx.scale(cam.scale, cam.scale);
+    // Keep the Diamond Heart's telegraph and beam above the lighting pass so
+    // the three warning lanes stay readable in daylight and at night.
+    this._drawDiamondBeamTelegraphs(game, ctx);
     this._drawParticles(game, ctx, true);
     this._drawRings(game, ctx);
     ctx.restore();
