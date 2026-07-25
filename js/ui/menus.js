@@ -1,6 +1,6 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN } from '../config.js?v=realms-2';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=realms-difficulty-20';
 import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=realms-2';
 import { Sprites } from '../art/sprites.js?v=realms-2';
 import { item as getItem } from '../data/items.js?v=realms-diamond-1';
@@ -24,6 +24,8 @@ const EQUIP_SLOTS = [
 ];
 
 const $ = (id) => document.getElementById(id);
+const WORLD_DIFFICULTY_FILL = (key) => ({ normal: 0, hard: 1 / 3, master: 2 / 3, masochist: 1 }[key] ?? 0);
+
 
 export class Menus {
   constructor(game) {
@@ -40,7 +42,11 @@ export class Menus {
     const g = this.game;
     // ---- Main menu ----
     $('btnContinue').onclick = () => g.continueGame();
-    $('btnNewWorld').onclick = () => this.show('newWorldDialog');
+    $('btnNewWorld').onclick = () => {
+      $('newWorldDifficulty').value = '0';
+      this._syncNewWorldDifficulty();
+      this.show('newWorldDialog');
+    };
     $('btnLoadWorld').onclick = () => this.openLoadDialog();
     $('btnMultiplayer').onclick = () => this.show('mpMenu');
     $('btnSettings').onclick = () => this.openSettings();
@@ -55,12 +61,15 @@ export class Menus {
     $('playerColorSwatch').onclick = () => { g.cyclePlayerColor(); $('playerColorSwatch').style.background = g.playerColor; };
 
     // ---- New world dialog ----
+    $('newWorldDifficulty').addEventListener('input', () => this._syncNewWorldDifficulty());
+    this._syncNewWorldDifficulty();
     $('newWorldCancel').onclick = () => this.hide('newWorldDialog');
     $('newWorldCreate').onclick = () => {
       const name = $('newWorldName').value.trim() || 'Realm';
       const seed = $('newWorldSeed').value.trim();
+      const difficulty = difficultyForIndex($('newWorldDifficulty').value).key;
       this.hide('newWorldDialog');
-      g.startNewWorld(name, seed);
+      g.startNewWorld(name, seed, difficulty);
     };
 
     // ---- Load world dialog ----
@@ -154,6 +163,14 @@ export class Menus {
   // ---- Generic overlay show/hide ----
   show(id) { $(id).classList.remove('hidden'); this.game.onMenuOpened(); }
   hide(id) { $(id).classList.add('hidden'); }
+  _syncNewWorldDifficulty() {
+    const info = difficultyForIndex($('newWorldDifficulty').value);
+    $('newWorldDifficultyLabel').textContent = info.label;
+    $('newWorldDifficultyTier').textContent = info.tier;
+    $('newWorldDifficultyHint').textContent = info.hint;
+    $('newWorldDifficulty').style.setProperty('--fill', (WORLD_DIFFICULTY_FILL(info.key) * 100) + '%');
+  }
+
   isOpen(id) { return !$(id).classList.contains('hidden'); }
 
   anyModalOpen() {
@@ -232,7 +249,8 @@ export class Menus {
       const div = document.createElement('div');
       div.className = 'save-item';
       const date = new Date(s.updated).toLocaleString();
-      div.innerHTML = `<div class="save-info"><div class="save-name">${escapeHtml(s.name)}</div><div class="save-meta">Seed ${s.seed} · ${date}</div></div>`;
+      const diff = difficultyInfo(s.difficulty);
+      div.innerHTML = `<div class="save-info"><div class="save-name">${escapeHtml(s.name)}</div><div class="save-meta">Seed ${s.seed} · ${diff.label} · ${date}</div></div>`;
       const load = document.createElement('button'); load.className = 'btn small'; load.textContent = 'Load';
       load.onclick = () => { this.hide('loadWorldDialog'); this.game.loadWorldSlot(s.id); };
       const del = document.createElement('button'); del.className = 'btn small danger'; del.textContent = 'Delete';
