@@ -1,7 +1,7 @@
 // Summoner Realms — minion entity. Owned by a player; the owner's client
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
-import { minionDef } from '../data/minions.js?v=realms-diamond-13';
+import { minionDef } from '../data/minions.js?v=realms-diamond-14';
 import { dist2, aabb, angleTo } from '../utils.js?v=realms-2';
 import { TILE } from '../config.js?v=realms-2';
 import { Projectile } from './projectile.js?v=realms-diamond-3';
@@ -23,8 +23,8 @@ const DIAMOND_LEASH = 780;
 const DIAMOND_SAFE_RADIUS = 300;
 // Keep the Heart in a clear air lane above the generated surface. Its flying
 // movement intentionally ignores collision, so the AI must enforce this ceiling.
-const DIAMOND_AIR_CLEARANCE = 72;
-const DIAMOND_GROUND_SAMPLE = 3;
+const DIAMOND_AIR_CLEARANCE = 24;
+const DIAMOND_GROUND_SAMPLE = 1;
 
 export class Minion {
   constructor(key, ownerId, x, y) {
@@ -72,6 +72,7 @@ export class Minion {
     this.beamWindup = 0;
     this.beamActive = 0;
     this.beamTimer = 0;
+    this.beamTickTimer = 0;
     this.beamBlinkCount = 0;
     this.beamFlash = 0;
     this.beamTarget = null;
@@ -362,11 +363,17 @@ export class Minion {
     }
 
     if (this.beamActive > 0) {
+      this.beamTickTimer -= dt;
+      while (this.beamActive > 0 && this.beamTickTimer <= 0) {
+        this.beamTickTimer += this.def.beamTick || 0.1;
+        this._tickDiamondBeam(game);
+      }
       this.beamActive = Math.max(0, this.beamActive - dt);
       if (this.beamActive <= 0) {
         this.beamTarget = null;
         this.beamLines = [];
         this.beamHit = false;
+        this.beamTickTimer = 0;
         this.diamondRetreat = 0.45;
       }
     }
@@ -379,6 +386,7 @@ export class Minion {
     this.beamY0 = tc.y - 620;
     this.beamY1 = tc.y + 620;
     this.beamTimer = 0;
+    this.beamTickTimer = 0;
     this.beamBlinkCount = 0;
     this.beamFlash = 0.12;
     this.beamWindup = 0.6;
@@ -400,22 +408,25 @@ export class Minion {
   _fireDiamondBeam(game) {
     const target = this.beamTarget;
     this.beamWindup = 0;
-    this.beamActive = 0.1;
+    this.beamActive = this.def.beamDuration || 1.7;
+    this.beamTickTimer = 0;
     this.beamHit = true;
 
     if (target && !target.dead && target.alive !== false && target.hp > 0) {
       const tc = target.center();
-      game.hurtEnemyOrBoss(target, this.def.beamDamage || 50, 0, this.ownerId);
       for (const x of this.beamLines) {
-        game.fx?.flash(x, tc.y, 0.9, 0.16);
-        game.fx?.burst(x, tc.y, '#fff4b0', 9, {
-          speed: 150, spread: Math.PI * 2, life: 0.35, size: 2.5, glow: true,
-        });
+        game.fx?.ring(x, tc.y, '#fff4b0', 16, { life: 0.12, width: 1.5 });
       }
-      game.fx?.ring(tc.x, tc.y, '#fff4b0', 52, { life: 0.24, width: 3 });
-      game.shake?.(4, 0.18);
+      game.fx?.ring(tc.x, tc.y, '#fff4b0', 28, { life: 0.16, width: 2 });
+      game.shake?.(2, 0.08);
     }
     this.lastAttack = 'beamFire';
+  }
+
+  _tickDiamondBeam(game) {
+    const target = this.beamTarget;
+    if (!target || target.dead || target.alive === false || target.hp <= 0) return;
+    game.hurtEnemyOrBoss(target, this.def.beamDamage || 3, 0, this.ownerId);
   }
 
   _diamondHover(game, owner, target, dt, retreat = false) {
