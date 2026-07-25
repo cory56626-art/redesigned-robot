@@ -1,7 +1,7 @@
 // Summoner Realms — minion entity. Owned by a player; the owner's client
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
-import { minionDef } from '../data/minions.js?v=realms-diamond-1';
+import { minionDef } from '../data/minions.js?v=realms-diamond-8';
 import { dist2, aabb, angleTo } from '../utils.js?v=realms-2';
 import { Projectile } from './projectile.js?v=realms-diamond-3';
 import * as AI from '../systems/ai.js?v=realms-diamond-1';
@@ -47,8 +47,11 @@ export class Minion {
     // generic state machine below.
     // Let the endgame summon demonstrate its kit quickly, then respect the
     // full cooldowns after the opening exchange.
-    this.spearCd = d.behavior === 'diamondHeart' ? 0.35 : (d.spearRate || 0);
-    this.dashCd = d.behavior === 'diamondHeart' ? 0.45 : (d.dashRate || 0.9);
+    // Diamond Heart uses a deliberate rotation instead of repeatedly
+    // selecting the first ranged move that comes off cooldown.
+    this.spearCd = d.behavior === 'diamondHeart' ? 1.05 : (d.spearRate || 0);
+    this.dashCd = d.behavior === 'diamondHeart' ? 0.65 : (d.dashRate || 0.9);
+    this.beamCd = d.behavior === 'diamondHeart' ? 1.9 : 0;
     this.spearWindup = 0;
     this.spearTarget = null;
     this.spearAngle = 0;
@@ -58,6 +61,19 @@ export class Minion {
     this.dashTarget = null;
     this.dashHits = new Set();
     this.dashTrailTimer = 0;
+    this.dashChainRemaining = 0;
+    this.dashRecovery = 0;
+    this.dashVariant = false;
+    this.beamWindup = 0;
+    this.beamActive = 0;
+    this.beamTimer = 0;
+    this.beamBlinkCount = 0;
+    this.beamFlash = 0;
+    this.beamTarget = null;
+    this.beamLines = [];
+    this.beamY0 = 0;
+    this.beamY1 = 0;
+    this.beamHit = false;
     this.target = null;
     this.swordAngle = 0;
     this.diamondRetreat = 0;
@@ -193,7 +209,10 @@ export class Minion {
   _updateDiamondHeart(dt, game, owner, oc) {
     this.spearCd -= dt;
     this.dashCd -= dt;
+    this.beamCd -= dt;
     this.dashTrailTimer -= dt;
+    this.dashRecovery = Math.max(0, this.dashRecovery - dt);
+    this.beamFlash = Math.max(0, this.beamFlash - dt);
     this.diamondRetreat = Math.max(0, this.diamondRetreat - dt);
 
     const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
@@ -213,6 +232,26 @@ export class Minion {
       target = this._findDiamondTarget(game, cx, cy);
     }
     this.target = target;
+
+    // A dash chain and the beam telegraph own the Heart until their short
+    // recovery windows finish. This prevents the spear branch from interrupting
+    // either move.
+    if (this.beamWindup > 0 || this.beamActive > 0) {
+      this._updateDiamondBeam(dt, game, owner, target);
+      return;
+    }
+    if (this.dashRecovery > 0) {
+      if (target) this._diamondHover(game, owner, target, dt, true);
+      return;
+    }
+    if (this.dashChainRemaining > 0) {
+      if (target) {
+        this._beginDiamondDash(game, target, true);
+        return;
+      }
+      this.dashChainRemaining = 0;
+      this.dashVariant = false;
+    }
 
     if (this.spearWindup > 0) {
       const live = this.spearTarget && !this.spearTarget.dead && this.spearTarget.alive !== false && this.spearTarget.hp > 0
@@ -246,17 +285,108 @@ export class Minion {
 
     this._diamondHover(game, owner, target, dt, this.diamondRetreat > 0);
 
-    // Dash through a nearby target when the line is clear. The cooldown and
-    // single-hit-per-dash rule keep this a skill move, not contact-DPS spam.
-    if (this.diamondRetreat <= 0 && this.dashCd <= 0 && los && distance > 118 && distance < 212) {
+    // Close the lane deliberately and dash from a real approach distance.
+    // The wider window fixes the old behavior where the Heart orbited just
+    // outside its own dash trigger forever.
+    if (this.diamondRetreat <= 0 && this.dashCd <= 0 && los && distance > 145 && distance < 315) {
       this._beginDiamondDash(game, target);
       return;
     }
 
+    // The sky-beam takes priority over the spear at long range, giving the
+    // Heart a second deliberate ranged move instead of spear spam.
+    if (this.diamondRetreat <= 0 && this.beamCd <= 0 && los && distance > 280) {
+      this._beginDiamondBeam(game, target);
+      return;
+    }
+
     // At range, the Heart charges one readable spear before releasing it.
-    if (this.diamondRetreat <= 0 && this.spearCd <= 0 && los && distance > 220) {
+    if (this.diamondRetreat <= 0 && this.spearCd <= 0 && los && distance > 300) {
       this._beginDiamondSpear(game, target);
     }
+  }
+
+  _updateDiamondBeam(dt, game, owner, fallbackTarget) {
+    const target = this.beamTarget && !this.beamTarget.dead &&
+      this.beamTarget.alive !== false && this.beamTarget.hp > 0
+      ? this.beamTarget
+      : fallbackTarget;
+
+    if (target) this._diamondHover(game, owner, target, dt, true);
+    else this._diamondRegroup(game, game.players.get(this.ownerId)?.center() || { x: this.x, y: this.y }, dt);
+
+    if (this.beamWindup > 0) {
+      this.beamTimer += dt;
+      const nextBlink = Math.min(2, Math.floor(this.beamTimer / 0.3));
+      if (nextBlink > this.beamBlinkCount) {
+        this.beamBlinkCount = nextBlink;
+        this.beamFlash = 0.14;
+        for (const x of this.beamLines) {
+          game.fx?.ring(x, this.beamY1, '#ffd34e', 16, { life: 0.16, width: 2 });
+          game.fx?.streak(x, this.beamY1, -Math.PI / 2, '#ffe27a', 3, {
+            speed: 110, spread: 0.16, life: 0.16, size: 2, glow: true,
+          });
+        }
+      }
+      if (this.beamTimer >= 0.6) this._fireDiamondBeam(game);
+      return;
+    }
+
+    if (this.beamActive > 0) {
+      this.beamActive = Math.max(0, this.beamActive - dt);
+      if (this.beamActive <= 0) {
+        this.beamTarget = null;
+        this.beamLines = [];
+        this.beamHit = false;
+        this.diamondRetreat = 0.45;
+      }
+    }
+  }
+
+  _beginDiamondBeam(game, target) {
+    const tc = target.center();
+    this.beamTarget = target;
+    this.beamLines = [tc.x - 42, tc.x, tc.x + 42];
+    this.beamY0 = tc.y - 620;
+    this.beamY1 = tc.y + 620;
+    this.beamTimer = 0;
+    this.beamBlinkCount = 0;
+    this.beamFlash = 0.12;
+    this.beamWindup = 0.6;
+    this.beamActive = 0;
+    this.beamHit = false;
+    this.beamCd = this.def.beamRate || 5.2;
+    this.spearWindup = 0;
+    this.spearTarget = null;
+    this.dashChainRemaining = 0;
+    this.dashRecovery = 0;
+    this.dashVariant = false;
+    this.lastAttack = 'beam';
+
+    for (const x of this.beamLines) {
+      game.fx?.ring(x, this.beamY1, '#9be8f5', 18, { life: 0.3, width: 1.5 });
+    }
+  }
+
+  _fireDiamondBeam(game) {
+    const target = this.beamTarget;
+    this.beamWindup = 0;
+    this.beamActive = 0.1;
+    this.beamHit = true;
+
+    if (target && !target.dead && target.alive !== false && target.hp > 0) {
+      const tc = target.center();
+      game.hurtEnemyOrBoss(target, this.def.beamDamage || 50, 0, this.ownerId);
+      for (const x of this.beamLines) {
+        game.fx?.flash(x, tc.y, 0.9, 0.16);
+        game.fx?.burst(x, tc.y, '#fff4b0', 9, {
+          speed: 150, spread: Math.PI * 2, life: 0.35, size: 2.5, glow: true,
+        });
+      }
+      game.fx?.ring(tc.x, tc.y, '#fff4b0', 52, { life: 0.24, width: 3 });
+      game.shake?.(4, 0.18);
+    }
+    this.lastAttack = 'beamFire';
   }
 
   _diamondHover(game, owner, target, dt, retreat = false) {
@@ -379,22 +509,30 @@ export class Minion {
     this.lastAttack = 'spear';
   }
 
-  _beginDiamondDash(game, target) {
+  _beginDiamondDash(game, target, continuing = false) {
     const c = this.x + this.w / 2, d = this.y + this.h / 2;
     const tc = target.center();
+
+    if (!continuing) {
+      this.dashChainRemaining = Math.random() < (this.def.dashTripleChance || 0.34) ? 3 : 1;
+      this.dashVariant = this.dashChainRemaining === 3;
+      this.dashCd = this.def.dashRate || 1.85;
+      this.lastAttack = this.dashVariant ? 'tripleDash' : 'dash';
+    }
+
     this.dashAngle = Math.atan2(tc.y - d, tc.x - c);
-    this.dashTime = this.def.dashDuration || 0.34;
-    this.diamondRetreat = 0.52;
-    this.dashCd = this.def.dashRate || 2.6;
+    this.dashTime = this.def.dashDuration || 0.3;
+    this.diamondRetreat = continuing ? 0 : 0.18;
     this.dashTarget = target;
     this.dashHits = new Set();
     this.attackPulse = this.dashTime;
     this.swordAngle = this.dashAngle;
-    this.vx = Math.cos(this.dashAngle) * (this.def.dashSpeed || 760);
-    this.vy = Math.sin(this.dashAngle) * (this.def.dashSpeed || 760);
-    game.fx?.ring(c, d, '#ffffff', 32, { life: 0.22, width: 2 });
-    game.fx?.streak(c, d, this.dashAngle, '#8be9ff', 12, { speed: 210, spread: 0.22, life: 0.28, size: 3, glow: true });
-    this.lastAttack = 'dash';
+    this.vx = Math.cos(this.dashAngle) * (this.def.dashSpeed || 820);
+    this.vy = Math.sin(this.dashAngle) * (this.def.dashSpeed || 820);
+    game.fx?.ring(c, d, this.dashVariant ? '#ffd86b' : '#ffffff', this.dashVariant ? 44 : 32, { life: 0.22, width: 2 });
+    game.fx?.streak(c, d, this.dashAngle, this.dashVariant ? '#ffd86b' : '#8be9ff', 12, {
+      speed: 230, spread: 0.22, life: 0.28, size: 3, glow: true,
+    });
   }
 
   _updateDiamondDash(dt, game) {
@@ -432,9 +570,24 @@ export class Minion {
     this.dashTime -= dt;
     if (this.dashTime <= 0) {
       this.dashTime = 0;
-      this.dashTarget = null;
+      this.dashChainRemaining = Math.max(0, this.dashChainRemaining - 1);
       this.vx *= 0.25; this.vy *= 0.25;
-      game.fx?.burst(this.x + this.w / 2, this.y + this.h / 2, '#dffcff', 10, { speed: 100, life: 0.35, glow: true });
+      game.fx?.burst(
+        this.x + this.w / 2, this.y + this.h / 2,
+        this.dashVariant ? '#ffd86b' : '#dffcff',
+        this.dashVariant ? 14 : 10,
+        { speed: 100, life: 0.35, glow: true }
+      );
+      if (this.dashChainRemaining > 0) {
+        this.dashRecovery = 0.12;
+        this.diamondRetreat = 0.04;
+        game.fx?.ring(this.x + this.w / 2, this.y + this.h / 2, '#ffd86b', 28, {
+          life: 0.16, width: 2,
+        });
+      } else {
+        this.dashTarget = null;
+        this.dashVariant = false;
+      }
     }
   }
 
