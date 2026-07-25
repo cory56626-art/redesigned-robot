@@ -54,14 +54,18 @@ export class Npc {
     this.retreating = false;
     this.arrowSpeed = 420;
 
-    // The Guide can be hurt and staggered, but is not permanently removable from
-    // the world. He recovers after a few seconds without taking damage.
-    this.alive = true;
+    // The Guide is a real, killable NPC now. A death schedules three daily
+    // respawn checks: two low-probability rolls, then a guaranteed return.
+    this.alive = opts.alive !== false;
+    this.dead = !this.alive;
     this.maxHp = 60;
-    this.hp = this.maxHp;
+    this.hp = this.alive ? Math.max(0, Math.min(this.maxHp, opts.hp != null ? opts.hp : this.maxHp)) : 0;
     this.iframes = 0;
     this.hurtFlash = 0;
     this.combatTimer = 0;
+    this.respawnDay = opts.respawnDay != null ? opts.respawnDay : null;
+    this.respawnAttemptDay = opts.respawnAttemptDay != null ? opts.respawnAttemptDay : null;
+    this.respawnChance = 0.22;
   }
 
   // Build the Guide for a world, restoring saved state when there is any.
@@ -78,6 +82,10 @@ export class Npc {
       homeX: homeTx * TILE,
       met: saved ? saved.met : false,
       topicsSeen: saved ? saved.topicsSeen : [],
+      alive: saved ? saved.alive !== false : true,
+      hp: saved ? saved.hp : null,
+      respawnDay: saved ? saved.respawnDay : null,
+      respawnAttemptDay: saved ? saved.respawnAttemptDay : null,
     });
     const startTx = saved && saved.tx != null
       ? Math.max(2, Math.min(world.width - 3, saved.tx))
@@ -90,6 +98,11 @@ export class Npc {
   center() { return { x: this.x + this.w / 2, y: this.y + this.h / 2 }; }
 
   update(dt, game) {
+    if (!this.alive) {
+      this._updateRespawn(game);
+      return;
+    }
+
     this.bob += dt * 2.2;
     this.blink -= dt;
     if (this.blink <= -0.12) this.blink = 2.5 + Math.random() * 3.5;
@@ -149,6 +162,38 @@ export class Npc {
       this.y = game.world.spawnPixelY(tx, this.h);
       this.vx = 0; this.vy = 0;
     }
+  }
+
+  _updateRespawn(game) {
+    if (!game || !game.time || this.respawnDay == null) return;
+    const day = Math.max(1, Math.floor(game.time.day || 1));
+    if (day < this.respawnDay || this.respawnAttemptDay === day) return;
+
+    this.respawnAttemptDay = day;
+    const attempt = day - this.respawnDay + 1;
+    const guaranteed = attempt >= 3;
+    if (!guaranteed && Math.random() >= this.respawnChance) return;
+
+    const tx = Math.max(2, Math.min(game.world.width - 3, Math.round(this.homeX / TILE)));
+    this.x = tx * TILE;
+    this.y = game.world.spawnPixelY(tx, this.h);
+    this.vx = 0;
+    this.vy = 0;
+    this.hp = this.maxHp;
+    this.alive = true;
+    this.dead = false;
+    this.iframes = 1.2;
+    this.hurtFlash = 0;
+    this.combatTimer = 0;
+    this.respawnDay = null;
+    this.respawnAttemptDay = null;
+    this.retreating = false;
+    this.shootWindup = 0;
+    this._shootTarget = null;
+    game.fx?.ring(this.x + this.w / 2, this.y + this.h / 2, '#7ee0c0', 38, { life: 0.35, width: 2 });
+    game.fx?.burst(this.x + this.w / 2, this.y + this.h / 2, '#7ee0c0', 16, { speed: 100, life: 0.55, glow: true });
+    game.toast?.('The Guide has returned.', 'good');
+    game.markDirty?.();
   }
 
   _retreatFrom(threat, game) {
@@ -264,7 +309,7 @@ export class Npc {
   takeDamage(amount, knockbackX, game, srcName) {
     if (!this.alive || this.iframes > 0) return;
     const dmg = Math.max(1, Math.round(amount));
-    this.hp = Math.max(1, this.hp - dmg);
+    this.hp = Math.max(0, this.hp - dmg);
     this.iframes = 0.45;
     this.hurtFlash = 0.16;
     this.combatTimer = 4;
@@ -273,10 +318,24 @@ export class Npc {
     game?.audio?.playerHurt?.();
     game?.addHitParticles(this.x + this.w / 2, this.y + this.h / 2, '#ff6b7d', 6);
     game?.floatText(this.x + this.w / 2, this.y, '-' + dmg, '#ff6b7d');
+
+    if (this.hp <= 0) {
+      this.hp = 0;
+      this.alive = false;
+      this.dead = true;
+      this.respawnDay = (game?.time?.day || 1) + 1;
+      this.respawnAttemptDay = null;
+      this.shootWindup = 0;
+      this._shootTarget = null;
+      this.retreating = false;
+      game?.fx?.burst(this.x + this.w / 2, this.y + this.h / 2, '#ff6b7d', 18, { speed: 150, life: 0.7, glow: true });
+      game?.toast?.('The Guide has fallen. He may return within three days.', 'bad');
+      game?.markDirty?.();
+    }
   }
 
   canTalkTo(player) {
-    if (!player || !player.alive) return false;
+    if (!this.alive || !player || !player.alive) return false;
     const dx = (player.x + player.w / 2) - (this.x + this.w / 2);
     const dy = (player.y + player.h / 2) - (this.y + this.h / 2);
     return Math.hypot(dx, dy) <= TALK_RANGE;
@@ -288,6 +347,10 @@ export class Npc {
       homeTx: Math.round(this.homeX / TILE),
       met: this.met,
       topicsSeen: [...this.topicsSeen],
+      alive: this.alive,
+      hp: this.hp,
+      respawnDay: this.respawnDay,
+      respawnAttemptDay: this.respawnAttemptDay,
     };
   }
 }
