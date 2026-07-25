@@ -1,8 +1,9 @@
 // Summoner Realms — minion entity. Owned by a player; the owner's client
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
-import { minionDef } from '../data/minions.js?v=realms-diamond-8';
+import { minionDef } from '../data/minions.js?v=realms-diamond-13';
 import { dist2, aabb, angleTo } from '../utils.js?v=realms-2';
+import { TILE } from '../config.js?v=realms-2';
 import { Projectile } from './projectile.js?v=realms-diamond-3';
 import * as AI from '../systems/ai.js?v=realms-diamond-1';
 
@@ -20,6 +21,10 @@ const DIAMOND_LEASH = 780;
 // Diamond Heart keeps a real air lane around threats instead of hovering in
 // melee range. It may cross this lane only during its deliberate dash.
 const DIAMOND_SAFE_RADIUS = 300;
+// Keep the Heart in a clear air lane above the generated surface. Its flying
+// movement intentionally ignores collision, so the AI must enforce this ceiling.
+const DIAMOND_AIR_CLEARANCE = 72;
+const DIAMOND_GROUND_SAMPLE = 3;
 
 export class Minion {
   constructor(key, ownerId, x, y) {
@@ -206,6 +211,25 @@ export class Minion {
     return best;
   }
 
+  _diamondAirCeiling(game, x) {
+    const world = game.world;
+    const tx = Math.floor(x / TILE);
+    let highestSurface = world.surfaceY(tx);
+    for (let dx = -DIAMOND_GROUND_SAMPLE; dx <= DIAMOND_GROUND_SAMPLE; dx++) {
+      highestSurface = Math.min(highestSurface, world.surfaceY(tx + dx));
+    }
+    return highestSurface * TILE - this.h - DIAMOND_AIR_CLEARANCE;
+  }
+
+  _keepDiamondAboveSurface(game) {
+    const ceiling = this._diamondAirCeiling(game, this.x + this.w / 2);
+    if (this.y > ceiling) {
+      this.y = ceiling;
+      this.vy = Math.min(this.vy, -Math.max(80, this.def.speed * 0.45));
+      this.diamondRetreat = Math.max(this.diamondRetreat, 0.28);
+    }
+  }
+
   _updateDiamondHeart(dt, game, owner, oc) {
     this.spearCd -= dt;
     this.dashCd -= dt;
@@ -221,6 +245,9 @@ export class Minion {
       this._teleportToOwner(game, oc);
       return;
     }
+
+    // Recover to the air lane before evaluating LOS or choosing an attack.
+    this._keepDiamondAboveSurface(game);
 
     if (this.dashTime > 0) {
       this._updateDiamondDash(dt, game);
@@ -418,13 +445,17 @@ export class Minion {
       desiredY = tc.y + (gapY / len) * (retreat ? 390 : 315) + threat.y * 80;
     }
 
+    // The orbit/dodge offsets can otherwise aim below a hill or surface ledge.
+    // Clamp the requested position before steering so LOS is evaluated from air.
+    desiredY = Math.min(desiredY, this._diamondAirCeiling(game, desiredX));
     this._steer(desiredX, desiredY, this.def.speed, dt);
   }
 
   _diamondRegroup(game, oc, dt) {
     const dodge = this._diamondDodge(game, this.x + this.w / 2, this.y + this.h / 2);
     const desiredX = oc.x + this.slotOffset * 30 + dodge.x * 90;
-    const desiredY = oc.y - 92 + Math.sin(this.anim * 0.8) * 12 + dodge.y * 90;
+    let desiredY = oc.y - 92 + Math.sin(this.anim * 0.8) * 12 + dodge.y * 90;
+    desiredY = Math.min(desiredY, this._diamondAirCeiling(game, desiredX));
     this.swordAngle = this.facing > 0 ? 0.15 : Math.PI - 0.15;
     this._steer(desiredX, desiredY, this.def.speed * 0.82, dt);
   }
@@ -514,6 +545,10 @@ export class Minion {
   _beginDiamondDash(game, target, continuing = false) {
     const c = this.x + this.w / 2, d = this.y + this.h / 2;
     const tc = target.center();
+    const safeTargetY = Math.min(
+      tc.y,
+      this._diamondAirCeiling(game, tc.x) + this.h / 2
+    );
 
     if (!continuing) {
       this.dashChainRemaining = Math.random() < (this.def.dashTripleChance || 0.34) ? 3 : 1;
@@ -522,7 +557,7 @@ export class Minion {
       this.lastAttack = this.dashVariant ? 'tripleDash' : 'dash';
     }
 
-    this.dashAngle = Math.atan2(tc.y - d, tc.x - c);
+    this.dashAngle = Math.atan2(safeTargetY - d, tc.x - c);
     this.dashTime = this.def.dashDuration || 0.3;
     this.diamondRetreat = continuing ? 0 : 0.18;
     this.dashTarget = target;
@@ -545,6 +580,7 @@ export class Minion {
     if (game.world.rectHitsSolid(this.x, this.y, this.w, this.h)) {
       this.x = ox; this.y = oy; this.dashTime = 0;
     }
+    this._keepDiamondAboveSurface(game);
 
     const sweep = {
       x: Math.min(ox, this.x) - 5,
@@ -604,6 +640,7 @@ export class Minion {
     this.y = oc.y - 30 - this.h / 2;
     this.vx = 0; this.vy = 0;
     this.stuckTimer = 0; this.unreachTimer = 0; this.returnTimer = 0.4;
+    if (this.def.behavior === 'diamondHeart') this._keepDiamondAboveSurface(game);
     if (game.addHitParticles) game.addHitParticles(this.x + this.w / 2, this.y + this.h / 2, this.color, 6);
   }
 
