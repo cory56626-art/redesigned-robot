@@ -1,7 +1,10 @@
-// Summoner Realms — runtime world: tile grid, collision, mining, lighting, diffs.
-import { WORLD_W, WORLD_H, TILE, UNDERGROUND_Y, CORRUPT_X, CAVERN_Y } from '../config.js';
-import { T, TILES, tileDef, isSolid, tileLight } from './tiles.js';
-import { generateWorld } from './worldgen.js?build=30f8ec0';
+// Summoner Realms — runtime world: tile grid, wall grid, collision, mining,
+// lighting, and the edit diffs that get saved.
+import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js';
+import { T, tileDef, isSolid, tileLight } from './tiles.js';
+import { W, hasWall, wallBlastResist } from './walls.js';
+import { BIOME_ORDER } from './biomes.js';
+import { generateWorld } from './worldgen.js';
 
 export class World {
   constructor(seed) {
@@ -10,10 +13,16 @@ export class World {
     this.width = g.width;
     this.height = g.height;
     this.tiles = g.tiles;
+    this.walls = g.walls;
     this.surface = g.surface;
+    this.biomeMap = g.biomeMap;
+    this.biomeBands = g.biomeBands;
+    this.spawnTx = g.spawnTx;
     this.spawnX = g.spawnX;
     this.spawnY = g.spawnY;
-    this.diffs = new Map();      // index -> tileId (all player edits, for saving)
+    // Player edits, keyed by flat index so repeated edits to one tile collapse.
+    this.diffs = new Map();      // index -> tileId
+    this.wallDiffs = new Map();  // index -> wallId
     this.mineProgress = new Map(); // index -> accumulated mining amount
     this.topSolid = new Int32Array(this.width);
     this._recomputeAllTopSolid();
@@ -29,7 +38,7 @@ export class World {
     return this.tiles[this.index(tx, ty)];
   }
 
-  // Set a tile. record=true adds to save diffs. Updates lighting column.
+  // Set a tile. record=true adds to save diffs. Updates the lighting column.
   set(tx, ty, id, record = true) {
     if (!this.inBounds(tx, ty)) return;
     const i = this.index(tx, ty);
@@ -38,6 +47,28 @@ export class World {
     if (record) this.diffs.set(i, id);
     this.mineProgress.delete(i);
     this._recomputeTopSolidColumn(tx);
+  }
+
+  // ---- Background walls ----
+  getWall(tx, ty) {
+    if (!this.inBounds(tx, ty)) return W.NONE;
+    return this.walls[this.index(tx, ty)];
+  }
+  hasWallAt(tx, ty) { return hasWall(this.getWall(tx, ty)); }
+  setWall(tx, ty, id, record = true) {
+    if (!this.inBounds(tx, ty)) return;
+    const i = this.index(tx, ty);
+    if (this.walls[i] === id) return;
+    this.walls[i] = id;
+    if (record) this.wallDiffs.set(i, id);
+  }
+  // Explosions are currently the only thing that removes walls; `power` is the
+  // blast strength (see tiles.js blastResist).
+  breakWall(tx, ty, power) {
+    const id = this.getWall(tx, ty);
+    if (!hasWall(id) || wallBlastResist(id) > power) return false;
+    this.setWall(tx, ty, W.NONE);
+    return true;
   }
 
   isSolidAt(tx, ty) { return isSolid(this.get(tx, ty)); }
@@ -90,10 +121,33 @@ export class World {
     return (this.mineProgress.get(i) || 0) / def.hardness;
   }
 
-  // Biome at a tile position (for teleport / spawning / music-less flavour).
+  // Biome at a tile position. Below the underground line, depth wins; above it,
+  // the generated surface band map decides (there is no hard x split any more).
   biomeAt(tx, ty) {
     if (ty >= UNDERGROUND_Y) return ty >= CAVERN_Y ? 'cavern' : 'underground';
-    return tx >= CORRUPT_X ? 'corrupt' : 'forest';
+    return this.surfaceBiomeAt(tx);
+  }
+
+  surfaceBiomeAt(tx) {
+    const x = Math.max(0, Math.min(this.width - 1, tx | 0));
+    return BIOME_ORDER[this.biomeMap[x]] || 'forest';
+  }
+
+  // Middle of the widest run of a surface biome — used by /teleport and by the
+  // Guide when it points you somewhere.
+  findBiomeColumn(key) {
+    const want = BIOME_ORDER.indexOf(key);
+    if (want < 0) return this.spawnTx;
+    let best = null, start = -1;
+    for (let x = 0; x <= this.width; x++) {
+      const match = x < this.width && this.biomeMap[x] === want;
+      if (match && start < 0) start = x;
+      else if (!match && start >= 0) {
+        if (!best || x - start > best.x1 - best.x0) best = { x0: start, x1: x };
+        start = -1;
+      }
+    }
+    return best ? Math.floor((best.x0 + best.x1) / 2) : this.spawnTx;
   }
 
   surfaceY(tx) {
@@ -112,7 +166,6 @@ export class World {
   // column tx (its feet on the first solid tile), so it spawns standing rather
   // than floating a few tiles up and dropping in.
   spawnPixelY(tx, h) {
-    // Find the first solid tile at/under the safe air tile.
     let ty = this.safeSpawnY(tx);
     while (ty < this.height - 1 && !this.isSolidAt(tx, ty + 1)) ty++;
     return (ty + 1) * TILE - h - 1;
@@ -128,7 +181,7 @@ export class World {
   }
 
   // Compute a light buffer for a viewport window. dayLevel 0..1, extraLights list
-  // of {tx,ty,level}. Returns Float32Array(cols*rows), 0.05..1.
+  // of {tx,ty,level}. Returns Float32Array(cols*rows), AMBIENT_FLOOR..1.
   computeLightWindow(tx0, ty0, cols, rows, dayLevel, extraLights) {
     const n = cols * rows;
     if (this._lightBuf.length !== n) this._lightBuf = new Float32Array(n);
@@ -140,9 +193,15 @@ export class World {
         const k = j * cols + ii;
         let seed = 0;
         if (this.inBounds(tx, ty)) {
-          const id = this.tiles[this.index(tx, ty)];
+          const i = this.index(tx, ty);
+          const id = this.tiles[i];
           seed = tileLight(id);
-          if (ty < this.topSolid[tx] && !isSolid(id)) seed = Math.max(seed, dayLevel);
+          // Daylight reaches open air only where there is nothing solid above it
+          // *and* no background wall behind it. A walled-off pocket stays dark
+          // even near the surface, which is what makes caves feel enclosed.
+          if (ty < this.topSolid[tx] && !isSolid(id) && !hasWall(this.walls[i])) {
+            seed = Math.max(seed, dayLevel);
+          }
         } else if (ty < 0) {
           seed = dayLevel; // sky above the world
         }
@@ -159,9 +218,6 @@ export class World {
       }
     }
     // Relaxation passes (alternating direction) with solidity-based attenuation.
-    // Solid tiles block light a little less than before and light spreads a bit
-    // further, so caves and the underside of tree canopies stay *readable* dim
-    // rather than dropping to unreadable pure black.
     const PASSES = 6;
     for (let p = 0; p < PASSES; p++) {
       const fwd = p % 2 === 0;
@@ -187,19 +243,41 @@ export class World {
     return buf;
   }
 
-  // Save/load diffs.
+  // ---- Save/load diffs ----
+  // v2 stores (x, y, id) triples so a world can change size without a saved
+  // build landing in the wrong place. v1 stored flat indices; see save.js for
+  // the migration, which converts them using the old world width.
   getDiffArray() {
     const out = [];
-    for (const [i, id] of this.diffs) out.push(i, id);
+    for (const [i, id] of this.diffs) out.push(i % this.width, (i / this.width) | 0, id);
     return out;
   }
+  getWallDiffArray() {
+    const out = [];
+    for (const [i, id] of this.wallDiffs) out.push(i % this.width, (i / this.width) | 0, id);
+    return out;
+  }
+
   applyDiffArray(arr) {
     if (!arr) return;
-    for (let k = 0; k < arr.length; k += 2) {
-      const i = arr[k], id = arr[k + 1];
+    for (let k = 0; k + 2 < arr.length; k += 3) {
+      const tx = arr[k], ty = arr[k + 1], id = arr[k + 2];
+      if (!this.inBounds(tx, ty)) continue;
+      const i = this.index(tx, ty);
       this.tiles[i] = id;
       this.diffs.set(i, id);
     }
     this._recomputeAllTopSolid();
+  }
+
+  applyWallDiffArray(arr) {
+    if (!arr) return;
+    for (let k = 0; k + 2 < arr.length; k += 3) {
+      const tx = arr[k], ty = arr[k + 1], id = arr[k + 2];
+      if (!this.inBounds(tx, ty)) continue;
+      const i = this.index(tx, ty);
+      this.walls[i] = id;
+      this.wallDiffs.set(i, id);
+    }
   }
 }

@@ -1,5 +1,5 @@
 // Summoner Realms — canvas renderer. Draws world, lighting, entities, effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, CORRUPT_X } from '../config.js';
+import { TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js';
 import { T, isSolid } from '../world/tiles.js';
 import { Sprites } from '../art/sprites.js';
 import { item as getItem } from '../data/items.js';

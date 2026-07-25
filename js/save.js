@@ -1,5 +1,29 @@
 // Summoner Realms — localStorage save/load with named slots + save indicator.
-import { SAVE_PREFIX, SAVE_INDEX_KEY, SETTINGS_KEY } from './config.js';
+import { SAVE_PREFIX, SAVE_INDEX_KEY, SETTINGS_KEY, SAVE_VERSION, LEGACY_WORLD_W } from './config.js';
+
+// Upgrade a save to the current format.
+//
+// v1 stored tile edits as flat `ty * width + tx` indices against a 420-wide
+// world. The world is now 700 wide, so those indices would land somewhere
+// completely different. v2 stores (x, y, id) triples instead, and legacy saves
+// are converted using the old width so anything you built keeps its coordinates.
+// Natural terrain around it regenerates with the new generator either way.
+export function migrateSave(data) {
+  if (!data || typeof data !== 'object') return null;
+  const version = data.version || 1;
+  if (version >= SAVE_VERSION) return data;
+
+  const out = Object.assign({}, data, { version: SAVE_VERSION, migratedFrom: version });
+  const legacy = data.diffs || [];
+  const triples = [];
+  for (let k = 0; k + 1 < legacy.length; k += 2) {
+    const i = legacy[k], id = legacy[k + 1];
+    triples.push(i % LEGACY_WORLD_W, Math.floor(i / LEGACY_WORLD_W), id);
+  }
+  out.diffs = triples;
+  out.wallDiffs = [];
+  return out;
+}
 
 export class SaveManager {
   constructor() { this.currentId = null; }
@@ -31,7 +55,7 @@ export class SaveManager {
   }
 
   read(id) {
-    try { return JSON.parse(localStorage.getItem(SAVE_PREFIX + id)); }
+    try { return migrateSave(JSON.parse(localStorage.getItem(SAVE_PREFIX + id))); }
     catch { return null; }
   }
 

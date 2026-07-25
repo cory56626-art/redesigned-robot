@@ -1,6 +1,6 @@
 // Summoner Realms — game orchestrator, main loop, and all cross-system glue.
 import {
-  TILE, WORLD_W, CORRUPT_X, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL,
+  TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PARTICLES, MAX_PROJECTILES,
 } from './config.js';
 import { hashString, mulberry32, dist2, uid } from './utils.js';
@@ -21,6 +21,7 @@ import { Player, assignColor } from './entities/player.js?build=826f56ee';
 import { Enemy } from './entities/enemy.js';
 import { Boss } from './entities/boss.js?build=sovereign-melee-2';
 import { Minion } from './entities/minion.js';
+import { Npc } from './entities/npc.js';
 import { Projectile } from './entities/projectile.js';
 import { DropItem } from './entities/droppeditem.js';
 import { FallingTree } from './entities/fallingtree.js';
@@ -69,6 +70,8 @@ class Game {
     this.particles = [];
     this.floatTexts = [];
     this.fallingTrees = [];  // cosmetic tree-topple animations
+    this.thrown = [];        // bombs, dynamite, shurikens in flight
+    this.npc = null;         // the Guide
 
     // Debug overlays toggled from the demo command console.
     this.debug = { collision: false, ai: false, biome: false, spawn: false, caves: false };
@@ -200,11 +203,17 @@ class Game {
       for (const d of this.drops) if (d.localOnly) d.update(dt, this);
     }
 
+    // Guide NPC
+    if (this.npc) this.npc.update(dt, this);
+
     // Minions (local only)
     for (const m of this.minions) m.update(dt, this);
 
     // Projectiles
     for (const pr of this.projectiles) pr.update(dt, this);
+
+    // Thrown items (bombs, shurikens, …)
+    for (const t of this.thrown) t.update(dt, this);
 
     // Cleanup dead
     this.enemies = this.enemies.filter(e => { if (e.dead) { this.enemyById.delete(e.netId); return false; } return true; });
@@ -212,6 +221,7 @@ class Game {
     this.minions = this.minions.filter(m => !m.dead);
     this.projectiles = this.projectiles.filter(p => !p.dead);
     this.drops = this.drops.filter(d => !d.dead);
+    this.thrown = this.thrown.filter(t => !t.dead);
 
     // Particles & float text
     this._updateParticles(dt);
@@ -265,7 +275,8 @@ class Game {
   _resetEntities() {
     this.players.clear(); this.enemies = []; this.enemyById.clear(); this.minions = [];
     this.bosses = []; this.projectiles = []; this.drops = []; this.dropById.clear();
-    this.particles = []; this.floatTexts = []; this.fallingTrees = [];
+    this.particles = []; this.floatTexts = []; this.fallingTrees = []; this.thrown = [];
+    this.npc = null;
   }
 
   _seedFromString(str) {
@@ -282,6 +293,7 @@ class Game {
     this._resetEntities();
     this.time = new DayNight();
     this._createLocalPlayer(true);
+    this._spawnGuide(null);
     this.currentSaveId = this.saves.newId();
     this._enterPlaying();
     this.saveGame(false);
@@ -302,11 +314,13 @@ class Game {
     this.worldName = data.name;
     this.world = new World(this.seed);
     this.world.applyDiffArray(data.diffs);
+    this.world.applyWallDiffArray(data.wallDiffs);
     this.progression = new Progression();
     this.progression.deserialize(data.progression);
     this._resetEntities();
     this.time = new DayNight(data.time || 0);
     this._createLocalPlayer(false);
+    this._spawnGuide(data.npc);
     const pd = data.player;
     if (pd) {
       this.localPlayer.x = pd.x; this.localPlayer.y = pd.y;
@@ -320,6 +334,14 @@ class Game {
     this.toast('Loaded ' + data.name, 'good');
   }
 
+  // The Guide NPC that keeps the player company from world creation onward.
+  // Implemented in js/entities/npc.js; see _spawnGuide's body for the lifecycle.
+  _spawnGuide(saved) {
+    this.npc = null;
+    if (!this.world) return;
+    this.npc = Npc.create(this, saved);
+  }
+
   _createLocalPlayer(fresh) {
     const p = new Player(this.selfId, { name: this.playerName, color: this.playerColor, isLocal: true });
     if (fresh) { p.inventory = starterInventory(); }
@@ -331,18 +353,21 @@ class Game {
     this.players.set(p.id, p);
   }
 
-  startClientWorld(seed, name, diffs, time, progression) {
+  startClientWorld(seed, name, diffs, time, progression, wallDiffs) {
     this.seed = seed; this.worldName = name || 'Realm';
     this.world = new World(seed);
     this.world.applyDiffArray(diffs);
+    this.world.applyWallDiffArray(wallDiffs);
     this.progression = new Progression();
     this.progression.deserialize(progression);
     this.enemies = []; this.enemyById.clear(); this.minions = []; this.bosses = [];
-    this.projectiles = []; this.drops = []; this.dropById.clear(); this.particles = []; this.floatTexts = []; this.fallingTrees = [];
+    this.projectiles = []; this.drops = []; this.dropById.clear(); this.particles = []; this.floatTexts = [];
+    this.fallingTrees = []; this.thrown = [];
     // keep players map empty except local (added here)
     this.players.clear();
     this.time = new DayNight(time || 0);
     this._createLocalPlayer(true);
+    this._spawnGuide(null);
     this.currentSaveId = null; // clients never autosave the host's world
     this._enterPlaying();
     this.toast('Joined ' + this.worldName, 'good');
@@ -381,6 +406,7 @@ class Game {
     this.time = new DayNight();           // fresh morning, not whatever time it was
     this.localPlayer.inventory = inv;
     this.players.set(this.localPlayer.id, this.localPlayer);
+    this._spawnGuide(null);
     const tx = Math.floor(this.world.spawnX / TILE);
     this.localPlayer.x = this.world.spawnX; this.localPlayer.y = this.world.spawnPixelY(tx, this.localPlayer.h);
     this.localPlayer.vx = 0; this.localPlayer.vy = 0;
@@ -403,10 +429,13 @@ class Game {
   buildSaveData() {
     const p = this.localPlayer;
     return {
-      version: 1, name: this.worldName, seed: this.seed, time: this.time.t,
+      version: SAVE_VERSION, name: this.worldName, seed: this.seed, time: this.time.t,
+      width: this.world.width, height: this.world.height,
       diffs: this.world.getDiffArray(),
+      wallDiffs: this.world.getWallDiffArray(),
       progression: this.progression.serialize(),
       player: { x: p.x, y: p.y, hp: p.hp, mana: p.mana, inventory: p.inventory.serialize() },
+      npc: this.npc ? this.npc.serialize() : null,
     };
   }
 
@@ -695,10 +724,9 @@ class Game {
   teleportBiome(biome) {
     const p = this.localPlayer; if (!p) return;
     let tx, ty;
-    if (biome === 'forest') { tx = Math.floor(CORRUPT_X * 0.35); ty = this.world.safeSpawnY(tx) - 2; }
-    else if (biome === 'corrupt') { tx = Math.floor((CORRUPT_X + this.world.width) / 2); ty = this.world.safeSpawnY(tx) - 2; }
-    else if (biome === 'cavern') { tx = Math.floor(this.world.width * 0.4); ty = this._findAir(tx, CAVERN_Y + 6); }
-    else { tx = Math.floor(this.world.width * 0.3); ty = this._findAir(tx, UNDERGROUND_Y + 8); }
+    if (biome === 'cavern') { tx = Math.floor(this.world.width * 0.4); ty = this._findAir(tx, CAVERN_Y + 6); }
+    else if (biome === 'underground') { tx = Math.floor(this.world.width * 0.3); ty = this._findAir(tx, UNDERGROUND_Y + 8); }
+    else { tx = this.world.findBiomeColumn(biome); ty = this.world.safeSpawnY(tx) - 2; }
     p.x = tx * TILE; p.y = ty * TILE; p.vx = 0; p.vy = 0;
     this.camera.follow(p, 0, true);
   }
@@ -733,6 +761,11 @@ class Game {
   netEditTile(tx, ty, id) {
     if (!this.net || this.net.status !== 'connected') return;
     const msg = { t: MSG.TILE_EDIT, tx, ty, id };
+    if (this.isHost) this.net.broadcast(msg); else this.net.toHost(msg);
+  }
+  netEditWall(tx, ty, id) {
+    if (!this.net || this.net.status !== 'connected') return;
+    const msg = { t: MSG.WALL_EDIT, tx, ty, id };
     if (this.isHost) this.net.broadcast(msg); else this.net.toHost(msg);
   }
 

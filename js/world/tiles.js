@@ -1,6 +1,8 @@
 // Summoner Realms — tile definitions.
 // id 0 is always air. `drop` is the item id produced when mined.
 // `station` marks crafting stations that the crafting system detects nearby.
+//
+// Ids are part of the save format: only ever append new ones.
 
 export const T = {
   AIR: 0,
@@ -26,40 +28,68 @@ export const T = {
   ALTAR: 20,
   PLANKS: 21,
   STONEBRICK: 22,
+  // --- Added with the biome rework ---
+  SNOW: 23,
+  ICE: 24,
+  SANDSTONE: 25,
+  DEEPSTONE: 26,
+  FROSTWOOD: 27,
+  FROSTLEAVES: 28,
+  CACTUS: 29,
+  TALLGRASS: 30,
+  STALAGMITE: 31,
+  STALACTITE: 32,
 };
 
 // Each entry: name, solid, color (fallback), hardness, minPower, drop item id,
 // light (0-1 emitted), station name.
-//   toolType : 'pickaxe' | 'axe' — the tool that mines this tile efficiently.
-//              Wrong (or no) tool falls back to a slow 12% rate.
-//   tree     : trunk tile that participates in chop-and-fall behaviour.
-//   leaf     : foliage — non-solid, drops sticks/seeds (never wood), decays when
-//              its supporting trunk is gone.
-//   decor    : non-solid decoration (never forms an invisible wall).
+//   toolType    : 'pickaxe' | 'axe' — the tool that mines this tile efficiently.
+//                 Wrong (or no) tool falls back to a slow 12% rate.
+//   tree        : trunk tile that participates in chop-and-fall behaviour.
+//   leaf        : foliage — non-solid, drops sticks/seeds (never wood), decays
+//                 when its supporting trunk is gone.
+//   decor       : non-solid decoration (never forms an invisible wall).
+//   mat         : framing/merge group. Tiles sharing a `mat` draw as one mass
+//                 (no border between them); anything else gets an edge.
+//   blastResist : minimum explosion power that can break the tile.
+//                 Bombs are power 1, dynamite/sticky bombs power 2. 3 = immune.
 export const TILES = {
   [T.AIR]:        { name: 'Air', solid: false },
-  [T.DIRT]:       { name: 'Dirt', solid: true, color: '#6b4a2b', hardness: 26, minPower: 0, drop: 'dirt' },
-  [T.GRASS]:      { name: 'Verdant Grass', solid: true, color: '#4a8f3c', hardness: 26, minPower: 0, drop: 'dirt' },
-  [T.STONE]:      { name: 'Stone', solid: true, color: '#6f7484', hardness: 55, minPower: 1, drop: 'stone', toolType: 'pickaxe' },
-  [T.WOOD]:       { name: 'Oakenwood', solid: false, color: '#7a5228', hardness: 30, minPower: 0, drop: 'wood', toolType: 'axe', tree: true, decor: true },
-  [T.LEAVES]:     { name: 'Leaves', solid: false, color: '#3e7a34', hardness: 8, minPower: 0, toolType: 'axe', leaf: true, decor: true },
-  [T.CLAY]:       { name: 'Clay', solid: true, color: '#9a5b45', hardness: 30, minPower: 0, drop: 'clay' },
-  [T.SAND]:       { name: 'Sand', solid: true, color: '#d8c98a', hardness: 22, minPower: 0, drop: 'sand' },
-  [T.CUPRITE]:    { name: 'Cuprite Ore', solid: true, color: '#c47b4a', hardness: 60, minPower: 1, drop: 'cupriteOre', toolType: 'pickaxe' },
-  [T.IRONVEIN]:   { name: 'Ironvein Ore', solid: true, color: '#a9b0bd', hardness: 80, minPower: 2, drop: 'ironveinOre', toolType: 'pickaxe' },
-  [T.GLIMMER]:    { name: 'Glimmer Ore', solid: true, color: '#ffe08a', hardness: 100, minPower: 3, drop: 'glimmerOre', toolType: 'pickaxe' },
-  [T.AETHERITE]:  { name: 'Aetherite Ore', solid: true, color: '#8ad9ff', hardness: 120, minPower: 3, drop: 'aetheriteOre', light: 0.35, toolType: 'pickaxe' },
-  [T.BLIGHTORE]:  { name: 'Blightore', solid: true, color: '#8a4fb0', hardness: 150, minPower: 4, drop: 'blightoreOre', light: 0.2, toolType: 'pickaxe' },
-  [T.BLIGHTGRASS]:{ name: 'Blighted Grass', solid: true, color: '#6d3f8a', hardness: 30, minPower: 0, drop: 'dirt' },
-  [T.BLIGHTSTONE]:{ name: 'Blightstone', solid: true, color: '#4a2f66', hardness: 90, minPower: 2, drop: 'blightstone', toolType: 'pickaxe' },
-  [T.THORNVINE]:  { name: 'Thornvine', solid: false, color: '#5a7a3a', hardness: 10, minPower: 0, drop: 'fiber', dropChance: 0.6, decor: true, hazard: 3 },
-  [T.TORCH]:      { name: 'Emberlight', solid: false, color: '#ffb347', hardness: 6, minPower: 0, drop: 'torch', light: 0.95, decor: true },
-  [T.BENCH]:      { name: 'Crafting Bench', solid: false, color: '#8a6a3a', hardness: 20, minPower: 0, drop: 'craftingBench', station: 'bench', decor: true },
-  [T.SMELTERY]:   { name: 'Smeltery', solid: false, color: '#5a5560', hardness: 40, minPower: 0, drop: 'smeltery', station: 'smeltery', light: 0.55, decor: true },
-  [T.FORGE]:      { name: 'Forge', solid: false, color: '#4a4a55', hardness: 40, minPower: 0, drop: 'forge', station: 'forge', decor: true },
-  [T.ALTAR]:      { name: 'Aether Altar', solid: false, color: '#5a7abf', hardness: 40, minPower: 0, drop: 'aetherAltar', station: 'altar', light: 0.5, decor: true },
-  [T.PLANKS]:     { name: 'Oaken Planks', solid: true, color: '#a67c46', hardness: 24, minPower: 0, drop: 'planks' },
-  [T.STONEBRICK]: { name: 'Stone Brick', solid: true, color: '#7c8296', hardness: 50, minPower: 1, drop: 'stoneBrick', toolType: 'pickaxe' },
+  [T.DIRT]:       { name: 'Dirt', solid: true, color: '#6b4a2b', hardness: 26, minPower: 0, drop: 'dirt', mat: 'dirt', blastResist: 0 },
+  [T.GRASS]:      { name: 'Verdant Grass', solid: true, color: '#4a8f3c', hardness: 26, minPower: 0, drop: 'dirt', mat: 'dirt', grass: '#5fae4a', blastResist: 0 },
+  [T.STONE]:      { name: 'Stone', solid: true, color: '#6f7484', hardness: 55, minPower: 1, drop: 'stone', toolType: 'pickaxe', mat: 'stone', blastResist: 1 },
+  [T.WOOD]:       { name: 'Oakenwood', solid: false, color: '#7a5228', hardness: 30, minPower: 0, drop: 'wood', toolType: 'axe', tree: true, decor: true, mat: 'wood', blastResist: 1 },
+  [T.LEAVES]:     { name: 'Leaves', solid: false, color: '#3e7a34', hardness: 8, minPower: 0, toolType: 'axe', leaf: true, decor: true, mat: 'leaves', blastResist: 0 },
+  [T.CLAY]:       { name: 'Clay', solid: true, color: '#9a5b45', hardness: 30, minPower: 0, drop: 'clay', mat: 'clay', blastResist: 0 },
+  [T.SAND]:       { name: 'Sand', solid: true, color: '#d8c98a', hardness: 22, minPower: 0, drop: 'sand', mat: 'sand', blastResist: 0 },
+  // Ores read as stone with a coloured gem seam, so veins sit inside the rock
+  // instead of looking like separate blocks stuck to it.
+  [T.CUPRITE]:    { name: 'Cuprite Ore', solid: true, color: '#77716f', hardness: 60, minPower: 1, drop: 'cupriteOre', toolType: 'pickaxe', mat: 'stone', blastResist: 1 },
+  [T.IRONVEIN]:   { name: 'Ironvein Ore', solid: true, color: '#74797f', hardness: 80, minPower: 2, drop: 'ironveinOre', toolType: 'pickaxe', mat: 'stone', blastResist: 1 },
+  [T.GLIMMER]:    { name: 'Glimmer Ore', solid: true, color: '#7a7566', hardness: 100, minPower: 3, drop: 'glimmerOre', toolType: 'pickaxe', mat: 'stone', blastResist: 2 },
+  [T.AETHERITE]:  { name: 'Aetherite Ore', solid: true, color: '#6a7480', hardness: 120, minPower: 3, drop: 'aetheriteOre', light: 0.35, toolType: 'pickaxe', mat: 'stone', blastResist: 2 },
+  [T.BLIGHTORE]:  { name: 'Blightore', solid: true, color: '#4b3560', hardness: 150, minPower: 4, drop: 'blightoreOre', light: 0.2, toolType: 'pickaxe', mat: 'blightstone', blastResist: 3 },
+  [T.BLIGHTGRASS]:{ name: 'Blighted Grass', solid: true, color: '#6d3f8a', hardness: 30, minPower: 0, drop: 'dirt', mat: 'dirt', grass: '#8a52ab', blastResist: 0 },
+  [T.BLIGHTSTONE]:{ name: 'Blightstone', solid: true, color: '#4a2f66', hardness: 90, minPower: 2, drop: 'blightstone', toolType: 'pickaxe', mat: 'blightstone', blastResist: 2 },
+  [T.THORNVINE]:  { name: 'Thornvine', solid: false, color: '#5a7a3a', hardness: 10, minPower: 0, drop: 'fiber', dropChance: 0.6, decor: true, hazard: 3, blastResist: 0 },
+  [T.TORCH]:      { name: 'Emberlight', solid: false, color: '#ffb347', hardness: 6, minPower: 0, drop: 'torch', light: 0.95, decor: true, blastResist: 0 },
+  [T.BENCH]:      { name: 'Crafting Bench', solid: false, color: '#8a6a3a', hardness: 20, minPower: 0, drop: 'craftingBench', station: 'bench', decor: true, blastResist: 0 },
+  [T.SMELTERY]:   { name: 'Smeltery', solid: false, color: '#5a5560', hardness: 40, minPower: 0, drop: 'smeltery', station: 'smeltery', light: 0.55, decor: true, blastResist: 0 },
+  [T.FORGE]:      { name: 'Forge', solid: false, color: '#4a4a55', hardness: 40, minPower: 0, drop: 'forge', station: 'forge', decor: true, blastResist: 0 },
+  [T.ALTAR]:      { name: 'Aether Altar', solid: false, color: '#5a7abf', hardness: 40, minPower: 0, drop: 'aetherAltar', station: 'altar', light: 0.5, decor: true, blastResist: 0 },
+  [T.PLANKS]:     { name: 'Oaken Planks', solid: true, color: '#a67c46', hardness: 24, minPower: 0, drop: 'planks', mat: 'planks', blastResist: 1 },
+  [T.STONEBRICK]: { name: 'Stone Brick', solid: true, color: '#7c8296', hardness: 50, minPower: 1, drop: 'stoneBrick', toolType: 'pickaxe', mat: 'stonebrick', blastResist: 1 },
+
+  [T.SNOW]:       { name: 'Snowpack', solid: true, color: '#dfe8f4', hardness: 24, minPower: 0, drop: 'snow', mat: 'snow', blastResist: 0 },
+  [T.ICE]:        { name: 'Rimeglass', solid: true, color: '#a8cfe4', hardness: 45, minPower: 1, drop: 'ice', toolType: 'pickaxe', mat: 'snow', blastResist: 2, slippery: true },
+  [T.SANDSTONE]:  { name: 'Sandstone', solid: true, color: '#bfa367', hardness: 48, minPower: 1, drop: 'sandstone', toolType: 'pickaxe', mat: 'sand', blastResist: 1 },
+  [T.DEEPSTONE]:  { name: 'Deepstone', solid: true, color: '#4e4a59', hardness: 90, minPower: 2, drop: 'deepstone', toolType: 'pickaxe', mat: 'deepstone', blastResist: 2 },
+  [T.FROSTWOOD]:  { name: 'Frostpine', solid: false, color: '#6a5b4c', hardness: 32, minPower: 0, drop: 'wood', toolType: 'axe', tree: true, decor: true, mat: 'wood', blastResist: 1 },
+  [T.FROSTLEAVES]:{ name: 'Frostpine Needles', solid: false, color: '#2f5c4a', hardness: 8, minPower: 0, toolType: 'axe', leaf: true, decor: true, mat: 'leaves', blastResist: 0 },
+  [T.CACTUS]:     { name: 'Duneheart Cactus', solid: false, color: '#4f8a53', hardness: 16, minPower: 0, drop: 'fiber', dropChance: 0.8, decor: true, hazard: 2, blastResist: 0 },
+  [T.TALLGRASS]:  { name: 'Tall Grass', solid: false, color: '#5c9c46', hardness: 4, minPower: 0, drop: 'fiber', dropChance: 0.5, decor: true, blastResist: 0 },
+  [T.STALAGMITE]: { name: 'Stalagmite', solid: false, color: '#7b7f8c', hardness: 18, minPower: 0, drop: 'stone', dropChance: 0.6, decor: true, blastResist: 0 },
+  [T.STALACTITE]: { name: 'Stalactite', solid: false, color: '#7b7f8c', hardness: 18, minPower: 0, drop: 'stone', dropChance: 0.6, decor: true, blastResist: 0 },
 };
 
 export function tileDef(id) { return TILES[id] || TILES[T.AIR]; }
@@ -68,3 +98,12 @@ export function tileLight(id) { return (TILES[id] && TILES[id].light) || 0; }
 export function isTree(id) { return !!(TILES[id] && TILES[id].tree); }
 export function isLeaf(id) { return !!(TILES[id] && TILES[id].leaf); }
 export function isDecor(id) { return !!(TILES[id] && TILES[id].decor); }
+export function tileMat(id) { return (TILES[id] && TILES[id].mat) || null; }
+export function blastResist(id) {
+  const d = TILES[id];
+  if (!d) return 3;
+  return d.blastResist == null ? 1 : d.blastResist;
+}
+
+// Highest valid tile id — used by the worldgen self-check harness.
+export const MAX_TILE_ID = Math.max(...Object.keys(TILES).map(Number));

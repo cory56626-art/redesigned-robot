@@ -132,6 +132,10 @@ mat('stone', 'Stone', '#6f7484', 'misc');
 mat('clay', 'Clay', '#9a5b45', 'misc');
 mat('sand', 'Sand', '#d8c98a', 'misc');
 mat('blightstone', 'Blightstone', '#4a2f66', 'misc', 4);
+mat('snow', 'Snowpack', '#dfe8f4', 'misc', 0, 'Packed snow from the Frostpine Hollow.');
+mat('ice', 'Rimeglass', '#a8cfe4', 'misc', 1, 'Clear frozen stone. Slippery underfoot.');
+mat('sandstone', 'Sandstone', '#bfa367', 'misc', 1, 'Compacted dune rock.');
+mat('deepstone', 'Deepstone', '#4e4a59', 'misc', 2, 'Dense rock from below the caverns.');
 mat('cupriteOre', 'Cuprite Ore', '#c47b4a', 'ore', 1);
 mat('ironveinOre', 'Ironvein Ore', '#a9b0bd', 'ore', 2);
 mat('glimmerOre', 'Glimmer Ore', '#ffe08a', 'ore', 3);
@@ -161,12 +165,17 @@ def({ id: 'aetherAltar', name: 'Aether Altar', category: 'station', place: T.ALT
 // raw dirt/stone/etc as placeable too
 def({ id: 'dirtBlock', name: 'Dirt Block', category: 'block', place: T.DIRT, color: '#6b4a2b' });
 
-// dirt material can also be placed:
+// Raw materials double as placeable blocks.
 ITEMS.dirt.place = T.DIRT;
 ITEMS.stone.place = T.STONE;
 ITEMS.wood.place = T.WOOD;
 ITEMS.sand.place = T.SAND;
 ITEMS.clay.place = T.CLAY;
+ITEMS.snow.place = T.SNOW;
+ITEMS.ice.place = T.ICE;
+ITEMS.sandstone.place = T.SANDSTONE;
+ITEMS.deepstone.place = T.DEEPSTONE;
+ITEMS.blightstone.place = T.BLIGHTSTONE;
 
 // ---------- Boss summoning items ----------
 def({ id: 'verdantEffigy', name: 'Verdant Effigy', category: 'summonitem', color: '#7ee08a', color2: '#3a6a2a', summonBoss: 'grovekeeper', maxStack: 20, desc: 'Summons the Grovekeeper in the Forest (day or night).' });

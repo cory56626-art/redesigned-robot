@@ -15,6 +15,7 @@ export function buildWelcome(game, forId) {
     seed: game.world.seed,
     name: game.worldName,
     diffs: game.world.getDiffArray(),
+    wallDiffs: game.world.getWallDiffArray(),
     time: game.time.t,
     progression: game.progression.serialize(),
     players: [...game.players.values()].map(p => p.netState()),
@@ -27,7 +28,7 @@ export function buildWelcome(game, forId) {
 export function applyWelcome(game, msg) {
   game.selfId = msg.id;
   game.net.hostId = msg.hostId;
-  game.startClientWorld(msg.seed, msg.name, msg.diffs, msg.time, msg.progression);
+  game.startClientWorld(msg.seed, msg.name, msg.diffs, msg.time, msg.progression, msg.wallDiffs);
   // Remote players (everyone except us).
   for (const ps of msg.players) {
     if (ps.id === msg.id) continue;
@@ -187,6 +188,12 @@ export function handleMessage(game, fromId, msg, conn) {
     }
     case MSG.TILE_EDIT: {
       game.world.set(msg.tx, msg.ty, msg.id, true);
+      game.markDirty();
+      if (net.isHost) net.broadcast(msg, fromId);
+      break;
+    }
+    case MSG.WALL_EDIT: {
+      game.world.setWall(msg.tx, msg.ty, msg.id, true);
       game.markDirty();
       if (net.isHost) net.broadcast(msg, fromId);
       break;

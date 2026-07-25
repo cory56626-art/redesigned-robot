@@ -5,6 +5,9 @@ export const MSG = {
   SNAPSHOT: 'snap',     // host -> clients: players/enemies/bosses/drops/time
   PSTATE: 'pstate',     // client -> host : own player state + minions
   TILE_EDIT: 'tile',    // any -> host -> all : {tx,ty,id}
+  WALL_EDIT: 'wall',    // any -> host -> all : {tx,ty,id} background wall change
+  THROW: 'throw',       // any -> all : a thrown item spawned (visual + sim)
+  BOOM: 'boom',         // host -> all : {x,y,power,radius} explosion happened
   HIT_ENEMY: 'hitE',    // client -> host : {netId, dmg, kbx, effect, crit}
   HIT_BOSS: 'hitB',     // client -> host : {dmg, crit}
   HURT: 'hurt',         // host -> client : {dmg, kbx} apply to your player

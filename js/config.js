@@ -1,18 +1,20 @@
 // Summoner Realms — global tuning constants.
 // Central place for numbers so gameplay is easy to tune.
 
+// Single build stamp for every cache-busted module import. Bump this once per
+// release instead of editing per-module `?build=` strings (which drifted out of
+// sync and could ship a half-updated module graph).
+export const BUILD = 'realms-2';
+
 export const TILE = 16; // world pixels per tile
 
-export const WORLD_W = 420; // tiles wide
-export const WORLD_H = 200; // tiles tall
+export const WORLD_W = 700; // tiles wide
+export const WORLD_H = 260; // tiles tall
 
 // Vertical layout of the generated world (in tiles).
-export const SURFACE_Y = 70;      // average surface height
-export const UNDERGROUND_Y = 100; // below this depth counts as the Underground biome
-export const CAVERN_Y = 150;      // deep caverns (tougher spawns)
-
-// Horizontal biome split. Left = Forest, right = Corrupted Lands.
-export const CORRUPT_X = 300; // tiles: x >= this is Corrupted Lands on the surface
+export const SURFACE_Y = 78;      // average surface height
+export const UNDERGROUND_Y = 112; // below this depth counts as the Underground biome
+export const CAVERN_Y = 175;      // deep caverns (tougher spawns, deepstone)
 
 // Physics (units are world-pixels and seconds).
 export const GRAVITY = 1500;
@@ -32,8 +34,9 @@ export const DAY_LENGTH = 180; // 3 minutes per full day/night loop
 // Combat / entity caps for smoothness.
 export const MAX_ENEMIES = 40;
 export const MAX_PROJECTILES = 250;
-export const MAX_PARTICLES = 400;
+export const MAX_PARTICLES = 600;
 export const MAX_DROPS = 200;
+export const MAX_THROWN = 40;
 
 // Mining reach in tiles.
 export const REACH = 6;
@@ -64,10 +67,19 @@ export const POTION_BUFF_COOLDOWN = 3; // after a buff potion
 export const CAST_REGEN_DELAY = 1.4;   // seconds of throttled regen after a cast
 export const CAST_REGEN_MULT = 0.2;    // regen multiplier during that window
 
+// ---- Death / respawn ----
+// Dying during a boss fight costs real time, so you can't trade your life for a
+// free reset. Bosses despawn on death, so the fight must be re-summoned.
+export const RESPAWN_DELAY = 3;        // normal death
+export const RESPAWN_DELAY_BOSS = 12;  // a boss was active when you died
+
 export const SAVE_PREFIX = 'summonerRealms.save.';
 export const SAVE_INDEX_KEY = 'summonerRealms.saves';
 export const SETTINGS_KEY = 'summonerRealms.settings';
 export const AUTOSAVE_INTERVAL = 30; // seconds
+export const SAVE_VERSION = 2;
+// Width of the v1 world, needed to decode legacy flat-index tile diffs.
+export const LEGACY_WORLD_W = 420;
 
 // Rendering: target number of tiles visible vertically (drives zoom).
 export const TARGET_TILES_V = 22;

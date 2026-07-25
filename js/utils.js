@@ -36,8 +36,66 @@ export function makeValueNoise(seed) {
   };
 }
 
+// 2D value noise on a hashed lattice, smoothstep-interpolated. Deterministic
+// from the seed and free of any allocation, so worldgen can sample it densely.
+export function makeValueNoise2D(seed) {
+  const s = seed >>> 0;
+  const hash = (x, y) => {
+    let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + s) | 0;
+    h = (h ^ (h >>> 13)) | 0;
+    h = Math.imul(h, 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  };
+  return function (x, y) {
+    const xi = Math.floor(x), yi = Math.floor(y);
+    const xf = x - xi, yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf);
+    const v = yf * yf * (3 - 2 * yf);
+    const a = hash(xi, yi), b = hash(xi + 1, yi);
+    const c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
+    return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v;
+  };
+}
+
+// Fractal Brownian motion: several octaves of value noise summed with falling
+// amplitude. This is what gives terrain large landforms *and* fine detail
+// instead of one frequency's worth of bumpiness.
+export function makeFbm1D(seed, octaves = 4, lacunarity = 2, gain = 0.5) {
+  const layers = [];
+  for (let i = 0; i < octaves; i++) layers.push(makeValueNoise((seed + Math.imul(i, 0x9e3779b1)) >>> 0));
+  return function (x, weights) {
+    let amp = 1, freq = 1, sum = 0, norm = 0;
+    for (let i = 0; i < layers.length; i++) {
+      const w = weights && i > 0 ? weights : 1;
+      sum += layers[i](x * freq) * amp * w;
+      norm += amp * w;
+      amp *= gain; freq *= lacunarity;
+    }
+    return norm > 0 ? sum / norm : 0.5;
+  };
+}
+
+export function makeFbm2D(seed, octaves = 4, lacunarity = 2, gain = 0.5) {
+  const layers = [];
+  for (let i = 0; i < octaves; i++) layers.push(makeValueNoise2D((seed + Math.imul(i, 0x9e3779b1)) >>> 0));
+  return function (x, y) {
+    let amp = 1, freq = 1, sum = 0, norm = 0;
+    for (let i = 0; i < layers.length; i++) {
+      sum += layers[i](x * freq, y * freq) * amp;
+      norm += amp;
+      amp *= gain; freq *= lacunarity;
+    }
+    return sum / norm;
+  };
+}
+
 export function clamp(v, lo, hi) {
   return v < lo ? lo : v > hi ? hi : v;
+}
+
+export function smoothstep(a, b, t) {
+  const x = clamp((t - a) / (b - a || 1), 0, 1);
+  return x * x * (3 - 2 * x);
 }
 
 export function lerp(a, b, t) {
