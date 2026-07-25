@@ -7,8 +7,8 @@ import { TILE } from '../config.js?v=realms-2';
 import { ENEMIES } from '../data/enemies.js?v=realms-2';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-2';
 import { aabb } from '../utils.js?v=realms-2';
-import { Projectile } from './projectile.js?v=realms-4';
-import * as AI from '../systems/ai.js?v=realms-4';
+import { Projectile } from './projectile.js?v=realms-5';
+import * as AI from '../systems/ai.js?v=realms-5';
 
 export class Enemy {
   constructor(key, x, y, netId) {
