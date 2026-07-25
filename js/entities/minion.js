@@ -71,6 +71,10 @@ export class Minion {
     this.flying = !!d.flying || d.behavior === 'homing' || d.behavior === 'shooter' || d.behavior === 'dive';
   }
 
+  // Enemies and bosses share a target interface. Diamond Heart is a minion,
+  // but it must still provide a center point when a boss retargets it.
+  center() { return { x: this.x + this.w / 2, y: this.y + this.h / 2 }; }
+
   update(dt, game) {
     if (this.dead) return;
     this.anim += dt * (this.def.behavior === 'diamondHeart' ? 3.8 : 6);
