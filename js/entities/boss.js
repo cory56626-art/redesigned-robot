@@ -15,7 +15,7 @@ import { TILE } from '../config.js?v=realms-2';
 import { BOSSES } from '../data/bosses.js?v=realms-2';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-2';
 import { aabb, angleTo, randRange, clamp } from '../utils.js?v=realms-2';
-import { Projectile } from './projectile.js?v=realms-diamond-1';
+import { Projectile } from './projectile.js?v=realms-diamond-3';
 import * as AI from '../systems/ai.js?v=realms-diamond-1';
 
 const PROJ_COLOR = { thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff' };
