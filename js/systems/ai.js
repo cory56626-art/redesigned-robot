@@ -41,11 +41,15 @@ export function perceive(e, game, dt, opts = {}) {
   const memory = opts.memory || 4;
 
   const cx = e.x + e.w / 2, cy = e.y + e.h / 2;
-  // Enemies can aggro either a player or the Guide. Pick the nearest living
-  // target so a hostile that reaches the Guide actually turns on him.
+  // Enemies can aggro a player, the Guide, or the living Diamond Heart. Pick
+  // the nearest living target so a hostile that reaches either ally actually
+  // turns on it instead of remaining locked to the player.
   const candidates = [];
   for (const p of game.players.values()) if (p.alive) candidates.push(p);
   if (game.npc && game.npc.alive !== false) candidates.push(game.npc);
+  for (const m of (game.minions || [])) {
+    if (m.alive !== false && !m.dead && m.maxHp != null) candidates.push(m);
+  }
 
   let p = null, nearest = Infinity;
   for (const candidate of candidates) {
