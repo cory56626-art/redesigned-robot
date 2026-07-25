@@ -68,6 +68,12 @@ summon('ravenTotem', 'Raven Totem', '#7a6a9a', 0.5, 1, 16, 'raven');
 summon('emberlingStaff', 'Emberling Staff', '#ff7a3b', 0.5, 2, 18, 'emberling');
 summon('thornguardIdol', 'Thornguard Idol', '#5a7a3a', 0.5, 2, 20, 'sentinel');
 summon('wraithBell', 'Wraith Bell', '#b06bff', 0.5, 3, 24, 'wraith');
+summon('diamondHeart', 'Diamond Heart', '#dffcff', 0.78, 5, 30, 'diamondHeart', {
+  maxStack: 1,
+  maxMinions: 1,
+  debugOnly: true,
+  desc: 'Endgame summon. Calls a winged Diamond Heart that hunts the highest-health foe.',
+});
 
 // ---------- Throwables ----------
 // Thrown along the aim direction and pulled into an arc by gravity, bouncing off
@@ -242,5 +248,5 @@ export function allItemIds() { return Object.keys(ITEMS); }
 // Convenience groupings for commands / crafting UI.
 export const WEAPON_IDS = Object.values(ITEMS).filter(i => i.category === 'weapon').map(i => i.id);
 export const DEMO_GIVE_ALL = Object.values(ITEMS)
-  .filter(i => i.category !== 'material' || i.matKind === 'bar')
+  .filter(i => !i.debugOnly && (i.category !== 'material' || i.matKind === 'bar'))
   .map(i => i.id);
