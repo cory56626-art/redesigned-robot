@@ -7,8 +7,8 @@ import { TILE } from '../config.js?v=realms-2';
 import { ENEMIES } from '../data/enemies.js?v=realms-2';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-2';
 import { aabb } from '../utils.js?v=realms-2';
-import { Projectile } from './projectile.js?v=realms-2';
-import * as AI from '../systems/ai.js?v=realms-2';
+import { Projectile } from './projectile.js?v=realms-4';
+import * as AI from '../systems/ai.js?v=realms-4';
 
 export class Enemy {
   constructor(key, x, y, netId) {
@@ -249,9 +249,13 @@ export class Enemy {
 
   _contactDamage(game) {
     if (this.attackCd > 0) return;
-    for (const p of game.players.values()) {
+    const targets = [...game.players.values()];
+    if (game.npc && game.npc.alive) targets.push(game.npc);
+    for (const p of targets) {
       if (p.alive && aabb(this, p)) {
-        game.applyEnemyDamageToPlayer(p, this.damage, Math.sign(p.x - this.x) * 4 + this.facing * 2);
+        const knockback = Math.sign(p.x - this.x) * 4 + this.facing * 2;
+        if (p === game.npc) p.takeDamage(this.damage, knockback, game, this.name);
+        else game.applyEnemyDamageToPlayer(p, this.damage, knockback);
         this.attackCd = 0.6;
         break;
       }
