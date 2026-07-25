@@ -1,5 +1,5 @@
 // Summoner Realms — localStorage save/load with named slots + save indicator.
-import { SAVE_PREFIX, SAVE_INDEX_KEY, SETTINGS_KEY, SAVE_VERSION, LEGACY_WORLD_W } from './config.js?v=realms-2';
+import { SAVE_PREFIX, SAVE_INDEX_KEY, SETTINGS_KEY, SAVE_VERSION, LEGACY_WORLD_W } from './config.js?v=realms-difficulty-20';
 
 // Upgrade a save to the current format.
 //
@@ -11,9 +11,9 @@ import { SAVE_PREFIX, SAVE_INDEX_KEY, SETTINGS_KEY, SAVE_VERSION, LEGACY_WORLD_W
 export function migrateSave(data) {
   if (!data || typeof data !== 'object') return null;
   const version = data.version || 1;
-  if (version >= SAVE_VERSION) return data;
+  if (version >= SAVE_VERSION) return Object.assign({}, data, { difficulty: data.difficulty || 'normal' });
 
-  const out = Object.assign({}, data, { version: SAVE_VERSION, migratedFrom: version });
+  const out = Object.assign({}, data, { version: SAVE_VERSION, migratedFrom: version, difficulty: data.difficulty || 'normal' });
   const legacy = data.diffs || [];
   const triples = [];
   for (let k = 0; k + 1 < legacy.length; k += 2) {
@@ -47,7 +47,7 @@ export class SaveManager {
       return false;
     }
     const idx = this._index();
-    const entry = { id, name: data.name, seed: data.seed, updated: data.updated };
+    const entry = { id, name: data.name, seed: data.seed, difficulty: data.difficulty || 'normal', updated: data.updated };
     const i = idx.findIndex(e => e.id === id);
     if (i >= 0) idx[i] = entry; else idx.push(entry);
     this._writeIndex(idx);
