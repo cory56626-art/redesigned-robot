@@ -1,7 +1,7 @@
 // Summoner Realms — minion entity. Owned by a player; the owner's client
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
-import { minionDef } from '../data/minions.js?v=realms-diamond-17';
+import { minionDef } from '../data/minions.js?v=realms-diamond-18';
 import { dist2, aabb, angleTo } from '../utils.js?v=realms-2';
 import { TILE } from '../config.js?v=realms-2';
 import { Projectile } from './projectile.js?v=realms-diamond-3';
@@ -69,6 +69,9 @@ export class Minion {
     this.dashChainRemaining = 0;
     this.dashRecovery = 0;
     this.dashVariant = false;
+    this.dodgeTime = 0;
+    this.dodgeAngle = 0;
+    this.dodgeCd = 0;
     this.beamWindup = 0;
     this.beamActive = 0;
     this.beamTimer = 0;
@@ -237,6 +240,7 @@ export class Minion {
     this.beamCd -= dt;
     this.dashTrailTimer -= dt;
     this.dashRecovery = Math.max(0, this.dashRecovery - dt);
+    this.dodgeCd = Math.max(0, this.dodgeCd - dt);
     this.beamFlash = Math.max(0, this.beamFlash - dt);
     this.diamondRetreat = Math.max(0, this.diamondRetreat - dt);
 
@@ -268,6 +272,20 @@ export class Minion {
       this._updateDiamondBeam(dt, game, owner, target);
       return;
     }
+
+    // A projectile that is on a real collision course gets an actual evasive
+    // burst, not just a small orbit adjustment. The cooldown keeps this
+    // skillful instead of making the Heart permanently untouchable.
+    if (this.dodgeTime > 0) {
+      this._updateDiamondEvasion(dt, game);
+      return;
+    }
+    const dodge = this._diamondDodge(game, cx, cy);
+    if (this.dodgeCd <= 0 && dodge.urgency >= 0.72) {
+      this._beginDiamondEvasion(game, dodge);
+      return;
+    }
+
     if (this.dashRecovery > 0) {
       if (target) this._diamondHover(game, owner, target, dt, true);
       return;
@@ -462,8 +480,9 @@ export class Minion {
     const dodge = this._diamondDodge(game, cx, cy);
     const threat = this._diamondThreatVector(game, cx, cy);
     const pushScale = retreat ? 220 : 165;
-    let desiredX = tc.x + Math.cos(orbit) * radius + dodge.x * (retreat ? 170 : 135) + threat.x * pushScale;
-    let desiredY = tc.y - 58 + Math.sin(orbit * 1.15) * (retreat ? 48 : 60) + dodge.y * (retreat ? 170 : 135) + threat.y * pushScale;
+    const dodgeScale = retreat ? 260 : 220;
+    let desiredX = tc.x + Math.cos(orbit) * radius + dodge.x * dodgeScale + threat.x * pushScale;
+    let desiredY = tc.y - 58 + Math.sin(orbit * 1.15) * (retreat ? 48 : 60) + dodge.y * dodgeScale + threat.y * pushScale;
 
     // Correct aggressively if any enemy closes the gap between steering
     // updates. This uses every nearby threat, not just the Heart's current
@@ -514,28 +533,93 @@ export class Minion {
 
   _diamondDodge(game, cx, cy) {
     let pushX = 0, pushY = 0;
+    let urgency = 0;
+    const predictionWindow = 1.0;
+
     for (const pr of game.projectiles) {
       if (!pr || pr.dead || (pr.ownerType !== 'enemy' && pr.ownerType !== 'boss')) continue;
       const px = pr.x + pr.w / 2, py = pr.y + pr.h / 2;
       const vx = pr.vx || 0, vy = pr.vy || 0;
       const speed2 = vx * vx + vy * vy;
       if (speed2 < 100) continue;
+
       const rx = cx - px, ry = cy - py;
-      const t = Math.max(0, Math.min(0.7, (rx * vx + ry * vy) / speed2));
+      const t = Math.max(0, Math.min(predictionWindow, (rx * vx + ry * vy) / speed2));
       const nx = px + vx * t, ny = py + vy * t;
       const dd = Math.hypot(cx - nx, cy - ny);
-      const danger = 125 + Math.max(pr.w, pr.h) * 0.6;
+      const danger = 175 + Math.max(pr.w, pr.h) * 0.8;
       if (dd >= danger) continue;
-      const away = Math.max(0.1, danger - dd) / danger;
-      pushX += (cx - nx) / Math.max(1, dd) * away;
-      pushY += (cy - ny) / Math.max(1, dd) * away;
+
+      const proximity = Math.max(0.1, danger - dd) / danger;
+      const timePressure = 1 - t / predictionWindow;
+      const threat = proximity * (0.58 + timePressure * 0.42);
+      urgency = Math.max(urgency, threat);
+
+      pushX += (cx - nx) / Math.max(1, dd) * threat;
+      pushY += (cy - ny) / Math.max(1, dd) * threat;
+
+      // Bias the dodge sideways so a projectile's predicted path does not
+      // keep intersecting the Heart while it retreats directly backward.
       const sp = Math.sqrt(speed2);
       const side = (this.id & 1) ? 1 : -1;
-      pushX += (-vy / sp) * away * side * 0.7;
-      pushY += (vx / sp) * away * side * 0.7;
+      pushX += (-vy / sp) * threat * side * 0.9;
+      pushY += (vx / sp) * threat * side * 0.9;
     }
+
     const len = Math.hypot(pushX, pushY);
-    return len > 1 ? { x: pushX / len, y: pushY / len } : { x: pushX, y: pushY };
+    return len > 1
+      ? { x: pushX / len, y: pushY / len, urgency }
+      : { x: 0, y: 0, urgency: 0 };
+  }
+
+  _beginDiamondEvasion(game, dodge) {
+    const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
+    const len = Math.hypot(dodge.x, dodge.y) || 1;
+    const speed = this.def.dodgeSpeed || 720;
+
+    this.dodgeAngle = Math.atan2(dodge.y, dodge.x);
+    this.dodgeTime = this.def.dodgeDuration || 0.22;
+    this.dodgeCd = this.def.dodgeRate || 1.0;
+    this.diamondRetreat = Math.max(this.diamondRetreat, 0.6);
+    this.spearWindup = 0;
+    this.spearTarget = null;
+    this.vx = (dodge.x / len) * speed;
+    this.vy = (dodge.y / len) * speed;
+    this.attackPulse = this.dodgeTime;
+
+    game.fx?.ring(cx, cy, '#dffcff', 30, { life: 0.16, width: 2 });
+    game.fx?.streak(cx, cy, this.dodgeAngle, '#8be9ff', 8, {
+      speed: 220, spread: 0.2, life: 0.24, size: 2.5, glow: true,
+    });
+  }
+
+  _updateDiamondEvasion(dt, game) {
+    const ox = this.x, oy = this.y;
+    const speed = this.def.dodgeSpeed || 720;
+    this.x += Math.cos(this.dodgeAngle) * speed * dt;
+    this.y += Math.sin(this.dodgeAngle) * speed * dt;
+    if (game.world.rectHitsSolid(this.x, this.y, this.w, this.h)) {
+      this.x = ox;
+      this.y = oy;
+      this.vx *= -0.35;
+      this.vy *= -0.35;
+    }
+    this._keepDiamondAboveSurface(game);
+
+    if (this.dashTrailTimer <= 0) {
+      this.dashTrailTimer = 0.035;
+      game.fx?.trail(this.x + this.w / 2, this.y + this.h / 2, '#8be9ff', { size: 4, life: 0.2 });
+    }
+
+    this.dodgeTime -= dt;
+    if (this.dodgeTime <= 0) {
+      this.dodgeTime = 0;
+      this.vx *= 0.25;
+      this.vy *= 0.25;
+      game.fx?.burst(this.x + this.w / 2, this.y + this.h / 2, '#dffcff', 8, {
+        speed: 90, life: 0.25, glow: true,
+      });
+    }
   }
 
   _beginDiamondSpear(game, target) {
