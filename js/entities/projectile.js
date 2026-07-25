@@ -138,12 +138,18 @@ export class Projectile {
 
   _hitPlayers(game) {
     const box = { x: this.x, y: this.y, w: this.w, h: this.h };
-    for (const p of game.players.values()) {
+    const targets = [...game.players.values()];
+    if (game.npc && game.npc.alive) targets.push(game.npc);
+
+    for (const p of targets) {
       if (!p.alive) continue;
-      if (this.hitSet.has(p.id)) continue;
+      const hitId = p.id || p;
+      if (this.hitSet.has(hitId)) continue;
       if (aabb(box, p)) {
-        this.hitSet.add(p.id);
-        game.applyEnemyDamageToPlayer(p, this.damage, Math.sign(this.vx) * this.knockback);
+        this.hitSet.add(hitId);
+        const knockback = Math.sign(this.vx) * this.knockback;
+        if (p === game.npc) p.takeDamage(this.damage, knockback, game, 'enemy');
+        else game.applyEnemyDamageToPlayer(p, this.damage, knockback);
         this.dead = true;
         return;
       }
