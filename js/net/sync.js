@@ -100,6 +100,12 @@ function applyEntitySnapshot(game, msg) {
     if (!b) b = makeGhostBoss(bs);
     b._tx = bs.x; b._ty = bs.y; b.hp = bs.hp; b.maxHp = bs.maxHp; b.facing = bs.facing;
     b.phaseName = (BOSSES[bs.key].phases[bs.phase] || {}).name || '';
+    if (b.ghost) {
+      b.hidden = !!bs.hidden;
+      b.aiState = bs.state || '';
+      // Replicate the wind-up so clients see the same tell the host does.
+      b.telegraph = bs.tel ? b.telegraphMax : 0;
+    }
     newBosses.push(b);
   }
   game.bosses = newBosses;
@@ -126,12 +132,22 @@ function makeGhostEnemy(es) {
     center() { return { x: this.x + this.w / 2, y: this.y + this.h / 2 }; },
   };
 }
+// A client-side stand-in with every field the renderer reads, so a replicated
+// boss animates like a simulated one instead of throwing on a missing property.
 function makeGhostBoss(bs) {
   const def = BOSSES[bs.key];
+  const segments = [];
+  for (let i = 0; i < 3; i++) segments.push({ x: bs.x + 4 + i * 17, y: bs.y + 12 });
   return {
     key: bs.key, name: bs.name, x: bs.x, y: bs.y, _tx: bs.x, _ty: bs.y,
     w: def.w, h: def.h, hp: bs.hp, maxHp: bs.maxHp, color: def.color, color2: def.color2,
     facing: bs.facing, hurtFlash: 0, invuln: 0, bob: 0, ghost: true, phaseName: '',
+    movement: def.movement,
+    vx: 0, vy: 0,
+    hidden: !!bs.hidden, telegraph: 0, telegraphMax: 0.6, attackPulse: 0,
+    warnAt: null, warnTime: 0, warnMax: 0.6,
+    squashX: 1, squashY: 1, jaw: 0, shardSpin: 0, segments, ghostTrail: [],
+    aiState: bs.state || '',
     center() { return { x: this.x + this.w / 2, y: this.y + this.h / 2 }; },
   };
 }
@@ -140,7 +156,24 @@ function makeGhostBoss(bs) {
 export function interpolateGhosts(game, dt) {
   const k = 1 - Math.pow(0.0006, dt);
   for (const e of game.enemies) { if (e.ghost) { e.x += (e._tx - e.x) * k; e.y += (e._ty - e.y) * k; if (e.hurtFlash > 0) e.hurtFlash -= dt; } }
-  for (const b of game.bosses) { if (b.ghost) { b.x += (b._tx - b.x) * k; b.y += (b._ty - b.y) * k; b.bob += dt * 3; if (b.hurtFlash > 0) b.hurtFlash -= dt; } }
+  for (const b of game.bosses) {
+    if (!b.ghost) continue;
+    b.x += (b._tx - b.x) * k; b.y += (b._ty - b.y) * k;
+    b.bob += dt * 3;
+    b.shardSpin += dt * (b.telegraph > 0 ? 5.5 : 0.7);
+    if (b.hurtFlash > 0) b.hurtFlash -= dt;
+    // Segment lag, so a replicated Gravemaw undulates like the host's.
+    if (b.movement === 'gravemaw' && b.segments) {
+      const headX = b.x + (b.facing > 0 ? b.w - 29 : 4);
+      const lagK = 1 - Math.pow(0.02, dt);
+      const order = b.facing > 0 ? [2, 1, 0] : [0, 1, 2];
+      for (let i = 0; i < 3; i++) {
+        const s = b.segments[order[i]];
+        s.x += ((headX - b.facing * i * 17) - s.x) * lagK;
+        s.y += ((b.y + 12 + Math.sin(b.bob + i * 0.9) * 2) - s.y) * lagK;
+      }
+    }
+  }
   for (const d of game.drops) { if (d.ghost) d.bob += dt * 4; }
 }
 

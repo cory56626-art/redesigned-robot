@@ -670,7 +670,11 @@ class Game {
     const anchor = this.nearestPlayer(this.localPlayer ? this.localPlayer.x : 0, this.localPlayer ? this.localPlayer.y : 0) || this.localPlayer;
     let bx = anchor ? anchor.x : this.world.spawnX;
     let by = anchor ? anchor.y - 140 : this.world.spawnY - 140;
-    if (def.movement === 'ground' || def.movement === 'gravemaw') by = anchor ? anchor.y - def.h : by;
+    if (def.movement === 'gravemaw') by = anchor ? anchor.y - def.h : by;
+    // Never materialise inside terrain — search outward for clear air first, so
+    // a boss summoned in a tight cave doesn't start the fight embedded in rock.
+    const spot = this._findClearSpot(bx, by, def.w, def.h);
+    bx = spot.x; by = spot.y;
     const b = new Boss(key, bx, by);
     this.bosses.push(b);
     this.toast(def.name + ' has appeared!', 'bad');
@@ -678,6 +682,19 @@ class Game {
     if (this.net && this.isHost) this.net.broadcast({ t: MSG.EVENT, kind: 'bossSpawn', name: def.name });
     this.markDirty();
   }
+  // Nearest position to (x,y) where a w x h box fits in open air. Spirals
+  // outward in tile steps and gives up on the original spot if nothing fits.
+  _findClearSpot(x, y, w, h) {
+    if (!this.world.rectHitsSolid(x, y, w, h)) return { x, y };
+    for (let r = 1; r <= 14; r++) {
+      for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        const nx = x + dx * r * TILE, ny = y + dy * r * TILE;
+        if (!this.world.rectHitsSolid(nx, ny, w, h)) return { x: nx, y: ny };
+      }
+    }
+    return { x, y };
+  }
+
   trySummonBoss(key, player, itemId) {
     const def = BOSSES[key];
     const tx = Math.floor((player.x + player.w / 2) / TILE), ty = Math.floor((player.y + player.h / 2) / TILE);
@@ -705,9 +722,14 @@ class Game {
   }
   onBossDeath(b) {
     if (!this.isHost) return;
+    // A boss that fled its arena was never defeated: no progression, no loot.
+    if (b.fled) {
+      this.enemies = this.enemies.filter(e => { if (e.fromBoss) { this.enemyById.delete(e.netId); return false; } return true; });
+      this.projectiles = this.projectiles.filter(p => p.ownerType !== 'boss');
+      return;
+    }
     const def = BOSSES[b.key];
     this.progression.defeatBoss(b.key);
-    this.addHitParticles(b.x + b.w / 2, b.y + b.h / 2, def.color2, 40);
     for (const drop of def.loot || []) {
       if (Math.random() <= drop.chance) {
         const n = drop.min + ((Math.random() * (drop.max - drop.min + 1)) | 0);

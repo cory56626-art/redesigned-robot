@@ -1,9 +1,14 @@
 // Summoner Realms — enemy entity. Simulated on the host; replicated to clients.
+//
+// Each enemy runs the same loop: perceive (do I know where the player is?),
+// decide (idle / approach / attack / retreat), then act. Perception, pathing and
+// steering live in systems/ai.js so every creature reasons the same way.
 import { TILE } from '../config.js';
 import { ENEMIES } from '../data/enemies.js';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js';
-import { dist2, aabb } from '../utils.js';
+import { aabb } from '../utils.js';
 import { Projectile } from './projectile.js';
+import * as AI from '../systems/ai.js';
 
 export class Enemy {
   constructor(key, x, y, netId) {
@@ -21,17 +26,25 @@ export class Enemy {
     this.color = d.color; this.color2 = d.color2;
     this.facing = 1;
     this.onGround = false;
+    // Ground enemies use the same auto step-up the player gets, so ordinary
+    // one-tile terrain never needs a hop at all.
+    this.stepHeight = d.behavior === 'flyer' ? 0 : TILE + 2;
     this.iframes = 0;
     this.attackCd = 0;
     this.fireCd = Math.random() * 1.2;
     this.jumpCd = 0;
-    this.climbCd = 0;
     this.dashCd = 1 + Math.random() * 2;
-    // Stuck detection / detour routing for ground navigation.
-    this._lastX = x;
-    this.stuckTimer = 0;
-    this.detourDir = 0;
-    this.detourTimer = 0;
+    // Perception state (see systems/ai.js).
+    this.aware = false;
+    this.awareTimer = 0;
+    this.lastSeen = null;
+    this.aiTargetPoint = null;   // debug overlay
+    this.replanTimer = Math.random() * AI.REPLAN_INTERVAL;
+    this.plannedDir = 0;
+    // Wind-up before committing to an attack, so the player can react.
+    this.telegraph = 0;
+    this.telegraphMax = d.telegraph || 0.4;
+    this.pendingAttack = null;
     this.dead = false;
     this.hurtFlash = 0;
     this.walkAnim = 0;
@@ -44,130 +57,212 @@ export class Enemy {
     if (this.iframes > 0) this.iframes -= dt;
     if (this.attackCd > 0) this.attackCd -= dt;
     if (this.hurtFlash > 0) this.hurtFlash -= dt;
+    if (this.jumpCd > 0) this.jumpCd -= dt;
     this.walkAnim += Math.abs(this.vx) * dt * 0.1;
 
-    const target = game.nearestPlayer(this.x + this.w / 2, this.y + this.h / 2);
-    if (!target) { applyGravity(this, dt); moveAndCollide(this, game.world, dt); return; }
-    const tc = target.center ? target.center() : { x: target.x + target.w / 2, y: target.y + target.h / 2 };
+    const d = this.def;
+    const goal = AI.perceive(this, game, dt, {
+      aggroRange: d.aggroRange, loseRange: d.loseRange, memory: d.memory,
+    });
+    this.aiTargetPoint = goal;
+
     const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
-    const dx = tc.x - cx, dy = tc.y - cy;
-    this.facing = dx < 0 ? -1 : 1;
 
-    // Ground navigation: if we're pinned against terrain making no progress,
-    // briefly route the other way instead of walking into the same block forever.
-    const moveDir = this._navDir(dt, dx);
-
-    switch (this.behavior) {
-      case 'flyer': {
-        // Flying enemies ignore terrain but nudge out if they clip into it.
-        const len = Math.hypot(dx, dy) || 1;
-        this.vx = (dx / len) * this.speed;
-        this.vy = (dy / len) * this.speed;
-        this.x += this.vx * dt; this.y += this.vy * dt;
-        if (game.world.rectHitsSolid(this.x, this.y, this.w, this.h)) { this.x -= this.vx * dt; this.y -= this.vy * dt * 1.2; this.y -= 6; }
-        break;
-      }
-      case 'hopper': {
-        applyGravity(this, dt);
-        if (this.onGround) {
-          this.jumpCd -= dt;
-          this.vx = 0;
-          if (this.jumpCd <= 0) { this.vy = -300; this.vx = moveDir * this.speed * 3; this.jumpCd = 1.1; }
-        }
-        moveAndCollide(this, game.world, dt);
-        break;
-      }
-      case 'charger': {
-        applyGravity(this, dt);
-        this.dashCd -= dt;
-        if (this.dashCd <= 0 && Math.abs(dy) < 60 && Math.abs(dx) < 240 && this.detourTimer <= 0) { this.dashVel = Math.sign(dx) * this.speed * 3.2; this.dashTime = 0.5; this.dashCd = 2.5; }
-        if (this.dashTime > 0) { this.dashTime -= dt; this.vx = this.dashVel; }
-        else this.vx = moveDir * this.speed;
-        this._climb(game, dt, moveDir);
-        moveAndCollide(this, game.world, dt);
-        break;
-      }
-      case 'caster': {
-        applyGravity(this, dt);
-        const d = Math.hypot(dx, dy);
-        if (d < 150) this.vx = -Math.sign(dx) * this.speed;
-        else if (d > 240) this.vx = moveDir * this.speed;
-        else this.vx = 0;
-        this._climb(game, dt, Math.sign(this.vx));
-        moveAndCollide(this, game.world, dt);
-        this.fireCd -= dt;
-        if (this.fireCd <= 0 && d < 380) {
-          this.fireCd = 2.0;
-          const pj = this.def.projectile;
-          const len = Math.hypot(dx, dy) || 1;
-          game.addProjectile(new Projectile({
-            x: cx, y: cy, vx: (dx / len) * pj.speed, vy: (dy / len) * pj.speed,
-            damage: pj.damage, ownerType: 'enemy', ownerId: this.netId, kind: pj.kind, color: pj.color, life: 4,
-          }), true);
-        }
-        break;
-      }
-      default: { // walker
-        applyGravity(this, dt);
-        this.vx = moveDir * this.speed;
-        this._climb(game, dt, moveDir);
-        moveAndCollide(this, game.world, dt);
-      }
+    if (!goal) {
+      this._idle(dt, game);
+    } else {
+      const dx = goal.x - cx, dy = goal.y - cy;
+      this.facing = dx < 0 ? -1 : 1;
+      this._hunt(dt, game, goal, dx, dy);
     }
+
     clampToWorld(this, game.world);
-
-    // Contact damage vs all players (host-authoritative).
-    if (this.attackCd <= 0) {
-      for (const p of game.players.values()) {
-        if (p.alive && aabb(this, p)) {
-          game.applyEnemyDamageToPlayer(p, this.damage, Math.sign(p.x - this.x) * 4 + this.facing * 2);
-          this.attackCd = 0.6;
-          break;
-        }
-      }
-    }
+    this._contactDamage(game);
 
     // Despawn if far from every player.
     if (game.minDistToAnyPlayer(cx, cy) > 1700 * 1700) this.dead = true;
   }
 
-  // Decide which horizontal direction to walk, taking a temporary detour when
-  // stuck against terrain so the enemy doesn't grind into one block forever.
-  _navDir(dt, dx) {
-    const desired = Math.sign(dx) || this.facing;
-    const moved = Math.abs(this.x - this._lastX);
-    // Count as "stuck" only while actively pushing into a wall on the ground.
-    if (this.onGround && Math.abs(this.vx) > 1 && this.hitWallX && moved < 0.4) this.stuckTimer += dt;
-    else this.stuckTimer = Math.max(0, this.stuckTimer - dt * 2);
-    this._lastX = this.x;
-    if (this.detourTimer > 0) this.detourTimer -= dt;
-    if (this.stuckTimer > 0.9 && this.detourTimer <= 0) {
-      this.detourDir = -desired;   // back off and try the other way
-      this.detourTimer = 0.7;
-      this.stuckTimer = 0;
-      this.climbCd = 0;            // allow an immediate hop attempt
+  // Unaware: mill about. Flyers drift, everything else strolls and turns at
+  // ledges instead of walking into a pit.
+  _idle(dt, game) {
+    if (this.behavior === 'flyer') {
+      this.vx *= 0.94;
+      this.vy = Math.sin(this.walkAnim * 2 + this.netId) * 18;
+      this.x += this.vx * dt; this.y += this.vy * dt;
+      if (game.world.rectHitsSolid(this.x, this.y, this.w, this.h)) {
+        this.x -= this.vx * dt; this.y -= this.vy * dt; this.vx = -this.vx;
+      }
+      return;
     }
-    return this.detourTimer > 0 ? this.detourDir : desired;
+    const dir = AI.wander(this, game, dt);
+    if (dir) this.facing = dir;
+    this.vx = dir * this.speed * 0.45;
+    applyGravity(this, dt);
+    moveAndCollide(this, game.world, dt);
   }
 
-  // Hop small ledges when blocked — but only with headroom (never headbutt a
-  // ceiling) and on a cooldown (so ground enemies don't jump constantly).
-  _climb(game, dt, dir) {
-    if (this.climbCd > 0) this.climbCd -= dt;
-    if (!this.onGround || !this.hitWallX || this.climbCd > 0) return;
-    dir = dir || this.facing;
-    const w = game.world;
-    const headTy = Math.floor((this.y - 2) / TILE);
-    const cxTile = Math.floor((this.x + this.w / 2) / TILE);
-    const aheadTile = cxTile + (dir >= 0 ? 1 : -1);
-    // Require clear space above our head and above the obstacle we're hopping.
-    const headClear = !w.isSolidAt(cxTile, headTy);
-    const ledgeTopClear = !w.isSolidAt(aheadTile, headTy) && !w.isSolidAt(aheadTile, headTy + 1);
-    if (headClear && ledgeTopClear) { this.vy = -300; this.climbCd = 0.5; }
+  _hunt(dt, game, goal, dx, dy) {
+    const world = game.world;
+    const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
+
+    // A wind-up in progress owns the entity: hold still, then strike.
+    if (this.telegraph > 0) {
+      this.telegraph -= dt;
+      if (this.behavior !== 'flyer') { this.vx *= 0.6; applyGravity(this, dt); moveAndCollide(this, world, dt); }
+      if (this.telegraph <= 0) this._commitAttack(game, goal);
+      return;
+    }
+
+    if (this.behavior === 'flyer') { this._flyer(dt, game, goal); return; }
+
+    // Ground routing: re-plan a few times a second, and only when the direct
+    // line is actually blocked — walking straight is right most of the time.
+    this.replanTimer -= dt;
+    if (this.replanTimer <= 0) {
+      this.replanTimer = AI.REPLAN_INTERVAL;
+      const direct = world.hasLineOfSight(cx, cy, goal.x, goal.y);
+      this.plannedDir = direct ? Math.sign(dx) : (AI.planDirection(this, world, goal.x, goal.y) ?? Math.sign(dx));
+    }
+    let dir = this.plannedDir || Math.sign(dx) || this.facing;
+
+    // Don't step off a drop unless the target is genuinely below us.
+    if (this.onGround && !AI.safeAhead(this, world, dir) && dy < 40) {
+      const gap = AI.gapWidth(this, world, dir);
+      if (gap > 3) dir = 0;
+    }
+    // Spread out from the pack so a group doesn't stack into one silhouette.
+    const sep = AI.separation(this, game.enemies) * 0.5;
+
+    switch (this.behavior) {
+      case 'hopper': {
+        applyGravity(this, dt);
+        if (this.onGround) {
+          this.vx *= 0.7;
+          if (this.jumpCd <= 0) {
+            // Hop height scales with distance: little shuffles up close, real
+            // leaps when closing a gap.
+            const far = Math.min(1, Math.abs(dx) / 160);
+            this.vy = -220 - far * 130;
+            this.vx = (dir + sep) * this.speed * (2 + far * 1.6);
+            this.jumpCd = 0.75 + Math.random() * 0.4;
+          }
+        }
+        moveAndCollide(this, world, dt);
+        break;
+      }
+      case 'charger': {
+        applyGravity(this, dt);
+        this.dashCd -= dt;
+        if (this.dashTime > 0) {
+          this.dashTime -= dt;
+          this.vx = this.dashVel;
+          // A charge that hits a wall ends in a stagger, not a grind.
+          if (this.hitWallX) { this.dashTime = 0; this.attackCd = 0.9; game.fx.burst(cx, cy + this.h / 2, '#c9b18a', 5, { speed: 60 }); }
+        } else if (this.dashCd <= 0 && Math.abs(dy) < 60 && Math.abs(dx) < 260 &&
+                   world.hasLineOfSight(cx, cy, goal.x, goal.y)) {
+          // Telegraph the charge: paw the ground, then commit.
+          this._beginAttack(game, 'charge');
+          return;
+        } else {
+          this.vx = (dir + sep) * this.speed;
+        }
+        if (AI.shouldJump(this, world, dir) && this.jumpCd <= 0) { this.vy = -300; this.jumpCd = 0.5; }
+        moveAndCollide(this, world, dt);
+        break;
+      }
+      case 'caster': {
+        applyGravity(this, dt);
+        const dist = Math.hypot(dx, dy);
+        const los = world.hasLineOfSight(cx, cy, goal.x, goal.y);
+        // Hold a firing lane: back off when crowded, close in when out of range,
+        // and strafe rather than stand still at the ideal distance.
+        if (dist < 130) this.vx = (-Math.sign(dx) + sep) * this.speed;
+        else if (dist > 250 || !los) this.vx = (dir + sep) * this.speed;
+        else this.vx = Math.sin(this.walkAnim * 0.6 + this.netId) * this.speed * 0.5;
+        if (AI.shouldJump(this, world, Math.sign(this.vx) || dir) && this.jumpCd <= 0) { this.vy = -300; this.jumpCd = 0.6; }
+        moveAndCollide(this, world, dt);
+
+        this.fireCd -= dt;
+        // Only shoot when there is genuinely a clear shot — casters used to fire
+        // straight through solid rock.
+        if (this.fireCd <= 0 && dist < 380 && los && this.attackCd <= 0) {
+          this._beginAttack(game, 'cast');
+        }
+        break;
+      }
+      default: { // walker
+        applyGravity(this, dt);
+        this.vx = (dir + sep) * this.speed;
+        if (AI.shouldJump(this, world, dir) && this.jumpCd <= 0) { this.vy = -300; this.jumpCd = 0.5; }
+        moveAndCollide(this, world, dt);
+      }
+    }
+  }
+
+  _flyer(dt, game, goal) {
+    const world = game.world;
+    // Swoop: orbit slightly above the target rather than grinding into its box.
+    const bob = Math.sin(this.walkAnim * 1.4 + this.netId) * 22;
+    const steer = AI.flySteer(this, world, goal.x, goal.y + bob - 14, this.speed);
+    const sep = AI.separation(this, game.enemies, 26);
+    this.vx = steer.vx + sep * 30;
+    this.vy = steer.vy;
+    const nx = this.x + this.vx * dt, ny = this.y + this.vy * dt;
+    // Respect terrain instead of tunnelling through it and popping back out.
+    if (!world.rectHitsSolid(nx, this.y, this.w, this.h)) this.x = nx; else this.vx = 0;
+    if (!world.rectHitsSolid(this.x, ny, this.w, this.h)) this.y = ny; else this.vy = 0;
+  }
+
+  // Start a wind-up. The renderer draws the flash; the attack lands when the
+  // telegraph expires.
+  _beginAttack(game, kind) {
+    this.telegraph = this.telegraphMax;
+    this.pendingAttack = kind;
+    this.vx *= 0.3;
+    game.fx.burst(this.x + this.w / 2, this.y + this.h / 2, '#ffcf6b', 4, { speed: 40, life: 0.3, glow: true });
+  }
+
+  _commitAttack(game, goal) {
+    const kind = this.pendingAttack;
+    this.pendingAttack = null;
+    const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
+    if (kind === 'charge') {
+      this.dashVel = Math.sign(goal.x - cx) * this.speed * 3.4;
+      this.dashTime = 0.5;
+      this.dashCd = 2.6;
+      game.fx.streak(cx, cy, this.dashVel > 0 ? 0 : Math.PI, this.color2 || this.color, 5, { speed: 130 });
+    } else if (kind === 'cast') {
+      this.fireCd = this.def.fireRate || 2.0;
+      this.attackCd = 0.4;
+      const pj = this.def.projectile;
+      const target = this.target;
+      // Lead the shot so a moving player actually has to dodge.
+      const a = target ? AI.leadShot(cx, cy, target, pj.speed) : Math.atan2(goal.y - cy, goal.x - cx);
+      game.addProjectile(new Projectile({
+        x: cx, y: cy, vx: Math.cos(a) * pj.speed, vy: Math.sin(a) * pj.speed,
+        damage: pj.damage, ownerType: 'enemy', ownerId: this.netId, kind: pj.kind, color: pj.color, life: 4,
+      }), true);
+      game.fx.streak(cx, cy, a, pj.color, 5, { speed: 90, life: 0.2, glow: true });
+    }
+  }
+
+  _contactDamage(game) {
+    if (this.attackCd > 0) return;
+    for (const p of game.players.values()) {
+      if (p.alive && aabb(this, p)) {
+        game.applyEnemyDamageToPlayer(p, this.damage, Math.sign(p.x - this.x) * 4 + this.facing * 2);
+        this.attackCd = 0.6;
+        break;
+      }
+    }
   }
 
   takeDamage(amount, kbx, kby, game, effect, crit) {
     if (this.dead) return;
+    // A short window of invulnerability after a hit, so several projectiles
+    // landing in one frame can't all register.
+    if (this.iframes > 0) return;
     const kbResist = 1 - (this.def.kbResist || 0);
     this.hp -= amount;
     game?.audio?.enemyHurt();
@@ -176,6 +271,11 @@ export class Enemy {
     this.vx += kbx * 24 * kbResist;
     if (kby) this.vy += kby * 40 * kbResist; else this.vy -= 40 * kbResist;
     if (effect) this._applyEffect(effect);
+    // Being hit gives away the attacker's position even without line of sight.
+    if (game && game.localPlayer) {
+      const p = game.nearestPlayer(this.x + this.w / 2, this.y + this.h / 2);
+      if (p) AI.alert(this, p.x + p.w / 2, p.y + p.h / 2, this.def.memory || 5);
+    }
     if (game) game.floatText(this.x + this.w / 2, this.y, Math.round(amount) + (crit ? '!' : ''), crit ? '#ffcf6b' : '#ffffff');
     if (this.hp <= 0) {
       this.hp = 0;
