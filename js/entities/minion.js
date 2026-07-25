@@ -481,7 +481,7 @@ export class Minion {
       this.spearWindup = 0;
       this.spearTarget = null;
       this.diamondRetreat = Math.max(this.diamondRetreat, 0.9);
-      const escape = game?._diamondThreatVector(
+      const escape = this._diamondThreatVector(
         game, this.x + this.w / 2, this.y + this.h / 2
       );
       if (escape) {
