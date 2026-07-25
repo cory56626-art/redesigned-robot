@@ -1,32 +1,33 @@
 // Summoner Realms — game orchestrator, main loop, and all cross-system glue.
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
-  HOTBAR_SIZE, MAX_PARTICLES, MAX_PROJECTILES,
+  HOTBAR_SIZE, MAX_PROJECTILES,
 } from './config.js';
 import { hashString, mulberry32, dist2, uid } from './utils.js';
-import { World } from './world/world.js?build=30f8ec0';
+import { World } from './world/world.js';
 import { T } from './world/tiles.js';
 import { Sprites } from './art/sprites.js';
 import { Camera } from './engine/camera.js';
-import { Input } from './engine/input.js?build=mobile-jump-2';
-import { AudioManager } from './engine/audio.js?build=audio-assets-2';
-import { Renderer } from './engine/renderer.js?build=f0bc604';
+import { Input } from './engine/input.js';
+import { AudioManager } from './engine/audio.js';
+import { Renderer } from './engine/renderer.js';
+import { Fx } from './engine/fx.js';
 import { DayNight } from './systems/daynight.js';
 import { Spawner } from './systems/spawner.js';
 import { Progression } from './systems/progression.js';
 import { starterInventory } from './systems/inventory.js';
 import * as craftSys from './systems/crafting.js';
 import { applyPotion } from './systems/combat.js';
-import { Player, assignColor } from './entities/player.js?build=826f56ee';
+import { Player, assignColor } from './entities/player.js';
 import { Enemy } from './entities/enemy.js';
-import { Boss } from './entities/boss.js?build=sovereign-melee-2';
+import { Boss } from './entities/boss.js';
 import { Minion } from './entities/minion.js';
 import { Npc } from './entities/npc.js';
 import { Projectile } from './entities/projectile.js';
 import { DropItem } from './entities/droppeditem.js';
 import { FallingTree } from './entities/fallingtree.js';
 import { ENEMIES } from './data/enemies.js';
-import { BOSSES } from './data/bosses.js?build=sovereign-melee-2';
+import { BOSSES } from './data/bosses.js';
 import { item as getItem } from './data/items.js';
 import { HUD } from './ui/hud.js';
 import { Menus } from './ui/menus.js';
@@ -68,13 +69,15 @@ class Game {
     this.drops = [];
     this.dropById = new Map();
     this.particles = [];
+    this.rings = [];         // expanding shockwave / telegraph rings
     this.floatTexts = [];
     this.fallingTrees = [];  // cosmetic tree-topple animations
     this.thrown = [];        // bombs, dynamite, shurikens in flight
     this.npc = null;         // the Guide
+    this.fx = new Fx(this);
 
     // Debug overlays toggled from the demo command console.
-    this.debug = { collision: false, ai: false, biome: false, spawn: false, caves: false };
+    this.debug = { collision: false, ai: false, biome: false, spawn: false, caves: false, walls: false };
 
     this.net = null;
     this.isHost = true;          // true in single-player and while hosting
@@ -248,9 +251,7 @@ class Game {
   }
 
   _updateParticles(dt) {
-    for (const pt of this.particles) { pt.vy += (pt.gravity || 0) * dt; pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.life -= dt; }
-    this.particles = this.particles.filter(p => p.life > 0);
-    if (this.particles.length > MAX_PARTICLES) this.particles.splice(0, this.particles.length - MAX_PARTICLES);
+    this.fx.step(dt); // particles, rings and screen shake
     for (const ft of this.floatTexts) { ft.y += ft.vy * dt; ft.life -= dt; }
     this.floatTexts = this.floatTexts.filter(f => f.life > 0);
     for (const t of this.fallingTrees) t.update(dt);
@@ -275,7 +276,7 @@ class Game {
   _resetEntities() {
     this.players.clear(); this.enemies = []; this.enemyById.clear(); this.minions = [];
     this.bosses = []; this.projectiles = []; this.drops = []; this.dropById.clear();
-    this.particles = []; this.floatTexts = []; this.fallingTrees = []; this.thrown = [];
+    this.particles = []; this.rings = []; this.floatTexts = []; this.fallingTrees = []; this.thrown = [];
     this.npc = null;
   }
 
@@ -361,7 +362,7 @@ class Game {
     this.progression = new Progression();
     this.progression.deserialize(progression);
     this.enemies = []; this.enemyById.clear(); this.minions = []; this.bosses = [];
-    this.projectiles = []; this.drops = []; this.dropById.clear(); this.particles = []; this.floatTexts = [];
+    this.projectiles = []; this.drops = []; this.dropById.clear(); this.particles = []; this.rings = []; this.floatTexts = [];
     this.fallingTrees = []; this.thrown = [];
     // keep players map empty except local (added here)
     this.players.clear();
@@ -547,7 +548,9 @@ class Game {
   // local player's hit/knockback state. Used on death/respawn and by /resetcombat.
   resetCombatState() {
     this.projectiles = [];
+    this.thrown = [];
     this.particles = [];
+    this.rings = [];
     this.floatTexts = [];
     const p = this.localPlayer;
     if (p) { p.iframes = Math.max(p.iframes, 1.5); p.kbTimer = 0; p.combatTimer = 0; p.hazardTimer = 0; }
@@ -563,21 +566,23 @@ class Game {
   }
 
   addHitParticles(x, y, color, count = 6) {
-    for (let i = 0; i < count; i++) {
-      const a = Math.random() * Math.PI * 2, sp = 20 + Math.random() * 80;
-      this.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 20, life: 0.3 + Math.random() * 0.3, max: 0.6, size: 1 + Math.random() * 2, color, gravity: 200 });
-    }
+    this.fx.burst(x, y, color, count, { speed: 80, life: 0.45, size: 2 });
   }
+  shake(mag, dur) { this.fx.shake(mag, dur); }
   floatText(x, y, text, color) { this.floatTexts.push({ x, y, text, color, vy: -34, life: 0.8, max: 0.8 }); }
   spawnSwingFx(player, angle, item) {
     const pc = player.center();
-    for (let i = 0; i < 4; i++) { const a = angle + (Math.random() - 0.5) * (item.arc || 1.4); const r = (item.reach || 26) * (0.5 + Math.random() * 0.5); this.particles.push({ x: pc.x + Math.cos(a) * r, y: pc.y + Math.sin(a) * r, vx: 0, vy: 0, life: 0.12, max: 0.12, size: 2, color: item.color, gravity: 0 }); }
+    for (let i = 0; i < 4; i++) {
+      const a = angle + (Math.random() - 0.5) * (item.arc || 1.4);
+      const r = (item.reach || 26) * (0.5 + Math.random() * 0.5);
+      this.fx.push({ x: pc.x + Math.cos(a) * r, y: pc.y + Math.sin(a) * r, vx: 0, vy: 0, life: 0.12, max: 0.12, size: 2, color: item.color, gravity: 0 });
+    }
   }
   // Visible cast puff at the caster's hand so magic reads as an actual cast.
   spawnCastFx(player, angle, item) {
     const pc = player.center();
     const hx = pc.x + Math.cos(angle) * 12, hy = pc.y + Math.sin(angle) * 12;
-    for (let i = 0; i < 7; i++) { const a = angle + (Math.random() - 0.5) * 1.2, sp = 20 + Math.random() * 40; this.particles.push({ x: hx, y: hy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.25, max: 0.25, size: 1 + Math.random() * 2, color: item.projColor || item.color, gravity: 0 }); }
+    this.fx.streak(hx, hy, angle, item.projColor || item.color, 7, { speed: 50, spread: 1.2, life: 0.25, size: 2, glow: true });
   }
   spawnFallingTree(cells, tx, ty, dir) {
     this.fallingTrees.push(new FallingTree(cells, tx, ty, dir));

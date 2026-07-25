@@ -568,14 +568,17 @@ function placeTree(tiles, w, h, x, baseY, def, rand) {
   };
 
   if (def.canopy === 'conifer') {
-    // Frostpines taper: a wide skirt narrowing to a point.
-    let radius = 3;
-    for (let dy = 0; dy < 6; dy++) {
-      const ly = topY + 4 - dy;
+    // Frostpines taper: a wide skirt narrowing to a point, and the needles run
+    // most of the way down the trunk so the tree reads as a pine rather than a
+    // bare pole with a tuft on top.
+    // Row 0 is the tip; the skirt widens as it descends, capped at 3 either
+    // side, so the silhouette is a proper cone down most of the trunk.
+    const skirt = Math.max(7, Math.round(height * 0.8));
+    for (let row = 0; row < skirt; row++) {
+      const ly = topY + row;
+      const radius = Math.min(3, Math.floor(row / 2));
       for (let dx = -radius; dx <= radius; dx++) put(x + dx, ly);
-      if (dy % 2 === 1) radius = Math.max(0, radius - 1);
     }
-    put(x, topY - 1);
   } else {
     for (let dy = -2; dy <= 2; dy++) {
       for (let dx = -3; dx <= 3; dx++) {

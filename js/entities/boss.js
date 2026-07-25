@@ -1,6 +1,6 @@
 // Summoner Realms — boss entity. Multi-phase AI, host-authoritative.
 import { TILE } from '../config.js';
-import { BOSSES } from '../data/bosses.js?build=sovereign-melee-2';
+import { BOSSES } from '../data/bosses.js';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js';
 import { aabb, angleTo, randRange } from '../utils.js';
 import { Projectile } from './projectile.js';

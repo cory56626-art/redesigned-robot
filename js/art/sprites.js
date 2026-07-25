@@ -1,8 +1,16 @@
 // Summoner Realms — procedural pixel art.
-// All original: tile textures and item icons drawn to offscreen canvases.
-// Entities (player/enemies/minions/bosses/projectiles) are drawn procedurally
-// in the renderer. Nothing here is copied from any existing game.
-import { T, TILES } from '../world/tiles.js';
+// All original: tile textures, tile framing, wall textures and item icons drawn
+// to offscreen canvases. Entities (player/enemies/minions/bosses/projectiles)
+// are drawn procedurally in the renderer. Nothing here is copied from any
+// existing game.
+//
+// The important idea here is *framing*: a tile's appearance depends on its
+// neighbours. A stone tile buried in stone is flat; one exposed to air gets a lit
+// top, a shadowed underside and rimmed sides. That neighbour awareness — plus
+// grass fringing down onto dirt and trunk/canopy shading — is most of what makes
+// terrain read as terrain instead of a grid of coloured squares.
+import { T, TILES, tileMat } from '../world/tiles.js';
+import { W, WALLS } from '../world/walls.js';
 import { mulberry32 } from '../utils.js';
 
 function makeCanvas(w, h) {
@@ -29,9 +37,16 @@ export function shade(hex, amt) {
 const TS = 16; // tile sprite size
 const IS = 20; // item icon size
 
+// Neighbour mask bits. "Set" means that neighbour merges with this tile — same
+// material group, so no edge is drawn between them.
+export const N = 1, E = 2, S = 4, WBIT = 8, NE = 16, SE = 32, SW = 64, NW = 128;
+
 class SpriteBank {
   constructor() {
-    this.tileCache = new Map();
+    this.tileCache = new Map();   // base texture per tile id
+    this.framedCache = new Map(); // (id, mask, flags) -> framed texture
+    this.wallCache = new Map();   // (wallId, mask) -> wall texture
+    this.treeCache = new Map();   // (id, mask, variant) -> trunk/canopy texture
     this.iconCache = new Map();
     this.ready = false;
   }
@@ -50,6 +65,253 @@ class SpriteBank {
     return this.tileCache.get(id);
   }
 
+  // ---- Framed terrain ----
+  // `grassAbove` is the tile id of a grass-topped tile sitting directly above,
+  // or 0. It is part of the cache key so blighted grass fringes violet onto the
+  // dirt below it while ordinary grass fringes green.
+  getFramed(id, mask, grassAbove = 0) {
+    const key = (id << 16) | ((grassAbove & 0xff) << 8) | (mask & 0xff);
+    let c = this.framedCache.get(key);
+    if (!c) { c = this._buildFramed(id, mask, grassAbove); this.framedCache.set(key, c); }
+    return c;
+  }
+
+  _buildFramed(id, mask, grassAbove) {
+    const def = TILES[id];
+    const base = (def && def.color) || '#888';
+    const src = this.getTile(id);
+    const c = makeCanvas(TS, TS);
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(src, 0, 0);
+
+    const open = (bit) => (mask & bit) === 0;
+    const lightEdge = shade(base, 0.26);
+    const brightEdge = shade(base, 0.42);
+    const darkEdge = shade(base, -0.34);
+    const deepEdge = shade(base, -0.5);
+
+    // Only *exposed* faces get shading. Shading an internal join too would put a
+    // dark band along the top of every buried tile, which tiles into visible
+    // brick courses across a solid mass — obvious on light terrain like snow.
+    if (mask === 0xff) {
+      ctx.fillStyle = 'rgba(0,0,0,0.10)';
+      ctx.fillRect(0, 0, TS, TS);
+      return c;
+    }
+
+    // Light falls from above and slightly to the left: lit top and left faces,
+    // shadowed underside and right face.
+    if (open(N)) {
+      ctx.fillStyle = brightEdge; ctx.fillRect(0, 0, TS, 1);
+      ctx.fillStyle = lightEdge; ctx.fillRect(0, 1, TS, 1);
+    }
+    if (open(WBIT)) { ctx.fillStyle = lightEdge; ctx.fillRect(0, 0, 1, TS); }
+    if (open(E)) { ctx.fillStyle = darkEdge; ctx.fillRect(TS - 1, 0, 1, TS); }
+    if (open(S)) {
+      ctx.fillStyle = darkEdge; ctx.fillRect(0, TS - 1, TS, 1);
+      ctx.fillStyle = deepEdge; ctx.fillRect(0, TS - 2, TS, 1);
+    }
+
+    // Inner corners: where two sides merge but the diagonal between them does
+    // not, a small notch of shadow sells the concave joint.
+    const notch = 'rgba(0,0,0,0.26)';
+    if (!open(N) && !open(WBIT) && open(NW)) { ctx.fillStyle = notch; ctx.fillRect(0, 0, 3, 3); }
+    if (!open(N) && !open(E) && open(NE)) { ctx.fillStyle = notch; ctx.fillRect(TS - 3, 0, 3, 3); }
+    if (!open(S) && !open(WBIT) && open(SW)) { ctx.fillStyle = notch; ctx.fillRect(0, TS - 3, 3, 3); }
+    if (!open(S) && !open(E) && open(SE)) { ctx.fillStyle = notch; ctx.fillRect(TS - 3, TS - 3, 3, 3); }
+
+    // Grass fringes down onto whatever is beneath it, the way Terraria's grass
+    // overhangs dirt, so the boundary is organic rather than a ruled line.
+    if (grassAbove) {
+      const g = TILES[grassAbove];
+      ctx.fillStyle = (g && g.grass) || '#5fae4a';
+      const teeth = [3, 1, 4, 2, 3, 1, 2, 4];
+      for (let x = 0; x < TS; x += 2) {
+        const d = teeth[(x >> 1) % teeth.length];
+        ctx.fillRect(x, 0, 2, d);
+      }
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
+      for (let x = 0; x < TS; x += 2) ctx.fillRect(x, ((teeth[(x >> 1) % teeth.length]) - 1), 2, 1);
+    }
+
+    // A grass tile's own top edge is ragged, not a straight line.
+    if (def && def.grass && open(N)) {
+      ctx.clearRect(0, 0, TS, 2);
+      ctx.fillStyle = shade(def.grass, 0.18);
+      const teeth = [2, 1, 2, 0, 1, 2, 1, 0];
+      for (let x = 0; x < TS; x += 2) ctx.fillRect(x, teeth[(x >> 1) % teeth.length], 2, 3 - teeth[(x >> 1) % teeth.length]);
+      ctx.fillStyle = def.grass;
+      ctx.fillRect(0, 3, TS, 2);
+    }
+    return c;
+  }
+
+  // ---- Background walls ----
+  // Walls are drawn behind non-solid tiles. They are darker and lower contrast
+  // than the foreground, with a recessed rim wherever they meet open air, so the
+  // eye reads them as "behind" rather than "a different block".
+  getWall(id, mask) {
+    const key = (id << 8) | (mask & 0xff);
+    let c = this.wallCache.get(key);
+    if (!c) { c = this._buildWall(id, mask); this.wallCache.set(key, c); }
+    return c;
+  }
+
+  _buildWall(id, mask) {
+    const def = WALLS[id] || WALLS[W.STONE];
+    const base = def.color || '#33373f';
+    const c = makeCanvas(TS, TS);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, TS, TS);
+    const rand = mulberry32(((id + 7) * 2654435761) >>> 0);
+    // Coarse mottling — bigger and softer than the foreground speckle so walls
+    // never compete with the tiles in front of them for attention.
+    for (let i = 0; i < 18; i++) {
+      const x = (rand() * TS) | 0, y = (rand() * TS) | 0;
+      const s = 1 + ((rand() * 3) | 0);
+      ctx.fillStyle = rand() < 0.5 ? shade(base, -0.16) : shade(base, 0.12);
+      ctx.fillRect(x, y, s, s);
+    }
+    // Recessed rim where the wall meets open air.
+    const open = (bit) => (mask & bit) === 0;
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    if (open(N)) ctx.fillRect(0, 0, TS, 2);
+    if (open(WBIT)) ctx.fillRect(0, 0, 2, TS);
+    if (open(E)) ctx.fillRect(TS - 2, 0, 2, TS);
+    if (open(S)) ctx.fillRect(0, TS - 2, TS, 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    if (open(N)) ctx.fillRect(0, 2, TS, 1);
+    return c;
+  }
+
+  // ---- Trees ----
+  // Trunks and canopies are shaded rather than flat-filled, which is what makes
+  // a tree read as a round trunk under a layered canopy instead of a brown line
+  // with a green blob on top.
+  //
+  // Trunk mask: N/S = trunk continues that way. variant 0..3 selects bark
+  // detail and which side (if any) grows a branch stub.
+  getTrunk(id, mask, variant) {
+    const key = (1 << 24) | (id << 12) | ((variant & 3) << 8) | (mask & 0xff);
+    let c = this.treeCache.get(key);
+    if (!c) { c = this._buildTrunk(id, mask, variant); this.treeCache.set(key, c); }
+    return c;
+  }
+
+  _buildTrunk(id, mask, variant) {
+    const def = TILES[id] || {};
+    const base = def.color || '#7a5228';
+    const c = makeCanvas(TS, TS);
+    const ctx = c.getContext('2d');
+    const hasAbove = (mask & N) !== 0;
+    const hasBelow = (mask & S) !== 0;
+
+    // Cylinder shading: a horizontal light-to-dark ramp across the trunk.
+    const x0 = 4, wdt = 8;
+    const g = ctx.createLinearGradient(x0, 0, x0 + wdt, 0);
+    g.addColorStop(0, shade(base, -0.12));
+    g.addColorStop(0.28, shade(base, 0.24));
+    g.addColorStop(0.62, base);
+    g.addColorStop(1, shade(base, -0.38));
+    ctx.fillStyle = g;
+    ctx.fillRect(x0, 0, wdt, TS);
+
+    // Bark: short vertical striations, deterministic per variant.
+    const rand = mulberry32(((id * 31 + variant * 977 + 5) * 2654435761) >>> 0);
+    ctx.fillStyle = shade(base, -0.3);
+    for (let i = 0; i < 5; i++) {
+      const bx = x0 + 1 + ((rand() * (wdt - 2)) | 0);
+      const by = (rand() * (TS - 5)) | 0;
+      ctx.fillRect(bx, by, 1, 3 + ((rand() * 3) | 0));
+    }
+    ctx.fillStyle = shade(base, 0.3);
+    ctx.fillRect(x0 + 2, 0, 1, TS);
+
+    // Roots: the lowest trunk tile flares out into the ground.
+    if (!hasBelow) {
+      ctx.fillStyle = shade(base, -0.18);
+      ctx.beginPath();
+      ctx.moveTo(x0, TS - 6); ctx.lineTo(0, TS); ctx.lineTo(x0 + 3, TS); ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(x0 + wdt, TS - 6); ctx.lineTo(TS, TS); ctx.lineTo(x0 + wdt - 3, TS); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = shade(base, 0.16);
+      ctx.fillRect(x0 + 1, TS - 5, 1, 5);
+    }
+
+    // A rounded cap on the topmost trunk tile.
+    if (!hasAbove) {
+      ctx.fillStyle = shade(base, 0.18);
+      ctx.fillRect(x0 + 1, 0, wdt - 2, 2);
+    }
+
+    // Branch stubs on some mid-trunk tiles, angled and shaded like the trunk.
+    if (hasAbove && hasBelow && variant > 1) {
+      const dir = variant === 2 ? -1 : 1;
+      ctx.strokeStyle = shade(base, dir < 0 ? 0.1 : -0.2);
+      ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(TS / 2, 10);
+      ctx.lineTo(TS / 2 + dir * 7, 4);
+      ctx.stroke();
+    }
+    return c;
+  }
+
+  // Canopy mask: N/E/S/W = the neighbouring tile is also foliage. Interior
+  // leaves are darker (self-shadowed); exposed leaves catch light and get a
+  // ragged silhouette.
+  getCanopy(id, mask, variant) {
+    const key = (2 << 24) | (id << 12) | ((variant & 3) << 8) | (mask & 0xff);
+    let c = this.treeCache.get(key);
+    if (!c) { c = this._buildCanopy(id, mask, variant); this.treeCache.set(key, c); }
+    return c;
+  }
+
+  _buildCanopy(id, mask, variant) {
+    const def = TILES[id] || {};
+    const base = def.color || '#3e7a34';
+    const c = makeCanvas(TS, TS);
+    const ctx = c.getContext('2d');
+    const open = (bit) => (mask & bit) === 0;
+    const enclosed = (mask & (N | E | S | WBIT)) === (N | E | S | WBIT);
+
+    // Depth: light falls from the upper left, so foliage darkens down and right,
+    // and fully enclosed foliage sits in the tree's own shadow.
+    const lit = enclosed ? shade(base, -0.24) : shade(base, 0.16);
+    const dark = enclosed ? shade(base, -0.42) : shade(base, -0.2);
+    const g = ctx.createLinearGradient(0, 0, TS, TS);
+    g.addColorStop(0, lit);
+    g.addColorStop(0.55, enclosed ? shade(base, -0.3) : base);
+    g.addColorStop(1, dark);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, TS, TS);
+
+    // Leaf clusters give the canopy internal texture instead of a flat wash.
+    const rand = mulberry32(((id * 17 + variant * 613 + 3) * 2654435761) >>> 0);
+    for (let i = 0; i < 6; i++) {
+      const cx = 2 + ((rand() * (TS - 4)) | 0);
+      const cy = 2 + ((rand() * (TS - 4)) | 0);
+      ctx.fillStyle = rand() < 0.5 ? shade(base, 0.2) : shade(base, -0.22);
+      ctx.fillRect(cx, cy, 2, 2);
+      ctx.fillRect(cx + 1, cy + 1, 2, 1);
+    }
+
+    // Ragged silhouette on every exposed face.
+    const bite = 'rgba(0,0,0,0)';
+    const teeth = [0, 2, 1, 3, 0, 2, 1, 2];
+    if (open(N)) { for (let x = 0; x < TS; x += 2) ctx.clearRect(x, 0, 2, teeth[(x >> 1) % teeth.length]); }
+    if (open(S)) { for (let x = 0; x < TS; x += 2) ctx.clearRect(x, TS - teeth[((x >> 1) + 3) % teeth.length], 2, 3); }
+    if (open(WBIT)) { for (let y = 0; y < TS; y += 2) ctx.clearRect(0, y, teeth[((y >> 1) + 1) % teeth.length], 2); }
+    if (open(E)) { for (let y = 0; y < TS; y += 2) ctx.clearRect(TS - teeth[((y >> 1) + 2) % teeth.length], y, 3, 2); }
+
+    // Highlight the top-left rim where the sun would actually catch it.
+    if (open(N)) { ctx.fillStyle = shade(base, 0.34); for (let x = 0; x < TS; x += 2) ctx.fillRect(x, teeth[(x >> 1) % teeth.length], 2, 1); }
+    void bite;
+    return c;
+  }
+
   _buildTile(id) {
     const def = TILES[id];
     const c = makeCanvas(TS, TS);
@@ -64,21 +326,42 @@ class SpriteBank {
       ctx.fillStyle = rand() < 0.5 ? shade(base, -0.18) : shade(base, 0.14);
       ctx.fillRect(x, y, 1, 1);
     }
-    // top edge highlight for grass-like tiles
-    if (id === T.GRASS || id === T.BLIGHTGRASS) {
-      ctx.fillStyle = shade(base, 0.22);
-      for (let x = 0; x < TS; x++) if (((x + id) % 3) !== 0) ctx.fillRect(x, 0, 1, 2);
+    // Grass-topped tiles carry their grass colour across the top rows; the
+    // framing pass gives them a ragged edge.
+    if (def.grass) {
+      ctx.fillStyle = def.grass;
+      ctx.fillRect(0, 0, TS, 4);
+      ctx.fillStyle = shade(def.grass, -0.2);
+      for (let x = 0; x < TS; x += 3) ctx.fillRect(x, 4, 2, 1);
     }
-    // ore gems
+    // Ore seams: coloured crystal clusters set into the surrounding rock.
     const gem = ORE_GEM[id];
     if (gem) {
       const spots = [[4, 5], [10, 4], [7, 9], [12, 11], [3, 11]];
       for (const [gx, gy] of spots) {
+        ctx.fillStyle = shade(gem, -0.35);
+        ctx.fillRect(gx - 1, gy - 1, 4, 4);
         ctx.fillStyle = gem;
         ctx.fillRect(gx, gy, 2, 2);
-        ctx.fillStyle = shade(gem, 0.4);
+        ctx.fillStyle = shade(gem, 0.45);
         ctx.fillRect(gx, gy, 1, 1);
       }
+    }
+    if (id === T.ICE) {
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.fillRect(2, 3, 5, 1); ctx.fillRect(9, 8, 4, 1); ctx.fillRect(4, 11, 6, 1);
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.fillRect(11, 2, 1, 5); ctx.fillRect(5, 6, 1, 4);
+    }
+    if (id === T.SANDSTONE) {
+      ctx.fillStyle = shade(base, -0.2);
+      ctx.fillRect(0, 5, TS, 1); ctx.fillRect(0, 11, TS, 1);
+      ctx.fillStyle = shade(base, 0.14);
+      ctx.fillRect(0, 6, TS, 1);
+    }
+    if (id === T.DEEPSTONE) {
+      ctx.fillStyle = shade(base, -0.3);
+      ctx.fillRect(3, 3, 4, 3); ctx.fillRect(9, 8, 5, 4); ctx.fillRect(2, 10, 3, 3);
     }
     // torch
     if (id === T.TORCH) {
@@ -96,6 +379,37 @@ class SpriteBank {
     if (id === T.STONEBRICK) { ctx.strokeStyle = shade(base, -0.28); ctx.lineWidth = 1; ctx.strokeRect(0.5, 0.5, 15, 7); ctx.strokeRect(0.5, 8.5, 15, 7); ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(8, 8); ctx.moveTo(4, 8); ctx.lineTo(4, 16); ctx.moveTo(12, 8); ctx.lineTo(12, 16); ctx.stroke(); }
     if (id === T.PLANKS) { ctx.fillStyle = shade(base, -0.22); ctx.fillRect(0, 5, 16, 1); ctx.fillRect(0, 10, 16, 1); ctx.fillRect(8, 0, 1, 5); ctx.fillRect(4, 11, 1, 5); }
     if (id === T.THORNVINE) { ctx.clearRect(0, 0, TS, TS); ctx.fillStyle = base; ctx.fillRect(7, 0, 2, 16); ctx.fillStyle = shade(base, -0.2); ctx.fillRect(3, 4, 4, 2); ctx.fillRect(9, 8, 4, 2); ctx.fillRect(4, 11, 4, 2); }
+    if (id === T.TALLGRASS) {
+      ctx.clearRect(0, 0, TS, TS);
+      ctx.strokeStyle = base; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+      for (const [bx, tilt] of [[4, -2], [8, 1], [11, 3], [6, 2]]) {
+        ctx.beginPath(); ctx.moveTo(bx, TS); ctx.quadraticCurveTo(bx + tilt, TS - 6, bx + tilt * 2, TS - 11); ctx.stroke();
+      }
+      ctx.strokeStyle = shade(base, 0.3);
+      ctx.beginPath(); ctx.moveTo(8, TS); ctx.quadraticCurveTo(9, TS - 7, 10, TS - 12); ctx.stroke();
+    }
+    if (id === T.CACTUS) {
+      ctx.clearRect(0, 0, TS, TS);
+      const g2 = ctx.createLinearGradient(4, 0, 12, 0);
+      g2.addColorStop(0, shade(base, 0.22)); g2.addColorStop(0.6, base); g2.addColorStop(1, shade(base, -0.35));
+      ctx.fillStyle = g2; ctx.fillRect(4, 0, 8, TS);
+      ctx.fillStyle = shade(base, -0.4);
+      for (let y = 2; y < TS; y += 4) { ctx.fillRect(3, y, 1, 1); ctx.fillRect(12, y + 2, 1, 1); }
+    }
+    if (id === T.STALAGMITE || id === T.STALACTITE) {
+      ctx.clearRect(0, 0, TS, TS);
+      const up = id === T.STALAGMITE;
+      ctx.fillStyle = base;
+      ctx.beginPath();
+      if (up) { ctx.moveTo(4, TS); ctx.lineTo(8, 3); ctx.lineTo(12, TS); }
+      else { ctx.moveTo(4, 0); ctx.lineTo(8, TS - 3); ctx.lineTo(12, 0); }
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = shade(base, 0.28);
+      ctx.beginPath();
+      if (up) { ctx.moveTo(6, TS); ctx.lineTo(8, 4); ctx.lineTo(9, TS); }
+      else { ctx.moveTo(6, 0); ctx.lineTo(8, TS - 4); ctx.lineTo(9, 0); }
+      ctx.closePath(); ctx.fill();
+    }
     return c;
   }
 
@@ -119,7 +433,8 @@ class SpriteBank {
       else if (item.weaponClass === 'ranged') this._ranged(ctx, col, col2, item.rangedKind);
       else if (item.weaponClass === 'mage') this._mage(ctx, col, col2, item.mageKind);
       else if (item.weaponClass === 'summon') this._summon(ctx, col, col2);
-    } else if (cat === 'tool') { if (item.tool && item.tool.kind === 'axe') this._axe(ctx, col, col2); else this._pick(ctx, col, col2); }
+    } else if (cat === 'throwable') this._throwable(ctx, col, col2, item.throwKind);
+    else if (cat === 'tool') { if (item.tool && item.tool.kind === 'axe') this._axe(ctx, col, col2); else this._pick(ctx, col, col2); }
     else if (cat === 'armor') this._armor(ctx, col, col2, item.slot);
     else if (cat === 'accessory') this._accessory(ctx, col, col2, item.accKind);
     else if (cat === 'potion') this._potion(ctx, col);
@@ -181,6 +496,53 @@ class SpriteBank {
     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(12, 6, 4, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = col2; ctx.fillRect(10, 4, 4, 1); ctx.fillRect(11, 3, 2, 5);
     ctx.fillStyle = shade(col, 0.5); ctx.fillRect(11, 5, 1, 1);
+  }
+  // Bombs, dynamite, shurikens and knives.
+  _throwable(ctx, col, col2, kind) {
+    if (kind === 'shuriken') {
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const a = i * Math.PI / 2;
+        ctx.moveTo(10, 10);
+        ctx.lineTo(10 + Math.cos(a - 0.35) * 4, 10 + Math.sin(a - 0.35) * 4);
+        ctx.lineTo(10 + Math.cos(a) * 9, 10 + Math.sin(a) * 9);
+        ctx.lineTo(10 + Math.cos(a + 0.35) * 4, 10 + Math.sin(a + 0.35) * 4);
+      }
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = shade(col, 0.4);
+      ctx.beginPath(); ctx.arc(10, 10, 2.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#0b1020';
+      ctx.beginPath(); ctx.arc(10, 10, 1.2, 0, Math.PI * 2); ctx.fill();
+      return;
+    }
+    if (kind === 'knife') {
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.moveTo(4, 16); ctx.lineTo(15, 3); ctx.lineTo(17, 6); ctx.lineTo(6, 18); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = shade(col, 0.45);
+      ctx.beginPath(); ctx.moveTo(5, 15); ctx.lineTo(14, 4); ctx.lineTo(15, 5.5); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = col2; ctx.fillRect(2, 15, 5, 3);
+      return;
+    }
+    if (kind === 'stick') { // dynamite
+      ctx.fillStyle = col; ctx.fillRect(6, 5, 8, 13);
+      ctx.fillStyle = shade(col, 0.28); ctx.fillRect(6, 5, 3, 13);
+      ctx.fillStyle = shade(col, -0.35); ctx.fillRect(6, 9, 8, 2); ctx.fillRect(6, 14, 8, 2);
+      ctx.strokeStyle = '#d9cdb0'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(10, 5); ctx.quadraticCurveTo(14, 2, 16, 4); ctx.stroke();
+      ctx.fillStyle = '#ffcf6b'; ctx.beginPath(); ctx.arc(16, 4, 1.6, 0, Math.PI * 2); ctx.fill();
+      return;
+    }
+    // round bomb
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(9, 12, 6.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = shade(col, 0.4);
+    ctx.beginPath(); ctx.arc(7, 10, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = col2; ctx.fillRect(8, 4, 3, 3);
+    ctx.strokeStyle = '#d9cdb0'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(10, 4); ctx.quadraticCurveTo(14, 1, 16, 4); ctx.stroke();
+    ctx.fillStyle = '#ffcf6b'; ctx.beginPath(); ctx.arc(16, 4, 1.8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff2c0'; ctx.beginPath(); ctx.arc(16, 4, 0.8, 0, Math.PI * 2); ctx.fill();
   }
   _pick(ctx, col, col2) {
     ctx.strokeStyle = '#7a5a2a'; ctx.lineWidth = 2;
@@ -257,5 +619,27 @@ const ORE_GEM = {
   [T.AETHERITE]: '#8ad9ff',
   [T.BLIGHTORE]: '#c58bff',
 };
+
+// Neighbour mask for framing. Two tiles merge when they share a `mat` group, so
+// ore veins blend into their host rock and grass merges with the dirt below it.
+export function framingMask(world, tx, ty, id) {
+  const mine = tileMat(id);
+  let m = 0;
+  const same = (dx, dy) => {
+    const other = world.get(tx + dx, ty + dy);
+    if (other === id) return true;
+    const om = tileMat(other);
+    return !!mine && om === mine;
+  };
+  if (same(0, -1)) m |= N;
+  if (same(1, 0)) m |= E;
+  if (same(0, 1)) m |= S;
+  if (same(-1, 0)) m |= WBIT;
+  if (same(1, -1)) m |= NE;
+  if (same(1, 1)) m |= SE;
+  if (same(-1, 1)) m |= SW;
+  if (same(-1, -1)) m |= NW;
+  return m;
+}
 
 export const Sprites = new SpriteBank();

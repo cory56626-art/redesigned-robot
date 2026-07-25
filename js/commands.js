@@ -43,7 +43,7 @@ export class CommandConsole {
       fly: { args: '', desc: 'Toggle flight', run: () => { g.localPlayer.cheats.fly = !g.localPlayer.cheats.fly; return ok('Fly ' + (g.localPlayer.cheats.fly ? 'ON' : 'OFF')); } },
       godmode: { args: '', desc: 'Toggle invincibility', run: () => { g.localPlayer.cheats.godmode = !g.localPlayer.cheats.godmode; return ok('God mode ' + (g.localPlayer.cheats.godmode ? 'ON' : 'OFF')); } },
       time: { args: '[day|night]', desc: 'Set time of day', run: (a) => this._time(a) },
-      teleport: { args: '[forest|underground|corrupt|cavern]', desc: 'Teleport to a biome', run: (a) => this._teleport(a) },
+      teleport: { args: '[forest|dunes|frostpine|corrupt|underground|cavern]', desc: 'Teleport to a biome', run: (a) => this._teleport(a) },
       clearinventory: { args: '', desc: 'Clear the inventory', run: () => { g.localPlayer.inventory.clear(); g.localPlayer.recomputeStats(); return ok('Inventory cleared.'); } },
       resetcooldowns: { args: '', desc: 'Clear attack/mana/heal cooldowns', run: () => this._resetCooldowns() },
       save: { args: '', desc: 'Manually save the game', run: () => { g.saveGame(true); return ok('Game saved.'); } },
@@ -54,6 +54,7 @@ export class CommandConsole {
       debugbiome: { args: '', desc: 'Toggle current-biome readout', run: () => this._toggleDebug('biome') },
       debugspawn: { args: '', desc: 'Toggle valid/invalid spawn overlay', run: () => this._toggleDebug('spawn') },
       debugcaves: { args: '', desc: 'Toggle cave-void overlay', run: () => this._toggleDebug('caves') },
+      debugwalls: { args: '', desc: 'Toggle background-wall overlay', run: () => this._toggleDebug('walls') },
     };
   }
 
@@ -287,7 +288,8 @@ export class CommandConsole {
 
   _teleport(a) {
     const b = (a[0] || '').toLowerCase();
-    if (!['forest', 'underground', 'corrupt', 'cavern'].includes(b)) return err('Usage: /teleport forest|underground|corrupt');
+    const places = ['forest', 'dunes', 'frostpine', 'corrupt', 'underground', 'cavern'];
+    if (!places.includes(b)) return err('Usage: /teleport ' + places.join('|'));
     this.game.teleportBiome(b);
     return ok('Teleported to ' + b + '.');
   }
