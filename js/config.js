@@ -4,7 +4,27 @@
 // Single build stamp for every cache-busted module import. Bump this once per
 // release instead of editing per-module `?build=` strings (which drifted out of
 // sync and could ship a half-updated module graph).
-export const BUILD = 'realms-2';
+export const BUILD = 'realms-difficulty-20';
+
+export const WORLD_DIFFICULTIES = Object.freeze([
+  { key: 'normal', label: 'Normal', tier: 'Buffed baseline', hint: 'Bosses are tougher than the old baseline, with readable attack tells.' },
+  { key: 'hard', label: 'Hard', tier: 'Aggressive patterns', hint: 'Bosses move faster, attack more often, and add extra projectiles.' },
+  { key: 'master', label: 'Master', tier: 'Punishing mastery', hint: 'Expect heavier hits, tighter tells, denser patterns, and more adds.' },
+  { key: 'masochist', label: 'Masochist', tier: 'No safety net', hint: 'Maximum boss pressure: brutal damage, speed, cadence, and attack density.' },
+]);
+
+export function normalizeDifficulty(value) {
+  const key = String(value ?? '').trim().toLowerCase();
+  return WORLD_DIFFICULTIES.some(d => d.key === key) ? key : 'normal';
+}
+export function difficultyForIndex(index) {
+  const i = Math.max(0, Math.min(WORLD_DIFFICULTIES.length - 1, Number(index) || 0));
+  return WORLD_DIFFICULTIES[i];
+}
+export function difficultyInfo(value) {
+  const key = normalizeDifficulty(value);
+  return WORLD_DIFFICULTIES.find(d => d.key === key) || WORLD_DIFFICULTIES[0];
+}
 
 export const TILE = 16; // world pixels per tile
 
@@ -77,7 +97,7 @@ export const SAVE_PREFIX = 'summonerRealms.save.';
 export const SAVE_INDEX_KEY = 'summonerRealms.saves';
 export const SETTINGS_KEY = 'summonerRealms.settings';
 export const AUTOSAVE_INTERVAL = 30; // seconds
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 // Width of the v1 world, needed to decode legacy flat-index tile diffs.
 export const LEGACY_WORLD_W = 420;
 
