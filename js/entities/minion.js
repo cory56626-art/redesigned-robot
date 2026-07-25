@@ -3,7 +3,8 @@
 // drawn as lightweight ghosts (see renderer).
 import { minionDef } from '../data/minions.js?v=realms-2';
 import { dist2, aabb, angleTo } from '../utils.js?v=realms-2';
-import { Projectile } from './projectile.js?v=realms-2';
+import { Projectile } from './projectile.js?v=realms-diamond-1';
+import * as AI from '../systems/ai.js?v=realms-diamond-1';
 
 let MINION_SEQ = 1;
 
@@ -15,6 +16,7 @@ const LEASH = 560;
 const GIVE_UP = 2.6;
 // How long stuck (barely moving, far from owner) before it teleports home.
 const STUCK_TELEPORT = 3.0;
+const DIAMOND_LEASH = 780;
 
 export class Minion {
   constructor(key, ownerId, x, y) {
@@ -30,7 +32,29 @@ export class Minion {
     this.cd = 0;
     this.anim = Math.random() * 6;
     this.dead = false;
+    this.alive = true;
+    this.isMinion = true;
+    this.maxHp = d.maxHp != null ? d.maxHp : null;
+    this.hp = this.maxHp;
+    this.iframes = 0;
+    this.hurtFlash = 0;
+    this.attackPulse = 0;
     this.slotOffset = (MINION_SEQ % 5) - 2;
+    // Diamond Heart combat state. The other minions continue using the compact
+    // generic state machine below.
+    this.spearCd = d.spearRate || 0;
+    this.dashCd = d.dashRate || 0.9;
+    this.spearWindup = 0;
+    this.spearTarget = null;
+    this.spearAngle = 0;
+    this.spearPulse = 0;
+    this.dashTime = 0;
+    this.dashAngle = 0;
+    this.dashTarget = null;
+    this.dashHits = new Set();
+    this.dashTrailTimer = 0;
+    this.target = null;
+    this.swordAngle = 0;
     // AI bookkeeping.
     this.unreachTimer = 0;   // time spent unable to reach the current target
     this.returnTimer = 0;    // while >0, ignore targets and regroup on the owner
@@ -38,17 +62,27 @@ export class Minion {
     this._lx = x; this._ly = y;
     // Flying minions (wisp/raven/emberling) may pass over terrain; grounded ones
     // (beetle/sentinel) should respect it more strictly.
-    this.flying = d.behavior === 'homing' || d.behavior === 'shooter' || d.behavior === 'dive';
+    this.flying = !!d.flying || d.behavior === 'homing' || d.behavior === 'shooter' || d.behavior === 'dive';
   }
 
   update(dt, game) {
-    this.anim += dt * 6;
+    if (this.dead) return;
+    this.anim += dt * (this.def.behavior === 'diamondHeart' ? 3.8 : 6);
     this._world = game.world; // used by grounded steering
     if (this.cd > 0) this.cd -= dt;
     if (this.returnTimer > 0) this.returnTimer -= dt;
+    if (this.iframes > 0) this.iframes -= dt;
+    if (this.hurtFlash > 0) this.hurtFlash -= dt;
+    if (this.attackPulse > 0) this.attackPulse -= dt;
+    if (this.spearPulse > 0) this.spearPulse -= dt;
     const owner = game.players.get(this.ownerId);
-    if (!owner || !owner.alive) { this.dead = true; return; }
+    if (!owner || !owner.alive) { this.dead = true; this.alive = false; return; }
     const oc = owner.center();
+
+    if (this.def.behavior === 'diamondHeart') {
+      this._updateDiamondHeart(dt, game, owner, oc);
+      return;
+    }
     const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
 
     // Leash + stuck safety: snap home if we've strayed or wedged in terrain.
@@ -124,6 +158,234 @@ export class Minion {
     }
   }
 
+  _findDiamondTarget(game, cx, cy) {
+    let best = null;
+    let bestHp = -Infinity;
+    let bestMaxHp = -Infinity;
+    let bestDist = Infinity;
+    const consider = (t) => {
+      if (!t || t.dead || t.alive === false || t.hp == null || t.hp <= 0) return;
+      const tc = t.center ? t.center() : { x: t.x + t.w / 2, y: t.y + t.h / 2 };
+      const hp = Number(t.hp) || 0;
+      const maxHp = Number(t.maxHp) || hp;
+      const d = dist2(cx, cy, tc.x, tc.y);
+      // Current HP is the primary key: the Heart helps finish the most
+      // important surviving target instead of randomly swapping between foes.
+      if (hp > bestHp || (hp === bestHp && (maxHp > bestMaxHp || (maxHp === bestMaxHp && d < bestDist)))) {
+        best = t; bestHp = hp; bestMaxHp = maxHp; bestDist = d;
+      }
+    };
+    for (const e of game.enemies) consider(e);
+    for (const b of game.bosses) consider(b);
+    return best;
+  }
+
+  _updateDiamondHeart(dt, game, owner, oc) {
+    this.spearCd -= dt;
+    this.dashCd -= dt;
+    this.dashTrailTimer -= dt;
+
+    const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
+    const ownerDist = Math.hypot(cx - oc.x, cy - oc.y);
+    if (ownerDist > DIAMOND_LEASH) {
+      this._teleportToOwner(game, oc);
+      return;
+    }
+
+    if (this.dashTime > 0) {
+      this._updateDiamondDash(dt, game);
+      return;
+    }
+
+    let target = this.target;
+    if (!target || target.dead || target.alive === false || target.hp <= 0) {
+      target = this._findDiamondTarget(game, cx, cy);
+    }
+    this.target = target;
+
+    if (this.spearWindup > 0) {
+      const live = this.spearTarget && !this.spearTarget.dead && this.spearTarget.alive !== false && this.spearTarget.hp > 0
+        ? this.spearTarget : target;
+      if (!live) {
+        this.spearWindup = 0;
+        this.spearTarget = null;
+      } else {
+        const tc = live.center();
+        this.spearAngle = AI.leadShot(cx, cy, live, 520);
+        this.swordAngle = this.spearAngle;
+        this.facing = tc.x < cx ? -1 : 1;
+        this._diamondHover(game, owner, live, dt);
+        this.spearWindup -= dt;
+        if (this.spearWindup <= 0) this._fireDiamondSpear(game);
+        return;
+      }
+    }
+
+    if (!target) {
+      this._diamondRegroup(game, oc, dt);
+      return;
+    }
+
+    const tc = target.center();
+    const dx = tc.x - cx, dy = tc.y - cy;
+    const distance = Math.hypot(dx, dy);
+    const los = game.world.hasLineOfSight(cx, cy, tc.x, tc.y);
+    this.facing = dx < 0 ? -1 : 1;
+    this.swordAngle = Math.atan2(dy, dx);
+
+    this._diamondHover(game, owner, target, dt);
+
+    // Dash through a nearby target when the line is clear. The cooldown and
+    // single-hit-per-dash rule keep this a skill move, not contact-DPS spam.
+    if (this.dashCd <= 0 && los && distance > 52 && distance < 255) {
+      this._beginDiamondDash(game, target);
+      return;
+    }
+
+    // At range, the Heart charges one readable spear before releasing it.
+    if (this.spearCd <= 0 && los && distance > 82) {
+      this._beginDiamondSpear(game, target);
+    }
+  }
+
+  _diamondHover(game, owner, target, dt) {
+    const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
+    const tc = target.center();
+    const orbit = this.anim * 0.72 + this.id * 0.9;
+    const radius = 138 + Math.sin(this.anim * 0.43) * 20;
+    const dodge = this._diamondDodge(game, cx, cy);
+    const desiredX = tc.x + Math.cos(orbit) * radius + dodge.x * 120;
+    const desiredY = tc.y - 44 + Math.sin(orbit * 1.15) * 58 + dodge.y * 120;
+    this._steer(desiredX, desiredY, this.def.speed, dt);
+  }
+
+  _diamondRegroup(game, oc, dt) {
+    const dodge = this._diamondDodge(game, this.x + this.w / 2, this.y + this.h / 2);
+    const desiredX = oc.x + this.slotOffset * 30 + dodge.x * 90;
+    const desiredY = oc.y - 92 + Math.sin(this.anim * 0.8) * 12 + dodge.y * 90;
+    this.swordAngle = this.facing > 0 ? 0.15 : Math.PI - 0.15;
+    this._steer(desiredX, desiredY, this.def.speed * 0.82, dt);
+  }
+
+  _diamondDodge(game, cx, cy) {
+    let pushX = 0, pushY = 0;
+    for (const pr of game.projectiles) {
+      if (!pr || pr.dead || (pr.ownerType !== 'enemy' && pr.ownerType !== 'boss')) continue;
+      const px = pr.x + pr.w / 2, py = pr.y + pr.h / 2;
+      const vx = pr.vx || 0, vy = pr.vy || 0;
+      const speed2 = vx * vx + vy * vy;
+      if (speed2 < 100) continue;
+      const rx = cx - px, ry = cy - py;
+      const t = Math.max(0, Math.min(0.7, (rx * vx + ry * vy) / speed2));
+      const nx = px + vx * t, ny = py + vy * t;
+      const dd = Math.hypot(cx - nx, cy - ny);
+      const danger = 52 + Math.max(pr.w, pr.h) * 0.6;
+      if (dd >= danger) continue;
+      const away = Math.max(0.1, danger - dd) / danger;
+      pushX += (cx - nx) / Math.max(1, dd) * away;
+      pushY += (cy - ny) / Math.max(1, dd) * away;
+      const sp = Math.sqrt(speed2);
+      const side = (this.id & 1) ? 1 : -1;
+      pushX += (-vy / sp) * away * side * 0.7;
+      pushY += (vx / sp) * away * side * 0.7;
+    }
+    const len = Math.hypot(pushX, pushY);
+    return len > 1 ? { x: pushX / len, y: pushY / len } : { x: pushX, y: pushY };
+  }
+
+  _beginDiamondSpear(game, target) {
+    this.spearTarget = target;
+    this.spearWindup = 0.3;
+    this.spearPulse = 0.3;
+    this.spearCd = this.def.spearRate || 3.8;
+    const c = this.x + this.w / 2, d = this.y + this.h / 2;
+    this.spearAngle = AI.leadShot(c, d, target, 520);
+    this.swordAngle = this.spearAngle;
+    game.fx?.ring(c, d, '#dffcff', 34, { life: 0.3, width: 2 });
+    game.fx?.streak(c, d, this.spearAngle, '#dffcff', 7, { speed: 90, spread: 0.24, life: 0.24, size: 2, glow: true });
+  }
+
+  _fireDiamondSpear(game) {
+    const c = this.x + this.w / 2, d = this.y + this.h / 2;
+    const a = this.spearAngle;
+    const speed = 520;
+    game.addProjectile(new Projectile({
+      x: c + Math.cos(a) * 18 - 9, y: d + Math.sin(a) * 18 - 3,
+      vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
+      w: 18, h: 6,
+      damage: this.def.spearDamage || 16,
+      ownerType: 'minion', ownerId: this.ownerId,
+      kind: 'diamondSpear', color: '#dffcff',
+      life: 2.4, knockback: 5, trail: '#8be9ff',
+      burstCount: 20, burstDamage: 5, burstKind: 'miniDiamondSpear',
+      burstColor: '#8be9ff', burstSpeed: 230, burstLife: 1.35,
+    }), true);
+    game.audio?.magicCast?.();
+    game.fx?.streak(c, d, a, '#dffcff', 10, { speed: 220, spread: 0.34, life: 0.3, size: 2, glow: true });
+    this.spearPulse = 0.18;
+    this.spearWindup = 0;
+    this.spearTarget = null;
+    this.lastAttack = 'spear';
+  }
+
+  _beginDiamondDash(game, target) {
+    const c = this.x + this.w / 2, d = this.y + this.h / 2;
+    const tc = target.center();
+    this.dashAngle = Math.atan2(tc.y - d, tc.x - c);
+    this.dashTime = this.def.dashDuration || 0.34;
+    this.dashCd = this.def.dashRate || 2.6;
+    this.dashTarget = target;
+    this.dashHits = new Set();
+    this.attackPulse = this.dashTime;
+    this.swordAngle = this.dashAngle;
+    this.vx = Math.cos(this.dashAngle) * (this.def.dashSpeed || 760);
+    this.vy = Math.sin(this.dashAngle) * (this.def.dashSpeed || 760);
+    game.fx?.ring(c, d, '#ffffff', 32, { life: 0.22, width: 2 });
+    game.fx?.streak(c, d, this.dashAngle, '#8be9ff', 12, { speed: 210, spread: 0.22, life: 0.28, size: 3, glow: true });
+    this.lastAttack = 'dash';
+  }
+
+  _updateDiamondDash(dt, game) {
+    const ox = this.x, oy = this.y;
+    const speed = this.def.dashSpeed || 760;
+    this.x += Math.cos(this.dashAngle) * speed * dt;
+    this.y += Math.sin(this.dashAngle) * speed * dt;
+    if (game.world.rectHitsSolid(this.x, this.y, this.w, this.h)) {
+      this.x = ox; this.y = oy; this.dashTime = 0;
+    }
+
+    const sweep = {
+      x: Math.min(ox, this.x) - 5,
+      y: Math.min(oy, this.y) - 5,
+      w: Math.abs(this.x - ox) + this.w + 10,
+      h: Math.abs(this.y - oy) + this.h + 10,
+    };
+    const damage = this.def.dashDamage || 20;
+    const hit = (target) => {
+      if (!target || target.dead || target.alive === false || this.dashHits.has(target)) return;
+      if (!aabb(sweep, target)) return;
+      this.dashHits.add(target);
+      game.hurtEnemyOrBoss(target, damage, Math.sign(this.vx) * 7, this.ownerId);
+      const tc = target.center();
+      game.addHitParticles(tc.x, tc.y, '#dffcff', 10);
+      game.fx?.ring(tc.x, tc.y, '#dffcff', 26, { life: 0.2, width: 2 });
+    };
+    for (const e of game.enemies) hit(e);
+    for (const b of game.bosses) hit(b);
+
+    if (this.dashTrailTimer <= 0) {
+      this.dashTrailTimer = 0.035;
+      game.fx?.trail(this.x + this.w / 2, this.y + this.h / 2, '#8be9ff', { size: 4, life: 0.24 });
+    }
+    this.dashTime -= dt;
+    if (this.dashTime <= 0) {
+      this.dashTime = 0;
+      this.dashTarget = null;
+      this.vx *= 0.25; this.vy *= 0.25;
+      game.fx?.burst(this.x + this.w / 2, this.y + this.h / 2, '#dffcff', 10, { speed: 100, life: 0.35, glow: true });
+    }
+  }
+
   _idle(game, oc, dt) {
     const hx = oc.x + this.slotOffset * 26;
     const hy = oc.y - 34 + Math.sin(this.anim) * 4;
@@ -158,5 +420,31 @@ export class Minion {
     }
   }
 
-  netInfo() { return { key: this.key, x: Math.round(this.x), y: Math.round(this.y), f: this.facing }; }
+  takeDamage(amount, knockbackX, game, srcName) {
+    if (this.dead || !this.isMinion || this.maxHp == null || this.iframes > 0) return;
+    const dmg = Math.max(1, Math.round(amount));
+    this.hp = Math.max(0, this.hp - dmg);
+    this.iframes = 0.28;
+    this.hurtFlash = 0.16;
+    this.vx += (knockbackX || 0) * 5;
+    game?.addHitParticles(this.x + this.w / 2, this.y + this.h / 2, '#dffcff', 7);
+    game?.floatText(this.x + this.w / 2, this.y, '-' + dmg, '#dffcff');
+    if (this.hp <= 0) {
+      this.hp = 0;
+      this.alive = false;
+      this.dead = true;
+      game?.fx?.ring(this.x + this.w / 2, this.y + this.h / 2, '#dffcff', 46, { life: 0.35, width: 3 });
+      game?.fx?.burst(this.x + this.w / 2, this.y + this.h / 2, '#8be9ff', 24, { speed: 170, life: 0.7, glow: true });
+      game?.toast?.('Diamond Heart shattered.', 'bad');
+    }
+  }
+
+  netInfo() {
+    return {
+      key: this.key, x: Math.round(this.x), y: Math.round(this.y), f: this.facing,
+      hp: this.maxHp != null ? Math.round(this.hp) : null,
+      maxHp: this.maxHp,
+      dead: this.dead ? 1 : 0,
+    };
+  }
 }
