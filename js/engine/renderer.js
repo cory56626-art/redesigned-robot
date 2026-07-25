@@ -574,6 +574,44 @@ export class Renderer {
     ctx.fillStyle = '#d8d2e4';
     ctx.fillRect(x + 2, y + 8, w - 4, 3);
 
+    // Draw the Guide's weak bow only during the wind-up. The bow and nocked
+    // arrow rotate toward the live target, making the attack readable.
+    if (n.shootWindup > 0) {
+      const hx = x + w / 2 + Math.cos(n.shootAngle) * 4;
+      const hy = y + 14 + Math.sin(n.shootAngle) * 4;
+      const drawProgress = 1 - n.shootWindup / n.shootWindupMax;
+      const pull = 2 + drawProgress * 3;
+      ctx.save();
+      ctx.translate(hx, hy);
+      ctx.rotate(n.shootAngle);
+      ctx.strokeStyle = '#8a6a3a';
+      ctx.lineWidth = 1.8;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(0, 0, 7, -Math.PI / 2, Math.PI / 2);
+      ctx.stroke();
+      ctx.strokeStyle = '#e8e0cf';
+      ctx.lineWidth = 0.7;
+      ctx.beginPath();
+      ctx.moveTo(0, -7);
+      ctx.lineTo(0, 7);
+      ctx.stroke();
+      ctx.strokeStyle = '#c9c0ae';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-pull, 0);
+      ctx.lineTo(9, 0);
+      ctx.stroke();
+      ctx.fillStyle = '#e9e2c8';
+      ctx.beginPath();
+      ctx.moveTo(9, 0);
+      ctx.lineTo(6, -1.3);
+      ctx.lineTo(6, 1.3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
     // Talk prompt when the local player is close enough.
     const p = game.localPlayer;
     if (p && n.canTalkTo(p) && !(game.ui.npcDialog && game.ui.npcDialog.isOpen())) {
