@@ -3,12 +3,12 @@
 // Each enemy runs the same loop: perceive (do I know where the player is?),
 // decide (idle / approach / attack / retreat), then act. Perception, pathing and
 // steering live in systems/ai.js so every creature reasons the same way.
-import { TILE } from '../config.js';
-import { ENEMIES } from '../data/enemies.js';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js';
-import { aabb } from '../utils.js';
-import { Projectile } from './projectile.js';
-import * as AI from '../systems/ai.js';
+import { TILE } from '../config.js?v=realms-2';
+import { ENEMIES } from '../data/enemies.js?v=realms-2';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-2';
+import { aabb } from '../utils.js?v=realms-2';
+import { Projectile } from './projectile.js?v=realms-2';
+import * as AI from '../systems/ai.js?v=realms-2';
 
 export class Enemy {
   constructor(key, x, y, netId) {

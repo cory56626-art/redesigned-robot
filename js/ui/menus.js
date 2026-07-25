@@ -1,11 +1,11 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN } from '../config.js';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js';
-import { Sprites } from '../art/sprites.js';
-import { item as getItem } from '../data/items.js';
-import { availableRecipes } from '../systems/crafting.js';
-import { claudeNotesHTML } from './claude-notes.js';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN } from '../config.js?v=realms-2';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=realms-2';
+import { Sprites } from '../art/sprites.js?v=realms-2';
+import { item as getItem } from '../data/items.js?v=realms-2';
+import { availableRecipes } from '../systems/crafting.js?v=realms-2';
+import { claudeNotesHTML } from './claude-notes.js?v=realms-2';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [
@@ -107,8 +107,8 @@ export class Menus {
       e.preventDefault();
       this.closeInventory();
     });
-    $('invGrid').addEventListener('pointerdown', (e) => this._slotClick(e, 'inv'));
-    $('equipGrid').addEventListener('pointerdown', (e) => this._slotClick(e, 'equip'));
+    // Slot actions fire on *release*, from the drag handler below — acting on
+    // press would mean every drag also used or equipped the item first.
     this._wireDragAndDrop();
     $('invGrid').addEventListener('contextmenu', (e) => e.preventDefault());
     $('equipGrid').addEventListener('contextmenu', (e) => e.preventDefault());
@@ -447,10 +447,9 @@ export class Menus {
     return d;
   }
 
-  _slotClick(e, area) {
-    const slot = e.target.closest('.inv-slot');
+  // Called on release for a gesture that turned out not to be a drag.
+  _slotClick(e, slot) {
     if (!slot) return;
-    e.preventDefault();
     const kind = slot.dataset.kind;
     const index = slot.dataset.index;
     const def = this._slotDef(kind, index);
@@ -484,9 +483,15 @@ export class Menus {
     };
 
     const onDown = (e) => {
-      if (e.button === 2) return; // right-click drops; never starts a drag
       const slot = e.target.closest('.inv-slot');
       if (!slot) return;
+      // A right-click is always a drop, never a drag: act immediately.
+      if (e.button === 2) {
+        e.preventDefault();
+        from = null;
+        this._slotClick(e, slot);
+        return;
+      }
       from = slot; startX = e.clientX; startY = e.clientY; dragging = false;
     };
     const onMove = (e) => {
@@ -506,13 +511,18 @@ export class Menus {
       const wasDragging = dragging;
       from.classList.remove('dragging');
       clearHighlight();
-      const target = wasDragging ? slotAt(e.clientX, e.clientY) : null;
       const src = from;
       from = null; dragging = false;
-      if (!wasDragging || !target || target === src) return;
-      // A drag consumed the gesture, so suppress the click that follows it.
+
+      if (!wasDragging) {
+        // Not a drag after all — this was a click on the slot.
+        e.preventDefault();
+        this._slotClick(e, src);
+        return;
+      }
+      const target = slotAt(e.clientX, e.clientY);
+      if (!target || target === src) return;
       e.preventDefault();
-      e.stopPropagation();
       this.game.moveInventoryItem(
         { kind: src.dataset.kind, index: src.dataset.index },
         { kind: target.dataset.kind, index: target.dataset.index },

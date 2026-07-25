@@ -13,11 +13,11 @@
 //                the recipe list and boss loot tables, so a new item is
 //                explained correctly the day it's added without anyone writing
 //                a paragraph for it.
-import { ITEMS, item as getItem } from './items.js';
-import { RECIPES } from './recipes.js';
-import { BOSSES } from './bosses.js';
-import { ENEMIES } from './enemies.js';
-import { TILE } from '../config.js';
+import { ITEMS, item as getItem } from './items.js?v=realms-2';
+import { RECIPES } from './recipes.js?v=realms-2';
+import { BOSSES } from './bosses.js?v=realms-2';
+import { ENEMIES } from './enemies.js?v=realms-2';
+import { TILE } from '../config.js?v=realms-2';
 
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
 

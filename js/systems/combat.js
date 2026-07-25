@@ -1,10 +1,10 @@
 // Summoner Realms — combat & interaction resolution (weapons, mining, placing).
-import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY } from '../config.js';
-import { T, tileDef, isTree, isLeaf } from '../world/tiles.js';
-import { item as getItem } from '../data/items.js';
-import { Projectile } from '../entities/projectile.js';
-import { ThrownItem } from '../entities/thrown.js';
-import { angleTo, aabb, clamp } from '../utils.js';
+import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY } from '../config.js?v=realms-2';
+import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=realms-2';
+import { item as getItem } from '../data/items.js?v=realms-2';
+import { Projectile } from '../entities/projectile.js?v=realms-2';
+import { ThrownItem } from '../entities/thrown.js?v=realms-2';
+import { angleTo, aabb, clamp } from '../utils.js?v=realms-2';
 
 const MINE_RATE = 95;
 const MINE_SOUND_INTERVAL = 0.32;
@@ -353,10 +353,8 @@ export function mineAt(game, player, dt, source) {
     else game.audio?.pickaxeHit();
     player.mineSoundTimer = MINE_SOUND_INTERVAL;
   }
-  player.mineTarget = { tx, ty, ratio: res ? (res.progress || (res.broken ? 1 : 0)) : 0 };
 
   if (res && res.broken) {
-    player.mineTarget = null;
     game.audio?.blockBreak();
     const cx = tx * TILE + TILE / 2, cy = ty * TILE + TILE / 2;
     if (isTree(id)) {

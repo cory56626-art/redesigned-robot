@@ -4,9 +4,9 @@
 // world read as "two halves" rather than a landscape. They are now laid out as
 // seeded bands along the world with blended seams, and every band carries its
 // own terrain shaping, tile palette, wall palette, decor table and sky colours.
-import { T } from './tiles.js';
-import { W } from './walls.js';
-import { mulberry32 } from '../utils.js';
+import { T } from './tiles.js?v=realms-2';
+import { W } from './walls.js?v=realms-2';
+import { mulberry32 } from '../utils.js?v=realms-2';
 
 // amp      : surface height amplitude in tiles (how hilly)
 // rough    : weight of the high-frequency octaves (how jagged)

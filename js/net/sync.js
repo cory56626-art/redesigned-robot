@@ -1,12 +1,12 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
-import { MSG } from './protocol.js';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js';
-import { Player, assignColor } from '../entities/player.js';
-import { Projectile } from '../entities/projectile.js';
-import { ThrownItem } from '../entities/thrown.js';
-import { ITEMS } from '../data/items.js';
-import { ENEMIES } from '../data/enemies.js';
-import { BOSSES } from '../data/bosses.js';
+import { MSG } from './protocol.js?v=realms-2';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=realms-2';
+import { Player, assignColor } from '../entities/player.js?v=realms-2';
+import { Projectile } from '../entities/projectile.js?v=realms-2';
+import { ThrownItem } from '../entities/thrown.js?v=realms-2';
+import { ITEMS } from '../data/items.js?v=realms-2';
+import { ENEMIES } from '../data/enemies.js?v=realms-2';
+import { BOSSES } from '../data/bosses.js?v=realms-2';
 
 // ---------- Welcome (host builds, client applies) ----------
 export function buildWelcome(game, forId) {

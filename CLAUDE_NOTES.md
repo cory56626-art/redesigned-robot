@@ -13,7 +13,86 @@ menu or in the pause menu. Keep this file in sync with
 > several "bugs" are automation/focus artifacts of driving a canvas game through
 > Playwright, not defects in the game. Those are called out below.
 
-Version: **Stress-test pass #2 · 2026-07**
+Version: **Overhaul pass · 2026-07**
+
+---
+
+## Overhaul pass — what changed
+
+A large pass across terrain, rendering, AI, combat, controls and UI. Highlights:
+
+- **Terrain rebuilt.** Seeded biome bands (Dunes / Verdant Reach / Frostpine
+  Hollow / Corrupted Lands) with blended, dithered seams, replacing the hard
+  vertical cut at one x coordinate. A 4-octave fBm heightmap terraced into
+  plateaus and blurred, with the ±1 slope clamp demoted to a safety net rather
+  than the primary shaping tool. Layered fill down through a speckled dirt/stone
+  band to deepstone. Caves from ridged 2D noise smoothed by three
+  cellular-automata passes, joined by worm tunnels, with entrance shafts that
+  visibly break the surface. World grew to 700×260.
+- **Background walls.** A second layer behind every naturally-solid tile.
+  Carving a cave leaves the wall, and walls block daylight — which is what makes
+  the underground read as underground rather than as holes into the sky. The top
+  three rows carry no wall, so a shallow trench stays daylit.
+- **Neighbour-aware tile framing.** Each tile picks its sprite from its
+  neighbours: lit top and left faces, shadowed underside and right face, notched
+  inner corners, grass fringing down onto the tile below in its own colour. Ore
+  merges into its host rock instead of looking stuck on.
+- **Tree shading.** Trunks get a light-to-dark ramp so they read as cylinders,
+  flare into roots, cap at the top and grow branch stubs; canopies light from the
+  upper left, self-shadow where enclosed, and take a ragged silhouette.
+- **Gradual cave background.** The sky is sampled per screen edge from the world
+  depth that edge looks at and drawn as one gradient. No thresholds anywhere in
+  the descent.
+- **AI.** `systems/ai.js` gives every creature perception (aggro radius gated on
+  line of sight, plus decaying memory of your last known position), navigation
+  (ledge and gap detection, a local BFS to route around terrain), separation
+  steering and predictive aim. Enemies idle when unaware, telegraph attacks, and
+  no longer shoot or fly through rock.
+- **Bosses.** A single state machine — reposition → telegraph → attack →
+  recover — with weighted attack choice. Burrow and teleport hide the boss, mark
+  where it will surface, and stop dealing contact damage from an invisible spot.
+  Flying bosses collide with terrain. Kiting one enrages it, then makes it leave.
+- **Throwables and explosions.** Six throwables that arc, bounce and (for the
+  explosive ones) destroy tiles and walls gated on a per-tile blast resistance —
+  and hurt the thrower.
+- **Weapon effects** on selected weapons only, so the ones that flash, burn or
+  throw an arc feel like an upgrade.
+- **Smart Cursor** for PC (hold Ctrl) and mobile (◎), plus playing normally with
+  the inventory open, a rebuilt non-overflowing inventory with drag-and-drop, and
+  a Settings panel.
+- **An enforced respawn timer**, longer during a boss fight, which also ends the
+  encounter.
+- **Vesper Thane, the Guide**, who explains any item you carry using its own
+  definition cross-referenced with recipes and loot tables.
+- **Drop-in music** from `assets/music/` — see that folder's README.
+
+### Bugs found and fixed along the way
+
+- Enemy `iframes` were assigned on every hit and never checked.
+- Projectiles tested tile collision only at their end point once per step, so a
+  ~15px/frame shot passed through one-tile walls. Now swept.
+- Burrowing bosses re-set `invuln` every frame (permanently invulnerable) while
+  still dealing contact damage from a position the player couldn't see.
+- The parallax cave backdrop passed a negative radius to `ellipse()` for half of
+  all hash inputs — a signed shift where an unsigned one was meant.
+- The save indicator and net status rebuilt `className` from scratch, throwing
+  away shared chip styling.
+- `respawnTimer` was set but never enforced; `mineTarget` was written every frame
+  and never read; a duplicated `alive` guard sat in the player draw loop;
+  `quitToMenu` poked the mobile controls' DOM directly instead of going through
+  `applyControlMode`.
+- Per-module `?build=` cache-busters had drifted out of sync, so a release could
+  ship a half-updated module graph. `tools/stamp-build.mjs` now stamps every
+  module from the single `BUILD` constant in `js/config.js`.
+
+### Tests
+
+- `npm run check:worldgen` — headless, dependency-free harness asserting the
+  generator's invariants across many seeds: spawn safety, walkable slopes, biome
+  contiguity, cave density and surface connectivity, wall coverage, ore banding,
+  and no floating trunks or orphaned leaves.
+- `npm run check:build` — verifies every module is stamped with the current
+  `BUILD`.
 
 ---
 

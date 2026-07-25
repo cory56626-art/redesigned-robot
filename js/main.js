@@ -2,44 +2,44 @@
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN,
-} from './config.js';
-import { hashString, mulberry32, dist2, uid } from './utils.js';
-import { World } from './world/world.js';
-import { T } from './world/tiles.js';
-import { Sprites } from './art/sprites.js';
-import { Camera } from './engine/camera.js';
-import { Input } from './engine/input.js';
-import { AudioManager } from './engine/audio.js';
-import { Renderer } from './engine/renderer.js';
-import { Fx } from './engine/fx.js';
-import { DayNight } from './systems/daynight.js';
-import { Spawner } from './systems/spawner.js';
-import { Progression } from './systems/progression.js';
-import { starterInventory } from './systems/inventory.js';
-import * as craftSys from './systems/crafting.js';
-import { applyPotion } from './systems/combat.js';
-import { smartTarget } from './systems/smartcursor.js';
-import { Player, assignColor } from './entities/player.js';
-import { Enemy } from './entities/enemy.js';
-import { Boss } from './entities/boss.js';
-import { Minion } from './entities/minion.js';
-import { Npc } from './entities/npc.js';
-import { Projectile } from './entities/projectile.js';
-import { DropItem } from './entities/droppeditem.js';
-import { FallingTree } from './entities/fallingtree.js';
-import { ThrownItem } from './entities/thrown.js';
-import { ENEMIES } from './data/enemies.js';
-import { BOSSES } from './data/bosses.js';
-import { item as getItem } from './data/items.js';
-import { HUD } from './ui/hud.js';
-import { Menus } from './ui/menus.js';
-import { NpcDialog } from './ui/npcdialog.js';
-import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js';
-import { SaveManager, setSaveIndicator } from './save.js';
-import { CommandConsole } from './commands.js';
-import { Net } from './net/net.js';
-import { MSG } from './net/protocol.js';
-import * as sync from './net/sync.js';
+} from './config.js?v=realms-2';
+import { hashString, mulberry32, dist2, uid } from './utils.js?v=realms-2';
+import { World } from './world/world.js?v=realms-2';
+import { T } from './world/tiles.js?v=realms-2';
+import { Sprites } from './art/sprites.js?v=realms-2';
+import { Camera } from './engine/camera.js?v=realms-2';
+import { Input } from './engine/input.js?v=realms-2';
+import { AudioManager } from './engine/audio.js?v=realms-2';
+import { Renderer } from './engine/renderer.js?v=realms-2';
+import { Fx } from './engine/fx.js?v=realms-2';
+import { DayNight } from './systems/daynight.js?v=realms-2';
+import { Spawner } from './systems/spawner.js?v=realms-2';
+import { Progression } from './systems/progression.js?v=realms-2';
+import { starterInventory } from './systems/inventory.js?v=realms-2';
+import * as craftSys from './systems/crafting.js?v=realms-2';
+import { applyPotion } from './systems/combat.js?v=realms-2';
+import { smartTarget } from './systems/smartcursor.js?v=realms-2';
+import { Player, assignColor } from './entities/player.js?v=realms-2';
+import { Enemy } from './entities/enemy.js?v=realms-2';
+import { Boss } from './entities/boss.js?v=realms-2';
+import { Minion } from './entities/minion.js?v=realms-2';
+import { Npc } from './entities/npc.js?v=realms-2';
+import { Projectile } from './entities/projectile.js?v=realms-2';
+import { DropItem } from './entities/droppeditem.js?v=realms-2';
+import { FallingTree } from './entities/fallingtree.js?v=realms-2';
+import { ThrownItem } from './entities/thrown.js?v=realms-2';
+import { ENEMIES } from './data/enemies.js?v=realms-2';
+import { BOSSES } from './data/bosses.js?v=realms-2';
+import { item as getItem } from './data/items.js?v=realms-2';
+import { HUD } from './ui/hud.js?v=realms-2';
+import { Menus } from './ui/menus.js?v=realms-2';
+import { NpcDialog } from './ui/npcdialog.js?v=realms-2';
+import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=realms-2';
+import { SaveManager, setSaveIndicator } from './save.js?v=realms-2';
+import { CommandConsole } from './commands.js?v=realms-2';
+import { Net } from './net/net.js?v=realms-2';
+import { MSG } from './net/protocol.js?v=realms-2';
+import * as sync from './net/sync.js?v=realms-2';
 
 class Game {
   constructor() {
@@ -446,7 +446,10 @@ class Game {
     this.ui.hud.hide();
     this.ui.menus.hidePause();
     this.ui.menus.closeInventory();
-    document.getElementById('mobileControls').classList.add('hidden');
+    if (this.ui.npcDialog) this.ui.npcDialog.close();
+    // applyControlMode owns whether the touch controls are visible; it hides
+    // them because we are no longer 'playing'.
+    applyControlMode(this, this.controlMode);
     this.ui.menus.showMainMenu();
   }
 

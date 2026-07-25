@@ -1,7 +1,7 @@
 // Summoner Realms — natural enemy spawning (host only). Biome + day/night aware.
-import { TILE, UNDERGROUND_Y, MAX_ENEMIES } from '../config.js';
-import { ENEMIES } from '../data/enemies.js';
-import { aabb, dist2 } from '../utils.js';
+import { TILE, UNDERGROUND_Y, MAX_ENEMIES } from '../config.js?v=realms-2';
+import { ENEMIES } from '../data/enemies.js?v=realms-2';
+import { aabb, dist2 } from '../utils.js?v=realms-2';
 
 // Keep spawns off-screen-ish but not so far they never arrive (tiles).
 const MIN_SPAWN_DIST = 13;

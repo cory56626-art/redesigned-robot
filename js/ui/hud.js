@@ -1,7 +1,7 @@
 // Summoner Realms — in-game HUD (bars, hotbar, boss bar, clock, indicators).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN } from '../config.js';
-import { Sprites } from '../art/sprites.js';
-import { item as getItem } from '../data/items.js';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN } from '../config.js?v=realms-2';
+import { Sprites } from '../art/sprites.js?v=realms-2';
+import { item as getItem } from '../data/items.js?v=realms-2';
 
 const BUFF_ICON = { regen: '♥', ironskin: '🛡', swift: '»' };
 

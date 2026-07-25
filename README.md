@@ -5,10 +5,10 @@ the browser — inspired by the genre of games like Terraria, but built from scr
 with original art, names, weapons, enemies, bosses, and mechanics. No external
 game assets, sprites, music, or designs are used or copied.
 
-Explore a small procedurally generated world across three biomes, mine and build,
-craft progressively stronger gear across four combat classes, summon minions, and
-fight three phased bosses — solo or in **real peer‑to‑peer co‑op** that works
-between PC and mobile.
+Explore a procedurally generated world of layered biomes and wall-backed caves,
+mine and build, blast holes in the terrain, craft progressively stronger gear
+across four combat classes, summon minions, and fight three phased bosses — solo
+or in **real peer-to-peer co-op** that works between PC and mobile.
 
 ![vertical slice](https://img.shields.io/badge/status-playable%20demo-7ee0c0)
 
@@ -72,6 +72,8 @@ Switch between **PC** and **Mobile** controls on the main menu (auto-detected).
 | Select hotbar slot | `1`–`0` or scroll wheel |
 | Inventory & crafting | `E` |
 | Use potion | `Q` |
+| Talk to the Guide | `F` |
+| **Smart Cursor** (auto-target the best tile) | hold `Ctrl`, or set to Always in Settings |
 | Pause / back | `Esc` |
 | Chat (multiplayer) | `Enter` |
 | Demo Commands | `/` (also in the pause menu) |
@@ -79,8 +81,20 @@ Switch between **PC** and **Mobile** controls on the main menu (auto-detected).
 ### Mobile (touch)
 
 Two virtual joysticks — **left = move, right = aim** — plus on-screen buttons for
-**Jump, Use, Mine, Place, Bag (inventory), Item (potion)** and the menu. The
-whole UI is responsive and safe-area aware for phones and iPads.
+**Jump, Use, Mine, Place, Bag (inventory), Item (potion)**, a **◎ Smart Cursor**
+toggle, a contextual **Talk** button near the Guide, and the menu. The whole UI
+is responsive and safe-area aware for phones and iPads.
+
+**Smart Cursor** matters most here: aiming one specific tile with a thumbstick is
+impractical, so the game picks the most useful tile in the direction you point —
+the nearest block worth mining, the next legal spot to build, or a dark wall that
+wants a torch. It's on by default on touch.
+
+### Playing with the inventory open
+
+The world keeps running while your bag is open and you can still move, jump and
+use items, the way Terraria does. The panel is anchored in the corner rather than
+covering the screen, so the rest of the view stays visible and clickable.
 
 ---
 
@@ -182,14 +196,27 @@ reviewer can test the right things the right way.
 
 ## Content
 
-- **Three biomes:** Forest, Underground, Corrupted Lands (procedurally generated,
-  seeded).
-- **32 original weapons:** 8 melee, 8 ranged, 8 mage, 6 summoner.
-- **5 minion types**, **8 enemy types**, **3 phased bosses** (Grovekeeper,
-  Gravemaw, Blight Sovereign) with health bars, unique attacks, summon items, and
-  loot tables.
+- **Four surface biomes** in seeded bands with blended seams — Sunken Dunes,
+  Verdant Reach, Frostpine Hollow, Corrupted Lands — over a layered underground
+  of dirt, stone and deepstone, all procedurally generated from a seed.
+- **Background walls** behind every naturally-solid tile. Carving a cave leaves
+  the wall, and walls block daylight, which is what makes the underground read as
+  underground.
+- **32 original weapons:** 8 melee, 8 ranged, 8 mage, 6 summoner — a handful of
+  which throw real effects when used.
+- **6 throwables:** Blast Bomb, Dynamite, Cling Charge, Ember Flask, Iron
+  Shuriken, Balanced Knife. They arc, bounce off terrain, and the explosive ones
+  destroy tiles and walls (and you, if you're standing too close).
+- **5 minion types**, **10 enemy types**, **3 phased bosses** (Grovekeeper,
+  Gravemaw, Blight Sovereign) with health bars, telegraphed attacks, summon items
+  and loot tables.
+- **Vesper Thane, the Guide** — an NPC who spawns with your world and will
+  explain any item you're carrying, including where it comes from.
 - Ores, bars, armor sets, accessories, potions, materials, and 5 crafting
   stations, plus day/night cycling with biome/time-based enemy spawns.
+- **Optional soundtrack:** drop audio files into `assets/music/` and they play,
+  crossfading by biome, depth, time of day and boss fight. See that folder's
+  README for the filenames.
 - All art is generated procedurally at runtime (no image files) — original by
   design.
 
@@ -206,14 +233,34 @@ js/
   config.js  utils.js
   engine/    loop, camera, input (PC + mobile), renderer
   art/       procedural sprite generation
-  world/     tiles, seeded worldgen, runtime world + lighting
-  data/      items, recipes, enemies, minions, bosses (pure data)
-  entities/  player, enemy, minion, boss, projectile, dropped item, physics
-  systems/   combat, inventory, crafting, progression, spawner, day/night
-  ui/        HUD, menus, controls-mode
+  world/     tiles, walls, biomes, seeded worldgen, runtime world + lighting
+  data/      items, recipes, enemies, minions, bosses, guide dialogue (pure data)
+  entities/  player, enemy, minion, boss, npc, projectile, thrown item,
+             dropped item, physics
+  systems/   combat, ai, explosions, smart cursor, inventory, crafting,
+             progression, spawner, day/night
+  ui/        HUD, menus, NPC dialogue, controls-mode
   net/       protocol, Socket.IO transport, host-authoritative sync
   commands.js  save.js  main.js (orchestrator + game loop)
+tools/
+  worldgen-check.mjs   headless world generation test (no dependencies)
+  stamp-build.mjs      cache-bust stamper driven by config.js BUILD
+assets/
+  audio/     sound effects
+  music/     optional soundtrack — drop files here (see its README)
 ```
+
+### Checks
+
+```bash
+npm run check:worldgen   # generator invariants across many seeds
+npm run check:build      # every module stamped with the current BUILD
+```
+
+`tools/worldgen-check.mjs` runs in plain node with no dependencies, because
+worldgen and everything it imports are DOM-free. It asserts spawn safety,
+walkable slopes, biome contiguity, cave density and surface connectivity, wall
+coverage, ore banding, and that no tree is left floating.
 
 ---
 
@@ -226,5 +273,9 @@ js/
   owns its inventory and reports actions. Normalized input makes PC ↔ mobile
   interoperate directly.
 - `window.__game` is exposed as a test hook.
+- There is no bundler, so ES modules are cache-busted by a `?v=` stamp applied to
+  every relative import from the single `BUILD` constant in `js/config.js`. Bump
+  it and run `node tools/stamp-build.mjs` before a release, so a deploy can never
+  serve a half-updated module graph.
 
 Have fun, summoner. ✦

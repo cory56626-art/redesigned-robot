@@ -10,6 +10,9 @@
   "scripts": {
     "postinstall": "npm install --prefix server",
     "start": "node server/server.js",
-    "check:worldgen": "node tools/worldgen-check.mjs 40"
+    "check:worldgen": "node tools/worldgen-check.mjs 40",
+    "check:build": "node tools/stamp-build.mjs --check",
+    "stamp": "node tools/stamp-build.mjs",
+    "check": "npm run check:worldgen && npm run check:build"
   }
 }

@@ -4,13 +4,13 @@ import {
   MANA_REGEN, HP_REGEN, TILE,
   HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN,
   CAST_REGEN_DELAY, CAST_REGEN_MULT, RESPAWN_DELAY, RESPAWN_DELAY_BOSS,
-} from '../config.js';
-import { tileDef } from '../world/tiles.js';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js';
-import { Inventory } from '../systems/inventory.js';
-import { item as getItem } from '../data/items.js';
-import * as combat from '../systems/combat.js';
-import { clamp } from '../utils.js';
+} from '../config.js?v=realms-2';
+import { tileDef } from '../world/tiles.js?v=realms-2';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-2';
+import { Inventory } from '../systems/inventory.js?v=realms-2';
+import { item as getItem } from '../data/items.js?v=realms-2';
+import * as combat from '../systems/combat.js?v=realms-2';
+import { clamp } from '../utils.js?v=realms-2';
 
 export class Player {
   constructor(id, opts = {}) {

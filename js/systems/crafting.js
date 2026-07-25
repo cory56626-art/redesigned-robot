@@ -1,8 +1,8 @@
 // Summoner Realms — crafting logic.
-import { TILE } from '../config.js';
-import { RECIPES } from '../data/recipes.js';
-import { tileDef } from '../world/tiles.js';
-import { item as getItem } from '../data/items.js';
+import { TILE } from '../config.js?v=realms-2';
+import { RECIPES } from '../data/recipes.js?v=realms-2';
+import { tileDef } from '../world/tiles.js?v=realms-2';
+import { item as getItem } from '../data/items.js?v=realms-2';
 
 // Which crafting stations are within reach of the player? (null = by hand)
 export function nearbyStations(game, player) {

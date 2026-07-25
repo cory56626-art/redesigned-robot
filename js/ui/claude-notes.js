@@ -7,13 +7,71 @@
 //
 // Keep this in sync with CLAUDE_NOTES.md when either changes.
 
-export const CLAUDE_NOTES_VERSION = 'Stress-test pass #2 · 2026-07';
+export const CLAUDE_NOTES_VERSION = 'Overhaul pass · 2026-07';
 
 export function claudeNotesHTML() {
   return `
-  <p class="cn-intro">These are developer notes answering the ChatGPT stress-test review point by point.
-  Each item says whether it was a <b>real bug</b> (now fixed), a <b>misunderstanding</b>, or <b>working as intended</b>,
-  and how to test it. Version: <code>${CLAUDE_NOTES_VERSION}</code>.</p>
+  <p class="cn-intro">Developer notes. The first section covers what changed in the current overhaul;
+  after it, the original point-by-point answers to the ChatGPT stress-test review — each saying whether it was a
+  <b>real bug</b> (now fixed), a <b>misunderstanding</b>, or <b>working as intended</b>.
+  Version: <code>${CLAUDE_NOTES_VERSION}</code>.</p>
+
+  <h4>◆ What changed in this pass</h4>
+  <ul>
+    <li><b class="cn-good">Terrain.</b> Rebuilt from one noise octave into seeded biome bands
+      (Dunes / Verdant Reach / Frostpine Hollow / Corrupted Lands) with blended seams, a 4-octave fBm
+      heightmap terraced into plateaus, layered fill down to deepstone, and caves from ridged noise
+      smoothed by cellular automata with real entrance shafts. World is now 700×260.</li>
+    <li><b class="cn-good">Background walls.</b> New layer behind all natural terrain. Carving a cave leaves the
+      wall, and walls block daylight — which is what makes underground read as underground. The top three rows
+      carry no wall, so shallow digging stays lit. <code>/debugwalls</code> shows the layer.</li>
+    <li><b class="cn-good">Tile framing &amp; tree shading.</b> Every tile picks its sprite from its neighbours:
+      lit top and left faces, shadowed underside, notched inner corners, grass fringing onto the dirt below it.
+      Trunks are shaded as cylinders with roots and branch stubs; canopies self-shadow where enclosed.</li>
+    <li><b class="cn-good">Cave background.</b> No longer switches at two fixed depths. The sky is sampled per
+      screen edge from the world depth that edge is looking at and drawn as one gradient — sky, horizon, dirt,
+      stone, cavern, deep — so descending is a single continuous fade.</li>
+    <li><b class="cn-good">AI.</b> New <code>systems/ai.js</code>: aggro radius gated on line of sight, memory of
+      your last known position, ledge and gap awareness, a local breadth-first search to route around terrain,
+      separation steering, and predictive aim. Casters no longer shoot through rock; flyers no longer tunnel
+      through it. <code>/debugai</code> now shows awareness state too.</li>
+    <li><b class="cn-good">Bosses.</b> One state machine — reposition → telegraph → attack → recover — instead of
+      independent per-attack timers. Every attack has a visible wind-up and a recovery window. Burrow and
+      teleport actually hide the boss, mark where it will surface, and stop dealing contact damage from a spot
+      you can't see. Flying bosses collide with terrain. Kiting one enrages it, then makes it leave.</li>
+    <li><b class="cn-good">Throwables.</b> Bombs, dynamite, cling charges, ember flasks, shurikens and knives,
+      all arcing under gravity and bouncing off terrain. Explosions destroy tiles and walls gated on a per-tile
+      blast resistance, and damage the thrower too.</li>
+    <li><b class="cn-good">Smart Cursor.</b> Picks the most useful tile in the direction you point, on PC
+      (hold Ctrl) and mobile (the ◎ button). Also fixes mobile aim collapsing onto the player at rest.</li>
+    <li><b class="cn-good">Inventory.</b> Slots were fighting <code>aspect-ratio</code> against
+      <code>min-height</code> in a fractional grid and overflowing into the crafting panel; they are now a fixed
+      size in a fixed-column grid. The DOM is built once and diffed instead of rebuilt four times a second.
+      The world keeps running with the bag open and you can still move and use items.</li>
+    <li><b class="cn-good">The Guide.</b> Vesper Thane spawns with the world and will explain any item you carry,
+      generated from the item's own definition and cross-referenced with recipes and loot tables.</li>
+    <li><b class="cn-good">Music.</b> Drop files into <code>assets/music/</code> and they play, crossfading by
+      biome, depth, time of day and boss. Silent and harmless when the folder is empty.</li>
+    <li><b class="cn-good">Respawn.</b> The timer is now enforced. Dying with a boss up costs 12s and ends the
+      encounter, so it must be summoned again.</li>
+  </ul>
+
+  <h4>◆ Bugs found and fixed along the way</h4>
+  <ul>
+    <li>Enemy <code>iframes</code> were assigned on every hit and never checked.</li>
+    <li>Projectiles tested collision only at their end point once per step, so fast shots
+      (~15px/frame) passed through one-tile walls. Now swept.</li>
+    <li>Burrowing bosses re-set <code>invuln</code> every frame — permanently invulnerable — while still
+      dealing contact damage from an invisible position.</li>
+    <li>The parallax cave backdrop passed a negative radius to <code>ellipse()</code> for half of all hash
+      inputs (signed instead of unsigned shift).</li>
+    <li>The save indicator and net status rebuilt <code>className</code> from scratch, dropping shared styling.</li>
+    <li><code>respawnTimer</code> was set but never enforced; <code>mineTarget</code> was written every frame and
+      never read; a duplicated <code>alive</code> guard sat in the player draw loop.</li>
+    <li>Per-module <code>?build=</code> cache-busters had drifted out of sync, so a release could ship a
+      half-updated module graph. One BUILD constant now stamps them all
+      (<code>node tools/stamp-build.mjs</code>).</li>
+  </ul>
 
   <h4>① Horizontal movement "didn't work"</h4>
   <ul>
@@ -133,7 +191,13 @@ export function claudeNotesHTML() {
     <li>Useful commands: <code>/giveall</code>, <code>/give &lt;item&gt; &lt;n&gt;</code>, <code>/spawn &lt;enemy&gt; &lt;n&gt;</code>,
       <code>/spawnboss &lt;boss&gt;</code>, <code>/clearboss</code>, <code>/resetworldstate</code>, <code>/godmode</code>,
       <code>/fly</code>, <code>/time night</code>, <code>/debugcaves</code>, <code>/debugcollision</code>.</li>
-    <li>Enemies: slugling, husk, bonepicker, crawler, boar, blightshade (aliases: slime→slugling, zombie→husk,
-      skeleton→bonepicker, spider→crawler, pig→boar). Bosses: grovekeeper, gravemaw, blightSovereign.</li>
+    <li>Enemies: slugling, husk, boar, duneStalker, rimeWisp, bat, crawler, bonepicker, blightcrawler,
+      blightshade (aliases: slime→slugling, zombie→husk, skeleton→bonepicker, spider→crawler, pig→boar).
+      Bosses: grovekeeper, gravemaw, blightSovereign.</li>
+    <li>New this pass: <code>/teleport dunes|frostpine</code>, <code>/debugwalls</code>,
+      <code>/music &lt;context|off|status|rescan&gt;</code>, and throwables via
+      <code>/give bomb|dynamite|stickyBomb|fireFlask|shuriken|throwingKnife</code>.</li>
+    <li>Terrain has its own headless test: <code>npm run check:worldgen</code> asserts spawn safety, walkable
+      slopes, biome contiguity, cave connectivity, wall coverage and ore banding across many seeds.</li>
   </ul>`;
 }

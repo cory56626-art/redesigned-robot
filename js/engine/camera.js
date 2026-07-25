@@ -1,6 +1,6 @@
 // Summoner Realms — camera. Follows a target, clamps to world, computes zoom.
-import { TILE, WORLD_W, WORLD_H, TARGET_TILES_V } from '../config.js';
-import { clamp, lerp } from '../utils.js';
+import { TILE, WORLD_W, WORLD_H, TARGET_TILES_V } from '../config.js?v=realms-2';
+import { clamp, lerp } from '../utils.js?v=realms-2';
 
 export class Camera {
   constructor() {

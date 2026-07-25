@@ -1,10 +1,10 @@
 // Summoner Realms — runtime world: tile grid, wall grid, collision, mining,
 // lighting, and the edit diffs that get saved.
-import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js';
-import { T, tileDef, isSolid, tileLight } from './tiles.js';
-import { W, hasWall, wallBlastResist } from './walls.js';
-import { BIOME_ORDER } from './biomes.js';
-import { generateWorld } from './worldgen.js';
+import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=realms-2';
+import { T, tileDef, isSolid, tileLight } from './tiles.js?v=realms-2';
+import { W, hasWall, wallBlastResist } from './walls.js?v=realms-2';
+import { BIOME_ORDER } from './biomes.js?v=realms-2';
+import { generateWorld } from './worldgen.js?v=realms-2';
 
 export class World {
   constructor(seed) {
