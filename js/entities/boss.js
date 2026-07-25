@@ -11,7 +11,7 @@
 // distance, phase and line of sight. Animation fields (squash, jaw, segment
 // lag, shard spin) are updated here rather than in the renderer, so they are
 // driven by the simulation and stay frame-rate independent.
-import { TILE, normalizeDifficulty } from '../config.js?v=realms-difficulty-20';
+import { TILE, normalizeDifficulty } from '../config.js?v=realms-difficulty-21';
 import { BOSSES } from '../data/bosses.js?v=realms-2';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-2';
 import { aabb, angleTo, randRange, clamp } from '../utils.js?v=realms-2';
@@ -27,10 +27,12 @@ const ENRAGE_GRACE = 5;
 const FLEE_AFTER = 14;
 
 const BOSS_DIFFICULTY_TUNING = {
-  normal:   { hp: 1.35, damage: 1.25, move: 1.08, projectile: 1.12, cooldown: 0.90, telegraph: 0.94, recover: 0.92, extraProjectiles: 0, extraAdds: 0, enrageGrace: 5.0, enrageMove: 1.42, enrageCooldown: 0.64 },
-  hard:     { hp: 1.75, damage: 1.55, move: 1.16, projectile: 1.22, cooldown: 0.80, telegraph: 0.88, recover: 0.82, extraProjectiles: 1, extraAdds: 1, enrageGrace: 4.5, enrageMove: 1.52, enrageCooldown: 0.58 },
-  master:   { hp: 2.35, damage: 1.95, move: 1.25, projectile: 1.34, cooldown: 0.70, telegraph: 0.80, recover: 0.72, extraProjectiles: 2, extraAdds: 2, enrageGrace: 4.0, enrageMove: 1.64, enrageCooldown: 0.52 },
-  masochist:{ hp: 3.05, damage: 2.40, move: 1.36, projectile: 1.48, cooldown: 0.60, telegraph: 0.72, recover: 0.62, extraProjectiles: 3, extraAdds: 3, enrageGrace: 3.5, enrageMove: 1.78, enrageCooldown: 0.45 },
+  // Normal is still a real step up from the original 520 HP baseline, but
+  // keeps enough attack/recovery time for a first clear.
+  normal:    { hp: 1.12, damage: 1.10, move: 1.03, projectile: 1.05, cooldown: 0.98, telegraph: 0.98, recover: 0.98, extraProjectiles: 0, extraAdds: 0, enrageGrace: 6.0, enrageMove: 1.28, enrageCooldown: 0.84 },
+  hard:      { hp: 1.30, damage: 1.22, move: 1.07, projectile: 1.10, cooldown: 0.92, telegraph: 0.94, recover: 0.92, extraProjectiles: 0, extraAdds: 0, enrageGrace: 5.5, enrageMove: 1.38, enrageCooldown: 0.74 },
+  master:    { hp: 1.52, damage: 1.38, move: 1.11, projectile: 1.16, cooldown: 0.86, telegraph: 0.90, recover: 0.86, extraProjectiles: 1, extraAdds: 1, enrageGrace: 5.0, enrageMove: 1.48, enrageCooldown: 0.66 },
+  masochist: { hp: 1.82, damage: 1.58, move: 1.15, projectile: 1.22, cooldown: 0.80, telegraph: 0.86, recover: 0.80, extraProjectiles: 1, extraAdds: 1, enrageGrace: 4.6, enrageMove: 1.58, enrageCooldown: 0.58 },
 };
 
 function scaledBossDef(source, tuning) {
