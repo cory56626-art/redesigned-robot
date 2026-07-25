@@ -1,7 +1,7 @@
 // Summoner Realms — minion entity. Owned by a player; the owner's client
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
-import { minionDef } from '../data/minions.js?v=realms-diamond-18';
+import { minionDef } from '../data/minions.js?v=realms-diamond-19';
 import { dist2, aabb, angleTo } from '../utils.js?v=realms-2';
 import { TILE } from '../config.js?v=realms-2';
 import { Projectile } from './projectile.js?v=realms-diamond-3';
@@ -54,7 +54,7 @@ export class Minion {
     // full cooldowns after the opening exchange.
     // Diamond Heart uses a deliberate rotation instead of repeatedly
     // selecting the first ranged move that comes off cooldown.
-    this.spearCd = d.behavior === 'diamondHeart' ? 1.05 : (d.spearRate || 0);
+    this.spearCd = d.behavior === 'diamondHeart' ? 0.55 : (d.spearRate || 0);
     this.dashCd = d.behavior === 'diamondHeart' ? 0.65 : (d.dashRate || 0.9);
     this.beamCd = d.behavior === 'diamondHeart' ? 1.25 : 0;
     this.spearWindup = 0;
@@ -331,6 +331,15 @@ export class Minion {
 
     this._diamondHover(game, owner, target, dt, this.diamondRetreat > 0);
 
+    // Use the spear between beam casts. The longer setup range and a real
+    // cooldown make it a regular part of the rotation without turning it into
+    // a spam button.
+    if (this.diamondRetreat <= 0 && this.spearCd <= 0 && this.beamCd > 0 &&
+        los && distance > 300) {
+      this._beginDiamondSpear(game, target);
+      return;
+    }
+
     // The sky-beam is a deliberate rotation anchor. Once it is ready, use it
     // from the Heart's flight lane instead of waiting for an unusually long
     // line of sight; this guarantees the new move actually appears in play.
@@ -342,15 +351,9 @@ export class Minion {
     // Close the lane deliberately and dash from a real approach distance.
     // The Heart now commits whenever it is in the broad approach window, so it
     // cannot orbit forever without performing the melee part of its kit.
-    if (this.diamondRetreat <= 0 && this.dashCd <= 0 && los && distance > 115 && distance < 380) {
+    if (this.diamondRetreat <= 0 && this.dashCd <= 0 && los && distance > 115 && distance < 300) {
       this._beginDiamondDash(game, target);
       return;
-    }
-
-    // At range, the Heart charges one readable spear before releasing it.
-    // The long threshold and full cooldown keep this as a setup move, not spam.
-    if (this.diamondRetreat <= 0 && this.spearCd <= 0 && los && distance > 360) {
-      this._beginDiamondSpear(game, target);
     }
   }
 
