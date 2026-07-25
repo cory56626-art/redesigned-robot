@@ -19,7 +19,7 @@ const STUCK_TELEPORT = 3.0;
 const DIAMOND_LEASH = 780;
 // Diamond Heart keeps a real air lane around threats instead of hovering in
 // melee range. It may cross this lane only during its deliberate dash.
-const DIAMOND_SAFE_RADIUS = 235;
+const DIAMOND_SAFE_RADIUS = 285;
 
 export class Minion {
   constructor(key, ownerId, x, y) {
@@ -51,7 +51,7 @@ export class Minion {
     // selecting the first ranged move that comes off cooldown.
     this.spearCd = d.behavior === 'diamondHeart' ? 1.05 : (d.spearRate || 0);
     this.dashCd = d.behavior === 'diamondHeart' ? 0.65 : (d.dashRate || 0.9);
-    this.beamCd = d.behavior === 'diamondHeart' ? 1.9 : 0;
+    this.beamCd = d.behavior === 'diamondHeart' ? 1.25 : 0;
     this.spearWindup = 0;
     this.spearTarget = null;
     this.spearAngle = 0;
@@ -285,23 +285,25 @@ export class Minion {
 
     this._diamondHover(game, owner, target, dt, this.diamondRetreat > 0);
 
-    // Close the lane deliberately and dash from a real approach distance.
-    // The wider window fixes the old behavior where the Heart orbited just
-    // outside its own dash trigger forever.
-    if (this.diamondRetreat <= 0 && this.dashCd <= 0 && los && distance > 145 && distance < 315) {
-      this._beginDiamondDash(game, target);
-      return;
-    }
-
-    // The sky-beam takes priority over the spear at long range, giving the
-    // Heart a second deliberate ranged move instead of spear spam.
-    if (this.diamondRetreat <= 0 && this.beamCd <= 0 && los && distance > 280) {
+    // The sky-beam is a deliberate rotation anchor. Once it is ready, use it
+    // from the Heart's flight lane instead of waiting for an unusually long
+    // line of sight; this guarantees the new move actually appears in play.
+    if (this.diamondRetreat <= 0 && this.beamCd <= 0 && los && distance > 190) {
       this._beginDiamondBeam(game, target);
       return;
     }
 
+    // Close the lane deliberately and dash from a real approach distance.
+    // The Heart now commits whenever it is in the broad approach window, so it
+    // cannot orbit forever without performing the melee part of its kit.
+    if (this.diamondRetreat <= 0 && this.dashCd <= 0 && los && distance > 115 && distance < 380) {
+      this._beginDiamondDash(game, target);
+      return;
+    }
+
     // At range, the Heart charges one readable spear before releasing it.
-    if (this.diamondRetreat <= 0 && this.spearCd <= 0 && los && distance > 300) {
+    // The long threshold and full cooldown keep this as a setup move, not spam.
+    if (this.diamondRetreat <= 0 && this.spearCd <= 0 && los && distance > 360) {
       this._beginDiamondSpear(game, target);
     }
   }
@@ -409,11 +411,11 @@ export class Minion {
     // highest-HP target, so a second slime cannot sneak into contact range.
     const gapX = cx - tc.x, gapY = cy - tc.y;
     const gap = Math.hypot(gapX, gapY);
-    const minGap = retreat ? 290 : 220;
+    const minGap = retreat ? 340 : 265;
     if (gap < minGap) {
       const len = gap || 1;
-      desiredX = tc.x + (gapX / len) * (retreat ? 340 : 270) + threat.x * 80;
-      desiredY = tc.y + (gapY / len) * (retreat ? 340 : 270) + threat.y * 80;
+      desiredX = tc.x + (gapX / len) * (retreat ? 390 : 315) + threat.x * 80;
+      desiredY = tc.y + (gapY / len) * (retreat ? 390 : 315) + threat.y * 80;
     }
 
     this._steer(desiredX, desiredY, this.def.speed, dt);
@@ -629,7 +631,7 @@ export class Minion {
     if (this.dead || !this.isMinion || this.maxHp == null || this.iframes > 0) return;
     const dmg = Math.max(1, Math.round(amount));
     this.hp = Math.max(0, this.hp - dmg);
-    this.iframes = 0.28;
+    this.iframes = this.def.behavior === 'diamondHeart' ? 0.42 : 0.28;
     this.hurtFlash = 0.16;
     this.vx += (knockbackX || 0) * 5;
     if (this.def.behavior === 'diamondHeart') {
@@ -637,7 +639,7 @@ export class Minion {
       // contact, and spend a short window in the wider retreat orbit.
       this.spearWindup = 0;
       this.spearTarget = null;
-      this.diamondRetreat = Math.max(this.diamondRetreat, 0.9);
+      this.diamondRetreat = Math.max(this.diamondRetreat, 1.1);
       const escape = this._diamondThreatVector(
         game, this.x + this.w / 2, this.y + this.h / 2
       );
