@@ -2,7 +2,7 @@
 import { MSG } from './protocol.js?v=realms-2';
 import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=realms-2';
 import { Player, assignColor } from '../entities/player.js?v=realms-diamond-1';
-import { Projectile } from '../entities/projectile.js?v=realms-diamond-1';
+import { Projectile } from '../entities/projectile.js?v=realms-diamond-3';
 import { ThrownItem } from '../entities/thrown.js?v=realms-2';
 import { ITEMS } from '../data/items.js?v=realms-diamond-1';
 import { ENEMIES } from '../data/enemies.js?v=realms-2';
