@@ -5,11 +5,16 @@ import { T, isSolid, isTree, isLeaf, tileDef } from '../world/tiles.js?v=realms-
 import { W, hasWall } from '../world/walls.js?v=realms-2';
 import { BIOMES } from '../world/biomes.js?v=realms-2';
 import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=realms-2';
-import { item as getItem } from '../data/items.js?v=realms-2';
+import { item as getItem } from '../data/items.js?v=realms-diamond-1';
 import { canPlaceAt } from '../systems/combat.js?v=realms-2';
 import { clamp } from '../utils.js?v=realms-2';
 
-const PROJ_GLOW = { thorn: '#7ee08a', seed: '#a7e36f', rock: '#8a7a5a', shock: '#d3b985', blight: '#c58bff', crystal: '#df8cff', voidorb: '#b06bff', spark: '#9ec3ff', wispbolt: '#9ec3ff', emberball: '#ff8c3b', arcwave: '#bfe9ff' };
+const PROJ_GLOW = {
+  thorn: '#7ee08a', seed: '#a7e36f', rock: '#8a7a5a', shock: '#d3b985',
+  blight: '#c58bff', crystal: '#df8cff', voidorb: '#b06bff',
+  spark: '#9ec3ff', wispbolt: '#9ec3ff', emberball: '#ff8c3b',
+  arcwave: '#bfe9ff', diamondSpear: '#dffcff', miniDiamondSpear: '#8be9ff',
+};
 
 // Background colour anchors by depth, in tile rows. `colorAtDepth` interpolates
 // between them, so descending from daylight to the deep caverns is one
@@ -474,6 +479,38 @@ export class Renderer {
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(pr.rot);
+
+      if (pr.kind === 'diamondSpear' || pr.kind === 'miniDiamondSpear') {
+        const mini = pr.kind === 'miniDiamondSpear';
+        const len = mini ? 8 : 25;
+        const shaft = mini ? 1.4 : 2.4;
+        ctx.globalAlpha = mini ? 0.25 : 0.38;
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.arc(0, 0, mini ? 5 : 13, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = mini ? '#baf4ff' : '#f4ffff';
+        ctx.lineWidth = shaft;
+        ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(-len * 0.64, 0); ctx.lineTo(len * 0.55, 0); ctx.stroke();
+        ctx.strokeStyle = mini ? '#4387a3' : '#2f6681';
+        ctx.lineWidth = Math.max(1, shaft * 0.55);
+        ctx.beginPath(); ctx.moveTo(-len * 0.65, 0); ctx.lineTo(-len * 0.25, 0); ctx.stroke();
+        ctx.fillStyle = pr.color;
+        ctx.beginPath();
+        ctx.moveTo(len * 0.62, 0);
+        ctx.lineTo(len * 0.18, -len * (mini ? 0.28 : 0.24));
+        ctx.lineTo(len * 0.30, 0);
+        ctx.lineTo(len * 0.18, len * (mini ? 0.28 : 0.24));
+        ctx.closePath(); ctx.fill();
+        if (!mini) {
+          ctx.fillStyle = '#ffffff';
+          ctx.globalAlpha = 0.8;
+          ctx.beginPath(); ctx.moveTo(-len * 0.58, 0); ctx.lineTo(-len * 0.78, -2.5); ctx.lineTo(-len * 0.78, 2.5); ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+        continue;
+      }
+
       ctx.fillStyle = glow;
       ctx.globalAlpha = 0.35;
       ctx.fillRect(-6, -3, 12, 6);
@@ -1001,14 +1038,157 @@ export class Renderer {
     });
   }
   _drawMinions(game, ctx) {
-    for (const m of game.minions) this._blobCreature(ctx, m, m.color, m.color2, m.facing, false, true);
+    for (const m of game.minions) {
+      if (m.dead) continue;
+      if (m.key === 'diamondHeart') this._drawDiamondHeart(ctx, m);
+      else this._blobCreature(ctx, m, m.color, m.color2, m.facing, m.hurtFlash > 0, true);
+    }
     // Remote players' minion ghosts.
     for (const p of game.players.values()) {
       if (p.isLocal || !p.remoteMinions) continue;
       for (const rm of p.remoteMinions) {
-        const spr = { x: rm.x, y: rm.y, w: 14, h: 14 };
-        this._blobCreature(ctx, spr, '#9ec3ff', '#cfe6ff', rm.f || 1, false, true);
+        if (rm.dead) continue;
+        if (rm.key === 'diamondHeart') {
+          this._drawDiamondHeart(ctx, Object.assign({
+            w: 30, h: 42, color: '#dffcff', color2: '#62c9e8',
+            anim: 0, hp: rm.hp, maxHp: rm.maxHp,
+          }, rm, { x: rm.x, y: rm.y, facing: rm.f || 1 }));
+        } else {
+          const spr = { x: rm.x, y: rm.y, w: 14, h: 14 };
+          this._blobCreature(ctx, spr, '#9ec3ff', '#cfe6ff', rm.f || 1, false, true);
+        }
       }
+    }
+  }
+
+  _drawDiamondHeart(ctx, m) {
+    const x = m.x, y = m.y, w = m.w || 30, h = m.h || 42;
+    const cx = x + w / 2, cy = y + h / 2;
+    const t = m.anim || 0;
+    const flap = Math.sin(t * 2.6) * 3 + (m.dashTime > 0 ? 3 : 0);
+    const swordAngle = m.dashTime > 0
+      ? (m.dashAngle || 0)
+      : (m.swordAngle != null ? m.swordAngle : (m.facing < 0 ? Math.PI : 0));
+
+    // A small contact shadow and cool halo establish that it is airborne.
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = '#081522';
+    ctx.beginPath(); ctx.ellipse(cx, y + h + 13, 18, 3.2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 0.12 + 0.04 * Math.sin(t * 2);
+    ctx.fillStyle = '#62c9e8';
+    ctx.beginPath(); ctx.arc(cx, cy, 34 + Math.sin(t * 1.7) * 2, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    // Faceted wings sit behind the body and flap on their own rhythm.
+    ctx.save();
+    ctx.translate(cx, cy - 4);
+    for (const side of [-1, 1]) {
+      const lift = flap * side;
+      ctx.fillStyle = side < 0 ? '#6bc8e1' : '#7fe2f0';
+      ctx.globalAlpha = 0.78;
+      ctx.beginPath();
+      ctx.moveTo(side * 7, 1);
+      ctx.quadraticCurveTo(side * (18 + lift), -13, side * (31 + lift), -17);
+      ctx.quadraticCurveTo(side * (27 + lift), -2, side * (18 + lift * 0.45), 9);
+      ctx.lineTo(side * 7, 10);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#c9fbff'; ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      ctx.moveTo(side * 9, 2); ctx.lineTo(side * (25 + lift), -12);
+      ctx.moveTo(side * 11, 6); ctx.lineTo(side * (23 + lift), 0);
+      ctx.stroke();
+      ctx.fillStyle = '#dffcff';
+      ctx.globalAlpha = 0.62;
+      ctx.beginPath();
+      ctx.moveTo(side * (21 + lift), -13);
+      ctx.lineTo(side * (31 + lift), -17);
+      ctx.lineTo(side * (26 + lift), -4);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+
+    // The great sword is intentionally oversized, but its facets keep it legible
+    // instead of reading as a random rectangle.
+    ctx.save();
+    ctx.translate(cx + Math.cos(swordAngle) * 5, cy + Math.sin(swordAngle) * 5);
+    ctx.rotate(swordAngle);
+    const blade = m.dashTime > 0 ? 38 : 31;
+    ctx.strokeStyle = 'rgba(20,48,65,0.7)';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(4, 0); ctx.lineTo(blade, 0); ctx.stroke();
+    ctx.fillStyle = '#dffcff';
+    ctx.beginPath();
+    ctx.moveTo(3, -3.2); ctx.lineTo(blade, 0); ctx.lineTo(3, 3.2);
+    ctx.lineTo(9, 0); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#7ccfe4';
+    ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(blade, 0); ctx.lineTo(3, 3.2); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#f8ffff'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(8, -1.3); ctx.lineTo(blade - 3, 0); ctx.stroke();
+    ctx.strokeStyle = '#d5a95e'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(1, -7); ctx.lineTo(1, 7); ctx.stroke();
+    ctx.strokeStyle = '#6e4729'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(2, 0); ctx.stroke();
+    ctx.restore();
+
+    // Dash after-images make the move readable before the hit lands.
+    if (m.dashTime > 0) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(m.dashAngle || 0);
+      ctx.strokeStyle = '#8be9ff'; ctx.lineWidth = 2; ctx.globalAlpha = 0.55;
+      for (let i = 1; i <= 3; i++) {
+        ctx.beginPath(); ctx.moveTo(-i * 10, -5 - i); ctx.lineTo(-i * 20, -5 - i); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-i * 10, 5 + i); ctx.lineTo(-i * 20, 5 + i); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Spear wind-up: a compact, strongly aimed telegraph held in front of the
+    // Heart, followed by the actual large projectile.
+    if (m.spearWindup > 0 || m.spearPulse > 0) {
+      const a = m.spearAngle || 0;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(a);
+      const k = m.spearWindup > 0 ? 1 - m.spearWindup / 0.3 : 0.55;
+      ctx.globalAlpha = 0.3 + k * 0.45;
+      ctx.strokeStyle = '#dffcff'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(22 + k * 7, 0); ctx.stroke();
+      ctx.fillStyle = '#dffcff';
+      ctx.beginPath(); ctx.moveTo(28 + k * 7, 0); ctx.lineTo(20 + k * 7, -3); ctx.lineTo(20 + k * 7, 3); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+
+    // Crystal body and crown mask.
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.fillStyle = '#17364c';
+    ctx.beginPath(); ctx.moveTo(0, -22); ctx.lineTo(15, -4); ctx.lineTo(9, 19); ctx.lineTo(0, 23); ctx.lineTo(-9, 19); ctx.lineTo(-15, -4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#76d5e9';
+    ctx.beginPath(); ctx.moveTo(0, -18); ctx.lineTo(11, -3); ctx.lineTo(6, 15); ctx.lineTo(0, 18); ctx.lineTo(-6, 15); ctx.lineTo(-11, -3); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#c9fbff'; ctx.globalAlpha = 0.78;
+    ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(4, -3); ctx.lineTo(0, 13); ctx.lineTo(-3, -3); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#3b8fb0'; ctx.globalAlpha = 0.8;
+    ctx.beginPath(); ctx.moveTo(4, -3); ctx.lineTo(11, -3); ctx.lineTo(6, 15); ctx.lineTo(0, 18); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 1;
+    // A small visor/face makes the silhouette read as a diamond version of the
+    // player rather than as an unanimated gem.
+    ctx.fillStyle = '#102538';
+    ctx.beginPath(); ctx.moveTo(-7, -5); ctx.lineTo(7, -5); ctx.lineTo(5, 3); ctx.lineTo(-5, 3); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(m.facing < 0 ? -5 : 2, -2, 2, 2);
+    ctx.fillStyle = '#baf5ff';
+    ctx.beginPath(); ctx.moveTo(-7, -17); ctx.lineTo(0, -24); ctx.lineTo(7, -17); ctx.lineTo(4, -14); ctx.lineTo(0, -19); ctx.lineTo(-4, -14); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#4da7c2'; ctx.fillRect(-1, -20, 2, 6);
+    ctx.restore();
+
+    if (m.maxHp != null && m.hp != null) this._miniHp(ctx, m, m.hp / m.maxHp, '#7ee0c0');
+    if (m.hurtFlash > 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.68)';
+      ctx.beginPath(); ctx.arc(cx, cy, 20, 0, Math.PI * 2); ctx.fill();
     }
   }
 
@@ -1032,7 +1212,7 @@ export class Renderer {
   // ---- The Guide ----
   _drawNpc(game, ctx) {
     const n = game.npc;
-    if (!n) return;
+    if (!n || !n.alive) return;
     const x = n.x, y = n.y + Math.sin(n.bob) * 0.7, w = n.w, h = n.h;
     const legSwing = Math.sin(n.walkAnim) * 3;
     // legs
