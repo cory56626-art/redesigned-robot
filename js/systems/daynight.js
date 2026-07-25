@@ -2,8 +2,25 @@
 import { DAY_LENGTH } from '../config.js?v=realms-2';
 
 export class DayNight {
-  constructor(t = DAY_LENGTH * 0.15) { this.t = t; }
-  update(dt) { this.t = (this.t + dt) % DAY_LENGTH; }
+  constructor(t = DAY_LENGTH * 0.15, day = 1) {
+    this.t = Math.max(0, Number(t) || 0) % DAY_LENGTH;
+    this.day = Math.max(1, Math.floor(Number(day) || 1));
+  }
+
+  // Returns true when the clock rolls into a new world day. The day counter is
+  // deliberately separate from the visual phase so NPC respawn rules survive
+  // save/load and network clock synchronisation.
+  update(dt) {
+    let rolled = false;
+    this.t += Math.max(0, dt || 0);
+    while (this.t >= DAY_LENGTH) {
+      this.t -= DAY_LENGTH;
+      this.day++;
+      rolled = true;
+    }
+    return rolled;
+  }
+
   get phase() { return this.t / DAY_LENGTH; } // 0..1 (noon ~0.25, midnight ~0.75)
   get brightness() { return 0.56 + 0.44 * Math.cos((this.phase - 0.25) * Math.PI * 2); }
   get isDay() { return this.brightness > 0.5; }
