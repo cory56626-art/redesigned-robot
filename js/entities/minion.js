@@ -17,6 +17,9 @@ const GIVE_UP = 2.6;
 // How long stuck (barely moving, far from owner) before it teleports home.
 const STUCK_TELEPORT = 3.0;
 const DIAMOND_LEASH = 780;
+// Diamond Heart keeps a real air lane around threats instead of hovering in
+// melee range. It may cross this lane only during its deliberate dash.
+const DIAMOND_SAFE_RADIUS = 235;
 
 export class Minion {
   constructor(key, ownerId, x, y) {
@@ -241,13 +244,13 @@ export class Minion {
 
     // Dash through a nearby target when the line is clear. The cooldown and
     // single-hit-per-dash rule keep this a skill move, not contact-DPS spam.
-    if (this.diamondRetreat <= 0 && this.dashCd <= 0 && los && distance > 112 && distance < 178) {
+    if (this.diamondRetreat <= 0 && this.dashCd <= 0 && los && distance > 118 && distance < 212) {
       this._beginDiamondDash(game, target);
       return;
     }
 
     // At range, the Heart charges one readable spear before releasing it.
-    if (this.diamondRetreat <= 0 && this.spearCd <= 0 && los && distance > 158) {
+    if (this.diamondRetreat <= 0 && this.spearCd <= 0 && los && distance > 220) {
       this._beginDiamondSpear(game, target);
     }
   }
@@ -259,21 +262,24 @@ export class Minion {
     // Keep a real combat lane around melee enemies. The Heart only closes for
     // its deliberate dash; otherwise it fights from a wide, readable orbit.
     const radius = retreat
-      ? 230 + Math.sin(this.anim * 0.43) * 16
-      : 190 + Math.sin(this.anim * 0.43) * 18;
+      ? 300 + Math.sin(this.anim * 0.43) * 18
+      : DIAMOND_SAFE_RADIUS + Math.sin(this.anim * 0.43) * 20;
     const dodge = this._diamondDodge(game, cx, cy);
-    let desiredX = tc.x + Math.cos(orbit) * radius + dodge.x * (retreat ? 155 : 120);
-    let desiredY = tc.y - 48 + Math.sin(orbit * 1.15) * (retreat ? 42 : 54) + dodge.y * (retreat ? 155 : 120);
+    const threat = this._diamondThreatVector(game, cx, cy);
+    const pushScale = retreat ? 220 : 165;
+    let desiredX = tc.x + Math.cos(orbit) * radius + dodge.x * (retreat ? 170 : 135) + threat.x * pushScale;
+    let desiredY = tc.y - 58 + Math.sin(orbit * 1.15) * (retreat ? 48 : 60) + dodge.y * (retreat ? 170 : 135) + threat.y * pushScale;
 
-    // Correct aggressively if a fast enemy closes the gap between steering
-    // updates. This prevents ordinary slimes from pinning the Heart by contact.
+    // Correct aggressively if any enemy closes the gap between steering
+    // updates. This uses every nearby threat, not just the Heart's current
+    // highest-HP target, so a second slime cannot sneak into contact range.
     const gapX = cx - tc.x, gapY = cy - tc.y;
     const gap = Math.hypot(gapX, gapY);
-    const minGap = retreat ? 210 : 150;
+    const minGap = retreat ? 290 : 220;
     if (gap < minGap) {
       const len = gap || 1;
-      desiredX = tc.x + (gapX / len) * (retreat ? 250 : 178);
-      desiredY = tc.y + (gapY / len) * (retreat ? 250 : 178);
+      desiredX = tc.x + (gapX / len) * (retreat ? 340 : 270) + threat.x * 80;
+      desiredY = tc.y + (gapY / len) * (retreat ? 340 : 270) + threat.y * 80;
     }
 
     this._steer(desiredX, desiredY, this.def.speed, dt);
@@ -285,6 +291,26 @@ export class Minion {
     const desiredY = oc.y - 92 + Math.sin(this.anim * 0.8) * 12 + dodge.y * 90;
     this.swordAngle = this.facing > 0 ? 0.15 : Math.PI - 0.15;
     this._steer(desiredX, desiredY, this.def.speed * 0.82, dt);
+  }
+
+  _diamondThreatVector(game, cx, cy) {
+    let pushX = 0, pushY = 0;
+    const consider = (t) => {
+      if (!t || t.dead || t.alive === false || t.hp <= 0) return;
+      const tc = t.center ? t.center() : { x: t.x + t.w / 2, y: t.y + t.h / 2 };
+      const dx = cx - tc.x, dy = cy - tc.y;
+      const distance = Math.hypot(dx, dy);
+      const safe = t === this.target ? DIAMOND_SAFE_RADIUS + 24 : DIAMOND_SAFE_RADIUS;
+      if (distance >= safe) return;
+      const urgency = (safe - distance) / safe;
+      const weight = t === this.target ? 0.9 : 1.25;
+      pushX += (dx / (distance || 1)) * urgency * weight;
+      pushY += (dy / (distance || 1)) * urgency * weight;
+    };
+    for (const e of game.enemies) consider(e);
+    for (const b of game.bosses) consider(b);
+    const len = Math.hypot(pushX, pushY);
+    return len > 1 ? { x: pushX / len, y: pushY / len } : { x: pushX, y: pushY };
   }
 
   _diamondDodge(game, cx, cy) {
@@ -449,6 +475,20 @@ export class Minion {
     this.iframes = 0.28;
     this.hurtFlash = 0.16;
     this.vx += (knockbackX || 0) * 5;
+    if (this.def.behavior === 'diamondHeart') {
+      // A hit is an immediate reposition command: cancel a wind-up, break
+      // contact, and spend a short window in the wider retreat orbit.
+      this.spearWindup = 0;
+      this.spearTarget = null;
+      this.diamondRetreat = Math.max(this.diamondRetreat, 0.9);
+      const escape = game?._diamondThreatVector(
+        game, this.x + this.w / 2, this.y + this.h / 2
+      );
+      if (escape) {
+        this.vx = escape.x * this.def.speed;
+        this.vy = escape.y * this.def.speed;
+      }
+    }
     game?.addHitParticles(this.x + this.w / 2, this.y + this.h / 2, '#dffcff', 7);
     game?.floatText(this.x + this.w / 2, this.y, '-' + dmg, '#dffcff');
     if (this.hp <= 0) {
