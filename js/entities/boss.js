@@ -11,7 +11,7 @@
 // distance, phase and line of sight. Animation fields (squash, jaw, segment
 // lag, shard spin) are updated here rather than in the renderer, so they are
 // driven by the simulation and stay frame-rate independent.
-import { TILE } from '../config.js?v=realms-2';
+import { TILE, normalizeDifficulty } from '../config.js?v=realms-difficulty-20';
 import { BOSSES } from '../data/bosses.js?v=realms-2';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-2';
 import { aabb, angleTo, randRange, clamp } from '../utils.js?v=realms-2';
@@ -26,9 +26,44 @@ const ARENA_TILES = 46;
 const ENRAGE_GRACE = 5;
 const FLEE_AFTER = 14;
 
+const BOSS_DIFFICULTY_TUNING = {
+  normal:   { hp: 1.35, damage: 1.25, move: 1.08, projectile: 1.12, cooldown: 0.90, telegraph: 0.94, recover: 0.92, extraProjectiles: 0, extraAdds: 0, enrageGrace: 5.0, enrageMove: 1.42, enrageCooldown: 0.64 },
+  hard:     { hp: 1.75, damage: 1.55, move: 1.16, projectile: 1.22, cooldown: 0.80, telegraph: 0.88, recover: 0.82, extraProjectiles: 1, extraAdds: 1, enrageGrace: 4.5, enrageMove: 1.52, enrageCooldown: 0.58 },
+  master:   { hp: 2.35, damage: 1.95, move: 1.25, projectile: 1.34, cooldown: 0.70, telegraph: 0.80, recover: 0.72, extraProjectiles: 2, extraAdds: 2, enrageGrace: 4.0, enrageMove: 1.64, enrageCooldown: 0.52 },
+  masochist:{ hp: 3.05, damage: 2.40, move: 1.36, projectile: 1.48, cooldown: 0.60, telegraph: 0.72, recover: 0.62, extraProjectiles: 3, extraAdds: 3, enrageGrace: 3.5, enrageMove: 1.78, enrageCooldown: 0.45 },
+};
+
+function scaledBossDef(source, tuning) {
+  const def = { ...source };
+  def.maxHp = Math.max(1, Math.round(source.maxHp * tuning.hp));
+  def.contactBase = Math.max(1, Math.round((source.contactBase || 1) * tuning.damage));
+  def.phases = source.phases.map(phase => ({
+    ...phase,
+    contact: Math.max(1, Math.round((phase.contact ?? source.contactBase ?? 1) * tuning.damage)),
+    speed: (phase.speed || 0) * tuning.move,
+    attacks: phase.attacks.map(attack => {
+      const out = { ...attack };
+      if (out.damage != null && out.damage > 0) out.damage = Math.max(1, Math.round(out.damage * tuning.damage));
+      if (out.speed != null) out.speed *= tuning.move;
+      if (out.projSpeed != null) out.projSpeed *= tuning.projectile;
+      if (out.cooldown != null) out.cooldown = Math.max(0.32, out.cooldown * tuning.cooldown);
+      if (out.telegraph != null) out.telegraph = Math.max(0.20, out.telegraph * tuning.telegraph);
+      if (out.recover != null) out.recover = Math.max(0.12, out.recover * tuning.recover);
+      if (out.count != null) out.count = Math.max(1, out.count + tuning.extraProjectiles);
+      if (out.addCount != null) out.addCount = Math.max(1, out.addCount + tuning.extraAdds);
+      if (out.homingStrength != null) out.homingStrength *= tuning.projectile;
+      return out;
+    }),
+  }));
+  return def;
+}
+
 export class Boss {
-  constructor(key, x, y) {
-    const d = BOSSES[key];
+  constructor(key, x, y, difficulty = 'normal') {
+    const source = BOSSES[key];
+    this.difficulty = normalizeDifficulty(difficulty);
+    this.tuning = BOSS_DIFFICULTY_TUNING[this.difficulty] || BOSS_DIFFICULTY_TUNING.normal;
+    const d = scaledBossDef(source, this.tuning);
     this.key = key;
     this.def = d;
     this.name = d.name;
@@ -126,7 +161,7 @@ export class Boss {
     if (!target) { this._drift(dt, game); this._updateAnim(dt); return; }
 
     const ph = this.phase();
-    const speedMul = this.enraged ? 1.35 : 1;
+    const speedMul = this.enraged ? this.tuning.enrageMove : 1;
     const tc = target.center();
     const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
     this.facing = tc.x < cx ? -1 : 1;
@@ -163,7 +198,7 @@ export class Boss {
         this.telegraph -= dt;
         if (this.telegraph <= 0) {
           this._performAttack(this.chosen, game, target);
-          this.cooldowns.set(this.chosen.type, this.chosen.cooldown * (this.enraged ? 0.7 : 1));
+          this.cooldowns.set(this.chosen.type, this.chosen.cooldown * (this.enraged ? this.tuning.enrageCooldown : 1));
           this.recover = this.chosen.recover != null ? this.chosen.recover : 0.45;
           this.aiState = 'recover';
           this.stateTime = 0;
@@ -207,7 +242,7 @@ export class Boss {
     const far = !target || Math.hypot(target.x - cx, target.y - cy) > ARENA_TILES * TILE;
     if (far) {
       this.awayTimer += dt;
-      if (!this.enraged && this.awayTimer > ENRAGE_GRACE) {
+      if (!this.enraged && this.awayTimer > this.tuning.enrageGrace) {
         this.enraged = true;
         game.toast(this.name + ' is enraged!', 'bad');
         game.fx.ring(cx, cy, '#ff6b7d', 120, { life: 0.6, width: 4 });
@@ -585,7 +620,7 @@ export class Boss {
 
   netState() {
     return {
-      key: this.key, name: this.name, x: Math.round(this.x), y: Math.round(this.y),
+      key: this.key, name: this.name, difficulty: this.difficulty, x: Math.round(this.x), y: Math.round(this.y),
       hp: Math.round(this.hp), maxHp: this.maxHp, phase: this.phaseIndex, facing: this.facing,
       state: this.aiState, hidden: this.hidden ? 1 : 0, tel: this.telegraph > 0 ? 1 : 0,
     };
