@@ -3,7 +3,7 @@
 // drawn as lightweight ghosts (see renderer).
 import { minionDef } from '../data/minions.js?v=realms-diamond-1';
 import { dist2, aabb, angleTo } from '../utils.js?v=realms-2';
-import { Projectile } from './projectile.js?v=realms-diamond-1';
+import { Projectile } from './projectile.js?v=realms-diamond-3';
 import * as AI from '../systems/ai.js?v=realms-diamond-1';
 
 let MINION_SEQ = 1;
@@ -57,6 +57,7 @@ export class Minion {
     this.dashTrailTimer = 0;
     this.target = null;
     this.swordAngle = 0;
+    this.diamondRetreat = 0;
     // AI bookkeeping.
     this.unreachTimer = 0;   // time spent unable to reach the current target
     this.returnTimer = 0;    // while >0, ignore targets and regroup on the owner
@@ -186,6 +187,7 @@ export class Minion {
     this.spearCd -= dt;
     this.dashCd -= dt;
     this.dashTrailTimer -= dt;
+    this.diamondRetreat = Math.max(0, this.diamondRetreat - dt);
 
     const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
     const ownerDist = Math.hypot(cx - oc.x, cy - oc.y);
@@ -216,7 +218,7 @@ export class Minion {
         this.spearAngle = AI.leadShot(cx, cy, live, 520);
         this.swordAngle = this.spearAngle;
         this.facing = tc.x < cx ? -1 : 1;
-        this._diamondHover(game, owner, live, dt);
+        this._diamondHover(game, owner, live, dt, this.diamondRetreat > 0);
         this.spearWindup -= dt;
         if (this.spearWindup <= 0) this._fireDiamondSpear(game);
         return;
@@ -235,29 +237,45 @@ export class Minion {
     this.facing = dx < 0 ? -1 : 1;
     this.swordAngle = Math.atan2(dy, dx);
 
-    this._diamondHover(game, owner, target, dt);
+    this._diamondHover(game, owner, target, dt, this.diamondRetreat > 0);
 
     // Dash through a nearby target when the line is clear. The cooldown and
     // single-hit-per-dash rule keep this a skill move, not contact-DPS spam.
-    if (this.dashCd <= 0 && los && distance > 52 && distance < 255) {
+    if (this.diamondRetreat <= 0 && this.dashCd <= 0 && los && distance > 112 && distance < 178) {
       this._beginDiamondDash(game, target);
       return;
     }
 
     // At range, the Heart charges one readable spear before releasing it.
-    if (this.spearCd <= 0 && los && distance > 82) {
+    if (this.diamondRetreat <= 0 && this.spearCd <= 0 && los && distance > 158) {
       this._beginDiamondSpear(game, target);
     }
   }
 
-  _diamondHover(game, owner, target, dt) {
+  _diamondHover(game, owner, target, dt, retreat = false) {
     const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
     const tc = target.center();
     const orbit = this.anim * 0.72 + this.id * 0.9;
-    const radius = 138 + Math.sin(this.anim * 0.43) * 20;
+    // Keep a real combat lane around melee enemies. The Heart only closes for
+    // its deliberate dash; otherwise it fights from a wide, readable orbit.
+    const radius = retreat
+      ? 230 + Math.sin(this.anim * 0.43) * 16
+      : 190 + Math.sin(this.anim * 0.43) * 18;
     const dodge = this._diamondDodge(game, cx, cy);
-    const desiredX = tc.x + Math.cos(orbit) * radius + dodge.x * 120;
-    const desiredY = tc.y - 44 + Math.sin(orbit * 1.15) * 58 + dodge.y * 120;
+    let desiredX = tc.x + Math.cos(orbit) * radius + dodge.x * (retreat ? 155 : 120);
+    let desiredY = tc.y - 48 + Math.sin(orbit * 1.15) * (retreat ? 42 : 54) + dodge.y * (retreat ? 155 : 120);
+
+    // Correct aggressively if a fast enemy closes the gap between steering
+    // updates. This prevents ordinary slimes from pinning the Heart by contact.
+    const gapX = cx - tc.x, gapY = cy - tc.y;
+    const gap = Math.hypot(gapX, gapY);
+    const minGap = retreat ? 210 : 150;
+    if (gap < minGap) {
+      const len = gap || 1;
+      desiredX = tc.x + (gapX / len) * (retreat ? 250 : 178);
+      desiredY = tc.y + (gapY / len) * (retreat ? 250 : 178);
+    }
+
     this._steer(desiredX, desiredY, this.def.speed, dt);
   }
 
@@ -321,6 +339,7 @@ export class Minion {
       life: 2.4, knockback: 5, trail: '#8be9ff',
       burstCount: 20, burstDamage: 5, burstKind: 'miniDiamondSpear',
       burstColor: '#8be9ff', burstSpeed: 230, burstLife: 1.35,
+      burstDelay: 0.3, burstHoming: true, burstHomingStrength: 2.4,
     }), true);
     game.audio?.magicCast?.();
     game.fx?.streak(c, d, a, '#dffcff', 10, { speed: 220, spread: 0.34, life: 0.3, size: 2, glow: true });
@@ -335,6 +354,7 @@ export class Minion {
     const tc = target.center();
     this.dashAngle = Math.atan2(tc.y - d, tc.x - c);
     this.dashTime = this.def.dashDuration || 0.34;
+    this.diamondRetreat = 0.52;
     this.dashCd = this.def.dashRate || 2.6;
     this.dashTarget = target;
     this.dashHits = new Set();
