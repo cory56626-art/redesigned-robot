@@ -7,8 +7,8 @@ import { TILE } from '../config.js?v=realms-2';
 import { ENEMIES } from '../data/enemies.js?v=realms-2';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-2';
 import { aabb } from '../utils.js?v=realms-2';
-import { Projectile } from './projectile.js?v=realms-5';
-import * as AI from '../systems/ai.js?v=realms-5';
+import { Projectile } from './projectile.js?v=realms-diamond-1';
+import * as AI from '../systems/ai.js?v=realms-diamond-1';
 
 export class Enemy {
   constructor(key, x, y, netId) {
@@ -253,10 +253,13 @@ export class Enemy {
     if (this.attackCd > 0) return;
     const targets = [...game.players.values()];
     if (game.npc && game.npc.alive) targets.push(game.npc);
+    for (const m of (game.minions || [])) {
+      if (m.alive !== false && !m.dead && m.maxHp != null) targets.push(m);
+    }
     for (const p of targets) {
-      if (p.alive && aabb(this, p)) {
+      if (p.alive !== false && !p.dead && aabb(this, p)) {
         const knockback = Math.sign(p.x - this.x) * 4 + this.facing * 2;
-        if (p === game.npc) p.takeDamage(this.damage, knockback, game, this.name);
+        if (p === game.npc || p.isMinion) p.takeDamage(this.damage, knockback, game, this.name);
         else game.applyEnemyDamageToPlayer(p, this.damage, knockback);
         this.attackCd = 0.6;
         break;
