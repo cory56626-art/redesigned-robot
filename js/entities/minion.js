@@ -42,8 +42,10 @@ export class Minion {
     this.slotOffset = (MINION_SEQ % 5) - 2;
     // Diamond Heart combat state. The other minions continue using the compact
     // generic state machine below.
-    this.spearCd = d.spearRate || 0;
-    this.dashCd = d.dashRate || 0.9;
+    // Let the endgame summon demonstrate its kit quickly, then respect the
+    // full cooldowns after the opening exchange.
+    this.spearCd = d.behavior === 'diamondHeart' ? 0.35 : (d.spearRate || 0);
+    this.dashCd = d.behavior === 'diamondHeart' ? 0.45 : (d.dashRate || 0.9);
     this.spearWindup = 0;
     this.spearTarget = null;
     this.spearAngle = 0;
