@@ -7,9 +7,9 @@ import {
 } from '../config.js?v=realms-2';
 import { tileDef } from '../world/tiles.js?v=realms-2';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-2';
-import { Inventory } from '../systems/inventory.js?v=realms-2';
-import { item as getItem } from '../data/items.js?v=realms-2';
-import * as combat from '../systems/combat.js?v=realms-2';
+import { Inventory } from '../systems/inventory.js?v=realms-diamond-1';
+import { item as getItem } from '../data/items.js?v=realms-diamond-1';
+import * as combat from '../systems/combat.js?v=realms-diamond-1';
 import { clamp } from '../utils.js?v=realms-2';
 
 export class Player {
