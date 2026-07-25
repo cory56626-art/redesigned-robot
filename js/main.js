@@ -747,6 +747,17 @@ class Game {
   }
 
   nearestHostileTarget(x, y) {
+    // Diamond Heart is intentionally the boss's first-class target. If it is
+    // alive, the boss attacks the summon instead of letting it freely carry
+    // the encounter while the player stays safe.
+    let heart = null, heartDist = Infinity;
+    for (const m of this.minions) {
+      if (!m || m.key !== 'diamondHeart' || m.alive === false || m.dead || m.maxHp == null) continue;
+      const d = dist2(x, y, m.x + m.w / 2, m.y + m.h / 2);
+      if (d < heartDist) { heartDist = d; heart = m; }
+    }
+    if (heart) return heart;
+
     let best = null, bd = Infinity;
     const consider = (t) => {
       if (!t || t.alive === false || t.dead) return;
