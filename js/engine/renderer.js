@@ -612,6 +612,12 @@ export class Renderer {
       ctx.restore();
     }
 
+    if (n.hp < n.maxHp) this._miniHp(ctx, n, n.hp / n.maxHp, '#ff6b7d');
+    if (n.hurtFlash > 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.65)';
+      this._roundRect(ctx, x, y, w, h, 4); ctx.fill();
+    }
+
     // Talk prompt when the local player is close enough.
     const p = game.localPlayer;
     if (p && n.canTalkTo(p) && !(game.ui.npcDialog && game.ui.npcDialog.isOpen())) {
