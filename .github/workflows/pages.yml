@@ -1,5 +1,7 @@
 name: Deploy Summoner Realms to GitHub Pages
 
+# Force a fresh Pages deployment for the current gameplay build.
+
 on:
   push:
     branches:
