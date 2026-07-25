@@ -1,13 +1,13 @@
 // Summoner Realms — natural enemy spawning (host only). Biome + day/night aware.
-import { TILE, UNDERGROUND_Y, MAX_ENEMIES } from '../config.js?v=realms-2';
+import { TILE, UNDERGROUND_Y, MAX_ENEMIES, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=realms-difficulty-21';
 import { ENEMIES } from '../data/enemies.js?v=realms-2';
 import { aabb, dist2 } from '../utils.js?v=realms-2';
 
 // Keep spawns off-screen-ish but not so far they never arrive (tiles).
 const MIN_SPAWN_DIST = 13;
 const MAX_SPAWN_DIST = 30;
-const SPAWN_INTERVAL = 2.25;
-const SPAWN_CHANCE = 0.6;
+const BASE_SPAWN_INTERVAL = 2.25;
+const BASE_SPAWN_CHANCE = 0.6;
 const LOCAL_ACTIVITY_RADIUS = 58 * TILE;
 
 export class Spawner {
@@ -17,18 +17,19 @@ export class Spawner {
     if (!game.isHost) return;
     this.timer -= dt;
     if (this.timer > 0) return;
-    this.timer = SPAWN_INTERVAL;
+    const tuning = ENEMY_DIFFICULTY_TUNING[normalizeDifficulty(game.difficulty)] || ENEMY_DIFFICULTY_TUNING.normal;
+    this.timer = tuning.spawnInterval || BASE_SPAWN_INTERVAL;
 
     const players = [...game.players.values()].filter(p => p.alive);
     if (!players.length) return;
 
     // Natural spawns are deliberately paced. A guaranteed spawn every timer tick
     // filled the world too quickly and made single-player combat unplayable.
-    if (Math.random() > SPAWN_CHANCE) return;
+    if (Math.random() > (tuning.spawnChance || BASE_SPAWN_CHANCE)) return;
 
     // Keep a small, readable population near each player while still scaling
     // gently for co-op instead of flooding the world.
-    const globalCap = Math.min(MAX_ENEMIES, 6 + players.length * 2);
+    const globalCap = Math.min(MAX_ENEMIES, 6 + players.length * 2 + (tuning.globalCapBonus || 0));
     const active = game.enemies.filter(e => !e.fromBoss && !e.dead).length;
     if (active >= globalCap) return;
 
@@ -43,7 +44,7 @@ export class Spawner {
       }))
       .sort((a, b) => a.nearby - b.nearby);
 
-    const localCap = Math.min(globalCap, 4 + players.length);
+    const localCap = Math.min(globalCap, 4 + players.length + (tuning.localCapBonus || 0));
     for (const { p, nearby } of candidates) {
       if (nearby >= localCap) continue;
       if (this._trySpawnAround(game, p, players)) return;
