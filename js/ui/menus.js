@@ -3,7 +3,7 @@
 import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN } from '../config.js?v=realms-2';
 import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=realms-2';
 import { Sprites } from '../art/sprites.js?v=realms-2';
-import { item as getItem } from '../data/items.js?v=realms-2';
+import { item as getItem } from '../data/items.js?v=realms-diamond-1';
 import { availableRecipes } from '../systems/crafting.js?v=realms-2';
 import { claudeNotesHTML } from './claude-notes.js?v=realms-2';
 
