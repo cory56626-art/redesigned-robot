@@ -52,28 +52,51 @@ export function perceive(e, game, dt, opts = {}) {
   }
 
   let p = null, nearest = Infinity;
-  // Diamond Heart is a deliberate hostile target, not just another nearby
-  // body. If it is inside this enemy's awareness range and visible, prioritize
-  // it over the player so the summon cannot trivialize every encounter.
-  const heart = candidates.find((candidate) =>
-    candidate.isMinion && candidate.key === 'diamondHeart'
-  );
-  if (heart) {
-    const hc = heart.center ? heart.center() : {
-      x: heart.x + heart.w / 2, y: heart.y + heart.h / 2,
-    };
-    const hdx = hc.x - cx, hdy = hc.y - cy;
-    const hdist2 = hdx * hdx + hdy * hdy;
-    const hLos = game.world.hasLineOfSight(cx, cy, hc.x, hc.y);
-    const hRange = e.aware ? lose : aggro;
-    if (hdist2 <= hRange * hRange && hLos) {
-      p = heart;
-      nearest = hdist2;
+  const playerPriorityRadius = 240;
+  let nearestPlayer = null, nearestPlayerDist2 = Infinity;
+  for (const candidate of candidates) {
+    if (!candidate.isMinion && candidate !== game.npc) {
+      const cc = candidate.center ? candidate.center() : {
+        x: candidate.x + candidate.w / 2, y: candidate.y + candidate.h / 2,
+      };
+      const d2 = (cc.x - cx) * (cc.x - cx) + (cc.y - cy) * (cc.y - cy);
+      if (d2 < nearestPlayerDist2) {
+        nearestPlayerDist2 = d2;
+        nearestPlayer = candidate;
+      }
     }
   }
+
+  // Keep the player as the priority target when they are close enough to be
+  // an immediate threat. The Heart only becomes the preferred target when the
+  // player is outside that close-threat radius.
+  if (nearestPlayer && nearestPlayerDist2 <= playerPriorityRadius * playerPriorityRadius) {
+    p = nearestPlayer;
+    nearest = nearestPlayerDist2;
+  } else {
+    const heart = candidates.find((candidate) =>
+      candidate.isMinion && candidate.key === 'diamondHeart'
+    );
+    if (heart) {
+      const hc = heart.center ? heart.center() : {
+        x: heart.x + heart.w / 2, y: heart.y + heart.h / 2,
+      };
+      const hdx = hc.x - cx, hdy = hc.y - cy;
+      const hdist2 = hdx * hdx + hdy * hdy;
+      const hLos = game.world.hasLineOfSight(cx, cy, hc.x, hc.y);
+      const hRange = e.aware ? lose : aggro;
+      if (hdist2 <= hRange * hRange && hLos) {
+        p = heart;
+        nearest = hdist2;
+      }
+    }
+  }
+
   if (!p) {
     for (const candidate of candidates) {
-      const cc = candidate.center ? candidate.center() : { x: candidate.x + candidate.w / 2, y: candidate.y + candidate.h / 2 };
+      const cc = candidate.center ? candidate.center() : {
+        x: candidate.x + candidate.w / 2, y: candidate.y + candidate.h / 2,
+      };
       const d2 = (cc.x - cx) * (cc.x - cx) + (cc.y - cy) * (cc.y - cy);
       if (d2 < nearest) { nearest = d2; p = candidate; }
     }
