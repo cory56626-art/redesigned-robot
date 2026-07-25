@@ -37,10 +37,10 @@ export const MINIONS = {
     key: 'diamondHeart', name: 'Diamond Heart', behavior: 'diamondHeart',
     damage: 0, speed: 280, range: 620, color: '#dffcff', color2: '#62c9e8',
     w: 30, h: 42, maxHp: 100, flying: true,
-    spearDamage: 16, spearRate: 3.6,
-    dashDamage: 20, dashRate: 1.85, dashSpeed: 820, dashDuration: 0.30,
+    spearDamage: 22, spearRate: 3.2,
+    dashDamage: 24, dashRate: 1.85, dashSpeed: 820, dashDuration: 0.30,
     dashTripleChance: 0.34,
-    beamDamage: 3, beamTick: 0.1, beamDuration: 2.5, beamWindup: 0.8, beamBlinkInterval: 0.3, beamFlashDuration: 0.1, beamHitWidth: 18, dodgeSpeed: 720, dodgeDuration: 0.22, dodgeRate: 1.0, beamRate: 5.2,
+    beamDamage: 3, beamTick: 0.1, beamDuration: 2.5, beamWindup: 0.8, beamBlinkInterval: 0.3, beamFlashDuration: 0.1, beamHitWidth: 24, dodgeSpeed: 720, dodgeDuration: 0.22, dodgeRate: 1.0, beamRate: 5.2,
     desc: 'A winged crystal avatar with a great sword, explosive spear, triple dash, and sky beams.',
   },
 };
