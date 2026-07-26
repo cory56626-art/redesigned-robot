@@ -2,44 +2,44 @@
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty,
-} from './config.js?v=aidan-summon-4';
-import { hashString, mulberry32, dist2, uid } from './utils.js?v=aidan-summon-4';
-import { World } from './world/world.js?v=aidan-summon-4';
-import { T } from './world/tiles.js?v=aidan-summon-4';
-import { Sprites } from './art/sprites.js?v=aidan-summon-4';
-import { Camera } from './engine/camera.js?v=aidan-summon-4';
-import { Input } from './engine/input.js?v=aidan-summon-4';
-import { AudioManager } from './engine/audio.js?v=aidan-summon-4';
-import { Renderer } from './engine/renderer.js?v=aidan-summon-4';
-import { Fx } from './engine/fx.js?v=aidan-summon-4';
-import { DayNight } from './systems/daynight.js?v=aidan-summon-4';
-import { Spawner } from './systems/spawner.js?v=aidan-summon-4';
-import { Progression } from './systems/progression.js?v=aidan-summon-4';
-import { starterInventory } from './systems/inventory.js?v=aidan-summon-4';
-import * as craftSys from './systems/crafting.js?v=aidan-summon-4';
-import { applyPotion } from './systems/combat.js?v=aidan-summon-4';
-import { smartTarget } from './systems/smartcursor.js?v=aidan-summon-4';
-import { Player, assignColor } from './entities/player.js?v=aidan-summon-4';
-import { Enemy } from './entities/enemy.js?v=aidan-summon-4';
-import { Boss } from './entities/boss.js?v=aidan-summon-4';
-import { Minion } from './entities/minion.js?v=aidan-summon-4';
-import { Npc } from './entities/npc.js?v=aidan-summon-4';
-import { Projectile } from './entities/projectile.js?v=aidan-summon-4';
-import { DropItem } from './entities/droppeditem.js?v=aidan-summon-4';
-import { FallingTree } from './entities/fallingtree.js?v=aidan-summon-4';
-import { ThrownItem } from './entities/thrown.js?v=aidan-summon-4';
-import { ENEMIES } from './data/enemies.js?v=aidan-summon-4';
-import { BOSSES } from './data/bosses.js?v=aidan-summon-4';
-import { item as getItem } from './data/items.js?v=aidan-summon-4';
-import { HUD } from './ui/hud.js?v=aidan-summon-4';
-import { Menus } from './ui/menus.js?v=aidan-summon-4';
-import { NpcDialog } from './ui/npcdialog.js?v=aidan-summon-4';
-import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=aidan-summon-4';
-import { SaveManager, setSaveIndicator } from './save.js?v=aidan-summon-4';
-import { CommandConsole } from './commands.js?v=aidan-summon-4';
-import { Net } from './net/net.js?v=aidan-summon-4';
-import { MSG } from './net/protocol.js?v=aidan-summon-4';
-import * as sync from './net/sync.js?v=aidan-summon-4';
+} from './config.js?v=aidan-summon-5';
+import { hashString, mulberry32, dist2, uid } from './utils.js?v=aidan-summon-5';
+import { World } from './world/world.js?v=aidan-summon-5';
+import { T } from './world/tiles.js?v=aidan-summon-5';
+import { Sprites } from './art/sprites.js?v=aidan-summon-5';
+import { Camera } from './engine/camera.js?v=aidan-summon-5';
+import { Input } from './engine/input.js?v=aidan-summon-5';
+import { AudioManager } from './engine/audio.js?v=aidan-summon-5';
+import { Renderer } from './engine/renderer.js?v=aidan-summon-5';
+import { Fx } from './engine/fx.js?v=aidan-summon-5';
+import { DayNight } from './systems/daynight.js?v=aidan-summon-5';
+import { Spawner } from './systems/spawner.js?v=aidan-summon-5';
+import { Progression } from './systems/progression.js?v=aidan-summon-5';
+import { starterInventory } from './systems/inventory.js?v=aidan-summon-5';
+import * as craftSys from './systems/crafting.js?v=aidan-summon-5';
+import { applyPotion } from './systems/combat.js?v=aidan-summon-5';
+import { smartTarget } from './systems/smartcursor.js?v=aidan-summon-5';
+import { Player, assignColor } from './entities/player.js?v=aidan-summon-5';
+import { Enemy } from './entities/enemy.js?v=aidan-summon-5';
+import { Boss } from './entities/boss.js?v=aidan-summon-5';
+import { Minion } from './entities/minion.js?v=aidan-summon-5';
+import { Npc } from './entities/npc.js?v=aidan-summon-5';
+import { Projectile } from './entities/projectile.js?v=aidan-summon-5';
+import { DropItem } from './entities/droppeditem.js?v=aidan-summon-5';
+import { FallingTree } from './entities/fallingtree.js?v=aidan-summon-5';
+import { ThrownItem } from './entities/thrown.js?v=aidan-summon-5';
+import { ENEMIES } from './data/enemies.js?v=aidan-summon-5';
+import { BOSSES } from './data/bosses.js?v=aidan-summon-5';
+import { item as getItem } from './data/items.js?v=aidan-summon-5';
+import { HUD } from './ui/hud.js?v=aidan-summon-5';
+import { Menus } from './ui/menus.js?v=aidan-summon-5';
+import { NpcDialog } from './ui/npcdialog.js?v=aidan-summon-5';
+import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=aidan-summon-5';
+import { SaveManager, setSaveIndicator } from './save.js?v=aidan-summon-5';
+import { CommandConsole } from './commands.js?v=aidan-summon-5';
+import { Net } from './net/net.js?v=aidan-summon-5';
+import { MSG } from './net/protocol.js?v=aidan-summon-5';
+import * as sync from './net/sync.js?v=aidan-summon-5';
 
 class Game {
   constructor() {
@@ -856,12 +856,6 @@ class Game {
       this.toast('Only one Aidan can be active at a time.', 'bad');
       return false;
     }
-    const readyAt = Number(player._aidanNextSummonAt) || 0;
-    const remaining = readyAt - Date.now();
-    if (remaining > 0) {
-      this.toast('Aidan Sigil recharges in ' + Math.ceil(remaining / 1000) + 's.', 'bad');
-      return false;
-    }
     return true;
   }
   summonMinion(player, key) {
@@ -872,9 +866,10 @@ class Game {
     const mine = this.minions.filter(m => m.ownerId === player.id && !m.dead);
     while (mine.length >= cap) { mine.shift().dead = true; }
     const pc = player.center();
-    const minion = new Minion(key, player.id, pc.x, pc.y - 30);
+    const spawnX = key === 'aidan' ? pc.x - 6 : pc.x;
+    const spawnY = key === 'aidan' ? pc.y - 13 : pc.y - 30;
+    const minion = new Minion(key, player.id, spawnX, spawnY);
     this.minions.push(minion);
-    if (key === 'aidan') player._aidanNextSummonAt = Date.now() + 500000;
     this.toast('Summoned ' + (minion.def?.name || key), 'good');
     this.addHitParticles(pc.x, pc.y - 20, '#c58bff', 8);
     return true;
