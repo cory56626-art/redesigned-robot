@@ -74,6 +74,13 @@ summon('diamondHeart', 'Diamond Heart', '#dffcff', 0.78, 5, 30, 'diamondHeart', 
   debugOnly: true,
   desc: 'Endgame summon. Calls a winged Diamond Heart that hunts the highest-health foe.',
 });
+summon('aidanSigil', 'Aidan Sigil', '#b783ff', 0.78, 5, 40, 'aidan', {
+  maxStack: 1,
+  maxMinions: 1,
+  debugOnly: true,
+  summonCooldown: 500,
+  desc: 'Demo-only endgame summon. Calls Aidan in permanent brown-and-gold armor with portal and railgun tech.',
+});
 
 // ---------- Throwables ----------
 // Thrown along the aim direction and pulled into an arc by gravity, bouncing off
