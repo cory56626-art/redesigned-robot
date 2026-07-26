@@ -1335,10 +1335,15 @@ export class Renderer {
       ctx.beginPath();
       ctx.arc(0, 0, 7, -Math.PI / 2, Math.PI / 2);
       ctx.stroke();
-      ctx.strokeStyle = '#e8e0cf';
-      ctx.lineWidth = 0.7;
+      // The string is pulled back to the nock, so it reads as a V rather than a
+      // straight line. Drawn straight (and in near-arrow cream) it crossed the
+      // shaft at an angle and looked like a second arrow. It is also thinner and
+      // dimmer than the shaft so the two never compete.
+      ctx.strokeStyle = 'rgba(232, 224, 207, 0.55)';
+      ctx.lineWidth = 0.5;
       ctx.beginPath();
       ctx.moveTo(0, -7);
+      ctx.lineTo(-pull, 0);
       ctx.lineTo(0, 7);
       ctx.stroke();
       ctx.strokeStyle = '#c9c0ae';
