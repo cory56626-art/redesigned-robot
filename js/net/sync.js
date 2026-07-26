@@ -185,7 +185,13 @@ function makeGhostEnemy(es) {
   return {
     netId: es.netId, key: es.key, def, x: es.x, y: es.y, _tx: es.x, _ty: es.y,
     w: def.w, h: def.h, hp: es.hp, maxHp: def.hp, color: def.color, color2: def.color2,
-    facing: es.facing, hurtFlash: 0, ghost: true,
+    facing: es.facing === -1 ? -1 : 1, hurtFlash: 0, ghost: true,
+    // Replicated enemies do not run their host-side update loop, so provide
+    // the animation/physics fields the renderer reads.
+    vx: 0, vy: 0, speed: Math.max(1, Number(def.speed) || 1),
+    behavior: def.behavior || 'walker',
+    walkAnim: 0, animTime: 0, onGround: true,
+    telegraph: 0, telegraphMax: Math.max(0.4, Number(def.telegraph) || 0.4),
     center() { return { x: this.x + this.w / 2, y: this.y + this.h / 2 }; },
   };
 }
