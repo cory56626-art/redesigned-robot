@@ -168,7 +168,11 @@ export class Projectile {
       if (this.hitSet.has(e.netId || e)) continue;
       if (aabb(box, e)) {
         this.hitSet.add(e.netId || e);
-        game.hurtEnemy(e, this.damage, Math.sign(this.vx) * this.knockback, -1, this.effect, this.ownerId, this.crit);
+        if (this.damage <= 0 && this.effect?.freeze) {
+          e.applyFreeze?.(this.effect.freeze, game);
+        } else {
+          game.hurtEnemy(e, this.damage, Math.sign(this.vx) * this.knockback, -1, this.effect, this.ownerId, this.crit);
+        }
         game.addHitParticles(this.x, this.y, this.color, 4);
         if (this.pierce-- <= 0 && this.burstDelay == null) {
           this._burst(game, this.x + this.w / 2, this.y + this.h / 2);
@@ -181,7 +185,11 @@ export class Projectile {
       if (this.hitSet.has(b)) continue;
       if (aabb(box, b)) {
         this.hitSet.add(b);
-        game.hurtBoss(b, this.damage, this.ownerId, this.crit);
+        if (this.damage <= 0 && this.effect?.freeze) {
+          b.applyFreeze?.(this.effect.freeze, game);
+        } else {
+          game.hurtBoss(b, this.damage, this.ownerId, this.crit);
+        }
         game.addHitParticles(this.x, this.y, this.color, 4);
         if (this.pierce-- <= 0 && this.burstDelay == null) {
           this._burst(game, this.x + this.w / 2, this.y + this.h / 2);
