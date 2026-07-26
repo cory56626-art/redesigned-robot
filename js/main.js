@@ -10,7 +10,7 @@ import { Sprites } from './art/sprites.js?v=realms-difficulty-22';
 import { Camera } from './engine/camera.js?v=realms-difficulty-22';
 import { Input } from './engine/input.js?v=realms-difficulty-22';
 import { AudioManager } from './engine/audio.js?v=realms-difficulty-22';
-import { Renderer } from './engine/renderer.js?v=realms-difficulty-22';
+import { Renderer } from './engine/renderer.js?v=realms-stability-25';
 import { Fx } from './engine/fx.js?v=realms-difficulty-22';
 import { DayNight } from './systems/daynight.js?v=realms-difficulty-22';
 import { Spawner } from './systems/spawner.js?v=realms-difficulty-22';
@@ -39,7 +39,7 @@ import { SaveManager, setSaveIndicator } from './save.js?v=realms-difficulty-22'
 import { CommandConsole } from './commands.js?v=realms-difficulty-22';
 import { Net } from './net/net.js?v=realms-stability-23';
 import { MSG } from './net/protocol.js?v=realms-difficulty-22';
-import * as sync from './net/sync.js?v=realms-stability-24';
+import * as sync from './net/sync.js?v=realms-stability-25';
 
 class Game {
   constructor() {
