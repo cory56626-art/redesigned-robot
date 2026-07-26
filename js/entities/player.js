@@ -200,7 +200,11 @@ export class Player {
     if (input.mineHeld) combat.mineAt(game, this, dt, { auto: true });
 
     // Dedicated place (mobile Place button).
-    if (input.placeHeld && sel && (sel.category === 'block' || sel.category === 'station')) {
+    // Placeability is decided by the item carrying a `place` tile, NOT by its
+    // category: raw materials (dirt, stone, wood, sand...) are `category:
+    // 'material'` and have `place` patched on in data/items.js, so a category
+    // whitelist silently made every block you mine unplaceable.
+    if (input.placeHeld && isPlaceable(sel)) {
       if (this.placeTimer <= 0) { if (combat.placeSelected(game, this)) this.placeTimer = 0.12; }
     }
 
@@ -213,7 +217,7 @@ export class Player {
     if ((input.primaryHeld || aimUse) && sel) {
       if (sel.category === 'tool') {
         combat.mineAt(game, this, dt, { tool: sel });
-      } else if (sel.category === 'block' || sel.category === 'station') {
+      } else if (isPlaceable(sel)) {
         if (this.placeTimer <= 0) { if (combat.placeSelected(game, this)) this.placeTimer = 0.12; }
       } else if (sel.category === 'potion') {
         if (input.primaryPressed) combat.consumeSelected(game, this);
@@ -319,6 +323,14 @@ function aimUseItem(item) {
   if (!item) return false;
   if (item.category === 'tool') return true; // axes and pickaxes
   return item.category === 'weapon' && item.weaponClass !== 'summon';
+}
+
+// An item is placeable when it names a tile to place, whatever its category.
+// `combat.canPlaceAt`, the aim-ghost renderer and the smart cursor all already
+// test `place` this way; the action dispatch used to test `category` instead,
+// which disagreed for every mined block and made placement silently no-op.
+export function isPlaceable(item) {
+  return !!item && item.place != null;
 }
 
 export function assignColor(index) {

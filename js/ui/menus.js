@@ -76,7 +76,11 @@ export class Menus {
     $('loadWorldClose').onclick = () => this.hide('loadWorldDialog');
 
     // ---- Multiplayer menu ----
-    $('btnCreateServer').onclick = () => g.createServer();
+    $('mpDifficulty').addEventListener('input', () => this._syncDifficultyPicker('mpDifficulty'));
+    this._syncDifficultyPicker('mpDifficulty');
+    // Only applies when hosting spins up a fresh world; an already-loaded world
+    // keeps the difficulty it was created with.
+    $('btnCreateServer').onclick = () => g.createServer(difficultyForIndex($('mpDifficulty').value).key);
     $('btnJoinServer').onclick = () => { const code = $('joinCodeInput').value.trim().toUpperCase(); if (code) g.joinRoom(code); };
     $('mpClose').onclick = () => this.hide('mpMenu');
 
@@ -163,13 +167,17 @@ export class Menus {
   // ---- Generic overlay show/hide ----
   show(id) { $(id).classList.remove('hidden'); this.game.onMenuOpened(); }
   hide(id) { $(id).classList.add('hidden'); }
-  _syncNewWorldDifficulty() {
-    const info = difficultyForIndex($('newWorldDifficulty').value);
-    $('newWorldDifficultyLabel').textContent = info.label;
-    $('newWorldDifficultyTier').textContent = info.tier;
-    $('newWorldDifficultyHint').textContent = info.hint;
-    $('newWorldDifficulty').style.setProperty('--fill', (WORLD_DIFFICULTY_FILL(info.key) * 100) + '%');
+  // Shared by the New World dialog and the Multiplayer host panel, which use
+  // the same markup under different id prefixes.
+  _syncDifficultyPicker(id) {
+    const info = difficultyForIndex($(id).value);
+    $(id + 'Label').textContent = info.label;
+    $(id + 'Tier').textContent = info.tier;
+    $(id + 'Hint').textContent = info.hint;
+    $(id).style.setProperty('--fill', (WORLD_DIFFICULTY_FILL(info.key) * 100) + '%');
+    return info.key;
   }
+  _syncNewWorldDifficulty() { return this._syncDifficultyPicker('newWorldDifficulty'); }
 
   isOpen(id) { return !$(id).classList.contains('hidden'); }
 

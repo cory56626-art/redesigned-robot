@@ -454,7 +454,12 @@ export class Renderer {
       ctx.rotate(ft.angle);
       ctx.globalAlpha = Math.max(0, 1 - (ft.t / ft.dur) * 0.55);
       for (const c of ft.cells) {
-        const spr = Sprites.getTile(c.id);
+        // Use the same shaded trunk/canopy art a standing tree gets, from the
+        // masks baked into the cell when the tree was felled. `getTile` here
+        // would fall back to the flat untextured tile — the pre-overhaul look.
+        const spr = isTree(c.id) ? Sprites.getTrunk(c.id, c.mask, c.variant)
+          : isLeaf(c.id) ? Sprites.getCanopy(c.id, c.mask, c.variant)
+            : Sprites.getTile(c.id);
         if (spr) ctx.drawImage(spr, c.dx * TILE - TILE / 2, c.dy * TILE - TILE, TILE, TILE);
       }
       ctx.globalAlpha = 1;

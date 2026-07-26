@@ -13,6 +13,13 @@ const MINE_SOUND_INTERVAL = 0.32;
 const MELEE_MAX_TILT = 0.85;
 const NEIGHBORS8 = [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]];
 
+// Canopy-ownership bounds used when felling a tree. worldgen's canopies span
+// |dx| <= 3 around the trunk and sit within a couple of rows of the trunk top
+// (conifer skirts hang below it); the extra margin absorbs leaning trunks.
+const CANOPY_MAX_DX = 4;
+const CANOPY_ABOVE_TOP = 3;
+const CANOPY_TRUNK_SCAN = 6;
+
 // The tile the player is acting on. With Smart Cursor active this is the tile
 // the game chose (see systems/smartcursor.js, resolved once per step in
 // main._step); otherwise it is simply whatever the pointer is over.
@@ -55,6 +62,12 @@ export function useWeapon(game, player, item) {
     const reachPx = item.reach + 8;
     const arc = item.arc || 1.6;
 
+    // Steel does not cut through rock. A swing only lands if the blade can
+    // actually reach the target, so standing behind a wall is real cover.
+    // Weapons that explicitly phase (arcane arcs) opt out via `phasing`.
+    const phases = !!item.phasing;
+    const canReach = (tcx, tcy) => phases || game.world.hasLineOfSight(pc.x, pc.y, tcx, tcy);
+
     // Blight's crystals are threatening but not untouchable. A sword swing
     // can clear one when it is close enough, giving melee players a real
     // defensive answer during the Sovereign's ring attacks.
@@ -66,7 +79,7 @@ export function useWeapon(game, player, item) {
       const ang = Math.atan2(pcy2 - pc.y, pcx2 - pc.x);
       let diff = Math.abs(ang - aimAng);
       while (diff > Math.PI) diff = Math.abs(diff - Math.PI * 2);
-      if (diff <= arc / 2 + 0.3) {
+      if (diff <= arc / 2 + 0.3 && canReach(pcx2, pcy2)) {
         pr.dead = true;
         game.addHitParticles(pcx2, pcy2, pr.color, 6);
       }
@@ -82,7 +95,7 @@ export function useWeapon(game, player, item) {
       const ang = Math.atan2(tcy - pc.y, tcx - pc.x);
       let diff = Math.abs(ang - aimAng);
       while (diff > Math.PI) diff = Math.abs(diff - Math.PI * 2);
-      if (diff <= arc / 2 + 0.3) {
+      if (diff <= arc / 2 + 0.3 && canReach(tcx, tcy)) {
         game.hurtEnemyOrBoss(tgt, dmg, Math.sign(tcx - pc.x) * item.knockback, player.id, crit, item.effect);
       }
     }
@@ -407,14 +420,41 @@ function collapseTree(game, player, tx, ty) {
     else break;
   }
   // 2) Flood connected leaves, seeded from the cut point and each trunk tile.
+  //
+  // Canopies of neighbouring trees routinely touch: worldgen advances only 2-3
+  // columns between trunks while a round canopy spans 7. An unbounded flood
+  // therefore walked leaf-to-leaf straight into the next tree and clear-cut it.
+  // Each candidate leaf is now assigned to the nearest *standing* trunk, so a
+  // shared leaf falls with whichever tree actually owns it and the neighbour
+  // keeps its canopy.
+  const topY = removed.length ? removed[removed.length - 1].y : ty;
+  const ownsLeaf = (lx, ly) => {
+    if (Math.abs(lx - tx) > CANOPY_MAX_DX) return false;
+    if (ly < topY - CANOPY_ABOVE_TOP || ly > ty) return false;
+    const mine = Math.abs(lx - tx);
+    // Any other trunk column strictly closer to this leaf owns it instead.
+    for (let ox = lx - CANOPY_MAX_DX; ox <= lx + CANOPY_MAX_DX; ox++) {
+      if (ox === tx || Math.abs(lx - ox) >= mine) continue;
+      for (let oy = ly - CANOPY_TRUNK_SCAN; oy <= ly + CANOPY_TRUNK_SCAN; oy++) {
+        if (isTree(world.get(ox, oy))) return false;
+      }
+    }
+    return true;
+  };
+
   const q = [{ x: tx, y: ty }, ...removed];
   let guard = 0;
-  while (q.length && guard++ < 500) {
+  while (q.length && guard++ < 4000) {
     const c = q.shift();
     for (const [dx, dy] of NEIGHBORS8) {
       const nx = c.x + dx, ny = c.y + dy, k = key(nx, ny);
       if (seen.has(k)) continue;
-      if (isLeaf(world.get(nx, ny))) { seen.add(k); const cell = { x: nx, y: ny, id: world.get(nx, ny), trunk: false }; removed.push(cell); q.push(cell); }
+      if (!isLeaf(world.get(nx, ny))) continue;
+      seen.add(k);
+      if (!ownsLeaf(nx, ny)) continue; // belongs to a neighbouring tree
+      const cell = { x: nx, y: ny, id: world.get(nx, ny), trunk: false };
+      removed.push(cell);
+      q.push(cell);
     }
   }
   if (!removed.length) return;

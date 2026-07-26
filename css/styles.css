@@ -130,6 +130,11 @@ canvas#game {
   background: radial-gradient(1200px 800px at 50% -10%, #1b2450 0%, #080b16 62%);
 }
 .overlay.dialog { background: rgba(4, 6, 14, 0.74); backdrop-filter: blur(4px); }
+/* Pause keeps the world visible behind it — the render loop is still drawing,
+   so a solid backdrop (as `.overlay.menu` uses) would hide a live scene. The
+   main menu still uses `.menu`, where there is no world to show yet. */
+.overlay.paused { background: rgba(6, 9, 20, 0.42); backdrop-filter: blur(2px); }
+.overlay.paused .menu-panel { background: rgba(20, 26, 48, 0.82); }
 
 .menu-panel, .dialog-panel {
   background: var(--panel);

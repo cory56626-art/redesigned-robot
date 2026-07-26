@@ -97,7 +97,7 @@
         <input type="text" id="playerNameInput" maxlength="14" placeholder="Summoner" />
         <span class="color-swatch" id="playerColorSwatch" title="Your color (click to change)"></span>
       </div>
-      <p class="version">v1.1 · original art &amp; content</p>
+      <p class="version">4.1: Quality of Realms · original art &amp; content</p>
     </div>
   </div>
 
@@ -199,8 +199,20 @@
       <h2>Multiplayer</h2>
       <p class="hint">Online via a shared server. The host runs the world; others join with a room code or invite link. Works PC ↔ mobile.</p>
       <div class="mp-section">
+        <label for="mpDifficulty">Difficulty (new hosted world)</label>
+        <div class="difficulty-picker">
+          <div class="difficulty-picker-head">
+            <output id="mpDifficultyLabel">Normal</output>
+            <span id="mpDifficultyTier">Buffed baseline</span>
+          </div>
+          <input type="range" id="mpDifficulty" min="0" max="3" step="1" value="0" aria-label="Hosted world difficulty" />
+          <div class="difficulty-picker-scale" aria-hidden="true">
+            <span>Normal</span><span>Hard</span><span>Master</span><span>Masochist</span>
+          </div>
+          <p class="hint small" id="mpDifficultyHint">Enemies and bosses are tougher than the old baseline, but attacks stay readable.</p>
+        </div>
         <button class="btn primary" id="btnCreateServer">Create Server (host a world)</button>
-        <p class="hint small">Starts from your currently loaded world, or a new one.</p>
+        <p class="hint small">Starts from your currently loaded world (keeping its difficulty), or a new one at the difficulty above.</p>
       </div>
       <div class="mp-divider">or</div>
       <div class="mp-section">
@@ -219,7 +231,7 @@
   </div>
 
   <!-- ============ PAUSE MENU ============ -->
-  <div id="pauseMenu" class="overlay menu hidden">
+  <div id="pauseMenu" class="overlay paused hidden">
     <div class="menu-panel">
       <h2>Paused</h2>
       <div class="menu-buttons">

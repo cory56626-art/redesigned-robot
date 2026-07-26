@@ -28,7 +28,7 @@ function check(seed, name, ok, detail) {
 
 // Collect per-world statistics as well as pass/fail, so drift in ore density or
 // cave openness shows up as a number rather than a silent gameplay change.
-const stats = { ore: {}, caveFrac: [], surfaceSpan: [], trees: [], biomeCols: {} };
+const stats = { ore: {}, caveFrac: [], dirtFrac: [], cavernFrac: [], connected: [], surfaceSpan: [], trees: [], biomeCols: {} };
 
 for (let s = 0; s < SEEDS; s++) {
   const seed = (s * 2654435761 + 12345) >>> 0;
@@ -123,6 +123,64 @@ for (let s = 0; s < SEEDS; s++) {
   check(seed, 'caves are carved', caveFrac > 0.06, `only ${(caveFrac * 100).toFixed(1)}% open`);
   check(seed, 'world is not hollow', caveFrac < 0.55, `${(caveFrac * 100).toFixed(1)}% open`);
 
+  // ---- Caves are depth-graded ----
+  // The dirt layer should be near-solid with pockets while the cavern layer is
+  // airy. A flat profile is what makes an underground read as noise rather than
+  // as descending into something.
+  const band = { dirt: [0, 0], cavern: [0, 0] };
+  for (let x = 1; x < width - 1; x++) {
+    for (let y = surface[x] + 6; y < height - 5; y++) {
+      const b = y < UNDERGROUND_Y ? 'dirt' : y >= CAVERN_Y ? 'cavern' : null;
+      if (!b) continue;
+      band[b][1]++;
+      if (at(x, y) === T.AIR) band[b][0]++;
+    }
+  }
+  const dirtFrac = band.dirt[0] / Math.max(1, band.dirt[1]);
+  const cavernFrac = band.cavern[0] / Math.max(1, band.cavern[1]);
+  stats.dirtFrac.push(dirtFrac);
+  stats.cavernFrac.push(cavernFrac);
+  check(seed, 'dirt layer stays mostly solid', dirtFrac < 0.22,
+    `${(dirtFrac * 100).toFixed(1)}% open just under the surface`);
+  check(seed, 'cavern layer opens up', cavernFrac > dirtFrac * 2,
+    `dirt ${(dirtFrac * 100).toFixed(1)}% vs cavern ${(cavernFrac * 100).toFixed(1)}%`);
+
+  // ---- The cave system is one explorable network ----
+  // Sealed pockets you can only reach by mining in read as random holes. Most
+  // of the open space should belong to a single connected component.
+  {
+    const seen = new Uint8Array(width * height);
+    const stack = [];
+    let largest = 0, totalAir = 0;
+    for (let x = 1; x < width - 1; x++) {
+      for (let y = surface[x] + 6; y < height - 5; y++) {
+        const i = y * width + x;
+        if (at(x, y) !== T.AIR || seen[i]) continue;
+        let n = 0;
+        seen[i] = 1; stack.push(i);
+        while (stack.length) {
+          const j = stack.pop(); n++;
+          const jx = j % width, jy = (j / width) | 0;
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              const nx = jx + dx, ny = jy + dy;
+              if (nx < 1 || nx >= width - 1 || ny < 1 || ny >= height - 5) continue;
+              const k = ny * width + nx;
+              if (seen[k] || at(nx, ny) !== T.AIR) continue;
+              seen[k] = 1; stack.push(k);
+            }
+          }
+        }
+        totalAir += n;
+        if (n > largest) largest = n;
+      }
+    }
+    const share = largest / Math.max(1, totalAir);
+    stats.connected.push(share);
+    check(seed, 'caves form one connected system', share > 0.80,
+      `largest component is only ${(share * 100).toFixed(1)}% of open space`);
+  }
+
   // A surface entrance is a column where air runs from the surface line down
   // past the underground boundary without interruption long enough to matter.
   let entrances = 0;
@@ -212,6 +270,8 @@ const avg = (a) => (a.reduce((x, y) => x + y, 0) / Math.max(1, a.length));
 console.log(`worldgen-check: ${SEEDS} seeds, ${WORLD_W}x${WORLD_H} tiles\n`);
 console.log('  surface relief   ', `${avg(stats.surfaceSpan).toFixed(1)} tiles (min-to-max height)`);
 console.log('  underground open ', `${(avg(stats.caveFrac) * 100).toFixed(1)}%`);
+console.log('  cave depth grade ', `dirt ${(avg(stats.dirtFrac) * 100).toFixed(1)}% -> cavern ${(avg(stats.cavernFrac) * 100).toFixed(1)}%`);
+console.log('  cave connectivity', `${(avg(stats.connected) * 100).toFixed(1)}% in one system`);
 console.log('  trees per world  ', avg(stats.trees).toFixed(0));
 console.log('  biome columns    ', Object.entries(stats.biomeCols)
   .map(([k, v]) => `${k} ${(v / SEEDS).toFixed(0)}`).join(', '));

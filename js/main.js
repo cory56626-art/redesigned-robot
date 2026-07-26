@@ -1011,8 +1011,11 @@ class Game {
   }
 
   // ============ MULTIPLAYER ============
-  createServer() {
-    if (this.state !== 'playing') this.startNewWorld('Realm', '');
+  createServer(difficulty = 'normal') {
+    // Hosting from the menu used to fall through to startNewWorld's default,
+    // so a hosted world was always Normal with no way to choose. An already
+    // loaded world keeps its own difficulty.
+    if (this.state !== 'playing') this.startNewWorld('Realm', '', difficulty);
     if (this.net) { this.toast('Already connected', 'bad'); return; }
     this.net = new Net(this);
     this.isHost = true;

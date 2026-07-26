@@ -4,6 +4,12 @@
 // intents: move, jump, aim, primary-use, mine, place, consume.
 import { REACH, TILE } from '../config.js?v=realms-difficulty-22';
 
+// Wheel-to-hotbar feel. One notch on a typical mouse is ~100px of deltaY;
+// WHEEL_STEP is deliberately a little under that so a notch always registers,
+// while a trackpad's small deltas have to accumulate before stepping.
+const WHEEL_STEP = 80;
+const WHEEL_IDLE_MS = 220;
+
 export class Input {
   constructor(canvas) {
     this.canvas = canvas;
@@ -245,16 +251,34 @@ export class Input {
       }
     });
 
+    // Hotbar scroll. Firing one step per wheel *event* is only right for a
+    // notched mouse: trackpads and high-resolution wheels emit a stream of
+    // small deltas per gesture, which used to spin the hotbar several slots
+    // from one flick. Accumulate real scroll distance and emit a step per
+    // notch-equivalent instead, so both input types feel the same.
+    this._wheelAccum = 0;
+    this._wheelAt = 0;
     window.addEventListener(
       'wheel',
       (e) => {
         if (this.isTyping()) return;
         if (document.querySelector('.overlay:not(.hidden)')) return;
 
-        this.fire(
-          'hotbarScroll',
-          e.deltaY > 0 ? 1 : -1
-        );
+        // Normalise to pixels: 0 = pixel, 1 = line, 2 = page.
+        const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1;
+        const delta = e.deltaY * unit;
+        const now = performance.now();
+        // A new gesture, or a reversal, starts from zero so direction changes
+        // respond immediately instead of first paying off the old momentum.
+        if (now - this._wheelAt > WHEEL_IDLE_MS || Math.sign(delta) !== Math.sign(this._wheelAccum)) {
+          this._wheelAccum = 0;
+        }
+        this._wheelAt = now;
+        this._wheelAccum += delta;
+
+        // Subtract rather than reset, so a fast flick still steps evenly.
+        while (this._wheelAccum >= WHEEL_STEP) { this._wheelAccum -= WHEEL_STEP; this.fire('hotbarScroll', 1); }
+        while (this._wheelAccum <= -WHEEL_STEP) { this._wheelAccum += WHEEL_STEP; this.fire('hotbarScroll', -1); }
       },
       { passive: true }
     );
