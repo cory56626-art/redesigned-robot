@@ -1,8 +1,8 @@
 // Summoner Realms — minion entity. Owned by a player; the owner's client
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
-import { minionDef } from '../data/minions.js?v=aidan-summon-12';
-import { initAidanState, updateAidanState } from './aidan.js?v=aidan-summon-14';
+import { minionDef } from '../data/minions.js?v=aidan-summon-15';
+import { initAidanState, updateAidanState } from './aidan.js?v=aidan-summon-15';
 import { dist2, aabb, angleTo } from '../utils.js?v=realms-difficulty-22';
 import { TILE } from '../config.js?v=realms-difficulty-22';
 import { Projectile } from './projectile.js?v=realms-difficulty-22';
@@ -906,12 +906,26 @@ export class Minion {
     this.vx += (knockbackX || 0) * 5;
     if (this.key === 'aidan' && game && dmg > 0 &&
         !(this.freezeWindup > 0 || this.freezeActive > 0)) {
-      const threat = game.nearestEnemyOrBoss?.(
-        this.x + this.w / 2, this.y + this.h / 2, this.def.freezeRange || 900
-      );
-      if (threat) {
-        this.freezeTarget = threat;
-        this.freezeDefensePending = true;
+      // A single poke should not pull out the freeze gun. Build pressure over
+      // a short rolling window, then queue one response only after sustained
+      // aggression. The controller consumes this pending response after any
+      // active move has finished.
+      const triggerWindow = this.def.freezeTriggerWindow || 2.5;
+      this.freezeDefenseWindow = Math.max(this.freezeDefenseWindow || 0, triggerWindow);
+      this.freezeDefenseHitCount = (this.freezeDefenseHitCount || 0) + 1;
+      this.freezeDefenseDamage = (this.freezeDefenseDamage || 0) + dmg;
+      const triggerHits = this.def.freezeTriggerHits || 3;
+      const triggerDamage = this.def.freezeTriggerDamage || 24;
+      const enoughPressure = this.freezeDefenseHitCount >= triggerHits ||
+        (this.freezeDefenseHitCount >= 2 && this.freezeDefenseDamage >= triggerDamage);
+      if (!this.freezeDefensePending && (this.freezeCooldown || 0) <= 0 && enoughPressure) {
+        const threat = game.nearestEnemyOrBoss?.(
+          this.x + this.w / 2, this.y + this.h / 2, this.def.freezeRange || 900
+        );
+        if (threat) {
+          this.freezeTarget = threat;
+          this.freezeDefensePending = true;
+        }
       }
     }
     if (this.def.behavior === 'diamondHeart') {
