@@ -1,6 +1,6 @@
 // Summoner Realms — camera. Follows a target, clamps to world, computes zoom.
-import { TILE, WORLD_W, WORLD_H, TARGET_TILES_V } from '../config.js?v=realms-qor-41';
-import { clamp, lerp } from '../utils.js?v=realms-qor-41';
+import { TILE, WORLD_W, WORLD_H, TARGET_TILES_V } from '../config.js?v=realms-qor-45';
+import { clamp, lerp } from '../utils.js?v=realms-qor-45';
 
 // Player-adjustable zoom around the window-derived base scale. Zooming out too
 // far turns the game into a map; too far in and bosses leave the screen.

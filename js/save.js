@@ -1,5 +1,5 @@
 // Summoner Realms — localStorage save/load with named slots + save indicator.
-import { SAVE_PREFIX, SAVE_INDEX_KEY, SETTINGS_KEY, SAVE_VERSION, LEGACY_WORLD_W } from './config.js?v=realms-qor-41';
+import { SAVE_PREFIX, SAVE_INDEX_KEY, SETTINGS_KEY, SAVE_VERSION, LEGACY_WORLD_W } from './config.js?v=realms-qor-45';
 
 // Upgrade a save to the current format.
 //

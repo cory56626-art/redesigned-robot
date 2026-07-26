@@ -2,48 +2,48 @@
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty,
-} from './config.js?v=realms-qor-41';
-import { hashString, mulberry32, dist2, uid } from './utils.js?v=realms-qor-41';
-import { World } from './world/world.js?v=realms-qor-41';
-import { T } from './world/tiles.js?v=realms-qor-41';
-import { Sprites } from './art/sprites.js?v=realms-qor-41';
-import { Camera } from './engine/camera.js?v=realms-qor-41';
-import { Input } from './engine/input.js?v=realms-qor-41';
-import { AudioManager } from './engine/audio.js?v=realms-qor-41';
-import { Renderer } from './engine/renderer.js?v=realms-qor-41';
-import { Fx } from './engine/fx.js?v=realms-qor-41';
-import { DayNight } from './systems/daynight.js?v=realms-qor-41';
-import { Weather } from './systems/weather.js?v=realms-qor-41';
-import { Spawner } from './systems/spawner.js?v=realms-qor-41';
-import { Progression } from './systems/progression.js?v=realms-qor-41';
-import { starterInventory } from './systems/inventory.js?v=realms-qor-41';
-import * as craftSys from './systems/crafting.js?v=realms-qor-41';
-import { applyPotion } from './systems/combat.js?v=realms-qor-41';
-import { smartTarget } from './systems/smartcursor.js?v=realms-qor-41';
-import { Minimap } from './systems/minimap.js?v=realms-qor-41';
-import { MinimapUI } from './ui/minimap.js?v=realms-qor-41';
-import { Bobber, findBait, rollCatch, openCrate } from './systems/fishing.js?v=realms-qor-41';
-import { Player, assignColor } from './entities/player.js?v=realms-qor-41';
-import { Enemy } from './entities/enemy.js?v=realms-qor-41';
-import { Boss } from './entities/boss.js?v=realms-qor-41';
-import { Minion } from './entities/minion.js?v=realms-qor-41';
-import { Npc } from './entities/npc.js?v=realms-qor-41';
-import { Projectile } from './entities/projectile.js?v=realms-qor-41';
-import { DropItem } from './entities/droppeditem.js?v=realms-qor-41';
-import { FallingTree } from './entities/fallingtree.js?v=realms-qor-41';
-import { ThrownItem } from './entities/thrown.js?v=realms-qor-41';
-import { ENEMIES } from './data/enemies.js?v=realms-qor-41';
-import { BOSSES } from './data/bosses.js?v=realms-qor-41';
-import { item as getItem } from './data/items.js?v=realms-qor-41';
-import { HUD } from './ui/hud.js?v=realms-qor-41';
-import { Menus } from './ui/menus.js?v=realms-qor-41';
-import { NpcDialog } from './ui/npcdialog.js?v=realms-qor-41';
-import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=realms-qor-41';
-import { SaveManager, setSaveIndicator } from './save.js?v=realms-qor-41';
-import { CommandConsole } from './commands.js?v=realms-qor-41';
-import { Net } from './net/net.js?v=realms-qor-41';
-import { MSG } from './net/protocol.js?v=realms-qor-41';
-import * as sync from './net/sync.js?v=realms-qor-41';
+} from './config.js?v=realms-qor-45';
+import { hashString, mulberry32, dist2, uid } from './utils.js?v=realms-qor-45';
+import { World } from './world/world.js?v=realms-qor-45';
+import { T } from './world/tiles.js?v=realms-qor-45';
+import { Sprites } from './art/sprites.js?v=realms-qor-45';
+import { Camera } from './engine/camera.js?v=realms-qor-45';
+import { Input } from './engine/input.js?v=realms-qor-45';
+import { AudioManager } from './engine/audio.js?v=realms-qor-45';
+import { Renderer } from './engine/renderer.js?v=realms-qor-45';
+import { Fx } from './engine/fx.js?v=realms-qor-45';
+import { DayNight } from './systems/daynight.js?v=realms-qor-45';
+import { Weather } from './systems/weather.js?v=realms-qor-45';
+import { Spawner } from './systems/spawner.js?v=realms-qor-45';
+import { Progression } from './systems/progression.js?v=realms-qor-45';
+import { starterInventory } from './systems/inventory.js?v=realms-qor-45';
+import * as craftSys from './systems/crafting.js?v=realms-qor-45';
+import { applyPotion } from './systems/combat.js?v=realms-qor-45';
+import { smartTarget } from './systems/smartcursor.js?v=realms-qor-45';
+import { Minimap } from './systems/minimap.js?v=realms-qor-45';
+import { MinimapUI } from './ui/minimap.js?v=realms-qor-45';
+import { Bobber, findBait, rollCatch, openCrate } from './systems/fishing.js?v=realms-qor-45';
+import { Player, assignColor } from './entities/player.js?v=realms-qor-45';
+import { Enemy } from './entities/enemy.js?v=realms-qor-45';
+import { Boss } from './entities/boss.js?v=realms-qor-45';
+import { Minion } from './entities/minion.js?v=realms-qor-45';
+import { Npc } from './entities/npc.js?v=realms-qor-45';
+import { Projectile } from './entities/projectile.js?v=realms-qor-45';
+import { DropItem } from './entities/droppeditem.js?v=realms-qor-45';
+import { FallingTree } from './entities/fallingtree.js?v=realms-qor-45';
+import { ThrownItem } from './entities/thrown.js?v=realms-qor-45';
+import { ENEMIES } from './data/enemies.js?v=realms-qor-45';
+import { BOSSES } from './data/bosses.js?v=realms-qor-45';
+import { item as getItem } from './data/items.js?v=realms-qor-45';
+import { HUD } from './ui/hud.js?v=realms-qor-45';
+import { Menus } from './ui/menus.js?v=realms-qor-45';
+import { NpcDialog } from './ui/npcdialog.js?v=realms-qor-45';
+import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=realms-qor-45';
+import { SaveManager, setSaveIndicator } from './save.js?v=realms-qor-45';
+import { CommandConsole } from './commands.js?v=realms-qor-45';
+import { Net } from './net/net.js?v=realms-qor-45';
+import { MSG } from './net/protocol.js?v=realms-qor-45';
+import * as sync from './net/sync.js?v=realms-qor-45';
 
 class Game {
   constructor() {
@@ -218,34 +218,52 @@ class Game {
     this._last = ts;
     if (dt > 0.05) dt = 0.05;
 
-    if (this.state === 'playing' && !this.paused && !this._simFrozen()) {
-      this._acc = (this._acc || 0) + dt;
-      let steps = 0;
-      while (this._acc >= SIM_DT && steps < 5) { this._step(SIM_DT); this._acc -= SIM_DT; steps++; }
-    } else {
-      this._acc = 0; // don't bank time while frozen, or it fast-forwards on resume
-    }
+    try {
+      if (this.state === 'playing' && !this.paused && !this._simFrozen()) {
+        this._acc = (this._acc || 0) + dt;
+        let steps = 0;
+        while (this._acc >= SIM_DT && steps < 5) { this._step(SIM_DT); this._acc -= SIM_DT; steps++; }
+      } else {
+        this._acc = 0; // don't bank time while frozen, or it fast-forwards on resume
+      }
 
-    if (this.state !== 'playing') {
-      // The simulation is what normally drives audio, so keep the soundtrack
-      // ticking in the menu too.
-      this.audio.update(this, dt);
-    }
+      if (this.state !== 'playing') {
+        // The simulation is what normally drives audio, so keep the soundtrack
+        // ticking in the menu too.
+        this.audio.update(this, dt);
+      }
 
-    if (this.state === 'playing') {
-      this.renderer.draw(this);
-      // Render-rate, cosmetic work: reveal what the camera can see and repaint
-      // any chunks that changed, then draw the widget / expanded map.
-      this.minimap.update(dt, this);
-      this.ui.minimap.draw();
-      this.ui.hud.update();
-      this._updateTalkButton();
-      this.ui.menus.tick(dt);
-      this._autosaveTick(dt);
-      // death screen toggle
-      if (this.localPlayer && !this.localPlayer.alive && !this.ui.menus.isOpen('deathScreen')) this.ui.menus.showDeath();
+      if (this.state === 'playing') {
+        this.renderer.draw(this);
+        // Render-rate, cosmetic work: reveal what the camera can see and
+        // repaint any chunks that changed, then draw the widget / expanded map.
+        this.minimap.update(dt, this);
+        this.ui.minimap.draw();
+        this.ui.hud.update();
+        this._updateTalkButton();
+        this.ui.menus.tick(dt);
+        this._autosaveTick(dt);
+        // death screen toggle
+        if (this.localPlayer && !this.localPlayer.alive && !this.ui.menus.isOpen('deathScreen')) this.ui.menus.showDeath();
+      }
+    } catch (err) {
+      // One bad entity or snapshot must not terminate requestAnimationFrame
+      // permanently. Reset the accumulator so recovery never fast-forwards the
+      // world, and surface a throttled notice for debugging/playtesting.
+      this._acc = 0;
+      this._reportRuntimeFault(err);
+    } finally {
+      requestAnimationFrame(this._loop);
     }
-    requestAnimationFrame(this._loop);
+  }
+
+  _reportRuntimeFault(err) {
+    console.error('[Summoner Realms] recovered from a frame error', err);
+    const now = performance.now();
+    if (!this._runtimeFaultAt || now - this._runtimeFaultAt > 2000) {
+      this._runtimeFaultAt = now;
+      try { this.toast('Recovered from a temporary game hiccup.', 'bad'); } catch {}
+    }
   }
 
   _step(dt) {
@@ -265,17 +283,17 @@ class Game {
     this.audio.update(this, dt);
 
     // Players
-    for (const p of this.players.values()) p.update(dt, this);
+    for (const p of [...this.players.values()]) p.update(dt, this);
 
     if (this.isHost) {
       this.spawner.update(dt, this);
-      for (const e of this.enemies) { if (!e.ghost) { e.update(dt, this); e.tickEffects && e.tickEffects(dt, this); } }
-      for (const b of this.bosses) if (!b.ghost) b.update(dt, this);
-      for (const d of this.drops) if (!d.ghost) d.update(dt, this);
+      for (const e of this.enemies.slice()) { if (!e.ghost) { e.update(dt, this); e.tickEffects && e.tickEffects(dt, this); } }
+      for (const b of this.bosses.slice()) if (!b.ghost) b.update(dt, this);
+      for (const d of this.drops.slice()) if (!d.ghost) d.update(dt, this);
     } else {
       sync.interpolateGhosts(this, dt);
       this._clientDropPickup(dt);
-      for (const d of this.drops) if (d.localOnly) d.update(dt, this);
+      for (const d of this.drops.slice()) if (d.localOnly) d.update(dt, this);
     }
 
     // Guide NPC
@@ -283,13 +301,14 @@ class Game {
     this._updateBobbers(dt);
 
     // Minions (local only)
-    for (const m of this.minions) m.update(dt, this);
+    for (const m of this.minions.slice()) m.update(dt, this);
 
-    // Projectiles
-    for (const pr of this.projectiles) pr.update(dt, this);
+    // Projectiles: use a stable batch because impact bursts append new
+    // projectiles while the current batch is being simulated.
+    for (const pr of this.projectiles.slice()) pr.update(dt, this);
 
     // Thrown items (bombs, shurikens, …)
-    for (const t of this.thrown) t.update(dt, this);
+    for (const t of this.thrown.slice()) t.update(dt, this);
 
     // Cleanup dead
     this.enemies = this.enemies.filter(e => { if (e.dead) { this.enemyById.delete(e.netId); return false; } return true; });
@@ -1191,7 +1210,13 @@ class Game {
     if (this.net) this.net.relay(msg);
   }
 
-  handleNetMessage(fromId, msg, conn) { sync.handleMessage(this, fromId, msg, conn); }
+  handleNetMessage(fromId, msg, conn) {
+    try {
+      sync.handleMessage(this, fromId, msg, conn);
+    } catch (err) {
+      this._reportRuntimeFault(err);
+    }
+  }
   onClientLeave(id) {
     const p = this.players.get(id);
     if (p) { this.ui.menus.addChat(null, null, p.name + ' left', true); this.toast(p.name + ' left', 'info'); }

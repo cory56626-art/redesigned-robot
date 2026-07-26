@@ -1,16 +1,16 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H } from '../config.js?v=realms-qor-41';
-import { T, isSolid, isTree, isLeaf, tileDef, tileSway } from '../world/tiles.js?v=realms-qor-41';
-import { W, hasWall } from '../world/walls.js?v=realms-qor-41';
-import { BIOMES } from '../world/biomes.js?v=realms-qor-41';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=realms-qor-41';
-import { item as getItem } from '../data/items.js?v=realms-qor-41';
-import { canPlaceAt } from '../systems/combat.js?v=realms-qor-41';
-import { clamp } from '../utils.js?v=realms-qor-41';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H } from '../config.js?v=realms-qor-45';
+import { T, isSolid, isTree, isLeaf, tileDef, tileSway } from '../world/tiles.js?v=realms-qor-45';
+import { W, hasWall } from '../world/walls.js?v=realms-qor-45';
+import { BIOMES } from '../world/biomes.js?v=realms-qor-45';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=realms-qor-45';
+import { item as getItem } from '../data/items.js?v=realms-qor-45';
+import { canPlaceAt } from '../systems/combat.js?v=realms-qor-45';
+import { clamp } from '../utils.js?v=realms-qor-45';
 
-// Maximum bend of a fully-swaying tile at full wind, in radians (~14 degrees).
-const SWAY_RADIANS = 0.25;
+// Maximum bend of a fully-swaying tile at full wind, in radians (~17 degrees).
+const SWAY_RADIANS = 0.30;
 
 const PROJ_GLOW = {
   thorn: '#7ee08a', seed: '#a7e36f', rock: '#8a7a5a', shock: '#d3b985',
@@ -597,6 +597,11 @@ export class Renderer {
 
   _drawEnemies(game, ctx) {
     for (const e of game.enemies) {
+      // A malformed replicated enemy must not abort the whole canvas frame.
+      // Keep the context isolated so a failed glow/gradient cannot brighten
+      // the rest of the scene or hide the player.
+      ctx.save();
+      try {
       this._drawEnemyTelegraph(ctx, e);
       switch (e.key) {
         case 'slugling': this._drawSlugling(ctx, e); break;
@@ -617,6 +622,16 @@ export class Renderer {
         default: this._drawUnknownEnemy(ctx, e); break;
       }
       if (e.hp < e.maxHp) this._miniHp(ctx, e, e.hp / e.maxHp, '#ff6b7d');
+      } catch (err) {
+        if (e && !e._renderFaultReported) {
+          e._renderFaultReported = true;
+          console.warn('[Summoner Realms] skipped malformed enemy render', e.key, err);
+        }
+      } finally {
+        // Never leak a glow blend mode into the rest of the scene.
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+      }
     }
   }
 
@@ -2032,7 +2047,9 @@ export class Renderer {
 
   _drawFirefly(ctx, e) {
     const x = e.x + e.w / 2, y = e.y + e.h / 2;
-    const pulse = 0.55 + 0.45 * Math.sin(e.walkAnim * 3 + e.netId);
+    const anim = Number.isFinite(Number(e.walkAnim)) ? Number(e.walkAnim) : 0;
+    const id = Number.isFinite(Number(e.netId)) ? Number(e.netId) : 0;
+    const pulse = 0.55 + 0.45 * Math.sin(anim * 3 + id);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     const g = ctx.createRadialGradient(x, y, 0, x, y, 7);

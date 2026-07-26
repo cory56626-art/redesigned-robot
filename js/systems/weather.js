@@ -13,8 +13,8 @@
 //
 // Deterministic given (seed, elapsed time) so a networked client that misses a
 // snapshot still lands on the same weather the host has.
-import { DAY_LENGTH } from '../config.js?v=realms-qor-41';
-import { mulberry32 } from '../utils.js?v=realms-qor-41';
+import { DAY_LENGTH } from '../config.js?v=realms-qor-45';
+import { mulberry32 } from '../utils.js?v=realms-qor-45';
 
 // A new target is picked this often (seconds). DAY_LENGTH is 180s, so this is
 // roughly "every few hours" in game time.
@@ -96,4 +96,5 @@ export class Weather {
 // How strongly wind pushes the player, in px/s^2 at full strength. Deliberately
 // small: it should make running into a gale feel like work, never like losing
 // control of the character.
-export const WIND_PLAYER_ACCEL = 46;
+// Keep the terrain sway visible while making character drift a subtle cue.
+export const WIND_PLAYER_ACCEL = 8;
