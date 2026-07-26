@@ -8,7 +8,7 @@ import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=aidan-s
 import { item as getItem } from '../data/items.js?v=aidan-summon-12';
 import { canPlaceAt } from '../systems/combat.js?v=aidan-summon-12';
 import { clamp } from '../utils.js?v=aidan-summon-12';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=aidan-summon-14';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=aidan-summon-15';
 
 const PROJ_GLOW = {
   thorn: '#7ee08a', seed: '#a7e36f', rock: '#8a7a5a', shock: '#d3b985',
