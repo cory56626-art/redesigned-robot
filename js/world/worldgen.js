@@ -17,7 +17,7 @@
 // Deterministic from a numeric seed. `tools/worldgen-check.mjs` asserts the
 // invariants this file is responsible for.
 import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE } from '../config.js?v=realms-qor-41';
-import { T } from './tiles.js?v=realms-qor-41';
+import { T, isSolid } from './tiles.js?v=realms-qor-41';
 import { W } from './walls.js?v=realms-qor-41';
 import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=realms-qor-41';
 import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep } from '../utils.js?v=realms-qor-41';
@@ -40,6 +40,7 @@ export function generateWorld(seed) {
   const surface = buildHeightmap(seed, w, biome);
   const spawnTx = pickSpawnColumn(biome, w);
   flattenSpawnPlain(surface, spawnTx, w);
+  const ponds = carvePonds(surface, seed, w, biome, spawnTx);
   enforceWalkableSlope(surface, w);
 
   fillLayers(tiles, walls, w, h, surface, biome, seed);
@@ -50,6 +51,9 @@ export function generateWorld(seed) {
 
   seedOres(tiles, w, h, surface, rand);
   decorate(tiles, w, h, surface, biome, rand, spawnTx);
+
+  fillWater(tiles, w, h, surface);
+  fillPonds(tiles, w, h, surface, ponds);
 
   sealSpawn(tiles, walls, w, h, surface, spawnTx, biome);
   clearSurfaceWalls(walls, w, h, surface);
@@ -636,6 +640,112 @@ function seedOres(tiles, w, h, surface, rand) {
         if (band.hostMat && tiles[idx(x, y)] !== T.BLIGHTSTONE) continue;
         const n = band.size[0] + Math.floor(rand() * (band.size[1] - band.size[0] + 1));
         vein(tiles, w, h, x, y, n, band.id, rand, minY);
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Water
+// ---------------------------------------------------------------------------
+
+// Still water, no flow simulation. Pools are placed once, where a basin can
+// actually hold them, and never move again.
+//
+// Filling works bottom-up on maximal horizontal runs of air. A run holds water
+// only if *every* cell beneath it is already solid or water — so the moment a
+// row spills out over a gap it stops, which is what makes a bowl fill to its
+// brim and a sloping passage stay dry, without simulating anything. A depth cap
+// stops a narrow vertical shaft from filling to the ceiling like a well.
+const MAX_POOL_DEPTH = 7;
+
+function fillWater(tiles, w, h, surface) {
+  const idx = (x, y) => y * w + x;
+  const depth = new Int16Array(w); // consecutive water rows per column
+  const bottom = h - BEDROCK - 1;
+
+  for (let y = bottom; y >= 1; y--) {
+    let x = 0;
+    while (x < w) {
+      if (tiles[idx(x, y)] !== T.AIR) { depth[x] = 0; x++; continue; }
+      const x0 = x;
+      while (x < w && tiles[idx(x, y)] === T.AIR) x++;
+      const x1 = x - 1;
+
+      // A run touching the world edge drains off the map.
+      if (x0 === 0 || x1 === w - 1) { for (let i = x0; i <= x1; i++) depth[i] = 0; continue; }
+
+      let holds = true;
+      for (let i = x0; i <= x1; i++) {
+        const below = tiles[idx(i, y + 1)];
+        // Anything that isn't air holds water up; air means it drains away.
+        if (below === T.AIR) { holds = false; break; }
+        // Decor (grass, mushrooms) sits in air and cannot hold a pool.
+        if (below !== T.WATER && !isSolid(below)) { holds = false; break; }
+        if (depth[i] + 1 > MAX_POOL_DEPTH) { holds = false; break; }
+      }
+      // Never pool above the surface line — that would be water in the sky.
+      if (holds) {
+        for (let i = x0; i <= x1; i++) if (y < surface[i]) { holds = false; break; }
+      }
+      if (!holds) { for (let i = x0; i <= x1; i++) depth[i] = 0; continue; }
+
+      for (let i = x0; i <= x1; i++) { tiles[idx(i, y)] = T.WATER; depth[i]++; }
+    }
+  }
+}
+
+// Shallow surface ponds, carved into the heightmap *before* the walkable-slope
+// pass so the banks stay climbable and the surface-step invariant still holds.
+// They exist so fishing is available above ground, not only in a cave.
+function carvePonds(surface, seed, w, biome, spawnTx) {
+  const rc = mulberry32((seed ^ 0x90d5) >>> 0);
+  const ponds = [];
+  const want = 3 + (rc() * 3 | 0);
+  for (let i = 0; i < want && ponds.length < want; i++) {
+    const x = 20 + Math.floor(rc() * (w - 40));
+    if (Math.abs(x - spawnTx) < SPAWN_PLAIN + 14) continue;
+    const key = BIOME_ORDER[biome.map[x]];
+    if (key === 'corrupt') continue; // the blight does not hold clean water
+    if (ponds.some(p => Math.abs(p.x - x) < 60)) continue;
+    const rw = 5 + (rc() * 6 | 0);
+    const deep = 3 + (rc() * 2 | 0);
+    // A smooth bowl, so the banks read as a shoreline rather than a pit.
+    for (let dx = -rw; dx <= rw; dx++) {
+      const cx = x + dx;
+      if (cx < 2 || cx >= w - 2) continue;
+      const t = 1 - (dx / rw) * (dx / rw);
+      surface[cx] += Math.round(deep * t);
+    }
+    ponds.push({ x, rw });
+  }
+  return ponds;
+}
+
+// Fill the carved bowls up to just under their rim.
+function fillPonds(tiles, w, h, surface, ponds) {
+  const idx = (x, y) => y * w + x;
+  for (const p of ponds) {
+    const left = Math.max(1, p.x - p.rw), right = Math.min(w - 2, p.x + p.rw);
+    // The rim is the highest ground on either bank; sit the surface one below it
+    // so the pond never spills over the lip.
+    const level = Math.min(surface[left], surface[right]) + 1;
+
+    // A cave entrance carved earlier can punch straight through the bowl. Such
+    // a pond would drain, so check the whole floor before committing to any of
+    // it rather than leaving water hanging over the hole.
+    let sound = true;
+    for (let cx = left; cx <= right && sound; cx++) {
+      if (!isSolid(tiles[idx(cx, surface[cx])])) sound = false;
+    }
+    if (!sound) continue;
+
+    for (let cx = left; cx <= right; cx++) {
+      for (let y = level; y < surface[cx]; y++) {
+        // Clear any decor worldgen already stood in the basin — grass does not
+        // grow at the bottom of a pond, and it would leave water perched on it.
+        const t = tiles[idx(cx, y)];
+        if (t === T.AIR || (!isSolid(t) && t !== T.WATER)) tiles[idx(cx, y)] = T.WATER;
       }
     }
   }

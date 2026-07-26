@@ -44,6 +44,31 @@ export function applyGravity(e, dt) {
   if (e.vy > MAX_FALL) e.vy = MAX_FALL;
 }
 
+// Water is still — there is no flow simulation. What it does is change how you
+// move through it: you sink slowly instead of falling, drag bleeds off speed,
+// and holding jump swims upward. No drowning; a pool is an obstacle and a
+// fishing spot, not a death trap.
+export const SWIM_GRAVITY = 0.28;   // fraction of normal gravity while submerged
+export const SWIM_DRAG = 3.4;       // per-second velocity damping
+export const SWIM_MAX_SINK = 90;    // terminal sink speed
+export const SWIM_RISE = -150;      // upward velocity from a swim stroke
+
+// True when the entity's midpoint sits in liquid.
+export function inLiquid(e, world) {
+  return world.isLiquidAt(
+    Math.floor((e.x + e.w / 2) / TILE),
+    Math.floor((e.y + e.h * 0.55) / TILE),
+  );
+}
+
+export function applyLiquidPhysics(e, dt) {
+  e.vy += GRAVITY * SWIM_GRAVITY * dt;
+  const drag = Math.max(0, 1 - SWIM_DRAG * dt);
+  e.vx *= drag;
+  e.vy *= drag;
+  if (e.vy > SWIM_MAX_SINK) e.vy = SWIM_MAX_SINK;
+}
+
 // Keep an entity inside the world horizontally.
 export function clampToWorld(e, world) {
   const maxX = world.width * TILE - e.w;

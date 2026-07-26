@@ -1,7 +1,7 @@
 // Summoner Realms — runtime world: tile grid, wall grid, collision, mining,
 // lighting, and the edit diffs that get saved.
 import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=realms-qor-41';
-import { T, tileDef, isSolid, tileLight } from './tiles.js?v=realms-qor-41';
+import { T, tileDef, isSolid, tileLight, isLiquid } from './tiles.js?v=realms-qor-41';
 import { W, hasWall, wallBlastResist } from './walls.js?v=realms-qor-41';
 import { BIOME_ORDER } from './biomes.js?v=realms-qor-41';
 import { generateWorld } from './worldgen.js?v=realms-qor-41';
@@ -72,6 +72,7 @@ export class World {
   }
 
   isSolidAt(tx, ty) { return isSolid(this.get(tx, ty)); }
+  isLiquidAt(tx, ty) { return isLiquid(this.get(tx, ty)); }
 
   // True if a straight line between two world-pixel points crosses no solid
   // tile. Used by minions/AI so they don't target through walls.

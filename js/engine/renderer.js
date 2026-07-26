@@ -363,6 +363,10 @@ export class Renderer {
       for (let tx = tx0; tx <= tx1; tx++) {
         const id = world.get(tx, ty);
         if (id === T.AIR) continue;
+        // Water is drawn directly rather than as a cached sprite: it needs to
+        // be translucent (so the wall and any ore behind it read through) and
+        // its surface row animates.
+        if (id === T.WATER) { this._drawWaterTile(ctx, world, tx, ty, game); continue; }
         const spr = this._tileSprite(world, tx, ty, id);
         if (spr) {
           // Leaves and plants bend in the wind. Tile sprites are cached
@@ -391,6 +395,33 @@ export class Renderer {
         }
       }
     }
+  }
+
+  // Still water. Translucent so terrain and ore read through it, with a lighter
+  // animated band on the top row so the surface is obvious from a distance and
+  // you can tell at a glance where a pool ends.
+  _drawWaterTile(ctx, world, tx, ty, game) {
+    const px = tx * TILE, py = ty * TILE;
+    const surfaceRow = world.get(tx, ty - 1) !== T.WATER;
+    ctx.save();
+    ctx.globalAlpha = 0.62;
+    ctx.fillStyle = '#2f6fa8';
+    ctx.fillRect(px, py, TILE, TILE);
+    // A faint depth gradient keeps a deep pool from reading as flat paint.
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = '#0d2c4a';
+    ctx.fillRect(px, py + TILE * 0.5, TILE, TILE * 0.5);
+    if (surfaceRow) {
+      const t = (game.time ? game.time.t : 0) * 2 + tx * 0.6;
+      const lift = Math.sin(t) * 0.8;
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = '#8fd0f0';
+      ctx.fillRect(px, py + 1 + lift, TILE, 1.4);
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle = '#d8f2ff';
+      ctx.fillRect(px + ((tx * 7) % 8), py + 3 + lift, 3, 1);
+    }
+    ctx.restore();
   }
 
   // Pick the right variant for a tile from its neighbours: trunks and canopies

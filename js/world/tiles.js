@@ -46,6 +46,7 @@ export const T = {
   CAVEMOSS: 36,
   GLOWSHROOM: 37,
   BLIGHTWOOD: 38,
+  WATER: 39,
 };
 
 // Each entry: name, solid, color (fallback), hardness, minPower, drop item id,
@@ -105,6 +106,10 @@ export const TILES = {
   [T.GLOWSHROOM]: { name: 'Glowcap', sway: 0.4, solid: false, color: '#7fd8e8', hardness: 4, minPower: 0, drop: 'fiber', dropChance: 0.3, decor: true, light: 0.42, blastResist: 0 },
   // Corruption trunk: same axe rules as wood, its own bruised palette.
   [T.BLIGHTWOOD]: { name: 'Blightwood', solid: false, color: '#5b4560', hardness: 12, minPower: 0, toolType: 'axe', tree: true, decor: true, mat: 'wood', drop: 'wood', blastResist: 0 },
+  // Still water. Not a flow simulation — pools sit where worldgen puts them.
+  // `liquid` gates the swim handling in physics.js and is what a fishing bobber
+  // looks for. Non-minable (no hardness) so a pickaxe can't scoop it.
+  [T.WATER]: { name: 'Water', solid: false, liquid: true, color: '#2f6fa8', hardness: 0, minPower: 0, blastResist: 0 },
 };
 
 export function tileDef(id) { return TILES[id] || TILES[T.AIR]; }
@@ -115,6 +120,7 @@ export function isLeaf(id) { return !!(TILES[id] && TILES[id].leaf); }
 // How much a tile bends in the wind (0 = rigid). Leaves and plants sway;
 // terrain does not.
 export function tileSway(id) { return (TILES[id] && TILES[id].sway) || 0; }
+export function isLiquid(id) { return !!(TILES[id] && TILES[id].liquid); }
 export function isDecor(id) { return !!(TILES[id] && TILES[id].decor); }
 export function tileMat(id) { return (TILES[id] && TILES[id].mat) || null; }
 export function blastResist(id) {

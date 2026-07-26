@@ -28,7 +28,7 @@ function check(seed, name, ok, detail) {
 
 // Collect per-world statistics as well as pass/fail, so drift in ore density or
 // cave openness shows up as a number rather than a silent gameplay change.
-const stats = { ore: {}, caveFrac: [], dirtFrac: [], cavernFrac: [], connected: [], surfaceSpan: [], trees: [], biomeCols: {} };
+const stats = { ore: {}, caveFrac: [], dirtFrac: [], cavernFrac: [], connected: [], water: [], surfaceSpan: [], trees: [], biomeCols: {} };
 
 for (let s = 0; s < SEEDS; s++) {
   const seed = (s * 2654435761 + 12345) >>> 0;
@@ -111,11 +111,14 @@ for (let s = 0; s < SEEDS; s++) {
   check(seed, 'corruption is one band', runs.corrupt === 1, `${runs.corrupt} runs`);
 
   // ---- Caves exist, and some of them reach the surface ----
+  // Water sits in carved cave and can be swum through, so it counts as open
+  // space here — otherwise filling a cavern with a pool reads as un-carving it.
+  const isOpen = (x, y) => { const t = at(x, y); return t === T.AIR || t === T.WATER; };
   let caveTiles = 0, undergroundTiles = 0;
   for (let x = 1; x < width - 1; x++) {
     for (let y = surface[x] + 6; y < height - 5; y++) {
       undergroundTiles++;
-      if (at(x, y) === T.AIR) caveTiles++;
+      if (isOpen(x, y)) caveTiles++;
     }
   }
   const caveFrac = caveTiles / Math.max(1, undergroundTiles);
@@ -133,7 +136,7 @@ for (let s = 0; s < SEEDS; s++) {
       const b = y < UNDERGROUND_Y ? 'dirt' : y >= CAVERN_Y ? 'cavern' : null;
       if (!b) continue;
       band[b][1]++;
-      if (at(x, y) === T.AIR) band[b][0]++;
+      if (isOpen(x, y)) band[b][0]++;
     }
   }
   const dirtFrac = band.dirt[0] / Math.max(1, band.dirt[1]);
@@ -155,7 +158,7 @@ for (let s = 0; s < SEEDS; s++) {
     for (let x = 1; x < width - 1; x++) {
       for (let y = surface[x] + 6; y < height - 5; y++) {
         const i = y * width + x;
-        if (at(x, y) !== T.AIR || seen[i]) continue;
+        if (!isOpen(x, y) || seen[i]) continue;
         let n = 0;
         seen[i] = 1; stack.push(i);
         while (stack.length) {
@@ -166,7 +169,7 @@ for (let s = 0; s < SEEDS; s++) {
               const nx = jx + dx, ny = jy + dy;
               if (nx < 1 || nx >= width - 1 || ny < 1 || ny >= height - 5) continue;
               const k = ny * width + nx;
-              if (seen[k] || at(nx, ny) !== T.AIR) continue;
+              if (seen[k] || !isOpen(nx, ny)) continue;
               seen[k] = 1; stack.push(k);
             }
           }
@@ -265,6 +268,21 @@ for (let s = 0; s < SEEDS; s++) {
       }
     }
   }
+  // ---- Water sits in basins, never in mid-air ----
+  let floatingWater = 0, waterTiles = 0;
+  for (let x = 1; x < width - 1; x++) {
+    for (let y = 1; y < height - 1; y++) {
+      if (at(x, y) !== T.WATER) continue;
+      waterTiles++;
+      // A pool must rest on something: solid ground or more water.
+      const below = at(x, y + 1);
+      if (below === T.AIR) floatingWater++;
+    }
+  }
+  stats.water.push(waterTiles);
+  check(seed, 'water never floats', floatingWater === 0, `${floatingWater} water tiles with air beneath them`);
+  check(seed, 'world has water', waterTiles > 40, `only ${waterTiles} water tiles`);
+
   stats.trees.push(trees);
   check(seed, 'no floating trunks', floatingTrunks === 0, `${floatingTrunks} trunk tiles hanging in air`);
   check(seed, 'no orphaned leaves', floatingLeaves === 0, `${floatingLeaves} isolated leaf tiles`);
@@ -280,6 +298,7 @@ console.log('  surface relief   ', `${avg(stats.surfaceSpan).toFixed(1)} tiles (
 console.log('  underground open ', `${(avg(stats.caveFrac) * 100).toFixed(1)}%`);
 console.log('  cave depth grade ', `dirt ${(avg(stats.dirtFrac) * 100).toFixed(1)}% -> cavern ${(avg(stats.cavernFrac) * 100).toFixed(1)}%`);
 console.log('  cave connectivity', `${(avg(stats.connected) * 100).toFixed(1)}% in one system`);
+console.log('  water tiles      ', avg(stats.water).toFixed(0));
 console.log('  trees per world  ', avg(stats.trees).toFixed(0));
 console.log('  biome columns    ', Object.entries(stats.biomeCols)
   .map(([k, v]) => `${k} ${(v / SEEDS).toFixed(0)}`).join(', '));

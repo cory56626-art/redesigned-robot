@@ -6,7 +6,7 @@ import {
   CAST_REGEN_DELAY, CAST_REGEN_MULT, RESPAWN_DELAY, RESPAWN_DELAY_BOSS,
 } from '../config.js?v=realms-qor-41';
 import { tileDef } from '../world/tiles.js?v=realms-qor-41';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-qor-41';
+import { moveAndCollide, applyGravity, clampToWorld, inLiquid, applyLiquidPhysics, SWIM_RISE } from './physics.js?v=realms-qor-41';
 import { Inventory } from '../systems/inventory.js?v=realms-qor-41';
 import { item as getItem } from '../data/items.js?v=realms-qor-41';
 import * as combat from '../systems/combat.js?v=realms-qor-41';
@@ -131,7 +131,15 @@ export class Player {
       if (this.onGround) this.coyoteTimer = 0.1;
       else this.coyoteTimer = Math.max(0, this.coyoteTimer - dt);
 
-      if (canAct && input.jumpPressed) {
+      // Swimming: holding jump strokes upward, and gravity/drag are replaced by
+      // the liquid model. Movement speed is reduced but never zero.
+      this.swimming = inLiquid(this, game.world);
+      if (this.swimming) {
+        if (canAct && input.jumpHeld && this.vy > SWIM_RISE) this.vy += SWIM_RISE * 6 * dt;
+        this.vx *= 0.62;
+      }
+
+      if (canAct && input.jumpPressed && !this.swimming) {
         if (this.onGround || this.coyoteTimer > 0) {
           this.vy = -JUMP_VELOCITY;
           this.jumpsLeft = extraJumps;
@@ -147,7 +155,8 @@ export class Player {
       }
       // Variable jump height
       if (!input.jumpHeld && this.vy < -140) this.vy *= 0.55;
-      applyGravity(this, dt);
+      if (this.swimming) applyLiquidPhysics(this, dt);
+      else applyGravity(this, dt);
       moveAndCollide(this, game.world, dt);
       clampToWorld(this, game.world);
       if (this.onGround) this.jumpsLeft = extraJumps;
