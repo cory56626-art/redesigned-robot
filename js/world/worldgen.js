@@ -17,7 +17,7 @@
 // Deterministic from a numeric seed. `tools/worldgen-check.mjs` asserts the
 // invariants this file is responsible for.
 import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE } from '../config.js?v=realms-qor-48';
-import { T, isSolid } from './tiles.js?v=realms-qor-48';
+import { T, isSolid, isLeaf } from './tiles.js?v=realms-qor-48';
 import { W } from './walls.js?v=realms-qor-48';
 import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=realms-qor-48';
 import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep } from '../utils.js?v=realms-qor-48';
@@ -858,10 +858,18 @@ function decorate(tiles, w, h, surface, biome, rand, spawnTx, pondCols) {
       const lush = (def.grassChance || 0) * 2.6;
       if (r < lush) {
         const pick = rand();
-        let plant = T.SHORTGRASS;
-        if (pick < 0.30) plant = T.TALLGRASS;
-        else if (pick < 0.46) plant = T.FERN;
-        else if (pick < 0.60) plant = ground === T.BLIGHTGRASS ? T.SHORTGRASS : T.FLOWER;
+        // The corruption grows its own set. It used to borrow the forest's
+        // green grass, ferns and flowers wholesale, which left blighted ground
+        // looking like an ordinary meadow that happened to be purple.
+        let plant;
+        if (ground === T.BLIGHTGRASS) {
+          plant = pick < 0.46 ? T.BLIGHTTUFT : pick < 0.74 ? T.SPORECAP : T.BLIGHTBLOOM;
+        } else {
+          plant = T.SHORTGRASS;
+          if (pick < 0.30) plant = T.TALLGRASS;
+          else if (pick < 0.46) plant = T.FERN;
+          else if (pick < 0.60) plant = T.FLOWER;
+        }
         tiles[idx(x, s - 1)] = plant;
       }
     }
@@ -918,34 +926,45 @@ function placeTree(tiles, w, h, x, baseY, def, rand) {
   const [minH, maxH] = def.treeHeight || [5, 9];
   const height = minH + Math.floor(rand() * (maxH - minH + 1));
   const trunk = def.treeTile != null ? def.treeTile : T.WOOD;
-  // A gnarled trunk drifts sideways as it climbs instead of rising as one
-  // straight column. Every sideways step also fills the connecting tile, so the
-  // trunk stays continuous — `worldgen-check` asserts no tree tile has air
-  // directly beneath it.
-  const gnarl = def.canopy === 'dead';
+  // Blight trunks lean. They used to *wander*: a 50% chance of stepping
+  // sideways on every single row, drifting up to two columns either way, which
+  // together with the per-tile rotation in the trunk sprite made them read as
+  // stringy scribbles rather than as trees. Now the whole trunk takes one
+  // direction and steps across at most twice, both steps in the upper half, so
+  // the tree leans as one piece. A single-column step keeps the new tile
+  // diagonally supported by the one below it — `worldgen-check` asserts no tree
+  // tile has air directly beneath it.
+  const leans = def.canopy === 'blight';
+  const drift = rand() < 0.5 ? -1 : 1;
+  const stepsWanted = leans ? 1 + (rand() < 0.45 ? 1 : 0) : 0;
   let cx = x;
-  let drift = rand() < 0.5 ? -1 : 1;
+  let steps = 0;
   let topX = x;
+  // Row of the highest trunk tile actually placed. The canopy used to be
+  // positioned at `baseY - height` — the height the tree *wanted* — so any
+  // trunk that stopped short (blocked by terrain or by a neighbour) got its
+  // canopy stranded several tiles above its own top, floating in mid-air.
+  let topRow = baseY;
   for (let i = 0; i < height; i++) {
     const y = baseY - i;
     if (y <= 1) break;
-    if (gnarl && i > 0 && rand() < 0.5) {
+    // Steps are spaced through the top half so the lean is a curve, not a jog.
+    const wantStep = steps < stepsWanted && i > height * 0.4 &&
+      i >= Math.round(height * (0.45 + steps * 0.28));
+    if (wantStep) {
       const nx = cx + drift;
-      // Reverse rather than run away in one direction, and stay in bounds. A
-      // single-column step keeps the new tile diagonally supported by the one
-      // below it, so the trunk leans without ever hanging in air.
-      if (nx < 1 || nx >= w - 1 || Math.abs(nx - x) > 2) drift = -drift;
-      else if (tiles[idx(nx, y)] === T.AIR) {
-        cx = nx;
-        if (rand() < 0.35) drift = -drift;
-      }
+      if (nx >= 1 && nx < w - 1 && tiles[idx(nx, y)] === T.AIR) { cx = nx; steps++; }
     }
-    if (tiles[idx(cx, y)] === T.AIR) { tiles[idx(cx, y)] = trunk; topX = cx; }
+    // A trunk grows through a neighbouring tree's canopy — it only stops at
+    // something solid. Without this the corruption's new canopies blocked the
+    // next trunk along and left a grove of three-tile stumps.
+    const cell = tiles[idx(cx, y)];
+    if (cell === T.AIR || isLeaf(cell)) { tiles[idx(cx, y)] = trunk; topX = cx; topRow = y; }
     else break;
   }
-  const topY = baseY - height;
+  const topY = topRow - 1;
   const leaf = def.leafTile;
-  if (leaf == null) return; // dead trees (corruption) have no canopy
+  if (leaf == null) return; // no canopy for this biome
   x = topX; // canopy sits over wherever the trunk actually ended up
 
   const put = (lx, ly) => {
@@ -964,6 +983,24 @@ function placeTree(tiles, w, h, x, baseY, def, rand) {
       const ly = topY + row;
       const radius = Math.min(3, Math.floor(row / 2));
       for (let dx = -radius; dx <= radius; dx++) put(x + dx, ly);
+    }
+  } else if (def.canopy === 'blight') {
+    // A ragged crown rather than the forest's round one: narrower, taller, and
+    // with a couple of strands trailing off one side, so a blighted tree is
+    // recognisably a diseased version of the same silhouette. Every cell is
+    // adjacent to another, which the `no orphaned leaves` invariant requires.
+    for (let dy = -2; dy <= 1; dy++) {
+      const radius = dy === -2 ? 1 : 2;
+      for (let dx = -radius; dx <= radius; dx++) {
+        if (dy === 1 && Math.abs(dx) === radius && rand() < 0.55) continue; // bitten-out lower corners
+        put(x + dx, topY + dy);
+      }
+    }
+    // Two hanging strands, each grown downward from a leaf already placed.
+    for (let s = 0; s < 2; s++) {
+      const sx = x + (rand() < 0.5 ? -2 : 2);
+      const len = 1 + Math.floor(rand() * 3);
+      for (let k = 0; k < len; k++) put(sx, topY + 1 + k);
     }
   } else {
     for (let dy = -2; dy <= 2; dy++) {

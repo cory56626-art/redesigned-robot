@@ -226,49 +226,81 @@ class SpriteBank {
     const hasAbove = (mask & N) !== 0;
     const hasBelow = (mask & S) !== 0;
 
-    // Corruption trunks are twisted: the column leans per-tile, narrows, and
-    // grows knots and dead stubs instead of a clean cylinder.
-    const gnarled = id === T.BLIGHTWOOD;
-    if (gnarled) {
-      const lean = [-2, 1, 2, -1][variant & 3];
-      ctx.save();
-      ctx.translate(TS / 2, TS / 2);
-      ctx.rotate(lean * 0.06);
-      ctx.translate(-TS / 2, -TS / 2);
-      const gx0 = 5 + lean * 0.5, gw = 6;
-      const gg = ctx.createLinearGradient(gx0, 0, gx0 + gw, 0);
-      gg.addColorStop(0, shade(base, -0.2));
-      gg.addColorStop(0.3, shade(base, 0.2));
-      gg.addColorStop(1, shade(base, -0.45));
+    // Blightwood: a straight, plated column of dead bark, not a twisted one.
+    // Every tile used to be individually rotated, and worldgen wandered the
+    // trunk sideways on top of that, so a corruption tree came out as a
+    // stringy scribble. The rotation is gone; what makes it read as diseased
+    // now is the bark itself — split vertical plates, pale sapless streaks and
+    // a couple of barbed stubs where branches broke off.
+    if (id === T.BLIGHTWOOD) {
+      const x0 = 4, wdt = 8;
+      // Shoulders first, so the straight column lands on top of them and the
+      // join reads as a bend rather than as a shelf bolted to the side. A
+      // leaning trunk continues diagonally into the next tile; without this the
+      // two halves render as separate poles standing beside each other.
+      const shoulder = (dir, top) => {
+        ctx.strokeStyle = shade(base, -0.22);
+        ctx.lineWidth = wdt;
+        ctx.lineCap = 'butt';
+        ctx.beginPath();
+        ctx.moveTo(x0 + wdt / 2, TS / 2);
+        ctx.lineTo(x0 + wdt / 2 + dir * TS, top ? -TS / 2 : TS * 1.5);
+        ctx.stroke();
+      };
+      if (mask & NE) shoulder(1, true);
+      if (mask & NW) shoulder(-1, true);
+      if (mask & SE) shoulder(1, false);
+      if (mask & SW) shoulder(-1, false);
+
+      const gg = ctx.createLinearGradient(x0, 0, x0 + wdt, 0);
+      gg.addColorStop(0, shade(base, -0.3));
+      gg.addColorStop(0.3, shade(base, 0.16));
+      gg.addColorStop(0.62, base);
+      gg.addColorStop(1, shade(base, -0.55));
       ctx.fillStyle = gg;
-      ctx.fillRect(gx0, 0, gw, TS);
-      // Knots and bark splits.
+      ctx.fillRect(x0, 0, wdt, TS);
+
+      // Vertical plates: two deep splits running the height of the tile, so
+      // stacked tiles read as one continuous peeling column.
+      ctx.fillStyle = shade(base, -0.6);
+      ctx.fillRect(x0 + 2, 0, 1, TS);
+      ctx.fillRect(x0 + 5, 0, 1, TS);
+      // One sapless streak. Kept subtle — at full strength the whole trunk read
+      // as pale grey and the trees looked like scaffolding poles.
+      ctx.fillStyle = shade(base, 0.2);
+      ctx.fillRect(x0 + 3, 0, 1, TS);
+
+      // Knots, deterministic per variant.
       const gr = mulberry32(((id * 17 + variant * 613 + 3) * 2654435761) >>> 0);
-      ctx.fillStyle = shade(base, -0.5);
-      for (let i = 0; i < 4; i++) {
-        ctx.fillRect(gx0 + ((gr() * gw) | 0), (gr() * (TS - 3)) | 0, 1, 2 + ((gr() * 3) | 0));
+      ctx.fillStyle = shade(base, -0.62);
+      for (let i = 0; i < 3; i++) {
+        ctx.fillRect(x0 + 1 + ((gr() * (wdt - 2)) | 0), (gr() * (TS - 4)) | 0, 1, 2 + ((gr() * 2) | 0));
       }
-      ctx.fillStyle = shade(base, 0.3);
-      ctx.beginPath();
-      ctx.arc(gx0 + 2, 5 + ((gr() * 6) | 0), 1.3, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
-      // A bare, crooked branch on some tiles.
+
+      // A barbed stub where a branch snapped off — short and downturned, so it
+      // reads as broken rather than as a growing limb.
       if (hasAbove && hasBelow && (variant & 1)) {
         const dir = variant < 2 ? -1 : 1;
-        ctx.strokeStyle = shade(base, -0.3);
+        ctx.strokeStyle = shade(base, -0.34);
         ctx.lineWidth = 2; ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(TS / 2, 11);
-        ctx.lineTo(TS / 2 + dir * 4, 7);
-        ctx.lineTo(TS / 2 + dir * 7, 8);
+        ctx.moveTo(TS / 2, 9);
+        ctx.lineTo(TS / 2 + dir * 5, 11);
         ctx.stroke();
+        ctx.fillStyle = shade(base, 0.2);
+        ctx.fillRect(TS / 2 + dir * 5 - 1, 10, 2, 1);
       }
-      if (!hasBelow) {
-        ctx.fillStyle = shade(base, -0.25);
+      // Roots.
+      if (!hasBelow && !(mask & (SE | SW))) {
+        ctx.fillStyle = shade(base, -0.3);
         ctx.beginPath();
-        ctx.moveTo(5, TS - 5); ctx.lineTo(1, TS); ctx.lineTo(8, TS); ctx.closePath(); ctx.fill();
+        ctx.moveTo(x0, TS - 5); ctx.lineTo(0, TS); ctx.lineTo(x0 + 3, TS); ctx.closePath(); ctx.fill();
         ctx.beginPath();
-        ctx.moveTo(11, TS - 4); ctx.lineTo(15, TS); ctx.lineTo(9, TS); ctx.closePath(); ctx.fill();
+        ctx.moveTo(x0 + wdt, TS - 5); ctx.lineTo(TS, TS); ctx.lineTo(x0 + wdt - 3, TS); ctx.closePath(); ctx.fill();
+      }
+      if (!hasAbove && !(mask & (NE | NW))) {
+        ctx.fillStyle = shade(base, -0.45);
+        ctx.fillRect(x0 + 1, 0, wdt - 2, 2);
       }
       return c;
     }
@@ -363,9 +395,26 @@ class SpriteBank {
       ctx.fillRect(cx + 1, cy + 1, 2, 1);
     }
 
+    // Blight canopy: dark veins running through the leaf mass and a deeper,
+    // spikier bite out of every edge, so a corrupted crown reads as thorny
+    // where the forest's reads as soft.
+    const blight = id === T.BLIGHTLEAVES;
+    if (blight) {
+      ctx.strokeStyle = shade(base, -0.5);
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 3; i++) {
+        const vy = 3 + i * 5;
+        ctx.beginPath();
+        ctx.moveTo(0, vy);
+        ctx.lineTo(TS * 0.45, vy + (i % 2 ? 2 : -2));
+        ctx.lineTo(TS, vy + 1);
+        ctx.stroke();
+      }
+    }
+
     // Ragged silhouette on every exposed face.
     const bite = 'rgba(0,0,0,0)';
-    const teeth = [0, 2, 1, 3, 0, 2, 1, 2];
+    const teeth = blight ? [0, 4, 1, 5, 2, 4, 0, 3] : [0, 2, 1, 3, 0, 2, 1, 2];
     if (open(N)) { for (let x = 0; x < TS; x += 2) ctx.clearRect(x, 0, 2, teeth[(x >> 1) % teeth.length]); }
     if (open(S)) { for (let x = 0; x < TS; x += 2) ctx.clearRect(x, TS - teeth[((x >> 1) + 3) % teeth.length], 2, 3); }
     if (open(WBIT)) { for (let y = 0; y < TS; y += 2) ctx.clearRect(0, y, teeth[((y >> 1) + 1) % teeth.length], 2); }
@@ -497,6 +546,64 @@ class SpriteBank {
         }
         ctx.lineWidth = 1.1;
       }
+    }
+    // ---- Corruption flora. Each is the diseased twin of a forest plant: the
+    // same silhouette, drooping, with the blight's violet in place of green.
+    if (id === T.BLIGHTTUFT) {
+      ctx.clearRect(0, 0, TS, TS);
+      ctx.strokeStyle = base; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
+      // Blades curl over at the tip rather than standing up like meadow grass.
+      for (const [bx, tilt, len] of [[4, -2, 8], [7, 1, 10], [10, 3, 7], [12, -1, 5]]) {
+        ctx.beginPath();
+        ctx.moveTo(bx, TS);
+        ctx.quadraticCurveTo(bx + tilt * 0.4, TS - len * 0.7, bx + tilt * 2.2, TS - len);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = shade(base, -0.35); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(7, TS); ctx.quadraticCurveTo(8, TS - 6, 11, TS - 9); ctx.stroke();
+    }
+    if (id === T.BLIGHTBLOOM) {
+      ctx.clearRect(0, 0, TS, TS);
+      // Bowed stem + a single withered leaf.
+      ctx.strokeStyle = '#4a3560'; ctx.lineWidth = 1.2; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(8, TS); ctx.quadraticCurveTo(9, TS - 5, 7, TS - 9); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(8, TS - 5); ctx.quadraticCurveTo(11, TS - 5, 12, TS - 7); ctx.stroke();
+      // Petals hang down instead of opening out.
+      ctx.fillStyle = base;
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI + 0.2;
+        ctx.beginPath();
+        ctx.ellipse(7 + Math.cos(a) * 2.6, TS - 9 + Math.sin(a) * 2.2 + 1, 1.7, 2.3, a, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#2a1636';
+      ctx.beginPath(); ctx.arc(7, TS - 10, 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = shade(base, 0.4);
+      ctx.fillRect(6, TS - 12, 1, 1);
+    }
+    if (id === T.SPORECAP) {
+      ctx.clearRect(0, 0, TS, TS);
+      // A squat fungus with a faint bloom — it carries a small `light`, so the
+      // corruption has its own dim glow the way the caverns have glowcaps.
+      const bloom = ctx.createRadialGradient(8, TS - 8, 0, 8, TS - 8, 7);
+      bloom.addColorStop(0, 'rgba(180,110,220,0.42)');
+      bloom.addColorStop(1, 'rgba(180,110,220,0)');
+      ctx.fillStyle = bloom;
+      ctx.beginPath(); ctx.arc(8, TS - 8, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#6a4a80';
+      ctx.fillRect(7, TS - 6, 2, 6);
+      ctx.fillStyle = base;
+      ctx.beginPath(); ctx.ellipse(8, TS - 7, 5, 3.4, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = shade(base, -0.4);
+      ctx.fillRect(3, TS - 7, 10, 1);
+      ctx.fillStyle = shade(base, 0.35);
+      ctx.fillRect(5, TS - 10, 2, 1);
+      ctx.fillRect(9, TS - 9, 1, 1);
+      // A second, smaller cap alongside.
+      ctx.fillStyle = shade(base, -0.18);
+      ctx.beginPath(); ctx.ellipse(12, TS - 3, 3, 2, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = '#6a4a80';
+      ctx.fillRect(11, TS - 3, 1, 3);
     }
     if (id === T.CAVEMOSS) {
       ctx.clearRect(0, 0, TS, TS);

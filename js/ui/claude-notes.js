@@ -68,6 +68,28 @@ export function claudeNotesHTML() {
       <i>through</i> it, and hold <kbd>S</kbd> to drop back down. Hammers never mine: a blow cycles the shape,
       and a blow at open space knocks out the background wall behind it (mallet: dirt · cuprite: + stone ·
       sledge: + deepstone and blight).</li>
+    <li><b class="cn-bad">92 of 102 recipes were invisible, with no explanation.</b> <code>availableRecipes</code>
+      dropped anything whose station was more than five tiles away and said nothing about it, so standing in the
+      open you saw ten recipes and concluded the pickaxes had none — <code>cupritePick</code> has always existed,
+      at the forge, ungated. The panel lists everything now and each row you can't make states its one blocker:
+      <i>Needs a Forge</i>, <i>Missing 4 Cuprite Bar</i>. Which stations are in reach is on show instead of being
+      invisible state. <kbd>C</kbd> opens an expanded view with a recipe grid, a detail pane, search over names,
+      descriptions and ingredients, and category filters that split weapons by class.</li>
+    <li><b class="cn-good">A main menu that looks like the game.</b> The backdrop is a live diorama drawn on the
+      game canvas — dawn-to-night wash, moon and parallax stars, layered ridges, and a foreground bank built from
+      the game's own grass, dirt, trunk and canopy sprites. Not a generated world: worldgen is ~2s and ~450KB of
+      arrays, far too much to spend before the first click. The title is original 5&times;7 bitmap lettering with a
+      per-letter bob, because the repo ships no font files and never will. <code>prefers-reduced-motion</code>
+      holds it all still — the first thing here to respect it.</li>
+    <li><b class="cn-good">Corrupted trees rebuilt.</b> They were gnarled <i>twice</i>: worldgen stepped the trunk
+      sideways with 50% probability on every row, and the sprite additionally rotated every tile. Now the whole
+      trunk takes one direction and steps across at most twice, and the bark carries the disease instead — split
+      plates, a sapless streak, barbed stubs where branches broke. They have a canopy at last (they were bare
+      poles), and the corruption grows its own flora: Witherstalk, Sorrowbloom and glowing Sporecaps in place of
+      the forest's green grass, ferns and flowers.</li>
+    <li><b class="cn-bad">Canopies could float above their own trunk.</b> Long-standing, in every biome: the
+      canopy was placed at <code>baseY - height</code>, the height the tree <i>wanted</i>, so any trunk that
+      stopped short left its leaves stranded in mid-air. It now tracks the highest tile actually placed.</li>
     <li><b class="cn-good">Characters are separate from worlds.</b> A character carries its own appearance,
       inventory and equipment between worlds, the way it works in Terraria. Pre-4.1 saves adopt their embedded
       player as a character on load, so nothing is lost.</li>

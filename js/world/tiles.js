@@ -47,6 +47,12 @@ export const T = {
   GLOWSHROOM: 37,
   BLIGHTWOOD: 38,
   WATER: 39,
+  // ---- Corruption flora. The blight used to borrow the forest's green grass,
+  // ferns and flowers, which made it read as ordinary meadow with purple dirt.
+  BLIGHTLEAVES: 40,
+  BLIGHTTUFT: 41,
+  BLIGHTBLOOM: 42,
+  SPORECAP: 43,
 };
 
 // Each entry: name, solid, color (fallback), hardness, minPower, drop item id,
@@ -105,7 +111,14 @@ export const TILES = {
   [T.CAVEMOSS]:   { name: 'Cave Moss', sway: 0.5, solid: false, color: '#5d7a4a', hardness: 4, minPower: 0, drop: 'fiber', dropChance: 0.3, decor: true, blastResist: 0 },
   [T.GLOWSHROOM]: { name: 'Glowcap', sway: 0.4, solid: false, color: '#7fd8e8', hardness: 4, minPower: 0, drop: 'fiber', dropChance: 0.3, decor: true, light: 0.42, blastResist: 0 },
   // Corruption trunk: same axe rules as wood, its own bruised palette.
-  [T.BLIGHTWOOD]: { name: 'Blightwood', solid: false, color: '#5b4560', hardness: 12, minPower: 0, toolType: 'axe', tree: true, decor: true, mat: 'wood', drop: 'wood', blastResist: 0 },
+  [T.BLIGHTWOOD]: { name: 'Blightwood', solid: false, color: '#3d2b46', hardness: 12, minPower: 0, toolType: 'axe', tree: true, decor: true, mat: 'wood', drop: 'wood', blastResist: 0 },
+  // Corruption canopy. Same axe rules and the same fell-with-the-trunk
+  // behaviour as ordinary leaves, but it drops fibre rather than sticks and
+  // saplings — nothing grows back from a blighted tree.
+  [T.BLIGHTLEAVES]: { name: 'Blightleaf', sway: 0.9, solid: false, color: '#7a48a6', hardness: 8, minPower: 0, toolType: 'axe', leaf: true, decor: true, mat: 'leaves', drop: 'fiber', dropChance: 0.35, blastResist: 0 },
+  [T.BLIGHTTUFT]:  { name: 'Witherstalk', sway: 1.2, solid: false, color: '#8a5aa8', hardness: 3, minPower: 0, drop: 'fiber', dropChance: 0.35, decor: true, blastResist: 0 },
+  [T.BLIGHTBLOOM]: { name: 'Sorrowbloom', sway: 1.0, solid: false, color: '#b562d8', hardness: 3, minPower: 0, drop: 'fiber', dropChance: 0.4, decor: true, blastResist: 0 },
+  [T.SPORECAP]:    { name: 'Sporecap', sway: 0.35, solid: false, color: '#9a6ec4', hardness: 4, minPower: 0, drop: 'fiber', dropChance: 0.45, decor: true, light: 0.18, blastResist: 0 },
   // Still water. Not a flow simulation — pools sit where worldgen puts them.
   // `liquid` gates the swim handling in physics.js and is what a fishing bobber
   // looks for. Non-minable (no hardness) so a pickaxe can't scoop it.

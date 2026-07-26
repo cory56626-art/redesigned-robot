@@ -124,6 +124,39 @@ at once. Hammers never mine: a blow cycles the shape, and a blow at open space
 knocks out the background wall behind it at `power - 1` on the explosion
 resist scale, so the three tiers actually separate.
 
+**Crafting rebuilt around a catalogue** — `availableRecipes` filtered out any
+recipe whose station was outside a 5-tile radius and gave no hint that it had.
+Standing in the open that is 10 of 102, which is why the pickaxes looked as
+though they had no recipe: `cupritePick` has always been at the forge, ungated.
+Every recipe is listed now and each unmakeable row names its single blocker.
+New `catalogue()` does the 11×11 station scan once for all 102 rather than per
+render, and resolves ingredient counts up front. `Progression` gained a
+read-only `isRecipeLocked()` twin of `recipeAvailable()`, which records the
+unlock as a side effect and so was unsafe to run over the whole table just to
+draw a list. `ui/crafting.js` owns both views; the expanded one (C) is a grid
+plus a detail pane with search and category filters.
+
+**Main menu** — `ui/menuscene.js` draws a parallax diorama onto the game canvas
+while `state === 'menu'`, since the render loop otherwise leaves it blank. The
+foreground bank uses the real tile and tree sprites. The title is original 5×7
+bitmap lettering rather than a webfont: the repo ships no font files. Frame cost
+went 15.9ms → ~8ms at 1600×900 by baking the vignette once per size, drawing
+only the top three rows of the bank as sprites, memoising each column's ground
+row, and capping the ridge polygons at the bank line.
+
+**Corrupted trees and flora** — the blight was gnarled twice over: `placeTree`
+stepped the trunk sideways with 50% probability *per row* while `_buildTrunk`
+additionally rotated every tile. One direction, at most two steps, and the
+disease moved into the bark. They have a canopy now (`BLIGHTLEAVES`, id 40) and
+their own ground cover (`BLIGHTTUFT`/`BLIGHTBLOOM`/`SPORECAP`, 41-43) instead of
+borrowing the forest's green. Two bugs surfaced on the way: a trunk stopped dead
+against a neighbouring canopy instead of growing through it, and the canopy was
+positioned at the height the tree *wanted* rather than where the trunk actually
+ended — so a blocked tree left its leaves floating. Both were latent in every
+biome; only the corruption's new canopy made them visible. Leaning trunks also
+needed diagonal shoulder bits in the sprite, or the two halves rendered as
+separate poles side by side.
+
 **New harness invariants** — cave depth grading, cave connectivity, and the
 "no floating trunks" check relaxed to accept diagonal support so leaning
 corruption trunks are legal.

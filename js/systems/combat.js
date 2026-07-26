@@ -443,7 +443,7 @@ export function mineAt(game, player, dt, source) {
       collapseTree(game, player, tx, ty);
       game.addHitParticles(cx, cy, def.color || '#8a5a2a', 6);
     } else if (isLeaf(id)) {
-      _leafDrop(game, player, tx, ty);
+      _leafDrop(game, player, tx, ty, id);
       game.addHitParticles(cx, cy, def.color || '#3e7a34', 5);
     } else if (Math.random() <= (res.dropChance || 1) && res.drop) {
       _giveOrDrop(game, player, tx, ty, (wasPlatform && platformItemFor(id)) || res.drop, 1);
@@ -464,12 +464,19 @@ function _giveOrDrop(game, player, tx, ty, itemId, n) {
   game.floatText(tx * TILE + TILE / 2, ty * TILE, '+' + n + ' ' + getItem(itemId).name.split(' ')[0], '#7ee0c0');
 }
 
-// Breaking leaves yields twigs/seeds (never wood).
-function _leafDrop(game, player, tx, ty) {
-  const r = Math.random();
-  if (r < 0.32) _giveOrDrop(game, player, tx, ty, 'stick', 1);
-  else if (r < 0.40) _giveOrDrop(game, player, tx, ty, 'sapling', 1);
-  game.addHitParticles(tx * TILE + TILE / 2, ty * TILE + TILE / 2, '#3e7a34', 4);
+// Breaking leaves yields twigs/seeds (never wood) — unless the leaf carries its
+// own drop, as blight canopy does. Nothing regrows from a corrupted tree, so it
+// gives fibre rather than saplings.
+function _leafDrop(game, player, tx, ty, id) {
+  const def = tileDef(id);
+  if (def.drop) {
+    if (Math.random() <= (def.dropChance || 1)) _giveOrDrop(game, player, tx, ty, def.drop, 1);
+  } else {
+    const r = Math.random();
+    if (r < 0.32) _giveOrDrop(game, player, tx, ty, 'stick', 1);
+    else if (r < 0.40) _giveOrDrop(game, player, tx, ty, 'sapling', 1);
+  }
+  game.addHitParticles(tx * TILE + TILE / 2, ty * TILE + TILE / 2, def.color || '#3e7a34', 4);
 }
 
 // Fell the tree above a freshly-broken trunk tile at (tx,ty): collapse the trunk
@@ -531,7 +538,13 @@ function collapseTree(game, player, tx, ty) {
     world.set(cell.x, cell.y, T.AIR);
     game.netEditTile(cell.x, cell.y, T.AIR);
     if (cell.trunk) woodCount++;
-    else { const r = Math.random(); if (r < 0.22) player.inventory.add('stick', 1); else if (r < 0.28) player.inventory.add('sapling', 1); }
+    else {
+      // Leaves that name their own drop (blight canopy) give that instead of
+      // the default twig/sapling table.
+      const ld = tileDef(cell.id);
+      if (ld.drop) { if (Math.random() <= (ld.dropChance || 1)) player.inventory.add(ld.drop, 1); }
+      else { const r = Math.random(); if (r < 0.22) player.inventory.add('stick', 1); else if (r < 0.28) player.inventory.add('sapling', 1); }
+    }
   }
   if (woodCount > 0) {
     const leftover = player.inventory.add('wood', woodCount);

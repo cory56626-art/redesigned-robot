@@ -4,7 +4,7 @@ import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H } from '../config.js?v=realms-qo
 import { T, isSolid, isTree, isLeaf, tileDef, tileSway, SHAPE } from '../world/tiles.js?v=realms-qor-48';
 import { W, hasWall } from '../world/walls.js?v=realms-qor-48';
 import { BIOMES } from '../world/biomes.js?v=realms-qor-48';
-import { Sprites, framingMask, shade as shadeHex, N, E, S, WBIT } from '../art/sprites.js?v=realms-qor-48';
+import { Sprites, framingMask, shade as shadeHex, N, E, S, WBIT, NE, SE, SW, NW } from '../art/sprites.js?v=realms-qor-48';
 import { item as getItem } from '../data/items.js?v=realms-qor-48';
 import { canPlaceAt } from '../systems/combat.js?v=realms-qor-48';
 import { clamp } from '../utils.js?v=realms-qor-48';
@@ -466,6 +466,17 @@ export class Renderer {
       let mask = 0;
       if (isTree(world.get(tx, ty - 1))) mask |= N;
       if (isTree(world.get(tx, ty + 1))) mask |= S;
+      // A leaning trunk (the corruption's) steps one column at a time, so its
+      // continuation is diagonal. Without a shoulder reaching that way the two
+      // halves render as two unconnected poles standing side by side.
+      if (!(mask & N)) {
+        if (isTree(world.get(tx + 1, ty - 1))) mask |= NE;
+        else if (isTree(world.get(tx - 1, ty - 1))) mask |= NW;
+      }
+      if (!(mask & S)) {
+        if (isTree(world.get(tx + 1, ty + 1))) mask |= SE;
+        else if (isTree(world.get(tx - 1, ty + 1))) mask |= SW;
+      }
       return Sprites.getTrunk(id, mask, hash2(tx, ty) & 3);
     }
     if (isLeaf(id)) {

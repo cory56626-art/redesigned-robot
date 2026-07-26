@@ -46,7 +46,7 @@ export const BIOMES = {
     wall: W.BLIGHT, subWall: W.DIRT, stoneWall: W.BLIGHT,
     amp: 15, rough: 0.85, lift: -2,
     treeChance: 0.07, cactusChance: 0, grassChance: 0.05, vineChance: 0.06,
-    treeTile: T.BLIGHTWOOD, leafTile: null, treeHeight: [4, 8], canopy: 'dead',
+    treeTile: T.BLIGHTWOOD, leafTile: T.BLIGHTLEAVES, treeHeight: [6, 10], canopy: 'blight',
     chasmChance: 0.35,
     skyDay: ['#4a2f5a', '#7a5a86'], skyNight: ['#14081e', '#2a1436'],
   },
