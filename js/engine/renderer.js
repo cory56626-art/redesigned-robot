@@ -9,8 +9,8 @@ import { item as getItem } from '../data/items.js?v=realms-qor-41';
 import { canPlaceAt } from '../systems/combat.js?v=realms-qor-41';
 import { clamp } from '../utils.js?v=realms-qor-41';
 
-// Maximum bend of a fully-swaying tile at full wind, in radians (~14 degrees).
-const SWAY_RADIANS = 0.25;
+// Maximum bend of a fully-swaying tile at full wind, in radians (~17 degrees).
+const SWAY_RADIANS = 0.30;
 
 const PROJ_GLOW = {
   thorn: '#7ee08a', seed: '#a7e36f', rock: '#8a7a5a', shock: '#d3b985',
