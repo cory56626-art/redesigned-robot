@@ -269,7 +269,7 @@ for (let s = 0; s < SEEDS; s++) {
     }
   }
   // ---- Water sits in basins, never in mid-air ----
-  let floatingWater = 0, waterTiles = 0;
+  let floatingWater = 0, looseWater = 0, waterTiles = 0;
   for (let x = 1; x < width - 1; x++) {
     for (let y = 1; y < height - 1; y++) {
       if (at(x, y) !== T.WATER) continue;
@@ -277,10 +277,17 @@ for (let s = 0; s < SEEDS; s++) {
       // A pool must rest on something: solid ground or more water.
       const below = at(x, y + 1);
       if (below === T.AIR) floatingWater++;
+      // ...and be held in sideways. Checking only below passes a slab of water
+      // perched against a hillside, because its own bottom row does sit on
+      // ground — what makes that wrong is the open air beside it, which real
+      // water would immediately pour into.
+      if (at(x - 1, y) === T.AIR || at(x + 1, y) === T.AIR) looseWater++;
     }
   }
   stats.water.push(waterTiles);
   check(seed, 'water never floats', floatingWater === 0, `${floatingWater} water tiles with air beneath them`);
+  check(seed, 'water is contained sideways', looseWater === 0,
+    `${looseWater} water tiles with open air beside them at the same level`);
   check(seed, 'world has water', waterTiles > 40, `only ${waterTiles} water tiles`);
 
   stats.trees.push(trees);

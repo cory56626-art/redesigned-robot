@@ -50,12 +50,13 @@ export function generateWorld(seed) {
   applyCaves(tiles, cave, w, h, surface, spawnTx);
 
   seedOres(tiles, w, h, surface, rand);
-  decorate(tiles, w, h, surface, biome, rand, spawnTx);
+  decorate(tiles, w, h, surface, biome, rand, spawnTx, ponds.cols);
 
   fillWater(tiles, w, h, surface);
   fillPonds(tiles, w, h, surface, ponds);
 
   sealSpawn(tiles, walls, w, h, surface, spawnTx, biome);
+  drainLooseWater(tiles, w, h);
   clearSurfaceWalls(walls, w, h, surface);
 
   const spawnY = (surface[spawnTx] - 3) * TILE;
@@ -701,6 +702,7 @@ function fillWater(tiles, w, h, surface) {
 function carvePonds(surface, seed, w, biome, spawnTx) {
   const rc = mulberry32((seed ^ 0x90d5) >>> 0);
   const ponds = [];
+  ponds.cols = new Uint8Array(w); // columns a pond may occupy
   const want = 3 + (rc() * 3 | 0);
   for (let i = 0; i < want && ponds.length < want; i++) {
     const x = 20 + Math.floor(rc() * (w - 40));
@@ -717,6 +719,10 @@ function carvePonds(surface, seed, w, biome, spawnTx) {
       const t = 1 - (dx / rw) * (dx / rw);
       surface[cx] += Math.round(deep * t);
     }
+    for (let dx = -rw; dx <= rw; dx++) {
+      const cx = x + dx;
+      if (cx >= 0 && cx < w) ponds.cols[cx] = 1;
+    }
     ponds.push({ x, rw });
   }
   return ponds;
@@ -726,16 +732,34 @@ function carvePonds(surface, seed, w, biome, spawnTx) {
 function fillPonds(tiles, w, h, surface, ponds) {
   const idx = (x, y) => y * w + x;
   for (const p of ponds) {
-    const left = Math.max(1, p.x - p.rw), right = Math.min(w - 2, p.x + p.rw);
-    // The rim is the highest ground on either bank; sit the surface one below it
-    // so the pond never spills over the lip.
-    const level = Math.min(surface[left], surface[right]) + 1;
+    // `enforceWalkableSlope` reshapes the heightmap *after* the bowl is carved,
+    // so the recorded half-width is only a hint about where a basin ought to
+    // be. Find the real one in the final terrain instead of trusting it.
+    let lo = clamp(p.x, 1, w - 2);
+    for (let cx = Math.max(1, p.x - p.rw); cx <= Math.min(w - 2, p.x + p.rw); cx++) {
+      if (surface[cx] > surface[lo]) lo = cx; // larger row = lower ground
+    }
+    // Walk out from the deepest column while the ground keeps rising; where it
+    // turns back down is the lip of the basin.
+    let left = lo, right = lo;
+    while (left > 1 && surface[left - 1] <= surface[left]) left--;
+    while (right < w - 2 && surface[right + 1] <= surface[right]) right++;
+    if (right - left < 3) continue;
 
-    // A cave entrance carved earlier can punch straight through the bowl. Such
-    // a pond would drain, so check the whole floor before committing to any of
-    // it rather than leaving water hanging over the hole.
+    // Water spills over the LOWER of the two banks, which is the one with the
+    // LARGER surface row because y grows downward. Taking the higher bank
+    // floods the basin straight out over the low side and leaves a slab of
+    // water hanging in mid-air next to the hill.
+    const level = Math.max(surface[left], surface[right]) + 1;
+    if (surface[lo] - level < 1) continue;                     // no actual hollow
+    if (surface[lo] - level > MAX_POOL_DEPTH) continue;        // a valley, not a pond
+
+    // A cave entrance carved earlier can punch straight through the floor. Such
+    // a pond would drain, so validate the whole basin before committing any of
+    // it rather than leaving water perched over the hole.
     let sound = true;
     for (let cx = left; cx <= right && sound; cx++) {
+      if (surface[cx] <= level) continue;                       // bank, not floor
       if (!isSolid(tiles[idx(cx, surface[cx])])) sound = false;
     }
     if (!sound) continue;
@@ -748,6 +772,30 @@ function fillPonds(tiles, w, h, surface, ponds) {
         if (t === T.AIR || (!isSolid(t) && t !== T.WATER)) tiles[idx(cx, y)] = T.WATER;
       }
     }
+  }
+}
+
+// Final safety net, run after everything that can still edit tiles (sealSpawn
+// clears ground near the spawn, which can open the side of a pool that was
+// perfectly contained when it was filled). Any water with open air beside it
+// would pour out, so it drains instead — repeatedly, since draining one column
+// exposes the next.
+function drainLooseWater(tiles, w, h) {
+  const idx = (x, y) => y * w + x;
+  for (let pass = 0; pass < 8; pass++) {
+    let drained = 0;
+    for (let x = 1; x < w - 1; x++) {
+      for (let y = 1; y < h - 1; y++) {
+        const i = idx(x, y);
+        if (tiles[i] !== T.WATER) continue;
+        if (tiles[idx(x - 1, y)] === T.AIR || tiles[idx(x + 1, y)] === T.AIR ||
+            tiles[idx(x, y + 1)] === T.AIR) {
+          tiles[i] = T.AIR;
+          drained++;
+        }
+      }
+    }
+    if (!drained) break;
   }
 }
 
@@ -775,7 +823,7 @@ function vein(tiles, w, h, cx, cy, n, id, rand, minY) {
 // Decoration
 // ---------------------------------------------------------------------------
 
-function decorate(tiles, w, h, surface, biome, rand, spawnTx) {
+function decorate(tiles, w, h, surface, biome, rand, spawnTx, pondCols) {
   const idx = (x, y) => y * w + x;
 
   // Surface flora, biome by biome.
@@ -787,6 +835,9 @@ function decorate(tiles, w, h, surface, biome, rand, spawnTx) {
     // Leave the immediate spawn clear so the player and the Guide always have
     // headroom and a clean view of the camp.
     if (Math.abs(x - spawnTx) <= 3) continue;
+    // Nothing grows where a pond is about to be filled: the fill would consume
+    // the (non-solid) trunk tiles and leave the canopy floating.
+    if (pondCols && pondCols[x]) continue;
 
     if (def.treeChance && rand() < def.treeChance && tiles[idx(x, s - 1)] === T.AIR) {
       placeTree(tiles, w, h, x, s - 1, def, rand);
