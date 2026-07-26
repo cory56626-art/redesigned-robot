@@ -1,8 +1,8 @@
 // Summoner Realms — minion entity. Owned by a player; the owner's client
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
-import { minionDef } from '../data/minions.js?v=aidan-summon-4';
-import { initAidanState, updateAidanState } from './aidan.js?v=aidan-summon-4';
+import { minionDef } from '../data/minions.js?v=aidan-summon-5';
+import { initAidanState, updateAidanState } from './aidan.js?v=aidan-summon-5';
 import { dist2, aabb, angleTo } from '../utils.js?v=realms-difficulty-22';
 import { TILE } from '../config.js?v=realms-difficulty-22';
 import { Projectile } from './projectile.js?v=realms-difficulty-22';
@@ -48,6 +48,11 @@ export class Minion {
     this.iframes = 0;
     this.hurtFlash = 0;
     this.attackPulse = 0;
+    this.pose = 'idle';
+    this.poseTimer = 0;
+    this.moveAmount = 0;
+    this.recoil = 0;
+    this.pulseAngle = 0;
     this.slotOffset = (MINION_SEQ % 5) - 2;
     // Diamond Heart combat state. The other minions continue using the compact
     // generic state machine below.
@@ -931,6 +936,8 @@ export class Minion {
       hp: this.maxHp != null ? Math.round(this.hp) : null,
       maxHp: this.maxHp,
       dead: this.dead ? 1 : 0,
+      pose: this.key === 'aidan' ? this.pose : undefined,
+      mv: this.key === 'aidan' ? Math.round((this.moveAmount || 0) * 100) / 100 : undefined,
     };
   }
 }
