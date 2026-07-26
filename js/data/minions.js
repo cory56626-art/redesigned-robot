@@ -46,7 +46,7 @@ export const MINIONS = {
   aidan: {
     key: 'aidan', name: 'Aidan', behavior: 'aidan',
     damage: 26, speed: 250, range: 1800, color: '#c88b2e', color2: '#5a341d',
-    w: 34, h: 54, maxHp: 1400, flying: true,
+    w: 12, h: 26, maxHp: 1400, flying: true,
     basicDamage: 26, basicRate: 1.05, basicSpeed: 720, basicRange: 352,
     portalTrigger: 360, portalSourceDistance: 64, portalExitDistance: 48, portalCooldown: 2.2,
     railgunDamage: 75, railgunCharge: 5, railgunCooldown: 14, railgunRange: 1800, railgunMinRange: 192,
