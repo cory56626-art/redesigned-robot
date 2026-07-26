@@ -1,14 +1,14 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H } from '../config.js?v=aidan-summon-1';
-import { T, isSolid, isTree, isLeaf, tileDef } from '../world/tiles.js?v=aidan-summon-1';
-import { W, hasWall } from '../world/walls.js?v=aidan-summon-1';
-import { BIOMES } from '../world/biomes.js?v=aidan-summon-1';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=aidan-summon-1';
-import { item as getItem } from '../data/items.js?v=aidan-summon-1';
-import { canPlaceAt } from '../systems/combat.js?v=aidan-summon-1';
-import { clamp } from '../utils.js?v=aidan-summon-1';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=aidan-summon-11';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H } from '../config.js?v=aidan-summon-12';
+import { T, isSolid, isTree, isLeaf, tileDef } from '../world/tiles.js?v=aidan-summon-12';
+import { W, hasWall } from '../world/walls.js?v=aidan-summon-12';
+import { BIOMES } from '../world/biomes.js?v=aidan-summon-12';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=aidan-summon-12';
+import { item as getItem } from '../data/items.js?v=aidan-summon-12';
+import { canPlaceAt } from '../systems/combat.js?v=aidan-summon-12';
+import { clamp } from '../utils.js?v=aidan-summon-12';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=aidan-summon-122';
 
 const PROJ_GLOW = {
   thorn: '#7ee08a', seed: '#a7e36f', rock: '#8a7a5a', shock: '#d3b985',
