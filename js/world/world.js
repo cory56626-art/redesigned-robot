@@ -1,10 +1,10 @@
 // Summoner Realms — runtime world: tile grid, wall grid, collision, mining,
 // lighting, and the edit diffs that get saved.
-import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=realms-qor-45';
-import { T, tileDef, isSolid, tileLight, isLiquid } from './tiles.js?v=realms-qor-45';
-import { W, hasWall, wallBlastResist } from './walls.js?v=realms-qor-45';
-import { BIOME_ORDER } from './biomes.js?v=realms-qor-45';
-import { generateWorld } from './worldgen.js?v=realms-qor-45';
+import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=realms-qor-46';
+import { T, tileDef, isSolid, tileLight, isLiquid, tileId, tileShape, packTile, SHAPE, shapeTopAt, shapeBottomAt } from './tiles.js?v=realms-qor-46';
+import { W, hasWall, wallBlastResist } from './walls.js?v=realms-qor-46';
+import { BIOME_ORDER } from './biomes.js?v=realms-qor-46';
+import { generateWorld } from './worldgen.js?v=realms-qor-46';
 
 export class World {
   constructor(seed) {
@@ -33,9 +33,26 @@ export class World {
   index(tx, ty) { return ty * this.width + tx; }
   inBounds(tx, ty) { return tx >= 0 && ty >= 0 && tx < this.width && ty < this.height; }
 
+  // The stored value packs a hammer shape into its high bits (see tiles.js).
+  // `get` masks it off so every existing caller keeps seeing a plain tile id;
+  // anything that needs the geometry calls `getShape`/`getRaw`.
   get(tx, ty) {
     if (!this.inBounds(tx, ty)) return T.STONE; // out of bounds = solid wall
+    return tileId(this.tiles[this.index(tx, ty)]);
+  }
+  getRaw(tx, ty) {
+    if (!this.inBounds(tx, ty)) return T.STONE;
     return this.tiles[this.index(tx, ty)];
+  }
+  getShape(tx, ty) {
+    if (!this.inBounds(tx, ty)) return SHAPE.FULL;
+    return tileShape(this.tiles[this.index(tx, ty)]);
+  }
+  setShape(tx, ty, shape) {
+    if (!this.inBounds(tx, ty)) return;
+    const id = this.get(tx, ty);
+    if (id === T.AIR) return;
+    this.set(tx, ty, packTile(id, shape));
   }
 
   // Set a tile. record=true adds to save diffs. Updates the lighting column.
@@ -92,13 +109,134 @@ export class World {
   }
 
   // Rectangle (world px) vs solid tiles.
-  rectHitsSolid(x, y, w, h) {
+  // Shape-aware overlap test. A full tile is the common case and short-circuits
+  // immediately; only hammered tiles pay for the column sampling.
+  //
+  // `opts.platformsSolid` makes platforms catch a falling entity (the vertical
+  // pass sets it; the horizontal pass never does, so you walk *through* the side
+  // of a platform), and `opts.prevBottom` is where the entity's feet were before
+  // the move, so a platform only ever catches feet that crossed its top surface
+  // this frame — from underneath it isn't there at all.
+  rectHitsSolid(x, y, w, h, opts) {
     const x0 = Math.floor(x / TILE), x1 = Math.floor((x + w - 0.001) / TILE);
     const y0 = Math.floor(y / TILE), y1 = Math.floor((y + h - 0.001) / TILE);
-    for (let ty = y0; ty <= y1; ty++)
-      for (let tx = x0; tx <= x1; tx++)
-        if (this.isSolidAt(tx, ty)) return true;
+    for (let ty = y0; ty <= y1; ty++) {
+      for (let tx = x0; tx <= x1; tx++) {
+        if (!this.isSolidAt(tx, ty)) continue;
+        const shape = this.getShape(tx, ty);
+        if (shape === SHAPE.FULL) return true;
+        if (shape === SHAPE.PLATFORM) {
+          if (this._platformCatches(ty, y, h, opts)) return true;
+          continue;
+        }
+        if (this._shapeOverlaps(tx, ty, shape, x, y, w, h)) return true;
+      }
+    }
     return false;
+  }
+
+  _platformCatches(ty, y, h, opts) {
+    if (!opts || opts.platformsSolid !== true) return false;
+    const surf = ty * TILE + TILE * shapeBottomAt(SHAPE.PLATFORM, 0.5);
+    if (y + h < surf) return false;                                 // feet still above it
+    if (opts.prevBottom != null && opts.prevBottom > surf) return false; // came from below
+    return true;
+  }
+
+  // Sample the shaped tile across the part of it the box actually covers.
+  _shapeOverlaps(tx, ty, shape, x, y, w, h) {
+    const left = tx * TILE, top = ty * TILE;
+    const sx0 = Math.max(x, left), sx1 = Math.min(x + w, left + TILE);
+    if (sx1 <= sx0) return false;
+    const SAMPLES = 4;
+    for (let i = 0; i <= SAMPLES; i++) {
+      const px = sx0 + (sx1 - sx0) * (i / SAMPLES);
+      const fx = Math.max(0, Math.min(1, (px - left) / TILE));
+      const solidTop = top + TILE * shapeTopAt(shape, fx);
+      const solidBottom = top + TILE * shapeBottomAt(shape, fx);
+      if (y + h > solidTop && y < solidBottom) return true;
+    }
+    return false;
+  }
+
+  // True when at least one of the solid tiles the box overlaps has been
+  // hammered. Physics uses this to decide whether an obstruction is a slope to
+  // walk up (always allowed) or an ordinary block (only `stepHeight` climbs it).
+  boxTouchesShaped(x, y, w, h) {
+    const x0 = Math.floor(x / TILE), x1 = Math.floor((x + w - 0.001) / TILE);
+    const y0 = Math.floor(y / TILE), y1 = Math.floor((y + h - 0.001) / TILE);
+    for (let ty = y0; ty <= y1; ty++) {
+      for (let tx = x0; tx <= x1; tx++) {
+        if (!this.isSolidAt(tx, ty)) continue;
+        const shape = this.getShape(tx, ty);
+        if (shape !== SHAPE.FULL && shape !== SHAPE.PLATFORM) return true;
+      }
+    }
+    return false;
+  }
+
+  // Y of the highest surface a falling box lands on, or null when nothing in
+  // range stops it. Shapes make this more than `floor((y+h)/TILE)*TILE`: half
+  // blocks, slopes and platforms all have their top partway through the tile.
+  // Surfaces further than a tile above the feet are ignored so an entity that
+  // somehow ends up embedded in rock is not flung upward.
+  landingSurfaceY(x, y, w, h, opts) {
+    const x0 = Math.floor(x / TILE), x1 = Math.floor((x + w - 0.001) / TILE);
+    const y0 = Math.floor(y / TILE), y1 = Math.floor((y + h - 0.001) / TILE);
+    const limit = y + h - TILE - 0.5;
+    let best = Infinity;
+    for (let ty = y0; ty <= y1; ty++) {
+      for (let tx = x0; tx <= x1; tx++) {
+        if (!this.isSolidAt(tx, ty)) continue;
+        const shape = this.getShape(tx, ty);
+        if (shape === SHAPE.PLATFORM) {
+          if (!this._platformCatches(ty, y, h, opts)) continue;
+          best = Math.min(best, ty * TILE + TILE * shapeBottomAt(SHAPE.PLATFORM, 0.5));
+          continue;
+        }
+        const left = tx * TILE;
+        const sx0 = Math.max(x, left), sx1 = Math.min(x + w, left + TILE);
+        for (let i = 0; i <= 4; i++) {
+          const fx = Math.max(0, Math.min(1, ((sx0 + (sx1 - sx0) * (i / 4)) - left) / TILE));
+          const top = ty * TILE + TILE * shapeTopAt(shape, fx);
+          if (top >= limit) best = Math.min(best, top);
+        }
+      }
+    }
+    return best === Infinity ? null : best;
+  }
+
+  // Y of the lowest ceiling a rising box hits, or null. Mirror of the above:
+  // only the "upper" shapes hang below their tile's floor.
+  ceilingSurfaceY(x, y, w, h) {
+    const x0 = Math.floor(x / TILE), x1 = Math.floor((x + w - 0.001) / TILE);
+    const y0 = Math.floor(y / TILE), y1 = Math.floor((y + h - 0.001) / TILE);
+    const limit = y + TILE + 0.5;
+    let best = -Infinity;
+    for (let ty = y0; ty <= y1; ty++) {
+      for (let tx = x0; tx <= x1; tx++) {
+        if (!this.isSolidAt(tx, ty)) continue;
+        const shape = this.getShape(tx, ty);
+        if (shape === SHAPE.PLATFORM) continue; // never a ceiling
+        const left = tx * TILE;
+        const sx0 = Math.max(x, left), sx1 = Math.min(x + w, left + TILE);
+        for (let i = 0; i <= 4; i++) {
+          const fx = Math.max(0, Math.min(1, ((sx0 + (sx1 - sx0) * (i / 4)) - left) / TILE));
+          const bot = ty * TILE + TILE * shapeBottomAt(shape, fx);
+          if (bot <= limit) best = Math.max(best, bot);
+        }
+      }
+    }
+    return best === -Infinity ? null : best;
+  }
+
+  // Surface height of a shaped tile at a world x, or null if nothing solid
+  // there. Used to seat an entity on a slope instead of on the tile grid.
+  surfaceYAt(tx, ty, worldX) {
+    if (!this.isSolidAt(tx, ty)) return null;
+    const shape = this.getShape(tx, ty);
+    const fx = Math.max(0, Math.min(1, (worldX - tx * TILE) / TILE));
+    return ty * TILE + TILE * shapeTopAt(shape, fx);
   }
 
   // Mining: add damage to a tile; returns null or {broken, id, drop, dropChance}.
@@ -181,7 +319,7 @@ export class World {
   }
   _recomputeTopSolidColumn(x) {
     let y = 0;
-    while (y < this.height && !isSolid(this.tiles[this.index(x, y)])) y++;
+    while (y < this.height && !isSolid(tileId(this.tiles[this.index(x, y)]))) y++;
     this.topSolid[x] = y;
   }
 

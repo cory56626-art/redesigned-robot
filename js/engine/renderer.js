@@ -1,13 +1,13 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H } from '../config.js?v=realms-qor-45';
-import { T, isSolid, isTree, isLeaf, tileDef, tileSway } from '../world/tiles.js?v=realms-qor-45';
-import { W, hasWall } from '../world/walls.js?v=realms-qor-45';
-import { BIOMES } from '../world/biomes.js?v=realms-qor-45';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=realms-qor-45';
-import { item as getItem } from '../data/items.js?v=realms-qor-45';
-import { canPlaceAt } from '../systems/combat.js?v=realms-qor-45';
-import { clamp } from '../utils.js?v=realms-qor-45';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H } from '../config.js?v=realms-qor-46';
+import { T, isSolid, isTree, isLeaf, tileDef, tileSway, SHAPE } from '../world/tiles.js?v=realms-qor-46';
+import { W, hasWall } from '../world/walls.js?v=realms-qor-46';
+import { BIOMES } from '../world/biomes.js?v=realms-qor-46';
+import { Sprites, framingMask, shade as shadeHex, N, E, S, WBIT } from '../art/sprites.js?v=realms-qor-46';
+import { item as getItem } from '../data/items.js?v=realms-qor-46';
+import { canPlaceAt } from '../systems/combat.js?v=realms-qor-46';
+import { clamp } from '../utils.js?v=realms-qor-46';
 
 // Maximum bend of a fully-swaying tile at full wind, in radians (~17 degrees).
 const SWAY_RADIANS = 0.30;
@@ -368,6 +368,10 @@ export class Renderer {
         // be translucent (so the wall and any ore behind it read through) and
         // its surface row animates.
         if (id === T.WATER) { this._drawWaterTile(ctx, world, tx, ty, game); continue; }
+        // Hammered tiles are the same texture drawn through a clip, so a slope
+        // keeps its material and framing instead of needing its own sprite.
+        const shape = world.getShape(tx, ty);
+        if (shape !== SHAPE.FULL) { this._drawShapedTile(ctx, world, tx, ty, id, shape); continue; }
         const spr = this._tileSprite(world, tx, ty, id);
         if (spr) {
           // Leaves and plants bend in the wind. Tile sprites are cached
@@ -395,6 +399,36 @@ export class Renderer {
           for (let i = 0; i < n; i++) ctx.fillRect(tx * TILE + 2 + i * 4, ty * TILE + 3 + (i % 2) * 6, 2, 6);
         }
       }
+    }
+  }
+
+  // A hammered tile: the tile's own texture, clipped to the shape's outline.
+  // Framing is deliberately forced to "fully exposed" (mask 0) so the cut face
+  // carries the same rimmed edge an isolated block gets — without it a slope
+  // reads as a block someone took a bite out of.
+  _drawShapedTile(ctx, world, tx, ty, id, shape) {
+    const px = tx * TILE, py = ty * TILE;
+    const def = tileDef(id);
+    const spr = (def.decor || !def.mat) ? Sprites.getTile(id) : Sprites.getFramed(id, 0, 0);
+    if (!spr) return;
+    ctx.save();
+    ctx.beginPath();
+    shapePath(ctx, shape, px, py);
+    ctx.clip();
+    ctx.drawImage(spr, px, py, TILE, TILE);
+    const ratio = world.miningRatio(tx, ty);
+    if (ratio > 0.01) {
+      ctx.fillStyle = `rgba(0,0,0,${0.15 + ratio * 0.4})`;
+      const n = Math.ceil(ratio * 3);
+      for (let i = 0; i < n; i++) ctx.fillRect(px + 2 + i * 4, py + 3 + (i % 2) * 6, 2, 6);
+    }
+    ctx.restore();
+    if (shape === SHAPE.PLATFORM) {
+      // Two short pegs hanging under the walkway. Purely decorative — the
+      // collision slab is the top few pixels only.
+      ctx.fillStyle = shadeHex(def.color || '#8a6a3a', -0.45);
+      ctx.fillRect(px + 3, py + 5, 2, 3);
+      ctx.fillRect(px + TILE - 5, py + 5, 2, 3);
     }
   }
 
@@ -2232,6 +2266,25 @@ export class Renderer {
     r = Math.max(0, Math.min(255, r + amt * 255)); g = Math.max(0, Math.min(255, g + amt * 255)); b = Math.max(0, Math.min(255, b + amt * 255));
     return `rgb(${r | 0},${g | 0},${b | 0})`;
   }
+}
+
+// Outline of a hammered tile's solid area, in world pixels. This is the drawing
+// twin of tiles.js `shapeTopAt`/`shapeBottomAt`, which describe the same
+// outline to the collision code — the two must agree or blocks will look
+// different from how they feel.
+function shapePath(ctx, shape, px, py) {
+  const r = px + TILE, b = py + TILE;
+  switch (shape) {
+    case SHAPE.HALF:      ctx.rect(px, py + TILE / 2, TILE, TILE / 2); break;
+    case SHAPE.HALF_TOP:  ctx.rect(px, py, TILE, TILE / 2); break;
+    case SHAPE.PLATFORM:  ctx.rect(px, py, TILE, TILE * 0.28); break;
+    case SHAPE.SLOPE_NE:  ctx.moveTo(px, b); ctx.lineTo(r, py); ctx.lineTo(r, b); break;
+    case SHAPE.SLOPE_NW:  ctx.moveTo(px, py); ctx.lineTo(r, b); ctx.lineTo(px, b); break;
+    case SHAPE.SLOPE_SE:  ctx.moveTo(px, py); ctx.lineTo(r, py); ctx.lineTo(r, b); break;
+    case SHAPE.SLOPE_SW:  ctx.moveTo(px, py); ctx.lineTo(r, py); ctx.lineTo(px, b); break;
+    default:              ctx.rect(px, py, TILE, TILE); break;
+  }
+  ctx.closePath();
 }
 
 function hexToRgb(h) {

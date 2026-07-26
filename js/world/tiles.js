@@ -112,19 +112,93 @@ export const TILES = {
   [T.WATER]: { name: 'Water', solid: false, liquid: true, color: '#2f6fa8', hardness: 0, minPower: 0, blastResist: 0 },
 };
 
-export function tileDef(id) { return TILES[id] || TILES[T.AIR]; }
-export function isSolid(id) { return !!(TILES[id] && TILES[id].solid); }
-export function tileLight(id) { return (TILES[id] && TILES[id].light) || 0; }
-export function isTree(id) { return !!(TILES[id] && TILES[id].tree); }
-export function isLeaf(id) { return !!(TILES[id] && TILES[id].leaf); }
+// Every accessor masks off the shape nibble (see the shape section below), so
+// each one can be handed either a bare tile id or a packed tile value straight
+// out of the grid without the caller having to remember which it has.
+export function tileDef(id) { return TILES[id & ID_MASK] || TILES[T.AIR]; }
+export function isSolid(id) { return !!tileDef(id).solid; }
+export function tileLight(id) { return tileDef(id).light || 0; }
+export function isTree(id) { return !!tileDef(id).tree; }
+export function isLeaf(id) { return !!tileDef(id).leaf; }
 // How much a tile bends in the wind (0 = rigid). Leaves and plants sway;
 // terrain does not.
-export function tileSway(id) { return (TILES[id] && TILES[id].sway) || 0; }
-export function isLiquid(id) { return !!(TILES[id] && TILES[id].liquid); }
-export function isDecor(id) { return !!(TILES[id] && TILES[id].decor); }
-export function tileMat(id) { return (TILES[id] && TILES[id].mat) || null; }
+export function tileSway(id) { return tileDef(id).sway || 0; }
+
+// ---------------------------------------------------------------------------
+// Tile shape (hammer)
+// ---------------------------------------------------------------------------
+// A tile value is a Uint16: the low 12 bits are the id, the high 4 bits are a
+// shape. Ids currently top out at 39, so there is enormous headroom below the
+// shape nibble, and because the shape lives *inside* the tile value it rides
+// the save diffs and the network tile-edit messages for free.
+//
+// `World.get()` masks the shape off, so every existing call site keeps working
+// unchanged; anything that needs the geometry asks `World.getShape()`.
+export const SHAPE_BITS = 12;
+export const SHAPE_MASK = 0xf000;
+export const ID_MASK = 0x0fff;
+
+export const SHAPE = {
+  FULL: 0,
+  HALF: 1,       // bottom half only
+  HALF_TOP: 2,   // top half only
+  SLOPE_NE: 3,   // solid below a line rising to the right
+  SLOPE_NW: 4,   // solid below a line rising to the left
+  SLOPE_SE: 5,   // solid above a line falling to the right
+  SLOPE_SW: 6,   // solid above a line falling to the left
+  PLATFORM: 7,   // thin walkway: stands on, drops through
+};
+
+// The order the hammer cycles through.
+export const HAMMER_CYCLE = [
+  SHAPE.FULL, SHAPE.HALF, SHAPE.SLOPE_NE, SHAPE.SLOPE_NW,
+  SHAPE.SLOPE_SE, SHAPE.SLOPE_SW, SHAPE.HALF_TOP,
+];
+
+export function tileId(v) { return v & ID_MASK; }
+export function tileShape(v) { return (v & SHAPE_MASK) >>> SHAPE_BITS; }
+export function packTile(id, shape) { return (id & ID_MASK) | ((shape & 0xf) << SHAPE_BITS); }
+
+// Which tiles the hammer is allowed to reshape: solid terrain only. Reshaping a
+// torch or a sapling is meaningless and would break their sprites.
+export function isShapeable(id) {
+  const d = TILES[id & ID_MASK];
+  return !!(d && d.solid && !d.decor && d.mat);
+}
+
+// How much of the tile column at fraction `fx` (0..1 across the tile) is solid,
+// as a fraction measured from the tile's top. 0 = solid from the very top,
+// 1 = nothing solid. Used by collision and by the sprite clip.
+export function shapeTopAt(shape, fx) {
+  switch (shape) {
+    case SHAPE.FULL: return 0;
+    case SHAPE.HALF: return 0.5;
+    case SHAPE.HALF_TOP: return 0;
+    case SHAPE.PLATFORM: return 0;
+    case SHAPE.SLOPE_NE: return 1 - fx;   // low at the left, full at the right
+    case SHAPE.SLOPE_NW: return fx;       // full at the left, low at the right
+    case SHAPE.SLOPE_SE: return 0;
+    case SHAPE.SLOPE_SW: return 0;
+    default: return 0;
+  }
+}
+
+// Bottom of the solid part, as a fraction from the tile top. Only the "upper"
+// shapes stop short of the tile floor.
+export function shapeBottomAt(shape, fx) {
+  switch (shape) {
+    case SHAPE.HALF_TOP: return 0.5;
+    case SHAPE.PLATFORM: return 0.28;
+    case SHAPE.SLOPE_SE: return fx;
+    case SHAPE.SLOPE_SW: return 1 - fx;
+    default: return 1;
+  }
+}
+export function isLiquid(id) { return !!tileDef(id).liquid; }
+export function isDecor(id) { return !!tileDef(id).decor; }
+export function tileMat(id) { return tileDef(id).mat || null; }
 export function blastResist(id) {
-  const d = TILES[id];
+  const d = TILES[id & ID_MASK];
   if (!d) return 3;
   return d.blastResist == null ? 1 : d.blastResist;
 }

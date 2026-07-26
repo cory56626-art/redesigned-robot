@@ -6,7 +6,7 @@
 //
 // The HUD root is `pointer-events: none`, so anything interactive here has to
 // opt back in — same as `.icon-btn` and `.hotbar` already do.
-import { TILE } from '../config.js?v=realms-qor-45';
+import { TILE } from '../config.js?v=realms-qor-46';
 
 const WIDGET_W = 168, WIDGET_H = 104;
 // Zoom limits for the expanded view, in screen pixels per world tile.

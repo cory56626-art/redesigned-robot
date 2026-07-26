@@ -1,18 +1,28 @@
 // Summoner Realms — shared tile collision. Per-axis swept AABB against the grid.
-import { TILE, GRAVITY, MAX_FALL } from '../config.js?v=realms-qor-45';
+import { TILE, GRAVITY, MAX_FALL } from '../config.js?v=realms-qor-46';
+
+// How far an entity is lifted to walk onto a hammered slope or half block.
+// A full tile, so even a 45-degree slope is climbed regardless of `stepHeight`
+// — the whole point of a slope is that everything walks up it.
+const SHAPE_STEP = TILE;
+// And how far it is allowed to be pulled back down onto shaped ground when
+// walking *off* a slope, so descending glides instead of hopping.
+const SLOPE_GLIDE = 12;
 
 export function moveAndCollide(e, world, dt) {
   const wasGrounded = e.onGround;
   e.onGround = false;
 
-  // Horizontal
+  // Horizontal. Platforms are never solid sideways, so no opts here: you walk
+  // straight through the edge of a walkway rather than bumping into it.
   e.x += e.vx * dt;
   if (world.rectHitsSolid(e.x, e.y, e.w, e.h)) {
     // Auto step-up: entities with a `stepHeight` (the player) automatically
     // climb ledges up to that many pixels tall while walking on the ground, so
     // ordinary 1-tile terrain bumps never jam horizontal movement. Without this
     // the player gets stuck on every natural terrace and movement feels broken.
-    const step = e.stepHeight || 0;
+    let step = e.stepHeight || 0;
+    if (world.boxTouchesShaped(e.x, e.y, e.w, e.h)) step = Math.max(step, SHAPE_STEP);
     let stepped = false;
     if (step > 0 && e.vx !== 0 && wasGrounded) {
       for (let lift = 2; lift <= step; lift += 2) {
@@ -30,12 +40,37 @@ export function moveAndCollide(e, world, dt) {
     }
   } else e.hitWallX = false;
 
-  // Vertical
+  // Vertical. `prevBottom` is where the feet were before the move, which is
+  // what lets a platform catch a fall without also catching a jump from below.
+  const prevBottom = e.y + e.h;
   e.y += e.vy * dt;
-  if (world.rectHitsSolid(e.x, e.y, e.w, e.h)) {
-    if (e.vy > 0) { e.y = Math.floor((e.y + e.h) / TILE) * TILE - e.h - 0.01; e.onGround = true; }
-    else if (e.vy < 0) { e.y = (Math.floor(e.y / TILE) + 1) * TILE + 0.01; }
+  const opts = (e.vy > 0 && !e.dropThrough)
+    ? { platformsSolid: true, prevBottom }
+    : undefined;
+  if (world.rectHitsSolid(e.x, e.y, e.w, e.h, opts)) {
+    if (e.vy > 0) {
+      const surf = world.landingSurfaceY(e.x, e.y, e.w, e.h, opts);
+      e.y = (surf != null ? surf : Math.floor((e.y + e.h) / TILE) * TILE) - e.h - 0.01;
+      e.onGround = true;
+    } else if (e.vy < 0) {
+      const ceil = world.ceilingSurfaceY(e.x, e.y, e.w, e.h);
+      e.y = (ceil != null ? ceil : (Math.floor(e.y / TILE) + 1) * TILE) + 0.01;
+    }
     e.vy = 0;
+  } else if (!e.onGround && wasGrounded && e.vy >= 0 && !e.dropThrough) {
+    // Walking downhill: nothing is under the feet any more, but if shaped
+    // ground is within a few pixels, settle onto it instead of stepping off
+    // into a little airborne hop every tile. Ordinary ledges are left alone —
+    // only slopes and half blocks pull you back down.
+    const probe = { platformsSolid: true, prevBottom: e.y + e.h };
+    for (let d = 1; d <= SLOPE_GLIDE; d++) {
+      if (!world.rectHitsSolid(e.x, e.y + d, e.w, e.h, probe)) continue;
+      if (world.boxTouchesShaped(e.x, e.y + d, e.w, e.h)) {
+        const surf = world.landingSurfaceY(e.x, e.y + d, e.w, e.h, probe);
+        if (surf != null) { e.y = surf - e.h - 0.01; e.onGround = true; e.vy = 0; }
+      }
+      break;
+    }
   }
 }
 

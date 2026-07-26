@@ -4,14 +4,14 @@ import {
   MANA_REGEN, HP_REGEN, TILE,
   HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN,
   CAST_REGEN_DELAY, CAST_REGEN_MULT, RESPAWN_DELAY, RESPAWN_DELAY_BOSS,
-} from '../config.js?v=realms-qor-45';
-import { tileDef } from '../world/tiles.js?v=realms-qor-45';
-import { moveAndCollide, applyGravity, clampToWorld, inLiquid, applyLiquidPhysics, SWIM_RISE } from './physics.js?v=realms-qor-45';
-import { Inventory } from '../systems/inventory.js?v=realms-qor-45';
-import { item as getItem } from '../data/items.js?v=realms-qor-45';
-import * as combat from '../systems/combat.js?v=realms-qor-45';
-import { clamp } from '../utils.js?v=realms-qor-45';
-import { WIND_PLAYER_ACCEL } from '../systems/weather.js?v=realms-qor-45';
+} from '../config.js?v=realms-qor-46';
+import { tileDef } from '../world/tiles.js?v=realms-qor-46';
+import { moveAndCollide, applyGravity, clampToWorld, inLiquid, applyLiquidPhysics, SWIM_RISE } from './physics.js?v=realms-qor-46';
+import { Inventory } from '../systems/inventory.js?v=realms-qor-46';
+import { item as getItem } from '../data/items.js?v=realms-qor-46';
+import * as combat from '../systems/combat.js?v=realms-qor-46';
+import { clamp } from '../utils.js?v=realms-qor-46';
+import { WIND_PLAYER_ACCEL } from '../systems/weather.js?v=realms-qor-46';
 
 // Wind dies out below the surface layer; caves are still air.
 const UNDERGROUND_WIND_Y = 100;
@@ -124,12 +124,15 @@ export class Player {
     }
     if (moveX < -0.1) this.facing = -1; else if (moveX > 0.1) this.facing = 1;
 
+    // Holding down turns platforms off for this entity (see physics.js).
+    this.dropThrough = canAct && !!input.downHeld && !input.jumpHeld;
+
     // ---- Jump / fly ----
     const extraJumps = st.extraJumps;
     if (this.cheats.fly) {
       this.vy = 0;
       if (input.jumpHeld) this.vy = -260;
-      else if (input.moveX === 0 && game.input.keys && game.input.keys.has('s')) this.vy = 220;
+      else if (input.downHeld) this.vy = 220;
       else this.vy = 40; // gentle sink
       // No gravity in fly.
       moveAndCollide(this, game.world, dt);
@@ -243,6 +246,13 @@ export class Player {
     if ((input.primaryHeld || aimUse) && sel) {
       if (sel.fishing) {
         if (input.primaryPressed) game.toggleFishing(this, sel);
+      } else if (sel.tool && sel.tool.kind === 'hammer') {
+        // A hammer reshapes rather than mines, so it is a discrete edit on a
+        // cooldown (the same one placing uses) instead of continuous damage.
+        if (this.placeTimer <= 0) {
+          const swing = 0.29 - (sel.tool.power || 1) * 0.03; // heavier hammers work faster
+          this.placeTimer = combat.hammerAt(game, this, sel) ? swing : 0.12;
+        }
       } else if (sel.category === 'tool') {
         combat.mineAt(game, this, dt, { tool: sel });
       } else if (isPlaceable(sel)) {

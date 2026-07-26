@@ -2,7 +2,7 @@
 // Produces a platform-agnostic InputState so PC and mobile drive gameplay and
 // networking identically. Keyboard/mouse and touch joysticks both feed the same
 // intents: move, jump, aim, primary-use, mine, place, consume.
-import { REACH, TILE } from '../config.js?v=realms-qor-45';
+import { REACH, TILE } from '../config.js?v=realms-qor-46';
 
 // Wheel-to-hotbar feel. One notch on a typical mouse is ~100px of deltaY;
 // WHEEL_STEP is deliberately a little under that so a notch always registers,
@@ -23,6 +23,8 @@ export class Input {
       aimX: 0,
       aimY: 0,
       aimHeld: false,
+      // Held "down": drops through platforms, and sinks while flying.
+      downHeld: false,
       primaryHeld: false,
       primaryPressed: false,
       mineHeld: false,
@@ -156,6 +158,9 @@ export class Input {
         this.fire('hotbar', parseInt(k, 10) - 1);
       } else if (k === '0') {
         this.fire('hotbar', 9);
+      } else if (k === 's' || k === 'arrowdown') {
+        this.state.downHeld = true;
+        if (k === 'arrowdown') e.preventDefault();
       } else if (k === ' ' || k === 'w' || k === 'arrowup') {
         if (!this.state.jumpHeld) {
           this._queueJump();
@@ -175,6 +180,10 @@ export class Input {
 
       if (k === 'control') this.smartHeld = false;
 
+      if (k === 's' || k === 'arrowdown') {
+        this.state.downHeld = this.keys.has('s') || this.keys.has('arrowdown');
+      }
+
       if (k === ' ' || k === 'w' || k === 'arrowup') {
         if (
           !this.keys.has(' ') &&
@@ -190,6 +199,7 @@ export class Input {
       this.keys.clear();
       this.smartHeld = false;
       this.state.jumpHeld = false;
+      this.state.downHeld = false;
       this.state.aimHeld = false;
       this.state.primaryHeld = false;
       this.state.primaryPressed = false;
@@ -306,6 +316,11 @@ export class Input {
       document.getElementById('joyMove'),
       (vx, vy, active) => {
         this.state.moveX = active ? clampAxis(vx) : 0;
+
+        // Pushing the stick down is the "down" intent (drop through a
+        // platform). The threshold is deliberately well past halfway so running
+        // with a slightly low thumb never drops you through your own walkway.
+        this.state.downHeld = active && vy > 0.55;
 
         // The movement stick is movement only. Jump is an explicit action on
         // mobile; mapping upward drift to jump caused accidental bunny-hops
@@ -573,6 +588,7 @@ export class Input {
     return {
       moveX: s.moveX,
       jump: s.jumpHeld,
+      down: s.downHeld,
       aimX: Math.round(s.aimX),
       aimY: Math.round(s.aimY),
       primary: s.primaryHeld,

@@ -1,7 +1,7 @@
 // Summoner Realms — item catalogue. All original names/designs.
 // Categories: weapon (melee/ranged/mage/summon), tool, armor, accessory,
 // potion, ammo, material, block, station, summonitem.
-import { T } from '../world/tiles.js?v=realms-qor-45';
+import { T, SHAPE, packTile } from '../world/tiles.js?v=realms-qor-46';
 
 export const ITEMS = {};
 
@@ -22,6 +22,15 @@ def({ id: 'glimmerPick', name: 'Glimmer Pick', category: 'tool', tool: { power: 
 def({ id: 'woodAxe', name: 'Oaken Hatchet', category: 'tool', tool: { power: 1, kind: 'axe' }, color: '#9a6a3a', color2: '#7a5228', desc: 'Basic axe. Chop trees to fell them for wood (power 1).' });
 def({ id: 'cupriteAxe', name: 'Cuprite Axe', category: 'tool', tool: { power: 2, kind: 'axe' }, color: '#c47b4a', tier: 1, desc: 'Chops trees faster (power 2).' });
 def({ id: 'ironveinAxe', name: 'Ironvein Axe', category: 'tool', tool: { power: 3, kind: 'axe' }, color: '#a9b0bd', tier: 2, desc: 'Chops trees swiftly (power 3).' });
+
+// ---------- Tools: hammers (reshape placed blocks, knock out background walls)
+// A hammer never mines: hitting a block cycles its shape instead (full ->
+// half -> the four slopes -> raised half -> back to full), which is what makes
+// smooth ramps and low walls possible. Aiming at empty space with a wall behind
+// it knocks the wall out, up to the hammer's power.
+def({ id: 'woodHammer', name: 'Oaken Mallet', category: 'tool', tool: { power: 1, kind: 'hammer' }, color: '#b0824a', color2: '#6a5a4a', desc: 'Reshapes placed blocks into slopes and half blocks. Also knocks out dirt walls.' });
+def({ id: 'cupriteHammer', name: 'Cuprite Hammer', category: 'tool', tool: { power: 2, kind: 'hammer' }, color: '#c47b4a', color2: '#7a4a2a', tier: 1, desc: 'Reshapes blocks, and knocks out stone walls too.' });
+def({ id: 'ironveinHammer', name: 'Ironvein Sledge', category: 'tool', tool: { power: 3, kind: 'hammer' }, color: '#a9b0bd', color2: '#6a7078', tier: 2, desc: 'Reshapes blocks, and knocks out any wall in the world.' });
 
 // ---------- Melee weapons (8) ----------
 const melee = (id, name, color, dmg, useTime, tier, extra = {}) =>
@@ -254,6 +263,10 @@ const block = (id, name, tile, tier = 0) => def({ id, name, category: 'block', p
 def({ id: 'planks', name: 'Oaken Planks', category: 'block', place: T.PLANKS, color: '#a67c46' });
 def({ id: 'stoneBrick', name: 'Stone Brick', category: 'block', place: T.STONEBRICK, color: '#7c8296', tier: 1 });
 def({ id: 'torch', name: 'Emberlight', category: 'block', place: T.TORCH, color: '#ffb347', maxStack: 99, desc: 'Placeable light source.' });
+// Platforms place a normal block carrying the PLATFORM shape, so they ride the
+// save diffs and the network tile messages with no new tile id.
+def({ id: 'woodPlatform', name: 'Oaken Walkway', category: 'block', place: packTile(T.PLANKS, SHAPE.PLATFORM), color: '#a67c46', platform: true, desc: 'Walk on it, jump up through it, hold Down to drop through.' });
+def({ id: 'stonePlatform', name: 'Stone Walkway', category: 'block', place: packTile(T.STONEBRICK, SHAPE.PLATFORM), color: '#7c8296', platform: true, tier: 1, desc: 'Walk on it, jump up through it, hold Down to drop through.' });
 // stations
 def({ id: 'craftingBench', name: 'Crafting Bench', category: 'station', place: T.BENCH, color: '#8a6a3a', desc: 'Unlocks basic recipes.' });
 def({ id: 'smeltery', name: 'Smeltery', category: 'station', place: T.SMELTERY, color: '#5a5560', desc: 'Smelts ore into bars.' });
@@ -281,6 +294,14 @@ def({ id: 'blightIdol', name: 'Blight Idol', category: 'summonitem', color: '#c5
 
 export function item(id) { return ITEMS[id]; }
 export function allItemIds() { return Object.keys(ITEMS); }
+
+// Tile id -> the platform item that places it, so breaking a walkway hands back
+// a walkway instead of the raw block it is built from.
+const PLATFORM_ITEM_BY_TILE = {};
+for (const it of Object.values(ITEMS)) {
+  if (it.platform && it.place != null) PLATFORM_ITEM_BY_TILE[it.place & 0x0fff] = it.id;
+}
+export function platformItemFor(id) { return PLATFORM_ITEM_BY_TILE[id & 0x0fff] || null; }
 
 // Convenience groupings for commands / crafting UI.
 export const WEAPON_IDS = Object.values(ITEMS).filter(i => i.category === 'weapon').map(i => i.id);

@@ -1,13 +1,13 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
-import { MSG } from './protocol.js?v=realms-qor-45';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=realms-qor-45';
-import { Player, assignColor } from '../entities/player.js?v=realms-qor-45';
-import { Projectile } from '../entities/projectile.js?v=realms-qor-45';
-import { ThrownItem } from '../entities/thrown.js?v=realms-qor-45';
-import { ITEMS } from '../data/items.js?v=realms-qor-45';
-import { ENEMIES } from '../data/enemies.js?v=realms-qor-45';
-import { BOSSES } from '../data/bosses.js?v=realms-qor-45';
-import { GRAVEMAW_SEGMENTS, updateGravemawChain } from '../entities/boss.js?v=realms-qor-45';
+import { MSG } from './protocol.js?v=realms-qor-46';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=realms-qor-46';
+import { Player, assignColor } from '../entities/player.js?v=realms-qor-46';
+import { Projectile } from '../entities/projectile.js?v=realms-qor-46';
+import { ThrownItem } from '../entities/thrown.js?v=realms-qor-46';
+import { ITEMS } from '../data/items.js?v=realms-qor-46';
+import { ENEMIES } from '../data/enemies.js?v=realms-qor-46';
+import { BOSSES } from '../data/bosses.js?v=realms-qor-46';
+import { GRAVEMAW_SEGMENTS, updateGravemawChain } from '../entities/boss.js?v=realms-qor-46';
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 

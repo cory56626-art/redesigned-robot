@@ -1,10 +1,11 @@
 // Summoner Realms — combat & interaction resolution (weapons, mining, placing).
-import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY } from '../config.js?v=realms-qor-45';
-import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=realms-qor-45';
-import { item as getItem } from '../data/items.js?v=realms-qor-45';
-import { Projectile } from '../entities/projectile.js?v=realms-qor-45';
-import { ThrownItem } from '../entities/thrown.js?v=realms-qor-45';
-import { angleTo, aabb, clamp } from '../utils.js?v=realms-qor-45';
+import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY } from '../config.js?v=realms-qor-46';
+import { T, tileDef, isTree, isLeaf, isShapeable, tileShape, HAMMER_CYCLE, SHAPE } from '../world/tiles.js?v=realms-qor-46';
+import { W, wallDef, hasWall } from '../world/walls.js?v=realms-qor-46';
+import { item as getItem, platformItemFor } from '../data/items.js?v=realms-qor-46';
+import { Projectile } from '../entities/projectile.js?v=realms-qor-46';
+import { ThrownItem } from '../entities/thrown.js?v=realms-qor-46';
+import { angleTo, aabb, clamp } from '../utils.js?v=realms-qor-46';
 
 const MINE_RATE = 95;
 const MINE_SOUND_INTERVAL = 0.32;
@@ -329,8 +330,73 @@ export function throwItem(game, player, item) {
 
 function bestAnyToolPower(player) {
   let p = 1;
-  for (const s of player.inventory.slots) { if (s) { const d = getItem(s.id); if (d && d.tool) p = Math.max(p, d.tool.power); } }
+  for (const s of player.inventory.slots) {
+    if (!s) continue;
+    const d = getItem(s.id);
+    // Hammers and rods are not mining tools; carrying one must not make bare
+    // rock give way faster.
+    if (d && d.tool && d.tool.kind !== 'hammer' && d.tool.kind !== 'rod') p = Math.max(p, d.tool.power);
+  }
   return p;
+}
+
+// ---------------------------------------------------------------------------
+// Hammer
+// ---------------------------------------------------------------------------
+// A hammer never removes a block. Hitting placed terrain cycles its shape —
+// full, half, the four slopes, raised half, back to full — which is how ramps,
+// low walls and smooth hillsides get built. Aimed at open space with a
+// background wall behind it, it knocks that wall out instead.
+//
+// Returns true if it did something, so the caller only pays the cooldown for a
+// swing that landed.
+export function hammerAt(game, player, hammer) {
+  const { tx, ty } = aimTile(game, player);
+  if (!withinReach(player, tx, ty)) return false;
+  const power = (hammer.tool && hammer.tool.power) || 1;
+  const world = game.world;
+  const id = world.get(tx, ty);
+
+  if (id === T.AIR) {
+    // Nothing to reshape — try the wall behind it. Wall toughness is graded on
+    // the same scale explosions use, where a power-1 bomb already clears stone;
+    // hammers are held one rung below that so the three tiers actually separate
+    // (mallet: dirt · cuprite: + stone · sledge: + deepstone and blight).
+    const wid = world.getWall(tx, ty);
+    if (!hasWall(wid)) return false;
+    if (!world.breakWall(tx, ty, power - 1)) {
+      _hammerFail(game, tx, ty, wallDef(wid).name + ' is too tough');
+      return false;
+    }
+    game.netEditWall(tx, ty, W.NONE);
+    game.markDirty();
+    game.audio?.blockBreak();
+    game.addHitParticles(tx * TILE + TILE / 2, ty * TILE + TILE / 2, wallDef(wid).color || '#555', 5);
+    return true;
+  }
+
+  if (!isShapeable(id)) {
+    _hammerFail(game, tx, ty, tileDef(id).name + " won't reshape");
+    return false;
+  }
+
+  const cur = tileShape(world.getRaw(tx, ty));
+  const at = HAMMER_CYCLE.indexOf(cur);
+  // A platform is not part of the cycle (it is placed, not hammered), so a
+  // hammer blow flattens one back into an ordinary block.
+  const next = cur === SHAPE.PLATFORM ? SHAPE.FULL : HAMMER_CYCLE[(at + 1) % HAMMER_CYCLE.length];
+  world.setShape(tx, ty, next);
+  game.netEditTile(tx, ty, world.getRaw(tx, ty));
+  game.markDirty();
+  game.audio?.pickaxeHit();
+  game.addHitParticles(tx * TILE + TILE / 2, ty * TILE + TILE / 2, tileDef(id).color || '#888', 3);
+  return true;
+}
+
+function _hammerFail(game, tx, ty, reason) {
+  if (game._placeFailCd > 0) return;
+  game.floatText(tx * TILE + TILE / 2, ty * TILE, reason, '#ff8b7d');
+  game._placeFailCd = 0.7;
 }
 
 // source: { tool: <itemDef> } for an explicitly selected tool, or { auto:true }
@@ -342,6 +408,7 @@ export function mineAt(game, player, dt, source) {
   if (id === T.AIR) return;
   const def = tileDef(id);
   if (!def.hardness) return;
+  const wasPlatform = tileShape(game.world.getRaw(tx, ty)) === SHAPE.PLATFORM;
 
   const need = def.toolType || null;         // 'pickaxe' | 'axe' | null (any)
   let power = 1, haveKind = null;
@@ -379,7 +446,7 @@ export function mineAt(game, player, dt, source) {
       _leafDrop(game, player, tx, ty);
       game.addHitParticles(cx, cy, def.color || '#3e7a34', 5);
     } else if (Math.random() <= (res.dropChance || 1) && res.drop) {
-      _giveOrDrop(game, player, tx, ty, res.drop, 1);
+      _giveOrDrop(game, player, tx, ty, (wasPlatform && platformItemFor(id)) || res.drop, 1);
       game.addHitParticles(cx, cy, def.color || '#888', 6);
     } else {
       game.addHitParticles(cx, cy, def.color || '#888', 6);
@@ -482,7 +549,10 @@ export function canPlaceAt(game, player, tx, ty, sel) {
   if (!sel || sel.place == null) return { ok: false, reason: 'Not placeable' };
   if (!withinReach(player, tx, ty)) return { ok: false, reason: 'Too far away' };
   if (game.world.get(tx, ty) !== T.AIR) return { ok: false, reason: 'Space is occupied' };
-  const placingSolid = tileDef(sel.place).solid;
+  // A platform is thin and passable, so — as in every game that has them — you
+  // are allowed to build one in the space you are standing in. Solid blocks
+  // still refuse, since that would entomb whoever is there.
+  const placingSolid = tileDef(sel.place).solid && tileShape(sel.place) !== SHAPE.PLATFORM;
   if (placingSolid) {
     const box = { x: tx * TILE, y: ty * TILE, w: TILE, h: TILE };
     for (const p of game.players.values()) if (p.alive && aabb(box, p)) return { ok: false, reason: "Can't place on a player" };

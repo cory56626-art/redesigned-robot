@@ -95,6 +95,35 @@ the map; drag to pan, scroll or pinch to zoom (the first pinch handling in the
 codebase). The expanded map registers as a blocking modal, so it stops movement
 and mining while the world keeps simulating.
 
+**Characters separate from worlds** — a character carries its own appearance,
+inventory and equipment between worlds. `systems/characters.js` mirrors
+`SaveManager`; a world save now stores only `{x, y, charId}` for the player, and
+pre-4.1 saves adopt their embedded player as a character on load.
+
+**Hammers, slopes and platforms** — a tile value is a `Uint16` and ids top out
+at 39, so the top four bits now carry a *shape*: half, raised half, the four
+slopes, and platform. Keeping the shape inside the tile value means it rides the
+save diffs and the `TILE_EDIT` network message unchanged — no new tile ids, no
+save migration, no second parallel array. `World.get()` masks the nibble off, so
+all ~200 existing call sites kept working untouched; `getShape`/`getRaw` are for
+the code that needs the geometry.
+
+Collision samples the shaped column across the span the box actually covers
+rather than testing a square, and gained three new resolvers: `landingSurfaceY`
+(a fall settles on the real surface, not on the tile grid), `ceilingSurfaceY`,
+and `boxTouchesShaped`. In `physics.js` a shaped obstruction lifts an entity
+regardless of its `stepHeight` — the point of a slope is that everything walks
+up it — and walking *off* one pulls the entity back down within 12px, so
+descending glides instead of hopping. Measured on a 4-up/3-flat/4-down ramp:
+2 airborne frames out of 117.
+
+A platform is solid only to feet that crossed its top surface this frame
+(`opts.prevBottom`, taken pre-move so a fast fall cannot tunnel through), which
+is what makes one thing stand-on-able, jump-through-able and drop-through-able
+at once. Hammers never mine: a blow cycles the shape, and a blow at open space
+knocks out the background wall behind it at `power - 1` on the explosion
+resist scale, so the three tiers actually separate.
+
 **New harness invariants** — cave depth grading, cave connectivity, and the
 "no floating trunks" check relaxed to accept diagonal support so leaning
 corruption trunks are legal.

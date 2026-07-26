@@ -58,6 +58,19 @@ export function claudeNotesHTML() {
       tile (~22KB, base64'd into the save), repainted per 32&times;32 chunk when a tile changes rather than
       redrawing 182,000 cells a frame. <kbd>M</kbd> expands it — drag to pan, scroll or pinch to zoom. The expanded
       map blocks movement and mining but the world keeps running behind it.</li>
+    <li><b class="cn-good">Hammers, slopes and platforms.</b> A tile value is a <code>Uint16</code>; ids top out
+      at 39, so the top four bits now carry a <b>shape</b> — half, raised half, the four slopes, and platform.
+      Because the shape lives inside the tile value it rides the save diffs and the network tile messages for
+      free, no new tile ids and no save migration. <code>World.get()</code> masks it off, so every existing call
+      site kept working untouched. Collision samples the shaped column instead of testing a square, entities
+      walk up a slope regardless of their step height and are pulled back down onto one when walking off, and a
+      platform is solid only to feet that crossed its top surface this frame — so you stand on it, jump up
+      <i>through</i> it, and hold <kbd>S</kbd> to drop back down. Hammers never mine: a blow cycles the shape,
+      and a blow at open space knocks out the background wall behind it (mallet: dirt · cuprite: + stone ·
+      sledge: + deepstone and blight).</li>
+    <li><b class="cn-good">Characters are separate from worlds.</b> A character carries its own appearance,
+      inventory and equipment between worlds, the way it works in Terraria. Pre-4.1 saves adopt their embedded
+      player as a character on load, so nothing is lost.</li>
     <li><b class="cn-good">Water &amp; fishing.</b> Still pools in cave basins and surface ponds, swimming, plus
       passive fauna (cows, pigs, bunnies, grubs, emberflies) that drop meat, hide and bait, and a fishing rod with
       depth-dependent catch tables and crates.</li>

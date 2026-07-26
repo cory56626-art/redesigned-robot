@@ -1,12 +1,12 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=realms-qor-45';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=realms-qor-45';
-import { Sprites } from '../art/sprites.js?v=realms-qor-45';
-import { item as getItem } from '../data/items.js?v=realms-qor-45';
-import { availableRecipes } from '../systems/crafting.js?v=realms-qor-45';
-import { claudeNotesHTML } from './claude-notes.js?v=realms-qor-45';
-import { SKIN_TONES, HAIR_COLORS, HAIR_STYLES, SHIRT_COLORS, PANTS_COLORS, defaultAppearance } from '../systems/characters.js?v=realms-qor-45';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=realms-qor-46';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=realms-qor-46';
+import { Sprites } from '../art/sprites.js?v=realms-qor-46';
+import { item as getItem } from '../data/items.js?v=realms-qor-46';
+import { availableRecipes } from '../systems/crafting.js?v=realms-qor-46';
+import { claudeNotesHTML } from './claude-notes.js?v=realms-qor-46';
+import { SKIN_TONES, HAIR_COLORS, HAIR_STYLES, SHIRT_COLORS, PANTS_COLORS, defaultAppearance } from '../systems/characters.js?v=realms-qor-46';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [
@@ -401,6 +401,7 @@ export class Menus {
       <h4>PC Controls</h4>
       <ul>
         <li><kbd>A</kbd>/<kbd>D</kbd> or arrows — move · <kbd>W</kbd>/<kbd>Space</kbd> — jump (double-jump with Cloudstep Charm)</li>
+        <li><kbd>S</kbd>/<kbd>↓</kbd> — hold to <b>drop through a walkway</b> you're standing on</li>
         <li><b>Left-click</b> — use item (attack / cast / summon / throw / place / mine or chop with the held tool)</li>
         <li><b>Right-click</b> — dig/chop the targeted tile with the best tool for it (pickaxe for stone, axe for trees)</li>
         <li><kbd>1</kbd>–<kbd>0</kbd> / scroll — select hotbar · <kbd>E</kbd> — inventory &amp; crafting · <kbd>Q</kbd> — use potion</li>
@@ -412,6 +413,7 @@ export class Menus {
       <h4>Mobile Controls</h4>
       <ul>
         <li>Left stick moves, right stick aims. Buttons: Jump, Use, Mine, Place, Bag, Item.</li>
+        <li>Push the left stick <b>down</b> to drop through a walkway you're standing on.</li>
         <li><b>◎</b> toggles Smart Cursor, which picks the best tile for you — essential when aiming with a stick.</li>
         <li>Tap an item in your bag to inspect it, or drag it to another slot to rearrange.</li>
       </ul>
@@ -423,6 +425,8 @@ export class Menus {
       <ul>
         <li>You start with only a <b>pickaxe</b>, an <b>axe</b>, and a <b>sword</b>. Chop trees with the axe (they topple and drop wood — leaves only give twigs), mine stone &amp; ore with the pickaxe.</li>
         <li>Craft a <b>Crafting Bench</b> from wood, then build a Smeltery, Forge and Aether Altar as you progress.</li>
+        <li>An <b>Oaken Mallet</b> (8 wood, no bench needed) reshapes any block you hit: full → half → the four slopes → raised half → back to full. Slopes are walked up smoothly, so they make ramps out of terraces. Swing it at open space to knock out the background wall behind it.</li>
+        <li><b>Oaken Walkways</b> (1 wood → 4) are thin platforms: stand on them, jump up <i>through</i> them, and hold <kbd>S</kbd> to drop back down.</li>
         <li><b>Bombs</b> are a mining tool as much as a weapon — they arc, bounce, and blow craters in dirt and stone. Stand clear: the blast hurts you too.</li>
         <li>Bows need <b>arrows</b>, magic drains <b>Aether</b>, and healing has a <b>cooldown</b> — watch the hotbar timers.</li>
         <li>Craft a <b>Verdant Effigy</b> and use it in the Forest to summon the first boss. Bosses <b>telegraph</b> every attack — watch for the charge-up.</li>

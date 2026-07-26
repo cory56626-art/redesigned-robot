@@ -8,6 +8,10 @@ export const RECIPES = [
   { out: { item: 'torch', count: 2 }, in: [{ item: 'stick', count: 1 }], station: null },
   { out: { item: 'woodPick', count: 1 }, in: [{ item: 'wood', count: 8 }], station: null },
   { out: { item: 'woodAxe', count: 1 }, in: [{ item: 'wood', count: 6 }], station: null },
+  // Craftable by hand alongside the other starter tools: shaping terrain and
+  // laying walkways is basic movement kit, not a mid-game unlock.
+  { out: { item: 'woodHammer', count: 1 }, in: [{ item: 'wood', count: 8 }], station: null },
+  { out: { item: 'woodPlatform', count: 4 }, in: [{ item: 'wood', count: 1 }], station: null },
   { out: { item: 'flintArrow', count: 12 }, in: [{ item: 'stick', count: 2 }, { item: 'stone', count: 1 }], station: null },
   { out: { item: 'planks', count: 4 }, in: [{ item: 'wood', count: 2 }], station: null },
   { out: { item: 'fishingRod', count: 1 }, in: [{ item: 'wood', count: 6 }, { item: 'fiber', count: 4 }], station: null },
@@ -31,6 +35,7 @@ export const RECIPES = [
   { out: { item: 'spriteWhistle', count: 1 }, in: [{ item: 'wood', count: 10 }, { item: 'fiber', count: 3 }], station: 'bench' },
   { out: { item: 'smeltery', count: 1 }, in: [{ item: 'stone', count: 12 }, { item: 'clay', count: 4 }], station: 'bench' },
   { out: { item: 'stoneBrick', count: 10 }, in: [{ item: 'stone', count: 10 }], station: 'bench' },
+  { out: { item: 'stonePlatform', count: 4 }, in: [{ item: 'stone', count: 2 }], station: 'bench' },
   { out: { item: 'healLesser', count: 2 }, in: [{ item: 'fiber', count: 3 }, { item: 'clay', count: 1 }], station: 'bench' },
   { out: { item: 'verdantEffigy', count: 1 }, in: [{ item: 'wood', count: 12 }, { item: 'fiber', count: 8 }, { item: 'clay', count: 2 }], station: 'bench' },
 
@@ -55,6 +60,7 @@ export const RECIPES = [
   // --- Forge: metal gear ---
   { out: { item: 'cupritePick', count: 1 }, in: [{ item: 'cupriteBar', count: 8 }], station: 'forge' },
   { out: { item: 'cupriteAxe', count: 1 }, in: [{ item: 'cupriteBar', count: 7 }, { item: 'wood', count: 2 }], station: 'forge' },
+  { out: { item: 'cupriteHammer', count: 1 }, in: [{ item: 'cupriteBar', count: 7 }, { item: 'wood', count: 2 }], station: 'forge' },
   { out: { item: 'cupriteSword', count: 1 }, in: [{ item: 'cupriteBar', count: 8 }], station: 'forge' },
   { out: { item: 'thornspikeSpear', count: 1 }, in: [{ item: 'cupriteBar', count: 6 }, { item: 'fiber', count: 6 }], station: 'forge' },
   { out: { item: 'cupriteRepeater', count: 1 }, in: [{ item: 'cupriteBar', count: 10 }, { item: 'wood', count: 2 }], station: 'forge' },
@@ -62,6 +68,7 @@ export const RECIPES = [
   { out: { item: 'aetherAltar', count: 1 }, in: [{ item: 'stone', count: 12 }, { item: 'glimmerBar', count: 4 }], station: 'forge' },
   { out: { item: 'ironveinPick', count: 1 }, in: [{ item: 'ironveinBar', count: 12 }], station: 'forge' },
   { out: { item: 'ironveinAxe', count: 1 }, in: [{ item: 'ironveinBar', count: 10 }, { item: 'wood', count: 2 }], station: 'forge' },
+  { out: { item: 'ironveinHammer', count: 1 }, in: [{ item: 'ironveinBar', count: 10 }, { item: 'wood', count: 2 }], station: 'forge' },
   { out: { item: 'ironveinSaber', count: 1 }, in: [{ item: 'ironveinBar', count: 12 }], station: 'forge' },
   { out: { item: 'ironveinHelm', count: 1 }, in: [{ item: 'ironveinBar', count: 10 }], station: 'forge' },
   { out: { item: 'ironveinPlate', count: 1 }, in: [{ item: 'ironveinBar', count: 16 }], station: 'forge' },

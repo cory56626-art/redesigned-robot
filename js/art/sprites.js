@@ -9,9 +9,9 @@
 // top, a shadowed underside and rimmed sides. That neighbour awareness — plus
 // grass fringing down onto dirt and trunk/canopy shading — is most of what makes
 // terrain read as terrain instead of a grid of coloured squares.
-import { T, TILES, tileMat } from '../world/tiles.js?v=realms-qor-45';
-import { W, WALLS } from '../world/walls.js?v=realms-qor-45';
-import { mulberry32 } from '../utils.js?v=realms-qor-45';
+import { T, TILES, tileMat, tileId, tileShape, SHAPE } from '../world/tiles.js?v=realms-qor-46';
+import { W, WALLS } from '../world/walls.js?v=realms-qor-46';
+import { mulberry32 } from '../utils.js?v=realms-qor-46';
 
 function makeCanvas(w, h) {
   const c = document.createElement('canvas');
@@ -75,7 +75,10 @@ class SpriteBank {
     this.ready = true;
   }
 
-  getTile(id) {
+  // Callers can hand this a packed tile value; the shape is a clip applied at
+  // draw time, not a separate texture, so only the id selects the canvas.
+  getTile(v) {
+    const id = tileId(v);
     if (!this.tileCache.has(id)) this.tileCache.set(id, this._buildTile(id));
     return this.tileCache.get(id);
   }
@@ -556,7 +559,13 @@ class SpriteBank {
       else if (item.weaponClass === 'mage') this._mage(ctx, col, col2, item.mageKind);
       else if (item.weaponClass === 'summon') this._summon(ctx, col, col2);
     } else if (cat === 'throwable') this._throwable(ctx, col, col2, item.throwKind);
-    else if (cat === 'tool') { if (item.tool && item.tool.kind === 'axe') this._axe(ctx, col, col2); else this._pick(ctx, col, col2); }
+    else if (cat === 'tool') {
+      const kind = item.tool && item.tool.kind;
+      if (kind === 'axe') this._axe(ctx, col, col2);
+      else if (kind === 'hammer') this._hammer(ctx, col, col2);
+      else if (kind === 'rod') this._rod(ctx, col, col2);
+      else this._pick(ctx, col, col2);
+    }
     else if (cat === 'armor') this._armor(ctx, col, col2, item.slot);
     else if (cat === 'accessory') this._accessory(ctx, col, col2, item.accKind);
     else if (cat === 'potion') this._potion(ctx, col);
@@ -564,7 +573,20 @@ class SpriteBank {
     else if (cat === 'summonitem') this._idol(ctx, col, col2);
     else if (cat === 'block' || cat === 'station') {
       const tc = item.place != null ? this.getTile(item.place) : null;
-      if (tc) { ctx.imageSmoothingEnabled = false; ctx.drawImage(tc, 2, 2, IS - 4, IS - 4); }
+      if (tc && tileShape(item.place) === SHAPE.PLATFORM) {
+        // Two offset slabs of the block's own texture. A single bar was too
+        // close to the hammer's head at hotbar size; a stepped pair reads
+        // immediately as "walkways you build with".
+        ctx.imageSmoothingEnabled = false;
+        const slab = (x, y, w) => {
+          ctx.drawImage(tc, 0, 0, TS, 5, x, y, w, 4);
+          ctx.fillStyle = shade(col, -0.5);
+          ctx.fillRect(x, y + 4, w, 1);
+          for (let sx = x + 4; sx < x + w - 1; sx += 5) ctx.fillRect(sx, y, 1, 4);
+        };
+        slab(1, 11, 13);
+        slab(6, 4, 13);
+      } else if (tc) { ctx.imageSmoothingEnabled = false; ctx.drawImage(tc, 2, 2, IS - 4, IS - 4); }
       else this._nugget(ctx, col, col2);
     } else if (item.matKind === 'ore') this._ore(ctx, col, col2);
     else if (item.matKind === 'bar') this._bar(ctx, col, col2);
@@ -682,6 +704,32 @@ class SpriteBank {
     ctx.beginPath(); ctx.moveTo(11, 3); ctx.lineTo(18, 5); ctx.lineTo(17, 10); ctx.lineTo(11, 8); ctx.closePath(); ctx.fill();
     ctx.fillStyle = shade(col, 0.4); ctx.beginPath(); ctx.moveTo(12, 4); ctx.lineTo(17, 5.5); ctx.lineTo(16.5, 7); ctx.closePath(); ctx.fill();
     ctx.fillStyle = shade(col, -0.3); ctx.fillRect(10, 3, 2, 6);
+  }
+  // A fat banded block sitting square across the top of a straight haft. The
+  // pick is a thin curved beak and the axe a one-sided wedge, so keeping the
+  // hammer symmetrical and blocky is what tells the three apart at hotbar size.
+  _hammer(ctx, col, col2) {
+    ctx.fillStyle = '#7a5a2a'; ctx.fillRect(9, 7, 3, 11);           // haft
+    ctx.fillStyle = '#5c4220'; ctx.fillRect(11, 7, 1, 11);
+    ctx.fillStyle = col; ctx.fillRect(3, 3, 15, 7);                  // head
+    ctx.fillStyle = shade(col, 0.42); ctx.fillRect(3, 3, 15, 2);     // lit top
+    ctx.fillStyle = shade(col, -0.34); ctx.fillRect(3, 8, 15, 2);    // shadowed underside
+    const band = col2 || shade(col, -0.5);                           // iron bands
+    ctx.fillStyle = band; ctx.fillRect(3, 3, 2, 7); ctx.fillRect(16, 3, 2, 7);
+    ctx.fillStyle = shade(band, 0.35); ctx.fillRect(3, 3, 2, 1); ctx.fillRect(16, 3, 2, 1);
+  }
+  // Tapering rod with a line and a hanging bobber. The rod used to borrow the
+  // pickaxe icon, which made it unfindable in a full hotbar.
+  _rod(ctx, col, col2) {
+    ctx.strokeStyle = col; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(3, 17); ctx.lineTo(15, 3); ctx.stroke();
+    ctx.strokeStyle = shade(col, 0.35); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(4, 16.5); ctx.lineTo(14, 4); ctx.stroke();
+    ctx.fillStyle = col2 || shade(col, -0.4); ctx.fillRect(4, 13, 4, 3); // grip
+    ctx.strokeStyle = 'rgba(230,240,255,0.85)'; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(15, 3); ctx.quadraticCurveTo(18, 8, 17, 13); ctx.stroke();
+    ctx.fillStyle = '#e8514f'; ctx.beginPath(); ctx.arc(17, 14.5, 2.1, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#f4f0e6'; ctx.beginPath(); ctx.arc(17, 15.6, 1.1, 0, Math.PI); ctx.fill();
   }
   _armor(ctx, col, col2, slot) {
     ctx.fillStyle = col;

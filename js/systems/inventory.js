@@ -1,6 +1,6 @@
 // Summoner Realms — inventory, hotbar, equipment, and derived stats.
-import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=realms-qor-45';
-import { ITEMS, item as getItem } from '../data/items.js?v=realms-qor-45';
+import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=realms-qor-46';
+import { ITEMS, item as getItem } from '../data/items.js?v=realms-qor-46';
 
 export const INV_SIZE = HOTBAR_SIZE + INV_ROWS * INV_COLS;
 

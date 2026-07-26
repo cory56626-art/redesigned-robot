@@ -1,8 +1,8 @@
 // Summoner Realms — Demo Commands console (testing only).
-import { ITEMS, DEMO_GIVE_ALL } from './data/items.js?v=realms-qor-45';
-import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=realms-qor-45';
-import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=realms-qor-45';
-import { TRACKS } from './engine/music.js?v=realms-qor-45';
+import { ITEMS, DEMO_GIVE_ALL } from './data/items.js?v=realms-qor-46';
+import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=realms-qor-46';
+import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=realms-qor-46';
+import { TRACKS } from './engine/music.js?v=realms-qor-46';
 
 const $ = (id) => document.getElementById(id);
 
