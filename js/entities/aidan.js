@@ -207,6 +207,8 @@ function updateFreezeGun(m, game, dt) {
     m.facing = Math.cos(m.freezeAngle) < 0 ? -1 : 1;
   }
   m.freezeWindup = Math.max(0, m.freezeWindup - dt);
+  // Avoid a floating-point sliver delaying the 0.7s shot by one simulation tick.
+  if (m.freezeWindup < 0.000001) m.freezeWindup = 0;
   m.freezeProgress = 1 - clamp(m.freezeWindup / (m.def.freezeCharge || 0.7), 0, 1);
   settleAidan(m, game, dt);
   m.moveAmount = 0;
