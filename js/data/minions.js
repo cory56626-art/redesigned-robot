@@ -45,13 +45,13 @@ export const MINIONS = {
   },
   aidan: {
     key: 'aidan', name: 'Aidan', behavior: 'aidan',
-    damage: 26, speed: 250, range: 1800, color: '#c88b2e', color2: '#5a341d',
-    w: 12, h: 26, maxHp: 1400, flying: true,
+    damage: 26, speed: 180, range: 1800, color: '#c88b2e', color2: '#5a341d',
+    w: 12, h: 26, maxHp: 1400, flying: false,
     basicDamage: 26, basicRate: 1.05, basicSpeed: 720, basicRange: 352,
-    portalTrigger: 360, portalSourceDistance: 64, portalExitDistance: 48, portalCooldown: 2.2,
+    portalTrigger: 360, portalSourceDistance: 64, portalExitDistance: 80, portalCooldown: 2.2,
     railgunDamage: 75, railgunCharge: 5, railgunCooldown: 14, railgunRange: 1800, railgunMinRange: 192,
     radioDamage: 5, radioTick: 0.5, radioDuration: 20,
-    desc: 'Aidan, the armored nanotech summon: Portal Pursuit, nanobot pulses, and a five-second purple railgun charge.',
+    desc: 'Aidan, the grounded armored nanotech summon: pathfinding movement, Portal Pursuit, nanobot pulses, and a five-second purple railgun charge.',
   },
 };
 
