@@ -1,11 +1,11 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=realms-difficulty-22';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=realms-difficulty-22';
-import { Sprites } from '../art/sprites.js?v=realms-difficulty-22';
-import { item as getItem } from '../data/items.js?v=realms-difficulty-22';
-import { availableRecipes } from '../systems/crafting.js?v=realms-difficulty-22';
-import { claudeNotesHTML } from './claude-notes.js?v=realms-difficulty-22';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=aidan-summon-1';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=aidan-summon-1';
+import { Sprites } from '../art/sprites.js?v=aidan-summon-1';
+import { item as getItem } from '../data/items.js?v=aidan-summon-1';
+import { availableRecipes } from '../systems/crafting.js?v=aidan-summon-1';
+import { claudeNotesHTML } from './claude-notes.js?v=aidan-summon-1';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [
