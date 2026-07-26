@@ -4,13 +4,13 @@ import {
   MANA_REGEN, HP_REGEN, TILE,
   HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN,
   CAST_REGEN_DELAY, CAST_REGEN_MULT, RESPAWN_DELAY, RESPAWN_DELAY_BOSS,
-} from '../config.js?v=realms-difficulty-22';
-import { tileDef } from '../world/tiles.js?v=realms-difficulty-22';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-difficulty-22';
-import { Inventory } from '../systems/inventory.js?v=realms-difficulty-22';
-import { item as getItem } from '../data/items.js?v=realms-difficulty-22';
-import * as combat from '../systems/combat.js?v=realms-difficulty-22';
-import { clamp } from '../utils.js?v=realms-difficulty-22';
+} from '../config.js?v=aidan-summon-1';
+import { tileDef } from '../world/tiles.js?v=aidan-summon-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=aidan-summon-1';
+import { Inventory } from '../systems/inventory.js?v=aidan-summon-1';
+import { item as getItem } from '../data/items.js?v=aidan-summon-1';
+import * as combat from '../systems/combat.js?v=aidan-summon-1';
+import { clamp } from '../utils.js?v=aidan-summon-1';
 
 export class Player {
   constructor(id, opts = {}) {
