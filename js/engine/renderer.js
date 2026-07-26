@@ -8,7 +8,7 @@ import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=aidan-s
 import { item as getItem } from '../data/items.js?v=aidan-summon-1';
 import { canPlaceAt } from '../systems/combat.js?v=aidan-summon-1';
 import { clamp } from '../utils.js?v=aidan-summon-1';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=aidan-summon-4';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=aidan-summon-5';
 
 const PROJ_GLOW = {
   thorn: '#7ee08a', seed: '#a7e36f', rock: '#8a7a5a', shock: '#d3b985',
@@ -1133,8 +1133,9 @@ export class Renderer {
         if (rm.dead) continue;
         if (rm.key === 'aidan') {
           drawAidan(ctx, Object.assign({
-            w: 34, h: 54, color: '#c88b2e', color2: '#5a341d',
-            anim: 0, hp: rm.hp, maxHp: rm.maxHp,
+            w: 12, h: 26, color: '#c88b2e', color2: '#5a341d',
+            anim: performance.now() / 1000 * 4.4, pose: rm.pose || 'idle', moveAmount: rm.mv || 0,
+            hp: rm.hp, maxHp: rm.maxHp,
           }, rm, { x: rm.x, y: rm.y, facing: rm.f || 1 }));
         } else if (rm.key === 'diamondHeart') {
           this._drawDiamondHeart(ctx, Object.assign({
