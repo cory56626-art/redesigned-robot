@@ -11,7 +11,7 @@ import { Inventory } from '../systems/inventory.js?v=realms-qor-41';
 import { item as getItem } from '../data/items.js?v=realms-qor-41';
 import * as combat from '../systems/combat.js?v=realms-qor-41';
 import { clamp } from '../utils.js?v=realms-qor-41';
-import { WIND_PLAYER_ACCEL } from '../systems/weather.js?v=realms-qor-41';
+import { WIND_PLAYER_ACCEL } from '../systems/weather.js?v=realms-qor-stability-42';
 
 // Wind dies out below the surface layer; caves are still air.
 const UNDERGROUND_WIND_Y = 100;
