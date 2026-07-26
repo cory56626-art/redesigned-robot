@@ -1,8 +1,8 @@
 // Summoner Realms — Aidan summon controller and pixel-tech presentation.
 // Aidan is intentionally kept in its own module: his multi-stage portal and
 // railgun states are too specific to safely squeeze into the generic minion AI.
-import { TILE } from '../config.js?v=aidan-summon-6';
-import { Projectile } from './projectile.js?v=aidan-summon-6';
+import { TILE } from '../config.js?v=aidan-summon-8';
+import { Projectile } from './projectile.js?v=aidan-summon-8';
 
 const TAU = Math.PI * 2;
 const PORTAL_BLUE = '#2e9cff';
@@ -54,62 +54,85 @@ function nearestTarget(game, x, y, range) {
   return best;
 }
 
-function moveAidan(m, x, y, speed, dt, stopDistance = 0) {
-  const c = centerOf(m);
-  const dx = x - c.x, dy = y - c.y;
-  const d = Math.hypot(dx, dy);
-  let vx = 0, vy = 0;
-  if (d > stopDistance + 2) {
-    const scale = speed / Math.max(d, 0.001);
-    vx = dx * scale; vy = dy * scale;
+function syncGroundPose(m) {
+  const speed = Math.max(1, m.def.speed || 180);
+  m.moveAmount = clamp(Math.abs(m.vx) / speed, 0, 1);
+  if (!m.poseTimer && !m.portalState &&
+      m.pose !== 'railgunCharge' && m.pose !== 'railgunFire') {
+    m.pose = m.moveAmount > 0.05 ? 'move' : 'idle';
   }
-  m.vx = vx; m.vy = vy;
-  m.x += vx * dt; m.y += vy * dt;
-  m.moveAmount = clamp(Math.hypot(vx, vy) / Math.max(speed, 1), 0, 1);
-  if (!m.poseTimer && m.moveAmount > 0.04) m.pose = 'move';
-  if (Math.abs(vx) > 2) m.facing = vx < 0 ? -1 : 1;
 }
 
-function orbitTarget(m, target, owner, dt) {
-  const tc = centerOf(target);
-  const oc = centerOf(owner);
+function pathDirection(m, game, tx, ty) {
+  const world = game.world;
   const c = centerOf(m);
-  const dx = tc.x - c.x, dy = tc.y - c.y;
-  const distance = Math.hypot(dx, dy);
-  const preferred = 218;
-  let radial = 0;
-  if (distance > preferred + 30) radial = 1;
-  else if (distance < preferred - 34) radial = -1;
-  const inv = 1 / Math.max(distance, 1);
-  const tangent = { x: -dy * inv, y: dx * inv };
-  const side = Math.sin(m.anim * 0.65) > 0 ? 1 : -1;
-  const speed = m.def.speed || 250;
-  const vx = (dx * inv * radial + tangent.x * 0.24 * side) * speed;
-  const vy = (dy * inv * radial + tangent.y * 0.24 * side) * speed;
-  m.vx = vx; m.vy = vy;
-  m.x += vx * dt; m.y += vy * dt;
-  m.moveAmount = clamp(Math.hypot(vx, vy) / Math.max(speed, 1), 0, 1);
-  if (!m.poseTimer && m.moveAmount > 0.04) m.pose = 'move';
-  if (Math.abs(vx) > 2) m.facing = vx < 0 ? -1 : 1;
+  if ((m.replanTimer || 0) <= 0) {
+    m.replanTimer = AI.REPLAN_INTERVAL;
+    const direct = world.hasLineOfSight(c.x, c.y, tx, ty);
+    m.plannedDir = direct
+      ? Math.sign(tx - c.x)
+      : (AI.planDirection(m, world, tx, ty) ?? Math.sign(tx - c.x));
+  }
+  return m.plannedDir || Math.sign(tx - c.x) || m.facing || 1;
+}
 
-  // If the target is far from the owner but not far enough to trigger a portal,
-  // bias Aidan back toward the owner so the summon never drifts off alone.
-  if (Math.hypot(c.x - oc.x, c.y - oc.y) > 520) {
-    moveAidan(m, oc.x + owner.facing * -80, oc.y - 42, speed, dt);
+function walkAidanTo(m, game, tx, ty, dt, stopDistance = 8) {
+  const world = game.world;
+  const c = centerOf(m);
+  let dir = 0;
+  if (Math.abs(tx - c.x) > stopDistance) {
+    dir = pathDirection(m, game, tx, ty);
+    if (m.onGround && dir && !AI.safeAhead(m, world, dir) && ty - c.y < 40) {
+      const gap = AI.gapWidth(m, world, dir);
+      if (gap > 3) dir = 0;
+    }
+    if (m.onGround && dir && AI.shouldJump(m, world, dir) && (m.jumpCd || 0) <= 0) {
+      m.vy = -300;
+      m.jumpCd = 0.55;
+    }
+  } else {
+    m.plannedDir = 0;
   }
 
-  // Keep the airborne armor silhouette inside a readable flight lane. He never
-  // sinks into terrain, and a hovering boss cannot pull him off the top of the
-  // camera where the player would lose track of the summon.
-  const flightFloor = owner.y - (m.h || 54) - 10;
-  const flightCeiling = Math.max(24, oc.y - 260);
-  if (m.y > flightFloor) {
-    m.y = flightFloor;
-    if (m.vy > 0) m.vy = 0;
-  } else if (m.y < flightCeiling) {
-    m.y = flightCeiling;
-    if (m.vy < 0) m.vy = 0;
+  const speed = m.def.speed || 180;
+  m.vx = dir * speed;
+  applyGravity(m, dt);
+  moveAndCollide(m, world, dt);
+  clampToWorld(m, world);
+  m.walkCycle = (m.walkCycle || 0) + Math.abs(m.vx) * dt * 0.055;
+  syncGroundPose(m);
+}
+
+function walkAidanToRange(m, game, target, desired, dt) {
+  const tc = centerOf(target);
+  const c = centerOf(m);
+  let side = Math.sign(c.x - tc.x);
+  if (!side) side = m.facing < 0 ? -1 : 1;
+  walkAidanTo(m, game, tc.x + side * desired, tc.y, dt, 8);
+}
+
+function settleAidan(m, game, dt) {
+  m.vx = 0;
+  applyGravity(m, dt);
+  moveAndCollide(m, game.world, dt);
+  clampToWorld(m, game.world);
+  syncGroundPose(m);
+}
+
+function groundedCenterY(game, target, x, m) {
+  const world = game.world;
+  const tx = Math.max(0, Math.min(world.width - 1, Math.floor(x / TILE)));
+  const targetBottom = target.y + target.h;
+  const start = Math.max(0, Math.floor(targetBottom / TILE) - 2);
+  const end = Math.min(world.height - 2, start + 18);
+  for (let ty = start; ty <= end; ty++) {
+    if (!world.isSolidAt(tx, ty) || !world.isSolidAt(tx, ty + 1)) continue;
+    const top = (ty + 1) * TILE - m.h - 0.01;
+    if (!world.rectHitsSolid(x - m.w / 2, top, m.w, m.h)) {
+      return top + m.h / 2;
+    }
   }
+  return targetBottom - m.h / 2;
 }
 
 function clearShotEnd(game, sx, sy, angle, maxDistance) {
@@ -238,7 +261,7 @@ function updateRailgun(m, game, owner, dt) {
   m.railgunOrigin = origin;
   m.railgunBeamEnd = clearShotEnd(game, origin.x, origin.y, m.railgunAngle || 0,
     m.def.railgunRange || 1500);
-  m.vx = 0; m.vy = 0;
+  settleAidan(m, game, dt);
   m.moveAmount = 0;
   m.pose = 'railgunCharge';
   if (m.railgunWindup <= 0) fireRailgun(m, game, owner);
@@ -248,20 +271,23 @@ function beginPortal(m, game, target) {
   const c = centerOf(m);
   const tc = centerOf(target);
   const angle = Math.atan2(tc.y - c.y, tc.x - c.x);
+  const horizontal = Math.sign(tc.x - c.x) || m.facing || 1;
   const source = {
-    x: c.x + Math.cos(angle) * (m.def.portalSourceDistance || TILE * 4),
-    y: c.y + Math.sin(angle) * (m.def.portalSourceDistance || TILE * 4),
+    x: c.x + horizontal * (m.def.portalSourceDistance || TILE * 4),
+    y: c.y,
   };
   const side = tc.x >= c.x ? -1 : 1;
+  const exitDistance = m.def.portalExitDistance || TILE * 5;
   const exit = {
-    x: tc.x + side * (m.def.portalExitDistance || TILE * 3),
-    y: tc.y - 8,
+    x: tc.x + side * exitDistance,
+    y: groundedCenterY(game, target, tc.x + side * exitDistance, m),
   };
   m.portalState = {
     time: 0,
     start: { x: m.x, y: m.y },
     source,
     exit,
+    side,
     target,
     entered: false,
     exited: false,
@@ -285,9 +311,8 @@ function updatePortal(m, game, dt) {
   const target = aliveTarget(ps.target) ? ps.target : null;
   if (target && ps.time < 0.58) {
     const tc = centerOf(target);
-    const side = tc.x >= centerOf(m).x ? -1 : 1;
-    ps.exit.x = tc.x + side * (m.def.portalExitDistance || TILE * 3);
-    ps.exit.y = tc.y - 8;
+    ps.exit.x = tc.x + ps.side * (m.def.portalExitDistance || TILE * 5);
+    ps.exit.y = groundedCenterY(game, target, ps.exit.x, m);
   }
 
   // 0.00–0.32: the armored summon visibly moves into the portal it fired.
@@ -334,13 +359,15 @@ function updatePortal(m, game, dt) {
     game.fx?.ring(ps.exit.x, ps.exit.y, PORTAL_CYAN, 42, { life: 0.38, width: 3 });
   }
 
-  // 0.60–0.98: give the exit animation a beat before returning to combat.
+  // 0.60–0.98: hold the exact five-tile exit distance while the
+  // armored summon finishes its landing/recoil animation.
   if (ps.time < 0.98) {
     m.pose = 'portalExit';
-    const away = target ? centerOf(target) : centerOf(m);
-    const dir = Math.sign(m.x + m.w / 2 - away.x) || m.facing;
-    m.x += dir * 20 * dt;
-    m.vx = dir * 20; m.vy = 0;
+    m.x = ps.exit.x - m.w / 2;
+    m.y = ps.exit.y - m.h / 2;
+    m.vx = 0; m.vy = 0;
+    m.onGround = true;
+    m.recoil = 1;
     return;
   }
 
@@ -385,6 +412,8 @@ function updateAidan(m, game, owner, ownerCenter, dt) {
   if (m.poseTimer <= 0 && (m.pose === 'pulse' || m.pose === 'railgunFire' || m.pose === 'portalExit')) m.pose = 'idle';
   m.railgunCooldown = Math.max(0, (m.railgunCooldown || 0) - dt);
   m.basicCooldown = Math.max(0, (m.basicCooldown || 0) - dt);
+  m.jumpCd = Math.max(0, (m.jumpCd || 0) - dt);
+  m.replanTimer = Math.max(0, (m.replanTimer || 0) - dt);
   m.railgunActive = Math.max(0, (m.railgunActive || 0) - dt);
   m.targetScanCd = Math.max(0, (m.targetScanCd || 0) - dt);
   tickRadioactive(m, game, dt);
@@ -399,7 +428,7 @@ function updateAidan(m, game, owner, ownerCenter, dt) {
   }
   const target = m.target;
   if (!target) {
-    moveAidan(m, ownerCenter.x + owner.facing * -84, ownerCenter.y - 50, d.speed || 250, dt, 4);
+    walkAidanTo(m, game, ownerCenter.x + owner.facing * -48, ownerCenter.y, dt, 8);
     return;
   }
 
@@ -427,7 +456,7 @@ function updateAidan(m, game, owner, ownerCenter, dt) {
     return;
   }
 
-  orbitTarget(m, target, owner, dt);
+  walkAidanToRange(m, game, target, Math.max(128, Math.min(176, (d.basicRange || 352) * 0.5)), dt);
   if (los && distance <= (d.basicRange || TILE * 22) && m.basicCooldown <= 0) {
     fireBasicPulse(m, game, owner, target);
   }
@@ -451,6 +480,14 @@ export function initAidanState(m) {
   m.moveAmount = 0;
   m.recoil = 0;
   m.pulseAngle = 0;
+  m.onGround = false;
+  m.stepHeight = TILE + 2;
+  m.jumpCd = 0;
+  m.replanTimer = 0;
+  m.plannedDir = 0;
+  m.pathTargetX = null;
+  m.pathTargetY = null;
+  m.walkCycle = 0;
   m.radioactiveTargets = new Map();
   m.hidden = false;
 }
@@ -500,10 +537,10 @@ function drawPortal(ctx, portal, time, scale = 1) {
 
 function drawAidanLeg(ctx, x, y, stride, lift = 0) {
   ctx.save();
-  ctx.translate(x + stride * 0.32, y - lift);
-  ctx.rotate(stride * 0.09);
+  ctx.translate(x + stride * 0.6, y - lift);
+  ctx.rotate(stride * 0.12);
   ctx.fillStyle = '#4b2d1b';
-  ctx.fillRect(-2, 0, 4, 8);
+  ctx.fillRect(-2, 0, 4, 9);
   ctx.fillStyle = '#9d6128';
   ctx.fillRect(-2, 1, 4, 6);
   ctx.fillStyle = '#e1aa3a';
@@ -512,6 +549,8 @@ function drawAidanLeg(ctx, x, y, stride, lift = 0) {
   ctx.fillRect(-3, 7, 6, 3);
   ctx.fillStyle = '#d99c32';
   ctx.fillRect(-2, 7, 4, 1);
+  ctx.fillStyle = '#f0c44f';
+  ctx.fillRect(-3, 4, 1, 2);
   ctx.restore();
 }
 
@@ -625,14 +664,19 @@ export function drawAidan(ctx, m) {
   const t = m.anim || 0;
   const face = m.facing < 0 ? -1 : 1;
   const pose = m.pose || ((m.moveAmount || 0) > 0.08 ? 'move' : 'idle');
-  const moving = (m.moveAmount || 0) > 0.08 && pose !== 'railgunCharge' && pose !== 'railgunFire';
-  const walkPhase = t * 2.35;
-  const stride = moving ? Math.sin(walkPhase) * 2.2 : Math.sin(t * 1.8) * 0.22;
-  const lift = moving ? Math.max(0, Math.sin(walkPhase)) * 0.55 : 0;
-  const breathing = Math.sin(t * 2.25) * 0.32;
+  const grounded = m.onGround !== false;
+  const moving = grounded && (m.moveAmount || 0) > 0.06 &&
+    pose !== 'railgunCharge' && pose !== 'railgunFire';
+  const walkPhase = m.walkCycle != null ? m.walkCycle : t * 2.35;
+  const gait = Math.sin(walkPhase);
+  const stride = moving ? gait * 3.0 : Math.sin(t * 1.8) * 0.16;
+  const lift = moving ? Math.max(0, gait) * 1.25 : 0;
+  const otherLift = moving ? Math.max(0, -gait) * 1.25 : 0;
+  const walkBob = moving ? Math.abs(gait) * 0.48 : 0;
+  const breathing = Math.sin(t * 2.25) * 0.22;
   const chargeCrouch = pose === 'railgunCharge' ? 0.9 + Math.sin(t * 13) * 0.18 : 0;
   const fireKick = pose === 'railgunFire' ? -0.75 : 0;
-  const bodyY = breathing + lift + chargeCrouch + fireKick;
+  const bodyY = breathing + walkBob + chargeCrouch + fireKick;
   const recoil = Math.max(0, Math.min(1, m.recoil || 0));
   const railPose = pose === 'railgunCharge' || pose === 'railgunFire' ||
     m.railgunWindup > 0 || m.railgunActive > 0;
@@ -678,10 +722,10 @@ export function drawAidan(ctx, m) {
 
   // Animated legs: every stride changes the knee/boot placement.
   drawAidanLeg(ctx, -3, 6, stride, lift);
-  drawAidanLeg(ctx, 3, 6, -stride, Math.max(0, -Math.sin(walkPhase)) * 0.55);
+  drawAidanLeg(ctx, 3, 6, -stride, otherLift);
 
   // Rear arm swings opposite the front leg while walking.
-  const swing = moving ? stride * 0.10 : Math.sin(t * 1.8) * 0.05;
+  const swing = moving ? stride * 0.18 : Math.sin(t * 1.8) * 0.04;
   drawAidanArm(ctx, -5, -4 + bodyY * 0.1, -0.18 - swing, 0.88);
 
   // Compact brown-and-gold chest plate.
@@ -778,44 +822,41 @@ export function drawAidan(ctx, m) {
 }
 
 function drawRailgunBeam(ctx, m) {
-  if ((!m.railgunWindup && !m.railgunActive) || !m.railgunOrigin || !m.railgunBeamEnd) return;
+  // The charge is a weapon pose and reticle only. The damaging beam and its
+  // rings exist for the short post-charge firing window, never during wind-up.
+  if (!(m.railgunActive > 0) || m.railgunWindup > 0 ||
+      !m.railgunOrigin || !m.railgunBeamEnd) return;
   const a = m.railgunAngle || 0;
   const o = m.railgunOrigin, e = m.railgunBeamEnd;
-  const charging = m.railgunWindup > 0;
-  const progress = m.railgunProgress || 0;
   const length = Math.hypot(e.x - o.x, e.y - o.y);
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   ctx.lineCap = 'round';
-  ctx.globalAlpha = charging ? 0.16 + progress * 0.18 : 0.45;
+  ctx.globalAlpha = 0.42;
   ctx.strokeStyle = RAIL_PURPLE;
-  ctx.lineWidth = charging ? 8 + progress * 5 : 24;
+  ctx.lineWidth = 24;
   ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(e.x, e.y); ctx.stroke();
-  ctx.globalAlpha = charging ? 0.8 : 1;
-  ctx.strokeStyle = charging ? RAIL_PURPLE : RAIL_CORE;
-  ctx.lineWidth = charging ? 1.4 + progress * 1.2 : 7;
+  ctx.globalAlpha = 0.95;
+  ctx.strokeStyle = RAIL_CORE;
+  ctx.lineWidth = 6;
   ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(e.x, e.y); ctx.stroke();
-  if (!charging) {
-    ctx.strokeStyle = '#ffffff';
-    ctx.globalAlpha = 0.9;
-    ctx.lineWidth = 1.8;
-    ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(e.x, e.y); ctx.stroke();
-  }
-  ctx.globalAlpha = 0.78;
+  ctx.globalAlpha = 0.9;
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(e.x, e.y); ctx.stroke();
   const spacing = TILE * 3;
   for (let d = spacing; d < length - 8; d += spacing) {
     const x = o.x + Math.cos(a) * d, y = o.y + Math.sin(a) * d;
-    const radius = charging ? 8 + progress * 3 : 12;
-    ctx.strokeStyle = charging ? RAIL_PURPLE : RAIL_CORE;
-    ctx.lineWidth = charging ? 1.5 : 2.5;
-    ctx.beginPath(); ctx.arc(x, y, radius, 0, TAU); ctx.stroke();
-    ctx.globalAlpha = charging ? 0.34 : 0.72;
-    ctx.beginPath(); ctx.arc(x, y, radius * 0.55, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = RAIL_CORE;
+    ctx.lineWidth = 2.5;
     ctx.globalAlpha = 0.78;
+    ctx.beginPath(); ctx.arc(x, y, 12, 0, TAU); ctx.stroke();
+    ctx.globalAlpha = 0.72;
+    ctx.beginPath(); ctx.arc(x, y, 6.6, 0, TAU); ctx.stroke();
   }
-  ctx.globalAlpha = 0.9;
+  ctx.globalAlpha = 0.95;
   ctx.fillStyle = RAIL_CORE;
-  ctx.beginPath(); ctx.arc(e.x, e.y, charging ? 4 + progress * 5 : 10, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(e.x, e.y, 10, 0, TAU); ctx.fill();
   ctx.restore();
 }
 
