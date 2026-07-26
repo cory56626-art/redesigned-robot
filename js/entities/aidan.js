@@ -88,6 +88,16 @@ function orbitTarget(m, target, owner, dt) {
   if (Math.hypot(c.x - oc.x, c.y - oc.y) > 520) {
     moveAidan(m, oc.x + owner.facing * -80, oc.y - 42, speed, dt);
   }
+
+  // Aidan is airborne, but never allowed to sink into the terrain while
+  // orbiting a boss that is flying or hovering. Keeping his boots above the
+  // owner's head makes the permanent armor silhouette readable and prevents
+  // the summon from becoming an invisible damage source below the ground.
+  const flightFloor = owner.y - (m.h || 54) - 10;
+  if (m.y > flightFloor) {
+    m.y = flightFloor;
+    if (m.vy > 0) m.vy = 0;
+  }
 }
 
 function clearShotEnd(game, sx, sy, angle, maxDistance) {
