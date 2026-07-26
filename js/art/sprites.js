@@ -208,6 +208,53 @@ class SpriteBank {
     const hasAbove = (mask & N) !== 0;
     const hasBelow = (mask & S) !== 0;
 
+    // Corruption trunks are twisted: the column leans per-tile, narrows, and
+    // grows knots and dead stubs instead of a clean cylinder.
+    const gnarled = id === T.BLIGHTWOOD;
+    if (gnarled) {
+      const lean = [-2, 1, 2, -1][variant & 3];
+      ctx.save();
+      ctx.translate(TS / 2, TS / 2);
+      ctx.rotate(lean * 0.06);
+      ctx.translate(-TS / 2, -TS / 2);
+      const gx0 = 5 + lean * 0.5, gw = 6;
+      const gg = ctx.createLinearGradient(gx0, 0, gx0 + gw, 0);
+      gg.addColorStop(0, shade(base, -0.2));
+      gg.addColorStop(0.3, shade(base, 0.2));
+      gg.addColorStop(1, shade(base, -0.45));
+      ctx.fillStyle = gg;
+      ctx.fillRect(gx0, 0, gw, TS);
+      // Knots and bark splits.
+      const gr = mulberry32(((id * 17 + variant * 613 + 3) * 2654435761) >>> 0);
+      ctx.fillStyle = shade(base, -0.5);
+      for (let i = 0; i < 4; i++) {
+        ctx.fillRect(gx0 + ((gr() * gw) | 0), (gr() * (TS - 3)) | 0, 1, 2 + ((gr() * 3) | 0));
+      }
+      ctx.fillStyle = shade(base, 0.3);
+      ctx.beginPath();
+      ctx.arc(gx0 + 2, 5 + ((gr() * 6) | 0), 1.3, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      // A bare, crooked branch on some tiles.
+      if (hasAbove && hasBelow && (variant & 1)) {
+        const dir = variant < 2 ? -1 : 1;
+        ctx.strokeStyle = shade(base, -0.3);
+        ctx.lineWidth = 2; ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(TS / 2, 11);
+        ctx.lineTo(TS / 2 + dir * 4, 7);
+        ctx.lineTo(TS / 2 + dir * 7, 8);
+        ctx.stroke();
+      }
+      if (!hasBelow) {
+        ctx.fillStyle = shade(base, -0.25);
+        ctx.beginPath();
+        ctx.moveTo(5, TS - 5); ctx.lineTo(1, TS); ctx.lineTo(8, TS); ctx.closePath(); ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(11, TS - 4); ctx.lineTo(15, TS); ctx.lineTo(9, TS); ctx.closePath(); ctx.fill();
+      }
+      return c;
+    }
+
     // Cylinder shading: a horizontal light-to-dark ramp across the trunk.
     const x0 = 4, wdt = 8;
     const g = ctx.createLinearGradient(x0, 0, x0 + wdt, 0);
@@ -395,6 +442,66 @@ class SpriteBank {
       ctx.fillStyle = g2; ctx.fillRect(4, 0, 8, TS);
       ctx.fillStyle = shade(base, -0.4);
       for (let y = 2; y < TS; y += 4) { ctx.fillRect(3, y, 1, 1); ctx.fillRect(12, y + 2, 1, 1); }
+    }
+    if (id === T.SHORTGRASS) {
+      ctx.clearRect(0, 0, TS, TS);
+      ctx.strokeStyle = base; ctx.lineWidth = 1.2; ctx.lineCap = 'round';
+      for (const [bx, tilt, len] of [[3, -1, 5], [6, 1, 7], [9, 0, 6], [12, 2, 4]]) {
+        ctx.beginPath(); ctx.moveTo(bx, TS); ctx.quadraticCurveTo(bx + tilt, TS - len * 0.6, bx + tilt * 2, TS - len); ctx.stroke();
+      }
+    }
+    if (id === T.FLOWER) {
+      ctx.clearRect(0, 0, TS, TS);
+      // stem + leaf
+      ctx.strokeStyle = '#4f8f46'; ctx.lineWidth = 1.2; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(8, TS); ctx.quadraticCurveTo(7, TS - 5, 8, TS - 9); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(8, TS - 5); ctx.quadraticCurveTo(5, TS - 6, 4, TS - 8); ctx.stroke();
+      // five petals around a pale centre
+      ctx.fillStyle = base;
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+        ctx.beginPath(); ctx.arc(8 + Math.cos(a) * 2.4, TS - 10 + Math.sin(a) * 2.4, 1.9, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = '#ffe08a';
+      ctx.beginPath(); ctx.arc(8, TS - 10, 1.4, 0, Math.PI * 2); ctx.fill();
+    }
+    if (id === T.FERN) {
+      ctx.clearRect(0, 0, TS, TS);
+      ctx.strokeStyle = base; ctx.lineWidth = 1.1; ctx.lineCap = 'round';
+      for (const dir of [-1, 1]) {
+        ctx.beginPath(); ctx.moveTo(8, TS); ctx.quadraticCurveTo(8 + dir * 3, TS - 7, 8 + dir * 6, TS - 12); ctx.stroke();
+        // fronds off the spine
+        ctx.lineWidth = 0.9;
+        for (let i = 1; i <= 3; i++) {
+          const t = i / 4;
+          const sx = 8 + dir * 3 * t * 2, sy = TS - 12 * t;
+          ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + dir * 3, sy - 1.5); ctx.stroke();
+        }
+        ctx.lineWidth = 1.1;
+      }
+    }
+    if (id === T.CAVEMOSS) {
+      ctx.clearRect(0, 0, TS, TS);
+      // A clinging fringe rather than a plant: it hangs off whatever is above.
+      ctx.fillStyle = base;
+      for (let x = 0; x < TS; x += 2) {
+        const len = 3 + ((x * 7) % 5);
+        ctx.fillRect(x, 0, 2, len);
+      }
+      ctx.fillStyle = shade(base, 0.25);
+      for (let x = 1; x < TS; x += 5) ctx.fillRect(x, 0, 1, 2);
+    }
+    if (id === T.GLOWSHROOM) {
+      ctx.clearRect(0, 0, TS, TS);
+      ctx.fillStyle = '#d9e6ea';
+      ctx.fillRect(7, TS - 7, 2, 7);
+      // cap with a soft bloom, so it reads as a light source
+      const g3 = ctx.createRadialGradient(8, TS - 8, 0, 8, TS - 8, 7);
+      g3.addColorStop(0, '#ffffff'); g3.addColorStop(0.45, base); g3.addColorStop(1, 'rgba(127,216,232,0)');
+      ctx.fillStyle = g3;
+      ctx.beginPath(); ctx.arc(8, TS - 8, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = base;
+      ctx.beginPath(); ctx.ellipse(8, TS - 8, 4.5, 3, 0, Math.PI, 0); ctx.fill();
     }
     if (id === T.STALAGMITE || id === T.STALACTITE) {
       ctx.clearRect(0, 0, TS, TS);

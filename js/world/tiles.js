@@ -39,6 +39,13 @@ export const T = {
   TALLGRASS: 30,
   STALAGMITE: 31,
   STALACTITE: 32,
+  // ---- 4.1 ---- appended, never renumbered (ids are part of the save format).
+  SHORTGRASS: 33,
+  FLOWER: 34,
+  FERN: 35,
+  CAVEMOSS: 36,
+  GLOWSHROOM: 37,
+  BLIGHTWOOD: 38,
 };
 
 // Each entry: name, solid, color (fallback), hardness, minPower, drop item id,
@@ -59,7 +66,7 @@ export const TILES = {
   [T.GRASS]:      { name: 'Verdant Grass', solid: true, color: '#4a8f3c', hardness: 26, minPower: 0, drop: 'dirt', mat: 'dirt', grass: '#5fae4a', blastResist: 0 },
   [T.STONE]:      { name: 'Stone', solid: true, color: '#6f7484', hardness: 55, minPower: 1, drop: 'stone', toolType: 'pickaxe', mat: 'stone', blastResist: 1 },
   [T.WOOD]:       { name: 'Oakenwood', solid: false, color: '#7a5228', hardness: 30, minPower: 0, drop: 'wood', toolType: 'axe', tree: true, decor: true, mat: 'wood', blastResist: 1 },
-  [T.LEAVES]:     { name: 'Leaves', solid: false, color: '#3e7a34', hardness: 8, minPower: 0, toolType: 'axe', leaf: true, decor: true, mat: 'leaves', blastResist: 0 },
+  [T.LEAVES]:     { name: 'Leaves', sway: 1, solid: false, color: '#3e7a34', hardness: 8, minPower: 0, toolType: 'axe', leaf: true, decor: true, mat: 'leaves', blastResist: 0 },
   [T.CLAY]:       { name: 'Clay', solid: true, color: '#9a5b45', hardness: 30, minPower: 0, drop: 'clay', mat: 'clay', blastResist: 0 },
   [T.SAND]:       { name: 'Sand', solid: true, color: '#d8c98a', hardness: 22, minPower: 0, drop: 'sand', mat: 'sand', blastResist: 0 },
   // Ores read as stone with a coloured gem seam, so veins sit inside the rock
@@ -71,7 +78,7 @@ export const TILES = {
   [T.BLIGHTORE]:  { name: 'Blightore', solid: true, color: '#4b3560', hardness: 150, minPower: 4, drop: 'blightoreOre', light: 0.2, toolType: 'pickaxe', mat: 'blightstone', blastResist: 3 },
   [T.BLIGHTGRASS]:{ name: 'Blighted Grass', solid: true, color: '#6d3f8a', hardness: 30, minPower: 0, drop: 'dirt', mat: 'dirt', grass: '#8a52ab', blastResist: 0 },
   [T.BLIGHTSTONE]:{ name: 'Blightstone', solid: true, color: '#4a2f66', hardness: 90, minPower: 2, drop: 'blightstone', toolType: 'pickaxe', mat: 'blightstone', blastResist: 2 },
-  [T.THORNVINE]:  { name: 'Thornvine', solid: false, color: '#5a7a3a', hardness: 10, minPower: 0, drop: 'fiber', dropChance: 0.6, decor: true, hazard: 3, blastResist: 0 },
+  [T.THORNVINE]:  { name: 'Thornvine', sway: 1.2, solid: false, color: '#5a7a3a', hardness: 10, minPower: 0, drop: 'fiber', dropChance: 0.6, decor: true, hazard: 3, blastResist: 0 },
   [T.TORCH]:      { name: 'Emberlight', solid: false, color: '#ffb347', hardness: 6, minPower: 0, drop: 'torch', light: 0.95, decor: true, blastResist: 0 },
   [T.BENCH]:      { name: 'Crafting Bench', solid: false, color: '#8a6a3a', hardness: 20, minPower: 0, drop: 'craftingBench', station: 'bench', decor: true, blastResist: 0 },
   [T.SMELTERY]:   { name: 'Smeltery', solid: false, color: '#5a5560', hardness: 40, minPower: 0, drop: 'smeltery', station: 'smeltery', light: 0.55, decor: true, blastResist: 0 },
@@ -85,11 +92,19 @@ export const TILES = {
   [T.SANDSTONE]:  { name: 'Sandstone', solid: true, color: '#bfa367', hardness: 48, minPower: 1, drop: 'sandstone', toolType: 'pickaxe', mat: 'sand', blastResist: 1 },
   [T.DEEPSTONE]:  { name: 'Deepstone', solid: true, color: '#4e4a59', hardness: 90, minPower: 2, drop: 'deepstone', toolType: 'pickaxe', mat: 'deepstone', blastResist: 2 },
   [T.FROSTWOOD]:  { name: 'Frostpine', solid: false, color: '#6a5b4c', hardness: 32, minPower: 0, drop: 'wood', toolType: 'axe', tree: true, decor: true, mat: 'wood', blastResist: 1 },
-  [T.FROSTLEAVES]:{ name: 'Frostpine Needles', solid: false, color: '#2f5c4a', hardness: 8, minPower: 0, toolType: 'axe', leaf: true, decor: true, mat: 'leaves', blastResist: 0 },
+  [T.FROSTLEAVES]:{ name: 'Frostpine Needles', sway: 0.7, solid: false, color: '#2f5c4a', hardness: 8, minPower: 0, toolType: 'axe', leaf: true, decor: true, mat: 'leaves', blastResist: 0 },
   [T.CACTUS]:     { name: 'Duneheart Cactus', solid: false, color: '#4f8a53', hardness: 16, minPower: 0, drop: 'fiber', dropChance: 0.8, decor: true, hazard: 2, blastResist: 0 },
-  [T.TALLGRASS]:  { name: 'Tall Grass', solid: false, color: '#5c9c46', hardness: 4, minPower: 0, drop: 'fiber', dropChance: 0.5, decor: true, blastResist: 0 },
+  [T.TALLGRASS]:  { name: 'Tall Grass', sway: 1.5, solid: false, color: '#5c9c46', hardness: 4, minPower: 0, drop: 'fiber', dropChance: 0.5, decor: true, blastResist: 0 },
   [T.STALAGMITE]: { name: 'Stalagmite', solid: false, color: '#7b7f8c', hardness: 18, minPower: 0, drop: 'stone', dropChance: 0.6, decor: true, blastResist: 0 },
   [T.STALACTITE]: { name: 'Stalactite', solid: false, color: '#7b7f8c', hardness: 18, minPower: 0, drop: 'stone', dropChance: 0.6, decor: true, blastResist: 0 },
+  // ---- 4.1 flora ----
+  [T.SHORTGRASS]: { name: 'Meadow Grass', sway: 1.4, solid: false, color: '#6aa851', hardness: 3, minPower: 0, drop: 'fiber', dropChance: 0.35, decor: true, blastResist: 0 },
+  [T.FLOWER]:     { name: 'Wildflower', sway: 1.3, solid: false, color: '#d9718f', hardness: 3, minPower: 0, drop: 'fiber', dropChance: 0.4, decor: true, blastResist: 0 },
+  [T.FERN]:       { name: 'Fern', sway: 1.1, solid: false, color: '#4f8f46', hardness: 4, minPower: 0, drop: 'fiber', dropChance: 0.5, decor: true, blastResist: 0 },
+  [T.CAVEMOSS]:   { name: 'Cave Moss', sway: 0.5, solid: false, color: '#5d7a4a', hardness: 4, minPower: 0, drop: 'fiber', dropChance: 0.3, decor: true, blastResist: 0 },
+  [T.GLOWSHROOM]: { name: 'Glowcap', sway: 0.4, solid: false, color: '#7fd8e8', hardness: 4, minPower: 0, drop: 'fiber', dropChance: 0.3, decor: true, light: 0.42, blastResist: 0 },
+  // Corruption trunk: same axe rules as wood, its own bruised palette.
+  [T.BLIGHTWOOD]: { name: 'Blightwood', solid: false, color: '#5b4560', hardness: 12, minPower: 0, toolType: 'axe', tree: true, decor: true, mat: 'wood', drop: 'wood', blastResist: 0 },
 };
 
 export function tileDef(id) { return TILES[id] || TILES[T.AIR]; }
@@ -97,6 +112,9 @@ export function isSolid(id) { return !!(TILES[id] && TILES[id].solid); }
 export function tileLight(id) { return (TILES[id] && TILES[id].light) || 0; }
 export function isTree(id) { return !!(TILES[id] && TILES[id].tree); }
 export function isLeaf(id) { return !!(TILES[id] && TILES[id].leaf); }
+// How much a tile bends in the wind (0 = rigid). Leaves and plants sway;
+// terrain does not.
+export function tileSway(id) { return (TILES[id] && TILES[id].sway) || 0; }
 export function isDecor(id) { return !!(TILES[id] && TILES[id].decor); }
 export function tileMat(id) { return (TILES[id] && TILES[id].mat) || null; }
 export function blastResist(id) {

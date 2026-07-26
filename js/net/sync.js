@@ -22,6 +22,7 @@ export function buildWelcome(game, forId) {
     time: game.time.t,
     day: game.time.day,
     progression: game.progression.serialize(),
+    weather: game.weather ? game.weather.serialize() : null,
     players: [...game.players.values()].map(p => p.netState()),
     enemies: game.enemies.map(e => e.netState()),
     bosses: game.bosses.map(b => b.netState()),
@@ -33,6 +34,7 @@ export function applyWelcome(game, msg) {
   game.selfId = msg.id;
   game.net.hostId = msg.hostId;
   game.startClientWorld(msg.seed, msg.name, msg.diffs, msg.time, msg.progression, msg.wallDiffs, msg.day || 1, msg.difficulty);
+  if (game.weather) game.weather.deserialize(msg.weather);
   // Remote players (everyone except us).
   for (const ps of msg.players) {
     if (ps.id === msg.id) continue;
@@ -50,6 +52,7 @@ export function buildSnapshot(game) {
     t: MSG.SNAPSHOT,
     time: game.time.t,
     day: game.time.day,
+    weather: game.weather ? game.weather.serialize() : null,
     players: [...game.players.values()].map(p => {
       const s = p.netState();
       if (p.isLocal) s.mins = game.minions.filter(m => m.ownerId === p.id).map(m => m.netInfo());
@@ -65,6 +68,7 @@ export function buildSnapshot(game) {
 export function applySnapshot(game, msg) {
   game.time.t = msg.time;
   if (msg.day != null) game.time.day = Math.max(1, Math.floor(msg.day));
+  if (msg.weather && game.weather) game.weather.deserialize(msg.weather);
   // Players
   const seen = new Set();
   for (const ps of msg.players) {

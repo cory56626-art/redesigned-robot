@@ -2,6 +2,11 @@
 import { TILE, WORLD_W, WORLD_H, TARGET_TILES_V } from '../config.js?v=realms-difficulty-22';
 import { clamp, lerp } from '../utils.js?v=realms-difficulty-22';
 
+// Player-adjustable zoom around the window-derived base scale. Zooming out too
+// far turns the game into a map; too far in and bosses leave the screen.
+export const ZOOM_MIN = 0.55;
+export const ZOOM_MAX = 1.8;
+
 export class Camera {
   constructor() {
     this.x = 0; // world px at centre of view
@@ -9,14 +14,36 @@ export class Camera {
     this.scale = 3; // world px -> screen px
     this.vw = 0; // view width in world px
     this.vh = 0;
+    this.zoom = 1; // player-controlled multiplier on the base scale
+    this.screenW = 0;
+    this.screenH = 0;
   }
 
   resize(screenW, screenH) {
-    // Choose a scale so ~TARGET_TILES_V tiles are visible vertically.
-    this.scale = Math.max(1.5, screenH / (TARGET_TILES_V * TILE));
-    this.vw = screenW / this.scale;
-    this.vh = screenH / this.scale;
+    this.screenW = screenW;
+    this.screenH = screenH;
+    this._applyScale();
   }
+
+  // scale, vw and vh must always move together: vw/vh drive both the renderer's
+  // tile-culling rect and the world-edge clamp in follow(). Recomputing scale
+  // alone leaves them stale, which pops tiles in at the screen edge.
+  _applyScale() {
+    // Choose a scale so ~TARGET_TILES_V tiles are visible vertically, then
+    // apply the player's zoom on top.
+    const base = Math.max(1.5, this.screenH / (TARGET_TILES_V * TILE));
+    this.scale = base * this.zoom;
+    this.vw = this.screenW / this.scale;
+    this.vh = this.screenH / this.scale;
+  }
+
+  setZoom(z) {
+    this.zoom = clamp(z, ZOOM_MIN, ZOOM_MAX);
+    this._applyScale();
+    return this.zoom;
+  }
+
+  nudgeZoom(step) { return this.setZoom(this.zoom * (step > 0 ? 1.12 : 1 / 1.12)); }
 
   follow(target, dt, snap = false) {
     const worldPxW = WORLD_W * TILE;

@@ -245,8 +245,16 @@ for (let s = 0; s < SEEDS; s++) {
       const id = at(x, y);
       const def = TILES[id];
       if (def && def.tree) {
-        if (at(x, y + 1) === T.AIR) floatingTrunks++;
-        if (!TILES[at(x, y + 1)] || !TILES[at(x, y + 1)].tree) trees++;
+        // A trunk tile must rest on something. Corruption trunks lean, so a
+        // diagonal neighbour below counts as support — the point of the check
+        // is that nothing hangs unsupported, not that trunks are vertical.
+        const supported = at(x, y + 1) !== T.AIR || at(x - 1, y + 1) !== T.AIR || at(x + 1, y + 1) !== T.AIR;
+        if (!supported) floatingTrunks++;
+        // Count one tree per trunk base: a tile with no trunk in any of the
+        // three positions below it.
+        const belowTree = [at(x, y + 1), at(x - 1, y + 1), at(x + 1, y + 1)]
+          .some(t => TILES[t] && TILES[t].tree);
+        if (!belowTree) trees++;
       } else if (def && def.leaf) {
         // A leaf must have at least one non-air neighbour, or it is orphaned.
         let support = 0;

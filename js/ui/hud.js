@@ -15,6 +15,7 @@ export class HUD {
       manaFill: document.getElementById('manaFill'),
       manaText: document.getElementById('manaText'),
       clock: document.getElementById('clock'),
+      windChip: document.getElementById('windChip'),
       minionCount: document.getElementById('minionCount'),
       bossBar: document.getElementById('bossBar'),
       bossName: document.getElementById('bossName'),
@@ -82,6 +83,7 @@ export class HUD {
     this.el.manaFill.style.width = Math.max(0, (p.mana / p.maxMana) * 100) + '%';
     this.el.manaText.textContent = `${Math.floor(p.mana)}/${p.maxMana}`;
     this.el.clock.textContent = g.time.label;
+    if (this.el.windChip && g.weather) this.el.windChip.textContent = g.weather.label;
 
     // Minion count
     const cap = p.stats ? p.stats.minionCap : 1;

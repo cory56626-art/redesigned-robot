@@ -689,9 +689,20 @@ function decorate(tiles, w, h, surface, biome, rand, spawnTx) {
       x += 2;
       continue;
     }
-    if (def.grassChance && rand() < def.grassChance && tiles[idx(x, s - 1)] === T.AIR &&
-        (ground === T.GRASS || ground === T.BLIGHTGRASS)) {
-      tiles[idx(x, s - 1)] = T.TALLGRASS;
+    // Ground cover. Denser and more varied than a single tall-grass tile, so a
+    // hillside reads as a meadow rather than as bare terrain with occasional
+    // decoration. All of these sway in the wind (see tiles.js `sway`).
+    if (tiles[idx(x, s - 1)] === T.AIR && (ground === T.GRASS || ground === T.BLIGHTGRASS)) {
+      const r = rand();
+      const lush = (def.grassChance || 0) * 2.6;
+      if (r < lush) {
+        const pick = rand();
+        let plant = T.SHORTGRASS;
+        if (pick < 0.30) plant = T.TALLGRASS;
+        else if (pick < 0.46) plant = T.FERN;
+        else if (pick < 0.60) plant = ground === T.BLIGHTGRASS ? T.SHORTGRASS : T.FLOWER;
+        tiles[idx(x, s - 1)] = plant;
+      }
     }
     if (def.iceChance && rand() < def.iceChance) {
       blobTilesOnly(tiles, w, h, x, s + 2 + Math.floor(rand() * 6), 1 + Math.floor(rand() * 2), T.ICE, [T.SNOW, T.STONE]);
@@ -708,12 +719,19 @@ function decorate(tiles, w, h, surface, biome, rand, spawnTx) {
     }
   }
 
-  // Cave dressing: stalagmites on floors, stalactites on ceilings.
+  // Cave dressing: stalagmites on floors, stalactites on ceilings, plus moss
+  // clinging to ceilings and glowcaps on cave floors. The glowcaps carry a
+  // `light` value, so a deep cavern has its own faint sources rather than
+  // being uniformly black until you place a torch.
   for (let x = 2; x < w - 2; x++) {
     for (let y = Math.max(surface[x] + 6, UNDERGROUND_Y - 20); y < h - BEDROCK - 1; y++) {
       if (tiles[idx(x, y)] !== T.AIR) continue;
-      if (rand() < 0.020 && tiles[idx(x, y + 1)] !== T.AIR && tiles[idx(x, y - 1)] === T.AIR) tiles[idx(x, y)] = T.STALAGMITE;
-      else if (rand() < 0.018 && tiles[idx(x, y - 1)] !== T.AIR && tiles[idx(x, y + 1)] === T.AIR) tiles[idx(x, y)] = T.STALACTITE;
+      const floor = tiles[idx(x, y + 1)] !== T.AIR && tiles[idx(x, y - 1)] === T.AIR;
+      const ceiling = tiles[idx(x, y - 1)] !== T.AIR && tiles[idx(x, y + 1)] === T.AIR;
+      if (floor && rand() < 0.020) tiles[idx(x, y)] = T.STALAGMITE;
+      else if (ceiling && rand() < 0.018) tiles[idx(x, y)] = T.STALACTITE;
+      else if (ceiling && rand() < 0.045) tiles[idx(x, y)] = T.CAVEMOSS;
+      else if (floor && y > UNDERGROUND_Y && rand() < 0.012) tiles[idx(x, y)] = T.GLOWSHROOM;
     }
   }
 }
@@ -739,14 +757,35 @@ function placeTree(tiles, w, h, x, baseY, def, rand) {
   const [minH, maxH] = def.treeHeight || [5, 9];
   const height = minH + Math.floor(rand() * (maxH - minH + 1));
   const trunk = def.treeTile != null ? def.treeTile : T.WOOD;
+  // A gnarled trunk drifts sideways as it climbs instead of rising as one
+  // straight column. Every sideways step also fills the connecting tile, so the
+  // trunk stays continuous — `worldgen-check` asserts no tree tile has air
+  // directly beneath it.
+  const gnarl = def.canopy === 'dead';
+  let cx = x;
+  let drift = rand() < 0.5 ? -1 : 1;
+  let topX = x;
   for (let i = 0; i < height; i++) {
     const y = baseY - i;
-    if (y > 1 && tiles[idx(x, y)] === T.AIR) tiles[idx(x, y)] = trunk;
+    if (y <= 1) break;
+    if (gnarl && i > 0 && rand() < 0.5) {
+      const nx = cx + drift;
+      // Reverse rather than run away in one direction, and stay in bounds. A
+      // single-column step keeps the new tile diagonally supported by the one
+      // below it, so the trunk leans without ever hanging in air.
+      if (nx < 1 || nx >= w - 1 || Math.abs(nx - x) > 2) drift = -drift;
+      else if (tiles[idx(nx, y)] === T.AIR) {
+        cx = nx;
+        if (rand() < 0.35) drift = -drift;
+      }
+    }
+    if (tiles[idx(cx, y)] === T.AIR) { tiles[idx(cx, y)] = trunk; topX = cx; }
     else break;
   }
   const topY = baseY - height;
   const leaf = def.leafTile;
   if (leaf == null) return; // dead trees (corruption) have no canopy
+  x = topX; // canopy sits over wherever the trunk actually ended up
 
   const put = (lx, ly) => {
     if (lx < 0 || lx >= w || ly < 1) return;

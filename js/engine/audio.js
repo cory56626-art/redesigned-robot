@@ -297,7 +297,9 @@ export class AudioManager {
     const bed = this.sampleAmbient || this.ambient;
     bed.forest.gain.setTargetAtTime(forest ? 0.16 * duck : 0, now, 0.9);
     bed.cave.gain.setTargetAtTime(cave ? 0.18 * duck : 0, now, 0.9);
-    bed.wind.gain.setTargetAtTime(wind ? 0.08 * duck : 0, now, 0.9);
+    // The wind bed now tracks real wind strength, not just being outdoors.
+    const gust = game.weather ? game.weather.strength : 0.3;
+    bed.wind.gain.setTargetAtTime(wind ? (0.04 + gust * 0.11) * duck : 0, now, 0.9);
     if (this.sampleAmbient) {
       this.ambient.forest.gain.setTargetAtTime(0, now, 0.9);
       this.ambient.cave.gain.setTargetAtTime(0, now, 0.9);

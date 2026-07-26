@@ -13,6 +13,7 @@ import { AudioManager } from './engine/audio.js?v=realms-difficulty-22';
 import { Renderer } from './engine/renderer.js?v=realms-difficulty-22';
 import { Fx } from './engine/fx.js?v=realms-difficulty-22';
 import { DayNight } from './systems/daynight.js?v=realms-difficulty-22';
+import { Weather } from './systems/weather.js?v=realms-difficulty-22';
 import { Spawner } from './systems/spawner.js?v=realms-difficulty-22';
 import { Progression } from './systems/progression.js?v=realms-difficulty-22';
 import { starterInventory } from './systems/inventory.js?v=realms-difficulty-22';
@@ -58,6 +59,7 @@ class Game {
 
     this.world = null;
     this.time = new DayNight();
+    this.weather = new Weather();
     this.spawner = new Spawner();
     this.progression = new Progression();
 
@@ -107,6 +109,7 @@ class Game {
       masterVolume: s.masterVolume != null ? s.masterVolume : 0.8,
       musicVolume: s.musicVolume != null ? s.musicVolume : 0.55,
       sfxVolume: s.sfxVolume != null ? s.sfxVolume : 0.9,
+      zoom: s.zoom != null ? s.zoom : 1,
     };
     this.smartTarget = null;
 
@@ -127,6 +130,7 @@ class Game {
     this._wireInputActions();
     this.ui.menus.refreshContinue(); // reflect any existing saves on first paint
     this._resize();
+    this.camera.setZoom(this.settings.zoom); // restore the saved zoom level
     window.addEventListener('resize', () => this._resize());
 
     const mode = s_or(detectDefaultMode(), this.saves.readSettings().controlMode);
@@ -156,6 +160,7 @@ class Game {
     inp.on('commandPanel', () => { if (this.state === 'playing') this.openCommandPanel(); });
     inp.on('hotbar', (i) => this.selectHotbar(i));
     inp.on('hotbarScroll', (d) => { if (this.localPlayer) { let n = (this.localPlayer.inventory.selected + d + HOTBAR_SIZE) % HOTBAR_SIZE; this.selectHotbar(n); } });
+    inp.on('zoomStep', (d) => this.nudgeZoom(d));
     inp.on('interact', () => this.interact());
     inp.on('smartToggle', () => { /* the input layer owns the latch; nothing else to do */ });
   }
@@ -237,6 +242,7 @@ class Game {
       : null;
 
     this.time.update(dt);
+    this.weather.update(dt);
     this.audio.update(this, dt);
 
     // Players
@@ -346,6 +352,7 @@ class Game {
     this.progression = new Progression();
     this._resetEntities();
     this.time = new DayNight();
+    this.weather = new Weather(this.seed);
     this._createLocalPlayer(true);
     this._spawnGuide(null);
     this.currentSaveId = this.saves.newId();
@@ -374,6 +381,8 @@ class Game {
     this.progression.deserialize(data.progression);
     this._resetEntities();
     this.time = new DayNight(data.time || 0, data.day || 1);
+    this.weather = new Weather(this.seed);
+    this.weather.deserialize(data.weather);
     this._createLocalPlayer(false);
     this._spawnGuide(data.npc);
     const pd = data.player;
@@ -422,6 +431,7 @@ class Game {
     // keep players map empty except local (added here)
     this.players.clear();
     this.time = new DayNight(time || 0, day || 1);
+    this.weather = new Weather(this.seed);
     this._createLocalPlayer(true);
     this._spawnGuide(null);
     this.currentSaveId = null; // clients never autosave the host's world
@@ -488,7 +498,7 @@ class Game {
   buildSaveData() {
     const p = this.localPlayer;
     return {
-      version: SAVE_VERSION, name: this.worldName, seed: this.seed, difficulty: this.difficulty, time: this.time.t, day: this.time.day,
+      version: SAVE_VERSION, name: this.worldName, seed: this.seed, difficulty: this.difficulty, time: this.time.t, day: this.time.day, weather: this.weather.serialize(),
       width: this.world.width, height: this.world.height,
       diffs: this.world.getDiffArray(),
       wallDiffs: this.world.getWallDiffArray(),
@@ -542,6 +552,20 @@ class Game {
   }
   cyclePlayerColor() { this.playerColorIndex = (this.playerColorIndex + 1) % 8; this.playerColor = assignColor(this.playerColorIndex); if (this.localPlayer) this.localPlayer.color = this.playerColor; this.saveSettings(); }
   setControlMode(mode) { applyControlMode(this, mode); this.saveSettings(); }
+
+  // Zoom. Ctrl+wheel and +/- step it; the Settings slider sets it directly.
+  setZoom(z) {
+    this.settings.zoom = this.camera.setZoom(z);
+    this.saveSettings();
+    return this.settings.zoom;
+  }
+  nudgeZoom(dir) {
+    const z = this.camera.nudgeZoom(dir);
+    this.settings.zoom = z;
+    this.saveSettings();
+    this.toast('Zoom ' + Math.round(z * 100) + '%');
+    return z;
+  }
 
   // ============ UI GLUE ============
   setPaused(v) {

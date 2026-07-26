@@ -146,6 +146,10 @@ export class Input {
         this.fire('interact');
       } else if (k === 'control') {
         this.smartHeld = true;
+      } else if (k === '+' || k === '=') {
+        this.fire('zoomStep', 1);
+      } else if (k === '-' || k === '_') {
+        this.fire('zoomStep', -1);
       } else if (k >= '1' && k <= '9') {
         this.fire('hotbar', parseInt(k, 10) - 1);
       } else if (k === '0') {
@@ -267,6 +271,15 @@ export class Input {
         // Normalise to pixels: 0 = pixel, 1 = line, 2 = page.
         const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1;
         const delta = e.deltaY * unit;
+
+        // Ctrl+wheel zooms, matching every other canvas app. Needs a
+        // non-passive listener so the browser's own page zoom can be
+        // suppressed.
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          this.fire('zoomStep', delta > 0 ? -1 : 1);
+          return;
+        }
         const now = performance.now();
         // A new gesture, or a reversal, starts from zero so direction changes
         // respond immediately instead of first paying off the old momentum.
@@ -280,7 +293,7 @@ export class Input {
         while (this._wheelAccum >= WHEEL_STEP) { this._wheelAccum -= WHEEL_STEP; this.fire('hotbarScroll', 1); }
         while (this._wheelAccum <= -WHEEL_STEP) { this._wheelAccum += WHEEL_STEP; this.fire('hotbarScroll', -1); }
       },
-      { passive: true }
+      { passive: false }
     );
   }
 

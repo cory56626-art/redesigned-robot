@@ -1,13 +1,16 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
 import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H } from '../config.js?v=realms-difficulty-22';
-import { T, isSolid, isTree, isLeaf, tileDef } from '../world/tiles.js?v=realms-difficulty-22';
+import { T, isSolid, isTree, isLeaf, tileDef, tileSway } from '../world/tiles.js?v=realms-difficulty-22';
 import { W, hasWall } from '../world/walls.js?v=realms-difficulty-22';
 import { BIOMES } from '../world/biomes.js?v=realms-difficulty-22';
 import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=realms-difficulty-22';
 import { item as getItem } from '../data/items.js?v=realms-difficulty-22';
 import { canPlaceAt } from '../systems/combat.js?v=realms-difficulty-22';
 import { clamp } from '../utils.js?v=realms-difficulty-22';
+
+// Maximum bend of a fully-swaying tile at full wind, in radians (~14 degrees).
+const SWAY_RADIANS = 0.25;
 
 const PROJ_GLOW = {
   thorn: '#7ee08a', seed: '#a7e36f', rock: '#8a7a5a', shock: '#d3b985',
@@ -355,12 +358,30 @@ export class Renderer {
 
   _drawTiles(game, ctx, tx0, ty0, tx1, ty1) {
     const world = game.world;
+    const weather = game.weather;
     for (let ty = ty0; ty <= ty1; ty++) {
       for (let tx = tx0; tx <= tx1; tx++) {
         const id = world.get(tx, ty);
         if (id === T.AIR) continue;
         const spr = this._tileSprite(world, tx, ty, id);
-        if (spr) ctx.drawImage(spr, tx * TILE, ty * TILE, TILE, TILE);
+        if (spr) {
+          // Leaves and plants bend in the wind. Tile sprites are cached
+          // canvases so they can't be redrawn per frame — the sway is a
+          // transform on the blit instead, pivoting at the tile's base so a
+          // plant bends rather than slides. Only a small minority of visible
+          // tiles sway, so the extra save/restore is cheap.
+          const sway = weather ? tileSway(id) * weather.swayAt(tx, ty) : 0;
+          if (sway) {
+            const px = tx * TILE, py = ty * TILE;
+            ctx.save();
+            ctx.translate(px + TILE / 2, py + TILE);
+            ctx.rotate(sway * SWAY_RADIANS);
+            ctx.drawImage(spr, -TILE / 2, -TILE, TILE, TILE);
+            ctx.restore();
+          } else {
+            ctx.drawImage(spr, tx * TILE, ty * TILE, TILE, TILE);
+          }
+        }
         // Mining cracks.
         const ratio = world.miningRatio(tx, ty);
         if (ratio > 0.01) {
@@ -1709,52 +1730,106 @@ export class Renderer {
     }
   }
 
+  // Equipped armour for a player, local or remote. Local reads the live
+  // inventory; remote players carry their ids in the net snapshot.
+  _playerGear(p) {
+    if (p.isLocal && p.inventory) {
+      const e = p.inventory.equip;
+      return { head: getItem(e.head), chest: getItem(e.chest), legs: getItem(e.legs) };
+    }
+    const g = p.netGear;
+    if (!g) return { head: null, chest: null, legs: null };
+    return { head: getItem(g[0]), chest: getItem(g[1]), legs: getItem(g[2]) };
+  }
+
   _drawPlayer(ctx, p, game) {
     const x = p.x, y = p.y, w = p.w, h = p.h;
-    const legSwing = Math.sin(p.walkAnim) * 3;
-    // legs
-    ctx.fillStyle = '#2a2f45';
-    ctx.fillRect(x + 1, y + h - 8 + Math.max(0, legSwing), 4, 8 - Math.max(0, legSwing));
-    ctx.fillRect(x + w - 5, y + h - 8 + Math.max(0, -legSwing), 4, 8 - Math.max(0, -legSwing));
-    // torso (player colour)
-    ctx.fillStyle = p.color;
+    const gear = this._playerGear(p);
+
+    // ---- Pose ----
+    // walkAnim is a continuously advancing phase, zeroed when standing still.
+    const moving = p.walkAnim > 0;
+    const airborne = !p.onGround;
+    const phase = p.walkAnim;
+    // Legs counter-swing; arms swing opposite their leg.
+    const legA = moving ? Math.sin(phase) * 3.4 : 0;
+    const legB = moving ? Math.sin(phase + Math.PI) * 3.4 : 0;
+    const armA = moving ? Math.sin(phase + Math.PI) * 2.6 : 0;
+    // A small vertical bob at twice the stride, and a forward lean with speed.
+    const bob = moving ? Math.abs(Math.sin(phase)) * -1.1 : 0;
+    const lean = clamp((p.vx || 0) / 260, -0.16, 0.16);
+
+    ctx.save();
+    // Lean pivots at the feet so the character tips into the run.
+    ctx.translate(x + w / 2, y + h);
+    ctx.rotate(lean);
+    ctx.translate(-(x + w / 2), -(y + h) + bob);
+
+    const skin = p.skin || '#f0c9a0';
+    const legColor = gear.legs ? gear.legs.color : '#2a2f45';
+    const bodyColor = gear.chest ? gear.chest.color : p.color;
+
+    // ---- Legs ----
+    ctx.fillStyle = legColor;
+    if (airborne) {
+      // Tucked: front leg up, back leg trailing.
+      ctx.fillRect(x + 1, y + h - 9, 4, 6);
+      ctx.fillRect(x + w - 5, y + h - 7, 4, 7);
+    } else {
+      ctx.fillRect(x + 1, y + h - 8 + Math.max(0, legA), 4, 8 - Math.max(0, legA));
+      ctx.fillRect(x + w - 5, y + h - 8 + Math.max(0, legB), 4, 8 - Math.max(0, legB));
+    }
+    if (gear.legs) {
+      // Greave highlight so plate reads as metal rather than cloth.
+      ctx.fillStyle = this._shade(legColor, 0.28);
+      ctx.fillRect(x + 1, y + h - 8, 4, 1.5);
+      ctx.fillRect(x + w - 5, y + h - 8, 4, 1.5);
+    }
+
+    // ---- Back arm (behind the torso) ----
+    ctx.fillStyle = this._shade(bodyColor, -0.25);
+    ctx.fillRect(x + (p.facing > 0 ? 0 : w - 3), y + 10 + armA, 3, 7);
+
+    // ---- Torso ----
+    ctx.fillStyle = bodyColor;
     this._roundRect(ctx, x, y + 8, w, h - 14, 2); ctx.fill();
-    // belt/legs armor accent
+    if (gear.chest) {
+      // Pauldron + chest rim catch the light from the upper left.
+      ctx.fillStyle = this._shade(bodyColor, 0.3);
+      this._roundRect(ctx, x, y + 8, w, 3, 2); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.22)';
+      ctx.fillRect(x, y + h - 10, w, 1.5);
+    }
+    // belt
     ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(x, y + h - 8, w, 2);
-    // head
-    ctx.fillStyle = '#f0c9a0';
+
+    // ---- Head ----
+    ctx.fillStyle = skin;
     ctx.fillRect(x + 1, y, w - 2, 9);
-    // hair/cap
-    ctx.fillStyle = this._shade(p.color, -0.3);
-    ctx.fillRect(x + 1, y, w - 2, 3);
+    if (gear.head) {
+      // Helmet: skull cap plus a brow band, in the armour's own colour.
+      const hc = gear.head.color;
+      ctx.fillStyle = hc;
+      this._roundRect(ctx, x, y - 1, w, 6, 2); ctx.fill();
+      ctx.fillStyle = this._shade(hc, 0.32);
+      ctx.fillRect(x + 1, y - 1, w - 2, 1.5);
+      ctx.fillStyle = this._shade(hc, -0.35);
+      ctx.fillRect(x, y + 4, w, 1.5);
+    } else {
+      ctx.fillStyle = p.hairColor || this._shade(p.color, -0.3);
+      ctx.fillRect(x + 1, y, w - 2, 3);
+    }
     // eyes
     ctx.fillStyle = '#222';
     ctx.fillRect(p.facing > 0 ? x + w - 5 : x + 3, y + 4, 2, 2);
-    // held item toward aim
+
+    // ---- Held item / swing ----
     const sel = p.isLocal ? p.inventory.selectedItem() : (p.selectedId ? getItem(p.selectedId) : null);
-    if (sel) {
-      const icon = Sprites.getIcon(sel);
-      if (icon) {
-        const hx = x + w / 2, hy = y + 14;
-        ctx.save();
-        ctx.translate(hx, hy);
-        ctx.scale(p.facing, 1);
-        ctx.drawImage(icon, 0, -6, 12, 12);
-        ctx.restore();
-      }
-    }
-    // melee swing arc
-    if (p.swing) {
-      const prog = p.swing.time / p.swing.dur;
-      const a = p.swing.angle + (prog - 0.5) * 1.8 * (p.facing);
-      const r = (p.swing.reach || 26);
-      const cx = x + w / 2, cy = y + h / 2;
-      ctx.strokeStyle = p.swing.color || 'rgba(255,255,255,0.7)';
-      ctx.lineWidth = 3; ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, a - 0.5, a + 0.5); ctx.stroke();
-    }
-    // name + hp for remote players
+    this._drawHeldItem(ctx, p, sel);
+
+    ctx.restore();
+
+    // name + hp for remote players (unrotated, so labels stay level)
     if (!p.isLocal || game.net) {
       ctx.font = '5px sans-serif'; ctx.textAlign = 'center';
       ctx.fillStyle = p.color;
@@ -1762,6 +1837,66 @@ export class Renderer {
       if (!p.isLocal) this._miniHp(ctx, p, p.hp / p.maxHp, p.color);
     }
     ctx.textAlign = 'left';
+  }
+
+  // The held item swings with the weapon rather than sitting still beside a
+  // decorative arc: the icon rotates through the stroke and trails a tapered
+  // smear behind it, which is what makes a swing read as a swing.
+  _drawHeldItem(ctx, p, sel) {
+    const x = p.x, y = p.y, w = p.w, h = p.h;
+    const icon = sel ? Sprites.getIcon(sel) : null;
+    const cx = x + w / 2, cy = y + h / 2;
+
+    if (p.swing) {
+      const prog = clamp(p.swing.time / p.swing.dur, 0, 1);
+      // Ease out fast: most of the arc is covered early, so the strike snaps
+      // and the recovery lingers.
+      const eased = 1 - Math.pow(1 - prog, 2.4);
+      const sweep = 2.0;
+      const a = p.swing.angle + (eased - 0.5) * sweep * p.facing;
+      const r = p.swing.reach || 26;
+
+      // Motion trail: a wedge from the swing start to the current angle.
+      const a0 = p.swing.angle - 0.5 * sweep * p.facing;
+      ctx.save();
+      ctx.globalAlpha = 0.45 * (1 - eased * 0.7);
+      ctx.fillStyle = p.swing.color || 'rgba(255,255,255,0.8)';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, r, Math.min(a0, a), Math.max(a0, a));
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // Leading edge.
+      ctx.save();
+      ctx.strokeStyle = p.swing.color || 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, a - 0.22, a + 0.22);
+      ctx.stroke();
+      ctx.restore();
+
+      // The weapon itself, rotated along the arc.
+      if (icon) {
+        ctx.save();
+        ctx.translate(cx + Math.cos(a) * r * 0.55, cy + Math.sin(a) * r * 0.55);
+        ctx.rotate(a + (p.facing > 0 ? Math.PI / 4 : Math.PI * 0.75));
+        ctx.drawImage(icon, -6, -6, 13, 13);
+        ctx.restore();
+      }
+      return;
+    }
+
+    // At rest the item sits in the hand, bobbing slightly with the stride.
+    if (!icon) return;
+    const idleBob = p.walkAnim > 0 ? Math.sin(p.walkAnim + Math.PI) * 0.8 : 0;
+    ctx.save();
+    ctx.translate(x + w / 2, y + 14 + idleBob);
+    ctx.scale(p.facing, 1);
+    ctx.rotate(-0.35);
+    ctx.drawImage(icon, 0, -6, 12, 12);
+    ctx.restore();
   }
 
   _miniHp(ctx, e, ratio, color) {

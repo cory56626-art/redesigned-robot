@@ -26,6 +26,13 @@ const ARENA_TILES = 46;
 const ENRAGE_GRACE = 5;
 const FLEE_AFTER = 14;
 
+// A flying charge arcs instead of holding its launch velocity, so a leap can't
+// carry the boss off screen and strand the fight.
+const CHARGE_ARC_GRAVITY = 900;  // px/s^2 pulling a leap back down
+const CHARGE_HOME_ACCEL = 380;   // px/s^2 bending the leap back toward the player
+// How far outside the arena a charging boss may stray before being clamped.
+const CHARGE_LEASH_TILES = 18;
+
 const BOSS_DIFFICULTY_TUNING = {
   // Normal is still a real step up from the original 520 HP baseline, but
   // keeps enough attack/recovery time for a first clear.
@@ -183,8 +190,20 @@ export class Boss {
           game.fx.shake(5, 0.35);
         }
       } else {
+        // A flying charge held its launch velocity for the whole duration and
+        // ignored gravity, so a phase-2 leap threw the boss up and off screen
+        // with no way back. Arc it instead: the upward kick decays and the
+        // horizontal component bends back toward the player, so the leap reads
+        // as a lunge rather than an exit.
+        const p = 1 - Math.max(0, this.charge.time) / (this.charge.dur || 0.78);
+        this.charge.vy += CHARGE_ARC_GRAVITY * dt;
+        if (this.charge.homeTo) {
+          const toward = Math.sign(this.charge.homeTo.x - cx) || 0;
+          this.charge.vx += toward * CHARGE_HOME_ACCEL * dt * p;
+        }
         this.vx = this.charge.vx; this.vy = this.charge.vy;
         this._flyMove(game, dt);
+        this._clampToArena(game);
       }
       if (this.charge.time <= 0) { this.charge = null; this.aiState = 'recover'; this.recover = 0.4; }
       this._updateAnim(dt);
@@ -363,6 +382,22 @@ export class Boss {
     }
   }
 
+  // Hard backstop during a charge: however the arc turns out, the boss stays
+  // within a leash of the nearest player so a lunge can never end the fight by
+  // leaving the screen.
+  _clampToArena(game) {
+    let near = null, bestD = Infinity;
+    for (const p of game.players.values()) {
+      if (!p.alive) continue;
+      const d = Math.abs(p.x - this.x) + Math.abs(p.y - this.y);
+      if (d < bestD) { bestD = d; near = p; }
+    }
+    if (!near) return;
+    const leash = CHARGE_LEASH_TILES * TILE;
+    this.x = clamp(this.x, near.x - leash, near.x + leash);
+    this.y = clamp(this.y, near.y - leash, near.y + leash);
+  }
+
   // Weighted choice among the phase's attacks: only ones off cooldown, in range,
   // and (for aimed attacks) with a clear shot.
   _chooseAttack(game, target) {
@@ -527,8 +562,14 @@ export class Boss {
       }
       case 'leap': {
         const dir = Math.sign(tc.x - cx) || this.facing;
-        this.charge = { time: 0.78, vx: dir * atk.speed, vy: -390, airborne: true };
-        this.vy = -390;
+        // Flying bosses take a shallower launch: their charge is arced and
+        // homed (see update()), so a full -390 kick overshoots badly.
+        const lift = this.movement === 'gravemaw' ? -390 : -260;
+        this.charge = {
+          time: 0.78, dur: 0.78, vx: dir * atk.speed, vy: lift, airborne: true,
+          homeTo: { x: tc.x, y: tc.y },
+        };
+        this.vy = lift;
         game.fx.burst(cx, this.y + this.h, '#a08a68', 12, { speed: 120, gravity: 420 });
         break;
       }

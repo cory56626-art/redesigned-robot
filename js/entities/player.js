@@ -11,6 +11,10 @@ import { Inventory } from '../systems/inventory.js?v=realms-difficulty-22';
 import { item as getItem } from '../data/items.js?v=realms-difficulty-22';
 import * as combat from '../systems/combat.js?v=realms-difficulty-22';
 import { clamp } from '../utils.js?v=realms-difficulty-22';
+import { WIND_PLAYER_ACCEL } from '../systems/weather.js?v=realms-difficulty-22';
+
+// Wind dies out below the surface layer; caves are still air.
+const UNDERGROUND_WIND_Y = 100;
 
 export class Player {
   constructor(id, opts = {}) {
@@ -104,6 +108,12 @@ export class Player {
       this.kbTimer -= dt; // knockback owns velocity briefly
     } else {
       this.vx = moveX * speed;
+      // Wind pushes you along. It is applied as a velocity offset rather than
+      // a speed multiplier so it still nudges you while standing still, and is
+      // small enough to feel like weather rather than lost control. Underground
+      // there is no wind to speak of.
+      const wx = game.weather && this.y < UNDERGROUND_WIND_Y * TILE ? game.weather.wind : 0;
+      if (wx) this.vx += wx * WIND_PLAYER_ACCEL;
     }
     if (moveX < -0.1) this.facing = -1; else if (moveX > 0.1) this.facing = 1;
 
@@ -308,6 +318,12 @@ export class Player {
       facing: this.facing, alive: this.alive,
       selectedId: this.selectedId,
       walk: Math.round(this.walkAnim * 10) % 100,
+      onGround: this.onGround,
+      // Equipped armour ids, so remote players render their gear too.
+      gear: this.inventory ? [
+        this.inventory.equip.head, this.inventory.equip.chest, this.inventory.equip.legs,
+      ] : null,
+      swing: this.swing ? { t: Math.round(this.swing.time * 100), d: Math.round(this.swing.dur * 100), a: Math.round(this.swing.angle * 100), r: this.swing.reach } : null,
     };
   }
   applyNetState(s) {
@@ -316,6 +332,10 @@ export class Player {
     this.hp = s.hp; this.maxHp = s.maxHp; this.mana = s.mana; this.maxMana = s.maxMana;
     this.facing = s.facing; this.alive = s.alive; this.selectedId = s.selectedId;
     this.walkAnim = (s.walk || 0) / 10;
+    this.onGround = !!s.onGround;
+    this.netGear = s.gear || null;
+    if (s.swing) this.swing = { time: s.swing.t / 100, dur: Math.max(0.01, s.swing.d / 100), angle: s.swing.a / 100, reach: s.swing.r };
+    else this.swing = null;
   }
 }
 
