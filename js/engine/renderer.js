@@ -8,12 +8,13 @@ import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=realms-
 import { item as getItem } from '../data/items.js?v=realms-difficulty-22';
 import { canPlaceAt } from '../systems/combat.js?v=realms-difficulty-22';
 import { clamp } from '../utils.js?v=realms-difficulty-22';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=aidan-summon-1';
 
 const PROJ_GLOW = {
   thorn: '#7ee08a', seed: '#a7e36f', rock: '#8a7a5a', shock: '#d3b985',
   blight: '#c58bff', crystal: '#df8cff', voidorb: '#b06bff',
   spark: '#9ec3ff', wispbolt: '#9ec3ff', emberball: '#ff8c3b',
-  arcwave: '#bfe9ff', diamondSpear: '#dffcff', miniDiamondSpear: '#8be9ff',
+  arcwave: '#bfe9ff', diamondSpear: '#dffcff', miniDiamondSpear: '#8be9ff', aidanPulse: '#8feaff',
 };
 
 // Background colour anchors by depth, in tile rows. `colorAtDepth` interpolates
@@ -93,6 +94,7 @@ export class Renderer {
     // Keep the Diamond Heart's telegraph and beam above the lighting pass so
     // the three warning lanes stay readable in daylight and at night.
     this._drawDiamondBeamTelegraphs(game, ctx);
+    drawAidanEffects(game, ctx);
     this._drawParticles(game, ctx, true);
     this._drawRings(game, ctx);
     ctx.restore();
@@ -482,6 +484,21 @@ export class Renderer {
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(pr.rot);
+
+      if (pr.kind === 'aidanPulse') {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.25;
+        ctx.fillStyle = #2e9cff;
+        ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = '#d9fbff'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(0, 0, 4.5, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = pr.color || '#8feaff';
+        ctx.fillRect(-2, -2, 4, 4);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        continue;
+      }
 
       if (pr.kind === 'diamondSpear' || pr.kind === 'miniDiamondSpear') {
         const mini = pr.kind === 'miniDiamondSpear';
@@ -1105,7 +1122,8 @@ export class Renderer {
   _drawMinions(game, ctx) {
     for (const m of game.minions) {
       if (m.dead) continue;
-      if (m.key === 'diamondHeart') this._drawDiamondHeart(ctx, m);
+      if (m.key === 'aidan') drawAidan(ctx, m);
+      else if (m.key === 'diamondHeart') this._drawDiamondHeart(ctx, m);
       else this._blobCreature(ctx, m, m.color, m.color2, m.facing, m.hurtFlash > 0, true);
     }
     // Remote players' minion ghosts.
@@ -1113,7 +1131,12 @@ export class Renderer {
       if (p.isLocal || !p.remoteMinions) continue;
       for (const rm of p.remoteMinions) {
         if (rm.dead) continue;
-        if (rm.key === 'diamondHeart') {
+        if (rm.key === 'aidan') {
+          drawAidan(ctx, Object.assign({
+            w: 34, h: 54, color: '#c88b2e', color2: '#5a341d',
+            anim: 0, hp: rm.hp, maxHp: rm.maxHp,
+          }, rm, { x: rm.x, y: rm.y, facing: rm.f || 1 }));
+        } else if (rm.key === 'diamondHeart') {
           this._drawDiamondHeart(ctx, Object.assign({
             w: 30, h: 42, color: '#dffcff', color2: '#62c9e8',
             anim: 0, hp: rm.hp, maxHp: rm.maxHp,
