@@ -1,5 +1,5 @@
 // Summoner Realms — shared tile collision. Per-axis swept AABB against the grid.
-import { TILE, GRAVITY, MAX_FALL } from '../config.js?v=realms-difficulty-22';
+import { TILE, GRAVITY, MAX_FALL } from '../config.js?v=realms-qor-41';
 
 export function moveAndCollide(e, world, dt) {
   const wasGrounded = e.onGround;

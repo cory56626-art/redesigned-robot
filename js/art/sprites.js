@@ -9,9 +9,9 @@
 // top, a shadowed underside and rimmed sides. That neighbour awareness — plus
 // grass fringing down onto dirt and trunk/canopy shading — is most of what makes
 // terrain read as terrain instead of a grid of coloured squares.
-import { T, TILES, tileMat } from '../world/tiles.js?v=realms-difficulty-22';
-import { W, WALLS } from '../world/walls.js?v=realms-difficulty-22';
-import { mulberry32 } from '../utils.js?v=realms-difficulty-22';
+import { T, TILES, tileMat } from '../world/tiles.js?v=realms-qor-41';
+import { W, WALLS } from '../world/walls.js?v=realms-qor-41';
+import { mulberry32 } from '../utils.js?v=realms-qor-41';
 
 function makeCanvas(w, h) {
   const c = document.createElement('canvas');

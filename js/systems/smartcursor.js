@@ -12,9 +12,9 @@
 // among many — and it fixes a real bug there: with the stick untouched, the aim
 // point sits exactly on the player, so mining used to target the tile you are
 // standing in.
-import { REACH, TILE } from '../config.js?v=realms-difficulty-22';
-import { T, tileDef } from '../world/tiles.js?v=realms-difficulty-22';
-import { canPlaceAt } from './combat.js?v=realms-difficulty-22';
+import { REACH, TILE } from '../config.js?v=realms-qor-41';
+import { T, tileDef } from '../world/tiles.js?v=realms-qor-41';
+import { canPlaceAt } from './combat.js?v=realms-qor-41';
 
 // Search radius around the raw aim point, in tiles.
 const SEARCH = 4;
@@ -69,15 +69,25 @@ function best(game, player, cx, cy, score) {
   return bestTile;
 }
 
-// Pickaxe/axe: the nearest tile this tool is actually the right tool for,
-// preferring ones along the direction you are pointing so you can steer a tunnel.
+// Pickaxe/axe. Terraria's smart cursor is tool-dependent, and that is most of
+// what makes it feel smart rather than arbitrary: an axe targets the *base* of
+// the tree nearest the cursor, and a pickaxe digs a walkable passage in the
+// direction you are pointing. The old version blended distance, tool match and
+// aim alignment into one score across a +/-4 box, so a tile well off your aim
+// could still win on the distance term — which is what read as "it just locks
+// onto whatever".
 function findMinable(game, player, item, rawTx, rawTy, dirX, dirY) {
   const world = game.world;
   const kind = item.tool && item.tool.kind;
-  const len = Math.hypot(dirX, dirY) || 1;
-  const ux = dirX / len, uy = dirY / len;
-  const pcx = (player.x + player.w / 2) / TILE, pcy = (player.y + player.h / 2) / TILE;
+  if (kind === 'axe') {
+    const trunk = findTreeBase(game, player, rawTx, rawTy);
+    if (trunk) return trunk;
+  }
+  const tunnel = findTunnelTile(game, player, item, rawTx, rawTy);
+  if (tunnel) return tunnel;
 
+  // Nothing in the way along the aim line: fall back to the nearest tile this
+  // tool actually works on.
   return best(game, player, rawTx, rawTy, (tx, ty, d) => {
     const id = world.get(tx, ty);
     if (id === T.AIR) return null;
@@ -86,12 +96,75 @@ function findMinable(game, player, item, rawTx, rawTy, dirX, dirY) {
     // Strongly prefer tiles this tool is meant for, but never refuse outright —
     // a pickaxe should still be able to clear a vine that's in the way.
     const rightTool = !def.toolType || def.toolType === kind;
-    // Alignment with the aim direction, so a tunnel goes where you point it.
-    const ax = (tx + 0.5) - pcx, ay = (ty + 0.5) - pcy;
-    const alen = Math.hypot(ax, ay) || 1;
-    const align = (ax / alen) * ux + (ay / alen) * uy; // 1 = dead ahead
-    return d * 0.8 + (rightTool ? 0 : 6) + (1 - align) * 3;
+    return d + (rightTool ? 0 : 8);
   });
+}
+
+// The base of the tree nearest the cursor. When the true base is out of range
+// this keeps the lowest trunk tile that is still reachable, matching Terraria's
+// "targets branches when the base is out of range".
+function findTreeBase(game, player, rawTx, rawTy) {
+  const world = game.world;
+  const isTrunk = (tx, ty) => {
+    const d = tileDef(world.get(tx, ty));
+    return !!(d && d.tree);
+  };
+  const found = best(game, player, rawTx, rawTy, (tx, ty, d) => (isTrunk(tx, ty) ? d : null));
+  if (!found) return null;
+  let tx = found.tx, ty = found.ty;
+  let lowest = { tx, ty };
+  for (let i = 0; i < 24; i++) {
+    // Corruption trunks lean, so follow the column down diagonally too.
+    let nx = null;
+    for (const dx of [0, -1, 1]) if (isTrunk(tx + dx, ty + 1)) { nx = tx + dx; break; }
+    if (nx == null) break;
+    tx = nx; ty += 1;
+    if (withinReach(player, tx, ty)) lowest = { tx, ty };
+  }
+  return lowest;
+}
+
+// March from the player toward the aim point and return the first tile in the
+// way — a passage goes where you point it. Because the passage has to be
+// walkable, a solid tile at head height is taken before the one at foot
+// height, otherwise you carve a slot you cannot actually walk into.
+function findTunnelTile(game, player, item, rawTx, rawTy) {
+  const world = game.world;
+  const kind = item.tool && item.tool.kind;
+  const minable = (tx, ty) => {
+    if (!world.inBounds(tx, ty)) return false;
+    const id = world.get(tx, ty);
+    if (id === T.AIR) return false;
+    const def = tileDef(id);
+    if (!def.hardness) return false;
+    if (kind === 'pickaxe' && def.tree) return false; // trees are the axe's job
+    return true;
+  };
+
+  const pc = player.center();
+  const fromX = pc.x / TILE, fromY = pc.y / TILE;
+  const dx = (rawTx + 0.5) - fromX, dy = (rawTy + 0.5) - fromY;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 0.001) return null;
+  const ux = dx / dist, uy = dy / dist;
+
+  const limit = Math.min(dist, REACH);
+  let lastTx = -1, lastTy = -1;
+  for (let t = 0.4; t <= limit; t += 0.4) {
+    const tx = Math.floor(fromX + ux * t);
+    const ty = Math.floor(fromY + uy * t);
+    if (tx === lastTx && ty === lastTy) continue;
+    lastTx = tx; lastTy = ty;
+    if (!world.inBounds(tx, ty)) break;
+    if (!withinReach(player, tx, ty)) break;
+    if (!minable(tx, ty)) continue;
+    // Clear headroom first on a roughly horizontal dig.
+    if (Math.abs(uy) < 0.7 && minable(tx, ty - 1) && withinReach(player, tx, ty - 1)) {
+      return { tx, ty: ty - 1 };
+    }
+    return { tx, ty };
+  }
+  return null;
 }
 
 // Blocks: the nearest legal placement, biased toward extending what is already

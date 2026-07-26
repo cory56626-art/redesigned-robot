@@ -1,12 +1,12 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
-import { MSG } from './protocol.js?v=realms-difficulty-22';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=realms-difficulty-22';
-import { Player, assignColor } from '../entities/player.js?v=realms-difficulty-22';
-import { Projectile } from '../entities/projectile.js?v=realms-difficulty-22';
-import { ThrownItem } from '../entities/thrown.js?v=realms-difficulty-22';
-import { ITEMS } from '../data/items.js?v=realms-difficulty-22';
-import { ENEMIES } from '../data/enemies.js?v=realms-difficulty-22';
-import { BOSSES } from '../data/bosses.js?v=realms-difficulty-22';
+import { MSG } from './protocol.js?v=realms-qor-41';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=realms-qor-41';
+import { Player, assignColor } from '../entities/player.js?v=realms-qor-41';
+import { Projectile } from '../entities/projectile.js?v=realms-qor-41';
+import { ThrownItem } from '../entities/thrown.js?v=realms-qor-41';
+import { ITEMS } from '../data/items.js?v=realms-qor-41';
+import { ENEMIES } from '../data/enemies.js?v=realms-qor-41';
+import { BOSSES } from '../data/bosses.js?v=realms-qor-41';
 
 // ---------- Welcome (host builds, client applies) ----------
 export function buildWelcome(game, forId) {

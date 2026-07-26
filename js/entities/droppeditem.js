@@ -1,6 +1,6 @@
 // Summoner Realms — dropped ground item. Host-authoritative physics + pickup.
-import { GRAVITY, TILE } from '../config.js?v=realms-difficulty-22';
-import { dist2 } from '../utils.js?v=realms-difficulty-22';
+import { GRAVITY, TILE } from '../config.js?v=realms-qor-41';
+import { dist2 } from '../utils.js?v=realms-qor-41';
 
 export class DropItem {
   constructor(netId, itemId, count, x, y) {

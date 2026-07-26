@@ -13,11 +13,11 @@
 //                the recipe list and boss loot tables, so a new item is
 //                explained correctly the day it's added without anyone writing
 //                a paragraph for it.
-import { ITEMS, item as getItem } from './items.js?v=realms-difficulty-22';
-import { RECIPES } from './recipes.js?v=realms-difficulty-22';
-import { BOSSES } from './bosses.js?v=realms-difficulty-22';
-import { ENEMIES } from './enemies.js?v=realms-difficulty-22';
-import { TILE } from '../config.js?v=realms-difficulty-22';
+import { ITEMS, item as getItem } from './items.js?v=realms-qor-41';
+import { RECIPES } from './recipes.js?v=realms-qor-41';
+import { BOSSES } from './bosses.js?v=realms-qor-41';
+import { ENEMIES } from './enemies.js?v=realms-qor-41';
+import { TILE } from '../config.js?v=realms-qor-41';
 
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
 

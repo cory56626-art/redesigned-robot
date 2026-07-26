@@ -13,7 +13,70 @@ menu or in the pause menu. Keep this file in sync with
 > several "bugs" are automation/focus artifacts of driving a canvas game through
 > Playwright, not defects in the game. Those are called out below.
 
-Version: **Overhaul pass · 2026-07**
+Version: **4.1: Quality of Realms · 2026-07**
+
+---
+
+## 4.1 — Quality of Realms
+
+**Bugs**
+
+- **Block placement was impossible for every mined block.** `mat()` defines raw
+  materials as `category: 'material'` and `items.js` patches `.place` onto them
+  afterwards, but the action dispatch in `player.js` only routed
+  `'block'`/`'station'` to `placeSelected`. `canPlaceAt`, the aim ghost and the
+  smart cursor all key off `place`, so the ghost rendered **green** and the
+  click did nothing. Dispatch now tests `place`.
+- **Swords hit through walls.** Melee tested distance and arc only. Hits now
+  gate on `World.hasLineOfSight`; weapons opt out with `phasing: true` (the
+  Aetheredge Greatblade).
+- **Chopping one tree clear-cut its neighbours.** `collapseTree` flood-filled
+  leaves with no notion of ownership, and worldgen spaces trunks 2-3 columns
+  apart while a canopy spans 7. Leaves are now assigned to the nearest standing
+  trunk.
+- **Felled trees reverted to the old flat model.** `_drawFallingTrees` used the
+  generic tile texture rather than the shaded trunk/canopy art. Masks are baked
+  when the tree falls, since the tiles are already cleared by render time.
+- **Wheel hotbar scrolling was choppy** — one step per wheel *event*, and
+  trackpads emit ~10 per notch. It now accumulates real scroll distance.
+- **Hosting always produced a Normal world** — `createServer()` called
+  `startNewWorld` with two arguments. The multiplayer panel has a difficulty
+  picker now.
+- **Grovekeeper's phase-2 leap flew off screen.** A flying charge held its
+  launch velocity with no gravity for its full duration. It now arcs, homes
+  back toward the player, and is leashed to the arena.
+
+**Cave generation** — rebuilt around the three things that made it read as
+noise: density is depth-graded (~11% open in the dirt layer vs ~44% in the
+cavern layer, previously flat), caves come in three size classes from separate
+noise scales, and a connectivity pass tunnels orphaned pockets into the main
+system so ~99% of open space is one explorable network. Tunnels are biased
+horizontal, chambers are built from overlapping jittered discs instead of clean
+ellipses, and a despeckle pass removes lone tiles and one-tile pillars.
+
+**New systems**
+
+- **Wind** (`js/systems/weather.js`) — sibling to `daynight.js`. Direction may
+  only flip while strength passes through calm, so it structurally never blows
+  both ways at once. Drives leaf/plant sway, movement resistance above ground,
+  particle-free ambient audio, and a HUD chip. Serialized into the save, the
+  WELCOME payload and every snapshot.
+- **Flora** — meadow grass, wildflowers, ferns, cave moss, glowcaps (light
+  emitting). Corruption trees use a new twisted `BLIGHTWOOD` trunk that drifts
+  sideways as it climbs.
+- **Player animation and armour** — a real walk cycle (swinging arms, leg lift,
+  bob, lean, airborne pose), the weapon rotating through the swing behind a
+  tapered trail, and equipped helmet/chest/greaves drawn on local and remote
+  players.
+- **Smart Cursor** rewritten to be tool-dependent, per the actual Terraria
+  behaviour: axes target the tree's base, pickaxes dig a walkable passage
+  toward the cursor.
+- **Zoom** via `+`/`-` or `Ctrl`+scroll, persisted in settings.
+- **Transparent pause screen**, so the world stays visible behind it.
+
+**New harness invariants** — cave depth grading, cave connectivity, and the
+"no floating trunks" check relaxed to accept diagonal support so leaning
+corruption trunks are legal.
 
 ---
 

@@ -1,13 +1,13 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H } from '../config.js?v=realms-difficulty-22';
-import { T, isSolid, isTree, isLeaf, tileDef, tileSway } from '../world/tiles.js?v=realms-difficulty-22';
-import { W, hasWall } from '../world/walls.js?v=realms-difficulty-22';
-import { BIOMES } from '../world/biomes.js?v=realms-difficulty-22';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=realms-difficulty-22';
-import { item as getItem } from '../data/items.js?v=realms-difficulty-22';
-import { canPlaceAt } from '../systems/combat.js?v=realms-difficulty-22';
-import { clamp } from '../utils.js?v=realms-difficulty-22';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H } from '../config.js?v=realms-qor-41';
+import { T, isSolid, isTree, isLeaf, tileDef, tileSway } from '../world/tiles.js?v=realms-qor-41';
+import { W, hasWall } from '../world/walls.js?v=realms-qor-41';
+import { BIOMES } from '../world/biomes.js?v=realms-qor-41';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=realms-qor-41';
+import { item as getItem } from '../data/items.js?v=realms-qor-41';
+import { canPlaceAt } from '../systems/combat.js?v=realms-qor-41';
+import { clamp } from '../utils.js?v=realms-qor-41';
 
 // Maximum bend of a fully-swaying tile at full wind, in radians (~14 degrees).
 const SWAY_RADIANS = 0.25;

@@ -7,7 +7,7 @@
 //
 // Keep this in sync with CLAUDE_NOTES.md when either changes.
 
-export const CLAUDE_NOTES_VERSION = 'Overhaul pass · 2026-07';
+export const CLAUDE_NOTES_VERSION = '4.1: Quality of Realms · 2026-07';
 
 export function claudeNotesHTML() {
   return `
@@ -16,7 +16,44 @@ export function claudeNotesHTML() {
   <b>real bug</b> (now fixed), a <b>misunderstanding</b>, or <b>working as intended</b>.
   Version: <code>${CLAUDE_NOTES_VERSION}</code>.</p>
 
-  <h4>◆ What changed in this pass</h4>
+  <h4>◆ 4.1 — Quality of Realms</h4>
+  <ul>
+    <li><b class="cn-bad">Block placement was impossible for every mined block.</b> Raw materials
+      (dirt, stone, wood, sand…) are <code>category: 'material'</code> with a <code>place</code> tile patched on,
+      but the action dispatch only routed <code>'block'</code>/<code>'station'</code> to the placer. The aim ghost,
+      <code>canPlaceAt</code> and the smart cursor all key off <code>place</code>, so the ghost went
+      <b>green</b> and the click did nothing. Dispatch now tests <code>place</code> like everything else.</li>
+    <li><b class="cn-bad">Swords hit through walls.</b> Melee tested distance and swing arc only, with no
+      terrain check. Hits now require line of sight; weapons that should pass through rock opt in with
+      <code>phasing</code> (currently the Aetheredge Greatblade).</li>
+    <li><b class="cn-bad">Chopping one tree clear-cut its neighbours.</b> Felling ran an unbounded flood fill
+      over leaf tiles, and worldgen spaces trunks 2–3 columns apart while a canopy spans 7 — so touching
+      canopies let it walk into the next tree. Leaves now belong to the nearest standing trunk.</li>
+    <li><b class="cn-bad">Felled trees reverted to the old flat art.</b> The topple animation drew via the
+      generic tile texture instead of the shaded trunk/canopy sprites. Masks are baked at fell time, since the
+      tiles are gone from the grid by the time it renders.</li>
+    <li><b class="cn-good">Cave generation rebuilt.</b> Depth-graded (≈11% open in the dirt layer, ≈44% in the
+      cavern layer — it used to be flat), three size classes from separate noise scales instead of one,
+      horizontal-biased tunnels, lumpy chambers instead of clean ellipses, a despeckle pass, and a connectivity
+      pass that tunnels orphaned pockets into the main system — ~99% of open space is now one explorable
+      network. <code>/debugcaves</code> still shows the mask.</li>
+    <li><b class="cn-good">Wind.</b> New weather system. Direction may only flip while the strength is passing
+      through calm, so it never blows both ways at once. Drives leaf and plant sway, movement resistance above
+      ground, and the ambient wind bed. Synced to every client.</li>
+    <li><b class="cn-good">Flora.</b> Meadow grass, wildflowers, ferns, cave moss and glowcaps (which emit
+      light). Corruption trees use a new twisted blightwood trunk that drifts as it climbs.</li>
+    <li><b class="cn-good">Animation &amp; armour.</b> Real walk cycle with swinging arms, bob, lean and an
+      airborne pose; the weapon now rotates through the swing behind a trail. Equipped helmet, chest and greaves
+      are drawn, on remote players too.</li>
+    <li><b class="cn-good">Smart Cursor.</b> Now tool-dependent, like Terraria's: an axe targets the tree's
+      <i>base</i>, a pickaxe digs a walkable passage toward where you point. It used to blend distance, tool
+      match and aim into one score, so an off-aim tile could win.</li>
+    <li><b class="cn-good">Zoom</b> with <kbd>+</kbd>/<kbd>-</kbd> or <kbd>Ctrl</kbd>+scroll, a transparent
+      pause screen, smooth wheel hotbar scrolling, a difficulty picker in the multiplayer host flow, and
+      Grovekeeper's phase-2 leap arced and leashed so it can no longer fly off screen.</li>
+  </ul>
+
+  <h4>◆ What changed in the earlier overhaul pass</h4>
   <ul>
     <li><b class="cn-good">Terrain.</b> Rebuilt from one noise octave into seeded biome bands
       (Dunes / Verdant Reach / Frostpine Hollow / Corrupted Lands) with blended seams, a 4-octave fBm

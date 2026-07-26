@@ -1,11 +1,11 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=realms-difficulty-22';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=realms-difficulty-22';
-import { Sprites } from '../art/sprites.js?v=realms-difficulty-22';
-import { item as getItem } from '../data/items.js?v=realms-difficulty-22';
-import { availableRecipes } from '../systems/crafting.js?v=realms-difficulty-22';
-import { claudeNotesHTML } from './claude-notes.js?v=realms-difficulty-22';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=realms-qor-41';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=realms-qor-41';
+import { Sprites } from '../art/sprites.js?v=realms-qor-41';
+import { item as getItem } from '../data/items.js?v=realms-qor-41';
+import { availableRecipes } from '../systems/crafting.js?v=realms-qor-41';
+import { claudeNotesHTML } from './claude-notes.js?v=realms-qor-41';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [
@@ -281,6 +281,7 @@ export class Menus {
         <li><b>Right-click</b> — dig/chop the targeted tile with the best tool for it (pickaxe for stone, axe for trees)</li>
         <li><kbd>1</kbd>–<kbd>0</kbd> / scroll — select hotbar · <kbd>E</kbd> — inventory &amp; crafting · <kbd>Q</kbd> — use potion</li>
         <li><kbd>F</kbd> — talk to the Guide · <kbd>Ctrl</kbd> — hold for <b>Smart Cursor</b> (or set it to Always in Settings)</li>
+        <li><kbd>+</kbd> / <kbd>-</kbd> or <kbd>Ctrl</kbd>+scroll — <b>zoom</b> in and out</li>
         <li><kbd>Esc</kbd> — pause · <kbd>Enter</kbd> — chat (multiplayer)</li>
       </ul>
       <h4>Mobile Controls</h4>

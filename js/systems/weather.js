@@ -13,8 +13,8 @@
 //
 // Deterministic given (seed, elapsed time) so a networked client that misses a
 // snapshot still lands on the same weather the host has.
-import { DAY_LENGTH } from '../config.js?v=realms-difficulty-22';
-import { mulberry32 } from '../utils.js?v=realms-difficulty-22';
+import { DAY_LENGTH } from '../config.js?v=realms-qor-41';
+import { mulberry32 } from '../utils.js?v=realms-qor-41';
 
 // A new target is picked this often (seconds). DAY_LENGTH is 180s, so this is
 // roughly "every few hours" in game time.
