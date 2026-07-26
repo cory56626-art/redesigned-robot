@@ -1,8 +1,8 @@
 // Summoner Realms — Demo Commands console (testing only).
-import { ITEMS, DEMO_GIVE_ALL } from './data/items.js?v=realms-difficulty-22';
-import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=realms-difficulty-22';
-import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=realms-difficulty-22';
-import { TRACKS } from './engine/music.js?v=realms-difficulty-22';
+import { ITEMS, DEMO_GIVE_ALL } from './data/items.js?v=aidan-summon-1';
+import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=aidan-summon-1';
+import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=aidan-summon-1';
+import { TRACKS } from './engine/music.js?v=aidan-summon-1';
 
 const $ = (id) => document.getElementById(id);
 
@@ -35,6 +35,7 @@ export class CommandConsole {
       spawn: { args: '[enemy]', desc: 'Spawn an enemy nearby', run: (a) => this._spawn(a) },
       spawnboss: { args: '[boss]', desc: 'Spawn a boss', run: (a) => this._spawnBoss(a) },
       summonitem: { args: '[boss]', desc: 'Give a boss-summoning item', run: (a) => this._summonItem(a) },
+      aidansigil: { args: '', desc: 'Give the debug-only Aidan Sigil', run: () => this._give(['aidanSigil', '1']) },
       killall: { args: '', desc: 'Defeat nearby enemies (not bosses — use /clearboss)', run: () => this._killAll() },
       clearboss: { args: '', desc: 'Remove active boss(es), their adds & shots', run: () => this._clearBoss() },
       resetcombat: { args: '', desc: 'Clear projectiles/effects & combat state', run: () => this._resetCombat() },
