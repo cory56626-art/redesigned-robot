@@ -212,6 +212,43 @@ mat('sovereignCore', "Sovereign's Core", '#c58bff', 'drop', 4, 'Pulsing heart of
 mat('emberDust', 'Ember Dust', '#ff8c3b', 'drop', 1, 'Warm to the touch.');
 mat('aetherShard', 'Aether Shard', '#8ad9ff', 'drop', 2, 'Crystalized Aether.');
 
+// ---------- Fauna drops, bait, fishing ----------
+// Raw meat is a weak field snack; cooking it at a smeltery roughly doubles it.
+const meat = (id, name, color, heal, desc) =>
+  def({ id, name, category: 'potion', color, potion: { heal }, maxStack: 30, desc });
+meat('rawBeef', 'Raw Beef', '#c4626a', 12, 'Restores 12 health. Better cooked.');
+meat('rawPork', 'Raw Pork', '#dba0a4', 10, 'Restores 10 health. Better cooked.');
+meat('rawRabbit', 'Raw Rabbit', '#cbb49a', 8, 'Restores 8 health. Better cooked.');
+meat('cookedBeef', 'Seared Steak', '#8a4a30', 30, 'Restores 30 health.');
+meat('cookedPork', 'Roast Pork', '#a4634a', 26, 'Restores 26 health.');
+meat('cookedRabbit', 'Roast Rabbit', '#9a7048', 20, 'Restores 20 health.');
+mat('leather', 'Tanned Hide', '#8a6a44', 'misc', 1, 'Cured animal hide. Stitched into gear.');
+
+// Bait. `bait` is the power: higher bait means a shorter wait for a bite and a
+// better roll on the catch table.
+const bait = (id, name, color, power, desc) =>
+  def({ id, name, category: 'material', color, matKind: 'bait', bait: power, maxStack: 99, desc });
+bait('grubBait', 'Loam Grub', '#d8c49a', 1, 'Wriggling. Fish are not picky.');
+bait('fireflyBait', 'Emberfly', '#ffe08a', 2, 'Glows underwater. Fish come looking.');
+
+def({
+  id: 'fishingRod', name: 'Alderwood Rod', category: 'tool', color: '#a67c46',
+  tool: { power: 0, kind: 'rod' }, fishing: { power: 1 },
+  desc: 'Cast into water with bait in your bag. Left-click to cast and again to reel.',
+});
+
+// Fish are food; crates are containers opened from the inventory.
+meat('minnow', 'Silver Minnow', '#b8c6d2', 8, 'Restores 8 health.');
+meat('cavefish', 'Palefin', '#cfe0e8', 16, 'Restores 16 health. Found in the dark.');
+meat('goldfin', 'Goldfin', '#ffd98a', 26, 'Restores 26 health. A rare catch.');
+mat('tangledLine', 'Tangled Line', '#8a8f9a', 'misc', 0, 'Junk. Worth almost nothing.');
+
+const crate = (id, name, color, tier, desc) =>
+  def({ id, name, category: 'crate', color, crateTier: tier, maxStack: 30, desc });
+crate('woodCrate', 'Waterlogged Crate', '#a67c46', 0, 'Fished from the water. Use it to prise it open.');
+crate('ironCrate', 'Barnacled Crate', '#a9b0bd', 1, 'Heavier, and it rattles. Use it to prise it open.');
+crate('goldCrate', 'Gilded Crate', '#ffd98a', 2, 'Something valuable is inside. Use it to prise it open.');
+
 // ---------- Blocks & stations (placeable) ----------
 const block = (id, name, tile, tier = 0) => def({ id, name, category: 'block', place: tile, color: (ITEMS.stone && '#888'), tier });
 def({ id: 'planks', name: 'Oaken Planks', category: 'block', place: T.PLANKS, color: '#a67c46' });

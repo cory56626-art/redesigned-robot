@@ -73,6 +73,7 @@ export class Renderer {
     this._drawBosses(game, ctx);
     this._drawThrown(game, ctx);
     this._drawProjectiles(game, ctx);
+    this._drawBobbers(game, ctx);
     this._drawPlayers(game, ctx);
     this._drawAimHighlight(game, ctx);
     // Ordinary particles sit under the lighting; glowing ones are drawn after it
@@ -608,6 +609,11 @@ export class Renderer {
         case 'bonepicker': this._drawBonepicker(ctx, e); break;
         case 'blightcrawler': this._drawBlightcrawler(ctx, e); break;
         case 'blightshade': this._drawBlightshade(ctx, e); break;
+        case 'cow': this._drawGrazer(ctx, e, true); break;
+        case 'pig': this._drawGrazer(ctx, e, false); break;
+        case 'bunny': this._drawBunny(ctx, e); break;
+        case 'grub': this._drawGrub(ctx, e); break;
+        case 'firefly': this._drawFirefly(ctx, e); break;
         default: this._drawUnknownEnemy(ctx, e); break;
       }
       if (e.hp < e.maxHp) this._miniHp(ctx, e, e.hp / e.maxHp, '#ff6b7d');
@@ -1933,6 +1939,127 @@ export class Renderer {
     ctx.rotate(-0.35);
     ctx.drawImage(icon, 0, -6, 12, 12);
     ctx.restore();
+  }
+
+  // ---- Fauna ----
+  // Four-legged grazers. `spotted` gives the cow its patches; the pig is a
+  // solid body with a snout.
+  _drawGrazer(ctx, e, spotted) {
+    const x = e.x, y = e.y, w = e.w, h = e.h;
+    const step = Math.sin(e.walkAnim) * 2;
+    ctx.fillStyle = e.def.color2;
+    for (const [lx, ph] of [[3, 0], [w - 7, Math.PI], [7, Math.PI], [w - 11, 0]]) {
+      const s = Math.sin(e.walkAnim + ph) * 1.6;
+      ctx.fillRect(x + lx, y + h - 6 + Math.max(0, s), 3, 6 - Math.max(0, s));
+    }
+    ctx.fillStyle = e.def.color;
+    this._roundRect(ctx, x + 1, y + 3, w - 2, h - 8, 4); ctx.fill();
+    if (spotted) {
+      ctx.fillStyle = e.def.color2;
+      ctx.beginPath(); ctx.ellipse(x + w * 0.35, y + 7, 3.5, 2.6, 0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(x + w * 0.62, y + 10, 2.6, 2, -0.2, 0, Math.PI * 2); ctx.fill();
+    }
+    // Head, on the facing side, dipping as it grazes.
+    const hx = e.facing > 0 ? x + w - 8 : x;
+    const graze = Math.abs(e.vx) < 4 ? 2 : 0;
+    ctx.fillStyle = e.def.color;
+    this._roundRect(ctx, hx, y + 1 + graze, 8, 8, 3); ctx.fill();
+    ctx.fillStyle = spotted ? '#f2c0c4' : this._shade(e.def.color, -0.18);
+    ctx.fillRect(e.facing > 0 ? hx + 5 : hx, y + 5 + graze, 3, 3);
+    ctx.fillStyle = '#241c1c';
+    ctx.fillRect(e.facing > 0 ? hx + 5 : hx + 1, y + 3 + graze, 1.4, 1.4);
+    if (spotted) {
+      ctx.fillStyle = '#d8d2c4';
+      ctx.fillRect(e.facing > 0 ? hx + 6 : hx + 1, y + graze, 1.4, 2);
+    }
+    if (e.hurtFlash > 0) { ctx.fillStyle = 'rgba(255,255,255,0.6)'; this._roundRect(ctx, x, y, w, h, 4); ctx.fill(); }
+  }
+
+  _drawBunny(ctx, e) {
+    const x = e.x, y = e.y, w = e.w, h = e.h;
+    const hop = e.onGround ? 0 : 2;
+    ctx.fillStyle = e.def.color2;
+    ctx.fillRect(x + 1, y + h - 3, 3, 3);
+    ctx.fillRect(x + w - 4, y + h - 3, 3, 3);
+    ctx.fillStyle = e.def.color;
+    this._roundRect(ctx, x, y + 3 - hop, w, h - 4, 4); ctx.fill();
+    // Ears lie back when running.
+    const lean = Math.min(1, Math.abs(e.vx) / 60);
+    ctx.strokeStyle = e.def.color; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    for (const off of [-1.5, 1.5]) {
+      ctx.beginPath();
+      ctx.moveTo(x + w / 2 + off, y + 3 - hop);
+      ctx.lineTo(x + w / 2 + off - e.facing * lean * 4, y - 2 - hop + lean * 2);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(e.facing > 0 ? x + 1 : x + w - 1, y + h - 4 - hop, 1.8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#241c1c';
+    ctx.fillRect(e.facing > 0 ? x + w - 4 : x + 2, y + 6 - hop, 1.4, 1.4);
+    if (e.hurtFlash > 0) { ctx.fillStyle = 'rgba(255,255,255,0.6)'; this._roundRect(ctx, x, y, w, h, 3); ctx.fill(); }
+  }
+
+  _drawGrub(ctx, e) {
+    const x = e.x, y = e.y, w = e.w, h = e.h;
+    // Segments contract and extend as it inches along.
+    const squish = Math.sin(e.walkAnim * 2) * 0.8;
+    ctx.fillStyle = e.def.color;
+    for (let i = 0; i < 3; i++) {
+      const r = 2.6 - i * 0.35;
+      ctx.beginPath();
+      ctx.arc(x + 2.5 + i * (2.4 + squish * 0.3), y + h / 2, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = e.def.color2;
+    ctx.beginPath(); ctx.arc(e.facing > 0 ? x + w - 2 : x + 2, y + h / 2, 2.2, 0, Math.PI * 2); ctx.fill();
+    if (e.hurtFlash > 0) { ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.fillRect(x, y, w, h); }
+  }
+
+  _drawFirefly(ctx, e) {
+    const x = e.x + e.w / 2, y = e.y + e.h / 2;
+    const pulse = 0.55 + 0.45 * Math.sin(e.walkAnim * 3 + e.netId);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(x, y, 0, x, y, 7);
+    g.addColorStop(0, 'rgba(255,232,150,' + (0.8 * pulse).toFixed(2) + ')');
+    g.addColorStop(1, 'rgba(255,224,138,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = e.def.color2;
+    ctx.fillRect(x - 1.5, y - 1, 3, 2);
+    ctx.fillStyle = '#fff6c8';
+    ctx.fillRect(x - 0.7, y - 0.5, 1.4, 1.4);
+  }
+
+  // ---- Fishing ----
+  _drawBobbers(game, ctx) {
+    if (!game.bobbers || !game.bobbers.length) return;
+    for (const b of game.bobbers) {
+      const owner = game.players.get(b.ownerId);
+      const dip = b.settled ? Math.sin(b.bobPhase) * (b.hookTimer > 0 ? 2.2 : 0.7) : 0;
+      const by = b.y + dip;
+      // Line from the rod hand to the float.
+      if (owner) {
+        ctx.strokeStyle = 'rgba(232,224,207,0.55)';
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(owner.x + owner.w / 2, owner.y + 12);
+        ctx.lineTo(b.x, by);
+        ctx.stroke();
+      }
+      ctx.fillStyle = b.hookTimer > 0 ? '#ff6b5a' : '#e04a4a';
+      ctx.beginPath(); ctx.arc(b.x, by, 2.2, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = '#f2f2f2';
+      ctx.beginPath(); ctx.arc(b.x, by, 2.2, 0, Math.PI); ctx.fill();
+      // Ripple rings while a fish is worrying the bait.
+      if (b.settled) {
+        ctx.strokeStyle = b.hookTimer > 0 ? 'rgba(255,200,160,0.7)' : 'rgba(180,220,240,0.4)';
+        ctx.lineWidth = 0.7;
+        const r = 3 + (Math.sin(b.bobPhase) * 0.5 + 0.5) * (b.hookTimer > 0 ? 6 : 3);
+        ctx.beginPath(); ctx.ellipse(b.x, by + 2, r, r * 0.35, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+    }
   }
 
   _miniHp(ctx, e, ratio, color) {

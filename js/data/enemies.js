@@ -6,7 +6,42 @@
 // memory     : seconds it keeps hunting your last known position after losing
 //              sight of you
 // telegraph  : seconds of visible wind-up before an attack lands
+// `passive: true` marks fauna: it never hunts and never deals contact damage,
+// it flees when struck. It rides the normal enemy pipeline (entity, AI,
+// spawner, net sync) rather than a parallel one, so it gets pathing, ledge
+// handling and replication for free.
 export const ENEMIES = {
+  cow: {
+    key: 'cow', name: 'Meadow Cow', hp: 30, damage: 0, speed: 22, behavior: 'walker', passive: true,
+    biomes: ['forest'], time: 'day', color: '#e8e4dc', color2: '#4a4038', w: 26, h: 18, kbResist: 0.5,
+    aggroRange: 0, loseRange: 0, memory: 0, telegraph: 0,
+    drops: [{ item: 'rawBeef', chance: 1, min: 1, max: 3 }, { item: 'leather', chance: 0.7, min: 1, max: 2 }],
+  },
+  pig: {
+    key: 'pig', name: 'Truffle Pig', hp: 24, damage: 0, speed: 30, behavior: 'walker', passive: true,
+    biomes: ['forest', 'dunes'], time: 'day', color: '#e0a0a8', color2: '#a86a74', w: 22, h: 15, kbResist: 0.35,
+    aggroRange: 0, loseRange: 0, memory: 0, telegraph: 0,
+    drops: [{ item: 'rawPork', chance: 1, min: 1, max: 2 }, { item: 'leather', chance: 0.35, min: 1, max: 1 }],
+  },
+  bunny: {
+    key: 'bunny', name: 'Bramble Bunny', hp: 8, damage: 0, speed: 58, behavior: 'hopper', passive: true,
+    biomes: ['forest', 'frostpine'], time: 'any', color: '#d8cfc0', color2: '#9a8f80', w: 12, h: 11, kbResist: 0.1,
+    aggroRange: 0, loseRange: 0, memory: 0, telegraph: 0,
+    drops: [{ item: 'rawRabbit', chance: 1, min: 1, max: 1 }, { item: 'leather', chance: 0.2, min: 1, max: 1 }],
+  },
+  grub: {
+    key: 'grub', name: 'Loam Grub', hp: 4, damage: 0, speed: 14, behavior: 'walker', passive: true,
+    biomes: ['forest', 'underground', 'cavern'], time: 'any', color: '#d8c49a', color2: '#a08a60', w: 9, h: 6, kbResist: 0,
+    aggroRange: 0, loseRange: 0, memory: 0, telegraph: 0,
+    drops: [{ item: 'grubBait', chance: 1, min: 1, max: 2 }],
+  },
+  firefly: {
+    key: 'firefly', name: 'Emberfly', hp: 3, damage: 0, speed: 34, behavior: 'flyer', passive: true,
+    biomes: ['forest', 'corrupt'], time: 'night', color: '#ffe08a', color2: '#c9a24a', w: 7, h: 7, kbResist: 0,
+    aggroRange: 0, loseRange: 0, memory: 0, telegraph: 0,
+    drops: [{ item: 'fireflyBait', chance: 1, min: 1, max: 1 }],
+  },
+
   slugling: {
     key: 'slugling', name: 'Slugling', hp: 20, damage: 6, speed: 26, behavior: 'hopper',
     biomes: ['forest', 'frostpine'], time: 'any', color: '#7ea04a', color2: '#5a7a30', w: 16, h: 12, kbResist: 0.2,

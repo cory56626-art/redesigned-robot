@@ -10,6 +10,12 @@ export const RECIPES = [
   { out: { item: 'woodAxe', count: 1 }, in: [{ item: 'wood', count: 6 }], station: null },
   { out: { item: 'flintArrow', count: 12 }, in: [{ item: 'stick', count: 2 }, { item: 'stone', count: 1 }], station: null },
   { out: { item: 'planks', count: 4 }, in: [{ item: 'wood', count: 2 }], station: null },
+  { out: { item: 'fishingRod', count: 1 }, in: [{ item: 'wood', count: 6 }, { item: 'fiber', count: 4 }], station: null },
+
+  // --- Smeltery: cooking. Roughly doubles what raw meat restores. ---
+  { out: { item: 'cookedBeef', count: 1 }, in: [{ item: 'rawBeef', count: 1 }], station: 'smeltery' },
+  { out: { item: 'cookedPork', count: 1 }, in: [{ item: 'rawPork', count: 1 }], station: 'smeltery' },
+  { out: { item: 'cookedRabbit', count: 1 }, in: [{ item: 'rawRabbit', count: 1 }], station: 'smeltery' },
 
   // --- Bench: starter gear & gathering tools ---
   { out: { item: 'fiberHood', count: 1 }, in: [{ item: 'fiber', count: 8 }], station: 'bench' },

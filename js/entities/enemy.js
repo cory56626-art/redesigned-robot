@@ -44,6 +44,9 @@ export class Enemy {
     this.damage = d.damage;
     this.speed = d.speed;
     this.behavior = d.behavior;
+    this.passive = !!d.passive;   // fauna: never hunts, never deals contact damage
+    this.fleeTimer = 0;
+    this.fleeDir = Math.random() < 0.5 ? -1 : 1;
     this.color = d.color; this.color2 = d.color2;
     this.facing = 1;
     this.onGround = false;
@@ -85,7 +88,9 @@ export class Enemy {
     this.animTime += dt;
 
     const d = this.def;
-    const goal = AI.perceive(this, game, dt, {
+    // Fauna never hunts. Skipping perception entirely also keeps them cheap,
+    // since there can be a lot of them wandering the surface.
+    const goal = this.passive ? null : AI.perceive(this, game, dt, {
       aggroRange: d.aggroRange, loseRange: d.loseRange, memory: d.memory,
     });
     this.aiTargetPoint = goal;
@@ -101,7 +106,7 @@ export class Enemy {
     }
 
     clampToWorld(this, game.world);
-    this._contactDamage(game);
+    if (!this.passive) this._contactDamage(game);
 
     // Despawn if far from every player.
     if (game.minDistToAnyPlayer(cx, cy) > 1700 * 1700) this.dead = true;
@@ -110,6 +115,23 @@ export class Enemy {
   // Unaware: mill about. Flyers drift, everything else strolls and turns at
   // ledges instead of walking into a pit.
   _idle(dt, game) {
+    // A struck animal bolts away from whatever hit it for a few seconds.
+    if (this.passive && this.fleeTimer > 0) {
+      this.fleeTimer -= dt;
+      this.facing = this.fleeDir || 1;
+      this.vx = this.facing * this.speed * 1.8;
+      if (this.behavior === 'flyer') {
+        this.vy = -20;
+        this.x += this.vx * dt; this.y += this.vy * dt;
+        if (game.world.rectHitsSolid(this.x, this.y, this.w, this.h)) { this.x -= this.vx * dt; this.y -= this.vy * dt; this.fleeDir = -this.fleeDir; }
+      } else {
+        if (this.onGround && !AI.safeAhead(this, game.world, this.facing)) this.fleeDir = -this.fleeDir;
+        applyGravity(this, dt);
+        moveAndCollide(this, game.world, dt);
+      }
+      return;
+    }
+
     if (this.behavior === 'flyer') {
       this.vx *= 0.94;
       this.vy = Math.sin(this.walkAnim * 2 + this.netId) * 18;
@@ -304,9 +326,15 @@ export class Enemy {
     if (kby) this.vy += kby * 40 * kbResist; else this.vy -= 40 * kbResist;
     if (effect) this._applyEffect(effect);
     // Being hit gives away the attacker's position even without line of sight.
+    // Fauna has nothing to hunt with, so it bolts the other way instead.
     if (game && game.localPlayer) {
       const p = game.nearestPlayer(this.x + this.w / 2, this.y + this.h / 2);
-      if (p) AI.alert(this, p.x + p.w / 2, p.y + p.h / 2, this.def.memory || 5);
+      if (p && this.passive) {
+        this.fleeTimer = 3.5;
+        this.fleeDir = (this.x + this.w / 2) < (p.x + p.w / 2) ? -1 : 1;
+      } else if (p) {
+        AI.alert(this, p.x + p.w / 2, p.y + p.h / 2, this.def.memory || 5);
+      }
     }
     if (game) game.floatText(this.x + this.w / 2, this.y, Math.round(amount) + (crit ? '!' : ''), crit ? '#ffcf6b' : '#ffffff');
     if (this.hp <= 0) {

@@ -234,7 +234,9 @@ export class Player {
 
     // Primary use.
     if ((input.primaryHeld || aimUse) && sel) {
-      if (sel.category === 'tool') {
+      if (sel.fishing) {
+        if (input.primaryPressed) game.toggleFishing(this, sel);
+      } else if (sel.category === 'tool') {
         combat.mineAt(game, this, dt, { tool: sel });
       } else if (isPlaceable(sel)) {
         if (this.placeTimer <= 0) { if (combat.placeSelected(game, this)) this.placeTimer = 0.12; }
@@ -247,6 +249,8 @@ export class Player {
         if (input.primaryPressed) combat.throwItem(game, this, sel);
       } else if (sel.category === 'summonitem') {
         if (input.primaryPressed) combat.useSummonItem(game, this, sel);
+      } else if (sel.category === 'crate') {
+        if (input.primaryPressed) game.openCrateItem(this, sel);
       }
     }
   }

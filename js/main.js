@@ -20,6 +20,7 @@ import { starterInventory } from './systems/inventory.js?v=realms-qor-41';
 import * as craftSys from './systems/crafting.js?v=realms-qor-41';
 import { applyPotion } from './systems/combat.js?v=realms-qor-41';
 import { smartTarget } from './systems/smartcursor.js?v=realms-qor-41';
+import { Bobber, findBait, rollCatch, openCrate } from './systems/fishing.js?v=realms-qor-41';
 import { Player, assignColor } from './entities/player.js?v=realms-qor-41';
 import { Enemy } from './entities/enemy.js?v=realms-qor-41';
 import { Boss } from './entities/boss.js?v=realms-qor-41';
@@ -78,6 +79,7 @@ class Game {
     this.flashes = [];       // transient light sources (explosions)
     this.floatTexts = [];
     this.fallingTrees = [];  // cosmetic tree-topple animations
+    this.bobbers = [];       // fishing floats, one per player at most
     this.thrown = [];        // bombs, dynamite, shurikens in flight
     this.npc = null;         // the Guide
     this.fx = new Fx(this);
@@ -261,6 +263,7 @@ class Game {
 
     // Guide NPC
     if (this.npc) this.npc.update(dt, this);
+    this._updateBobbers(dt);
 
     // Minions (local only)
     for (const m of this.minions) m.update(dt, this);
@@ -335,6 +338,7 @@ class Game {
     this.players.clear(); this.enemies = []; this.enemyById.clear(); this.minions = [];
     this.bosses = []; this.projectiles = []; this.drops = []; this.dropById.clear();
     this.particles = []; this.rings = []; this.flashes = []; this.floatTexts = []; this.fallingTrees = []; this.thrown = [];
+    this.bobbers = [];
     this.npc = null;
   }
 
@@ -761,6 +765,71 @@ class Game {
     const hx = pc.x + Math.cos(angle) * 12, hy = pc.y + Math.sin(angle) * 12;
     this.fx.streak(hx, hy, angle, item.projColor || item.color, 7, { speed: 50, spread: 1.2, life: 0.25, size: 2, glow: true });
   }
+  // ---- Fishing ----
+  bobberFor(playerId) { return this.bobbers.find(b => b.ownerId === playerId && !b.dead) || null; }
+
+  _updateBobbers(dt) {
+    for (const b of this.bobbers) {
+      b.update(dt, this);
+      if (b.bit) {
+        b.bit = false;
+        this.fx.ring(b.x, b.y, '#8fd0f0', 14, { life: 0.35, width: 2 });
+        this.audio?.blockPlace();
+        if (b.ownerId === this.selfId) this.toast('Something\u2019s biting!', 'good');
+      }
+      if (b.lostIt) {
+        b.lostIt = false;
+        if (b.ownerId === this.selfId) this.toast('It got away', 'bad');
+      }
+      if (b.missed) { b.missed = false; if (b.ownerId === this.selfId) this.toast('No water there', 'bad'); }
+    }
+    this.bobbers = this.bobbers.filter(b => !b.dead);
+  }
+
+  // Left-click with a rod casts; clicking again reels in. Reeling while a fish
+  // is on lands the catch, otherwise you just get the line back.
+  toggleFishing(player, rod) {
+    const existing = this.bobberFor(player.id);
+    if (existing) { this._reelIn(player, existing); return; }
+
+    const bait = findBait(player);
+    if (!bait) { this.toast('You need bait \u2014 catch a grub or an emberfly', 'bad'); return; }
+
+    const pc = player.center();
+    const s = this.input.state;
+    const dx = s.aimX - pc.x, dy = s.aimY - pc.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const b = new Bobber(player, pc.x, pc.y - 4, (dx / len) * 300, (dy / len) * 300 - 90);
+    b.baitPower = bait.power;
+    b.baitId = bait.id;
+    this.bobbers.push(b);
+    this.audio?.swordSwing();
+  }
+
+  _reelIn(player, b) {
+    b.dead = true;
+    if (!b.settled) return;
+    if (b.hookTimer > 0) {
+      // Landed it. The bait is consumed only on a successful catch.
+      player.inventory.remove(b.baitId, 1);
+      const id = rollCatch(this, b, b.baitPower || 1);
+      const leftover = player.inventory.add(id, 1);
+      if (leftover > 0) this.spawnDrop(player.x, player.y, id, leftover);
+      const def = getItem(id);
+      this.floatText(b.x, b.y - 8, '+1 ' + (def ? def.name : id), '#8fd0f0');
+      this.fx.burst(b.x, b.y, '#8fd0f0', 10, { speed: 90, gravity: 200 });
+      if (player.id === this.selfId) this.toast('Caught: ' + (def ? def.name : id), 'good');
+    }
+  }
+
+  openCrateItem(player, item) {
+    if (!player.inventory.remove(item.id, 1)) return;
+    const got = openCrate(this, player, item);
+    const names = got.map(g => g.n + ' ' + (getItem(g.id) ? getItem(g.id).name : g.id)).join(', ');
+    this.toast('Crate: ' + (names || 'empty'), 'good');
+    this.audio?.blockBreak();
+  }
+
   spawnFallingTree(cells, tx, ty, dir) {
     this.fallingTrees.push(new FallingTree(cells, tx, ty, dir));
     if (this.fallingTrees.length > 16) this.fallingTrees.shift();
