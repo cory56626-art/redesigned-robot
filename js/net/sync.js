@@ -8,6 +8,8 @@ import { ITEMS } from '../data/items.js?v=realms-difficulty-22';
 import { ENEMIES } from '../data/enemies.js?v=realms-difficulty-22';
 import { BOSSES } from '../data/bosses.js?v=realms-difficulty-22';
 
+const asArray = (value) => Array.isArray(value) ? value : [];
+
 // ---------- Welcome (host builds, client applies) ----------
 export function buildWelcome(game, forId) {
   return {
@@ -30,12 +32,17 @@ export function buildWelcome(game, forId) {
 }
 
 export function applyWelcome(game, msg) {
+  if (!msg || typeof msg !== 'object') return;
   game.selfId = msg.id;
   game.net.hostId = msg.hostId;
-  game.startClientWorld(msg.seed, msg.name, msg.diffs, msg.time, msg.progression, msg.wallDiffs, msg.day || 1, msg.difficulty);
+  game.startClientWorld(
+    msg.seed, msg.name, asArray(msg.diffs), msg.time, msg.progression || {},
+    asArray(msg.wallDiffs), msg.day || 1, msg.difficulty
+  );
   // Remote players (everyone except us).
-  for (const ps of msg.players) {
-    if (ps.id === msg.id) continue;
+  const players = asArray(msg.players);
+  for (const ps of players) {
+    if (!ps || ps.id == null || ps.id === msg.id) continue;
     const rp = new Player(ps.id, { name: ps.name, color: ps.color, isLocal: false });
     rp.applyNetState(ps); rp.x = ps.x; rp.y = ps.y;
     game.players.set(ps.id, rp);
@@ -63,17 +70,27 @@ export function buildSnapshot(game) {
 }
 
 export function applySnapshot(game, msg) {
-  game.time.t = msg.time;
-  if (msg.day != null) game.time.day = Math.max(1, Math.floor(msg.day));
+  if (!msg || typeof msg !== 'object' || !game.time) return;
+  const time = Number(msg.time);
+  if (Number.isFinite(time)) game.time.t = time;
+  const day = Number(msg.day);
+  if (Number.isFinite(day)) game.time.day = Math.max(1, Math.floor(day));
   // Players
+  const players = asArray(msg.players);
   const seen = new Set();
-  for (const ps of msg.players) {
+  for (const ps of players) {
+    if (!ps || ps.id == null) continue;
     seen.add(ps.id);
     if (ps.id === game.selfId) continue; // don't override our own sim
     let rp = game.players.get(ps.id);
-    if (!rp) { rp = new Player(ps.id, { name: ps.name, color: ps.color, isLocal: false }); rp.x = ps.x; rp.y = ps.y; game.players.set(ps.id, rp); game.ui.menus.refreshPlayerList(); }
+    if (!rp) {
+      rp = new Player(ps.id, { name: ps.name, color: ps.color, isLocal: false });
+      rp.x = ps.x; rp.y = ps.y;
+      game.players.set(ps.id, rp);
+      game.ui.menus.refreshPlayerList();
+    }
     rp.applyNetState(ps);
-    rp.remoteMinions = ps.mins || [];
+    rp.remoteMinions = asArray(ps.mins);
   }
   // Remove remote players who left (not in this snapshot).
   let removed = false;
@@ -86,26 +103,47 @@ export function applySnapshot(game, msg) {
 }
 
 function applyEntitySnapshot(game, msg) {
+  const enemies = asArray(msg && msg.enemies);
+  const bosses = asArray(msg && msg.bosses);
+  const drops = asArray(msg && msg.drops);
+
   // Enemies (ghosts on client).
   const eSeen = new Set();
-  for (const es of msg.enemies) {
+  for (const es of enemies) {
+    if (!es || es.netId == null || !ENEMIES[es.key]) continue;
     eSeen.add(es.netId);
     let e = game.enemyById.get(es.netId);
-    if (!e) { e = makeGhostEnemy(es); game.enemyById.set(es.netId, e); game.enemies.push(e); }
-    e._tx = es.x; e._ty = es.y; e.hp = es.hp; e.facing = es.facing; if (es.f) e.hurtFlash = 0.1;
+    if (!e) {
+      e = makeGhostEnemy(es);
+      if (!e) continue;
+      game.enemyById.set(es.netId, e);
+      game.enemies.push(e);
+    }
+    e._tx = es.x; e._ty = es.y; e.hp = es.hp; e.facing = es.facing;
+    if (es.f) e.hurtFlash = 0.1;
   }
   for (let i = game.enemies.length - 1; i >= 0; i--) {
     const e = game.enemies[i];
-    if (!eSeen.has(e.netId)) { game.enemies.splice(i, 1); game.enemyById.delete(e.netId); }
+    if (!eSeen.has(e.netId)) {
+      game.enemies.splice(i, 1);
+      game.enemyById.delete(e.netId);
+    }
   }
-  // Bosses
-  const bSeen = new Set();
+
+  // Bosses. Ignore an unknown boss definition instead of crashing the client's
+  // frame loop on a stale or malformed packet.
   const newBosses = [];
-  for (const bs of msg.bosses) {
+  for (const bs of bosses) {
+    const def = bs && BOSSES[bs.key];
+    if (!def) continue;
     let b = game.bosses.find(x => x.key === bs.key);
     if (!b) b = makeGhostBoss(bs);
+    if (!b) continue;
     b._tx = bs.x; b._ty = bs.y; b.hp = bs.hp; b.maxHp = bs.maxHp; b.facing = bs.facing;
-    b.phaseName = (BOSSES[bs.key].phases[bs.phase] || {}).name || '';
+    const phases = Array.isArray(def.phases) ? def.phases : [];
+    const phaseNumber = Number(bs.phase);
+    const phaseIndex = Number.isInteger(phaseNumber) && phaseNumber >= 0 ? phaseNumber : 0;
+    b.phaseName = (phases[phaseIndex] || phases[0] || {}).name || '';
     if (b.ghost) {
       b.hidden = !!bs.hidden;
       b.aiState = bs.state || '';
@@ -115,22 +153,35 @@ function applyEntitySnapshot(game, msg) {
     newBosses.push(b);
   }
   game.bosses = newBosses;
+
   // Drops
   const dSeen = new Set();
-  for (const ds of msg.drops) {
+  for (const ds of drops) {
+    if (!ds || ds.netId == null) continue;
     dSeen.add(ds.netId);
     let d = game.dropById.get(ds.netId);
-    if (!d) { d = { netId: ds.netId, itemId: ds.itemId, count: ds.count, x: ds.x, y: ds.y, w: 10, h: 10, bob: Math.random() * 6, ghost: true }; game.dropById.set(ds.netId, d); game.drops.push(d); }
+    if (!d) {
+      d = {
+        netId: ds.netId, itemId: ds.itemId, count: ds.count,
+        x: ds.x, y: ds.y, w: 10, h: 10, bob: Math.random() * 6, ghost: true
+      };
+      game.dropById.set(ds.netId, d);
+      game.drops.push(d);
+    }
     d.x = ds.x; d.y = ds.y;
   }
   for (let i = game.drops.length - 1; i >= 0; i--) {
     const d = game.drops[i];
-    if (d.ghost && !dSeen.has(d.netId)) { game.drops.splice(i, 1); game.dropById.delete(d.netId); }
+    if (d.ghost && !dSeen.has(d.netId)) {
+      game.drops.splice(i, 1);
+      game.dropById.delete(d.netId);
+    }
   }
 }
 
 function makeGhostEnemy(es) {
   const def = ENEMIES[es.key];
+  if (!def) return null;
   return {
     netId: es.netId, key: es.key, x: es.x, y: es.y, _tx: es.x, _ty: es.y,
     w: def.w, h: def.h, hp: es.hp, maxHp: def.hp, color: def.color, color2: def.color2,
@@ -142,6 +193,7 @@ function makeGhostEnemy(es) {
 // boss animates like a simulated one instead of throwing on a missing property.
 function makeGhostBoss(bs) {
   const def = BOSSES[bs.key];
+  if (!def) return null;
   const segments = [];
   for (let i = 0; i < 3; i++) segments.push({ x: bs.x + 4 + i * 17, y: bs.y + 12 });
   return {
@@ -194,6 +246,7 @@ export function netTick(game, dt) {
     if (game._snapAcc >= 1 / NET_INPUT_HZ) {
       game._snapAcc = 0;
       const p = game.localPlayer;
+      if (!p) return;
       const s = p.netState();
       s.mins = game.minions.filter(m => m.ownerId === p.id).map(m => m.netInfo());
       net.toHost({ t: MSG.PSTATE, s });
@@ -203,6 +256,7 @@ export function netTick(game, dt) {
 
 // ---------- Message handling ----------
 export function handleMessage(game, fromId, msg, conn) {
+  if (!msg || typeof msg !== 'object' || msg.t == null) return;
   const net = game.net;
   switch (msg.t) {
     case MSG.HELLO: { // host
