@@ -1,11 +1,11 @@
 // Summoner Realms — minion entity. Owned by a player; the owner's client
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
-import { minionDef } from '../data/minions.js?v=realms-difficulty-21';
-import { dist2, aabb, angleTo } from '../utils.js?v=realms-2';
-import { TILE } from '../config.js?v=realms-difficulty-21';
-import { Projectile } from './projectile.js?v=realms-diamond-3';
-import * as AI from '../systems/ai.js?v=realms-diamond-1';
+import { minionDef } from '../data/minions.js?v=realms-difficulty-22';
+import { dist2, aabb, angleTo } from '../utils.js?v=realms-difficulty-22';
+import { TILE } from '../config.js?v=realms-difficulty-22';
+import { Projectile } from './projectile.js?v=realms-difficulty-22';
+import * as AI from '../systems/ai.js?v=realms-difficulty-22';
 
 let MINION_SEQ = 1;
 
@@ -581,10 +581,101 @@ export class Minion {
       pushY += (vx / sp) * threat * side * 0.9;
     }
 
+    // Contact attacks and committed charges do not necessarily create a
+    // projectile. Read the hostile entity's live attack state as well, so a
+    // telegraphed leap or a fast enemy closing the last few pixels can trigger
+    // the same limited sidestep.
+    const attack = this._diamondAttackThreat(game, cx, cy);
+    if (attack.urgency > urgency) {
+      pushX += attack.x * attack.urgency;
+      pushY += attack.y * attack.urgency;
+      urgency = attack.urgency;
+    }
+
     const len = Math.hypot(pushX, pushY);
     return len > 1
       ? { x: pushX / len, y: pushY / len, urgency }
       : { x: 0, y: 0, urgency: 0 };
+  }
+
+  _diamondAttackThreat(game, cx, cy) {
+    let pushX = 0, pushY = 0, urgency = 0;
+    const consider = (source) => {
+      if (!source || source.dead || source.alive === false || source.hp <= 0) return;
+      const sc = source.center ? source.center() : { x: source.x + source.w / 2, y: source.y + source.h / 2 };
+      const dx = cx - sc.x, dy = cy - sc.y;
+      const distance = Math.hypot(dx, dy);
+      const pending = source.pendingAttack || source.chosen?.type;
+      const committed = !!source.charge || (source.dashTime || 0) > 0;
+      const telegraphing = source.telegraph > 0 && (pending === 'charge' || pending === 'leap');
+      const dangerRange = committed ? 260 : telegraphing ? 210 : 96;
+      if (distance >= dangerRange) return;
+
+      let threat = (dangerRange - distance) / dangerRange;
+      const toward = (source.vx || 0) * dx + (source.vy || 0) * dy > 0;
+      if (toward) threat += 0.18;
+      if (committed) threat = Math.max(threat, 0.86);
+      else if (telegraphing) threat = Math.max(threat, 0.76);
+      threat = Math.min(1, threat);
+      urgency = Math.max(urgency, threat);
+
+      const len = distance || 1;
+      const awayX = distance > 0 ? dx / len : -Math.sign(source.facing || 1);
+      const awayY = distance > 0 ? dy / len : 0;
+      pushX += awayX * threat;
+      pushY += awayY * threat;
+
+      const speed = Math.hypot(source.vx || 0, source.vy || 0);
+      if (speed > 20) {
+        const side = (this.id & 1) ? 1 : -1;
+        pushX += (-source.vy / speed) * threat * side * 0.65;
+        pushY += (source.vx / speed) * threat * side * 0.65;
+      }
+    };
+    for (const e of game.enemies) consider(e);
+    for (const b of game.bosses) consider(b);
+
+    const len = Math.hypot(pushX, pushY);
+    return len > 1
+      ? { x: pushX / len, y: pushY / len, urgency }
+      : { x: pushX, y: pushY, urgency };
+  }
+
+  // Last-moment projectile guard. The predictive routine normally moves first;
+  // this fallback covers a projectile that crosses the hitbox later in the
+  // same fixed-timestep update. One dodge consumes the shared cooldown.
+  tryDodgeProjectile(game) {
+    if (this.def.behavior !== 'diamondHeart') return false;
+    if (this.dodgeTime > 0) return true;
+    if (this.dodgeCd > 0) return false;
+    const dodge = this._diamondDodge(game, this.x + this.w / 2, this.y + this.h / 2);
+    const direction = dodge.urgency > 0 ? dodge : { x: this.facing || 1, y: -0.35 };
+    this._beginDiamondEvasion(game, { ...direction, urgency: 1 });
+    return true;
+  }
+
+  // Contact guard used by enemies and bosses before they apply melee damage.
+  // It is intentionally cooldown-limited: if the Heart has already spent its
+  // sidestep recently, the attack still lands normally.
+  tryDodgeContact(game, source) {
+    if (this.def.behavior !== 'diamondHeart') return false;
+    if (this.dodgeTime > 0) return true;
+    if (this.dodgeCd > 0) return false;
+
+    const c = this.center();
+    const s = source.center ? source.center() : { x: source.x + source.w / 2, y: source.y + source.h / 2 };
+    const dx = c.x - s.x, dy = c.y - s.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    let x = dx / distance, y = dy / distance;
+    const speed = Math.hypot(source.vx || 0, source.vy || 0);
+    if (speed > 20) {
+      const side = (this.id & 1) ? 1 : -1;
+      x += (-source.vy / speed) * side * 0.7;
+      y += (source.vx / speed) * side * 0.7;
+    }
+    const len = Math.hypot(x, y) || 1;
+    this._beginDiamondEvasion(game, { x: x / len, y: y / len, urgency: 1 });
+    return true;
   }
 
   _beginDiamondEvasion(game, dodge) {

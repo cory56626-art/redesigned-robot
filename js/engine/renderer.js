@@ -1,13 +1,13 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H } from '../config.js?v=realms-2';
-import { T, isSolid, isTree, isLeaf, tileDef } from '../world/tiles.js?v=realms-2';
-import { W, hasWall } from '../world/walls.js?v=realms-2';
-import { BIOMES } from '../world/biomes.js?v=realms-2';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=realms-2';
-import { item as getItem } from '../data/items.js?v=realms-diamond-1';
-import { canPlaceAt } from '../systems/combat.js?v=realms-2';
-import { clamp } from '../utils.js?v=realms-2';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H } from '../config.js?v=realms-difficulty-22';
+import { T, isSolid, isTree, isLeaf, tileDef } from '../world/tiles.js?v=realms-difficulty-22';
+import { W, hasWall } from '../world/walls.js?v=realms-difficulty-22';
+import { BIOMES } from '../world/biomes.js?v=realms-difficulty-22';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=realms-difficulty-22';
+import { item as getItem } from '../data/items.js?v=realms-difficulty-22';
+import { canPlaceAt } from '../systems/combat.js?v=realms-difficulty-22';
+import { clamp } from '../utils.js?v=realms-difficulty-22';
 
 const PROJ_GLOW = {
   thorn: '#7ee08a', seed: '#a7e36f', rock: '#8a7a5a', shock: '#d3b985',

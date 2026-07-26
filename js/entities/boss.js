@@ -11,12 +11,12 @@
 // distance, phase and line of sight. Animation fields (squash, jaw, segment
 // lag, shard spin) are updated here rather than in the renderer, so they are
 // driven by the simulation and stay frame-rate independent.
-import { TILE, normalizeDifficulty } from '../config.js?v=realms-difficulty-21';
-import { BOSSES } from '../data/bosses.js?v=realms-2';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-2';
-import { aabb, angleTo, randRange, clamp } from '../utils.js?v=realms-2';
-import { Projectile } from './projectile.js?v=realms-diamond-3';
-import * as AI from '../systems/ai.js?v=realms-diamond-1';
+import { TILE, normalizeDifficulty } from '../config.js?v=realms-difficulty-22';
+import { BOSSES } from '../data/bosses.js?v=realms-difficulty-22';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-difficulty-22';
+import { aabb, angleTo, randRange, clamp } from '../utils.js?v=realms-difficulty-22';
+import { Projectile } from './projectile.js?v=realms-difficulty-22';
+import * as AI from '../systems/ai.js?v=realms-difficulty-22';
 
 const PROJ_COLOR = { thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff' };
 
@@ -448,8 +448,9 @@ export class Boss {
     for (const p of targets) {
       if (p.alive !== false && !p.dead && aabb(this, p)) {
         const knockback = Math.sign(p.x - this.x) * 6;
-        if (p.isMinion) p.takeDamage(ph.contact, knockback, game, this.name);
-        else game.applyEnemyDamageToPlayer(p, ph.contact, knockback);
+        const dodged = p.isMinion && p.tryDodgeContact?.(game, this);
+        if (!dodged && p.isMinion) p.takeDamage(ph.contact, knockback, game, this.name);
+        else if (!dodged) game.applyEnemyDamageToPlayer(p, ph.contact, knockback);
       }
     }
   }

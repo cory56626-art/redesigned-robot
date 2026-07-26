@@ -3,10 +3,10 @@
 // Two modes: a list of topics he can talk about, and an item-inspection mode
 // where you hand him something from your bag and he explains it. The content
 // itself lives in data/guide.js; this file is only presentation.
-import { INV_SIZE } from '../systems/inventory.js?v=realms-2';
-import { Sprites } from '../art/sprites.js?v=realms-2';
-import { item as getItem } from '../data/items.js?v=realms-2';
-import { TOPICS, describeItem, greeting } from '../data/guide.js?v=realms-2';
+import { INV_SIZE } from '../systems/inventory.js?v=realms-difficulty-22';
+import { Sprites } from '../art/sprites.js?v=realms-difficulty-22';
+import { item as getItem } from '../data/items.js?v=realms-difficulty-22';
+import { TOPICS, describeItem, greeting } from '../data/guide.js?v=realms-difficulty-22';
 
 const $ = (id) => document.getElementById(id);
 

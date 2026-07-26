@@ -1,11 +1,11 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=realms-difficulty-21';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=realms-2';
-import { Sprites } from '../art/sprites.js?v=realms-2';
-import { item as getItem } from '../data/items.js?v=realms-diamond-1';
-import { availableRecipes } from '../systems/crafting.js?v=realms-2';
-import { claudeNotesHTML } from './claude-notes.js?v=realms-2';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=realms-difficulty-22';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=realms-difficulty-22';
+import { Sprites } from '../art/sprites.js?v=realms-difficulty-22';
+import { item as getItem } from '../data/items.js?v=realms-difficulty-22';
+import { availableRecipes } from '../systems/crafting.js?v=realms-difficulty-22';
+import { claudeNotesHTML } from './claude-notes.js?v=realms-difficulty-22';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [

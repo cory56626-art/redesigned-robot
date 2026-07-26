@@ -4,7 +4,7 @@
 // Single build stamp for every cache-busted module import. Bump this once per
 // release instead of editing per-module `?build=` strings (which drifted out of
 // sync and could ship a half-updated module graph).
-export const BUILD = 'realms-difficulty-21';
+export const BUILD = 'realms-difficulty-22';
 
 export const WORLD_DIFFICULTIES = Object.freeze([
   { key: 'normal', label: 'Normal', tier: 'Buffed baseline', hint: 'Enemies and bosses are tougher than the old baseline, but attacks stay readable.' },
@@ -32,22 +32,22 @@ export const ENEMY_DIFFICULTY_TUNING = Object.freeze({
   normal: {
     hp: 1.08, damage: 1.08, speed: 1.03, projectile: 1.04, cooldown: 0.96,
     telegraph: 1.00, aggro: 1.04, memory: 1.05,
-    spawnInterval: 2.15, spawnChance: 0.66, globalCapBonus: 1, localCapBonus: 0,
+    spawnInterval: 3.40, spawnChance: 0.50, globalCapBonus: 0, localCapBonus: 0,
   },
   hard: {
     hp: 1.16, damage: 1.16, speed: 1.06, projectile: 1.09, cooldown: 0.91,
     telegraph: 0.96, aggro: 1.08, memory: 1.10,
-    spawnInterval: 2.05, spawnChance: 0.70, globalCapBonus: 2, localCapBonus: 1,
+    spawnInterval: 3.20, spawnChance: 0.54, globalCapBonus: 1, localCapBonus: 1,
   },
   master: {
     hp: 1.26, damage: 1.26, speed: 1.09, projectile: 1.14, cooldown: 0.86,
     telegraph: 0.92, aggro: 1.12, memory: 1.16,
-    spawnInterval: 1.95, spawnChance: 0.74, globalCapBonus: 3, localCapBonus: 1,
+    spawnInterval: 3.00, spawnChance: 0.58, globalCapBonus: 2, localCapBonus: 1,
   },
   masochist: {
     hp: 1.38, damage: 1.36, speed: 1.12, projectile: 1.19, cooldown: 0.81,
     telegraph: 0.88, aggro: 1.16, memory: 1.22,
-    spawnInterval: 1.85, spawnChance: 0.78, globalCapBonus: 4, localCapBonus: 2,
+    spawnInterval: 2.80, spawnChance: 0.62, globalCapBonus: 3, localCapBonus: 2,
   },
 });
 

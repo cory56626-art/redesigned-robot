@@ -3,12 +3,12 @@
 // Each enemy runs the same loop: perceive (do I know where the player is?),
 // decide (idle / approach / attack / retreat), then act. Perception, pathing and
 // steering live in systems/ai.js so every creature reasons the same way.
-import { TILE, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=realms-difficulty-21';
-import { ENEMIES } from '../data/enemies.js?v=realms-2';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-2';
-import { aabb } from '../utils.js?v=realms-2';
-import { Projectile } from './projectile.js?v=realms-diamond-3';
-import * as AI from '../systems/ai.js?v=realms-diamond-18';
+import { TILE, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=realms-difficulty-22';
+import { ENEMIES } from '../data/enemies.js?v=realms-difficulty-22';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-difficulty-22';
+import { aabb } from '../utils.js?v=realms-difficulty-22';
+import { Projectile } from './projectile.js?v=realms-difficulty-22';
+import * as AI from '../systems/ai.js?v=realms-difficulty-22';
 
 export class Enemy {
   constructor(key, x, y, netId, difficulty = 'normal') {
@@ -281,8 +281,9 @@ export class Enemy {
     for (const p of targets) {
       if (p.alive !== false && !p.dead && aabb(this, p)) {
         const knockback = Math.sign(p.x - this.x) * 4 + this.facing * 2;
-        if (p === game.npc || p.isMinion) p.takeDamage(this.damage, knockback, game, this.name);
-        else game.applyEnemyDamageToPlayer(p, this.damage, knockback);
+        const dodged = p.isMinion && p.tryDodgeContact?.(game, this);
+        if (!dodged && (p === game.npc || p.isMinion)) p.takeDamage(this.damage, knockback, game, this.name);
+        else if (!dodged) game.applyEnemyDamageToPlayer(p, this.damage, knockback);
         this.attackCd = this.contactCooldown;
         break;
       }

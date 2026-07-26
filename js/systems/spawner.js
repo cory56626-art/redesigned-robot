@@ -1,20 +1,28 @@
 // Summoner Realms — natural enemy spawning (host only). Biome + day/night aware.
-import { TILE, UNDERGROUND_Y, MAX_ENEMIES, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=realms-difficulty-21';
-import { ENEMIES } from '../data/enemies.js?v=realms-2';
-import { aabb, dist2 } from '../utils.js?v=realms-2';
+import { TILE, UNDERGROUND_Y, MAX_ENEMIES, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=realms-difficulty-22';
+import { ENEMIES } from '../data/enemies.js?v=realms-difficulty-22';
+import { aabb, dist2 } from '../utils.js?v=realms-difficulty-22';
 
 // Keep spawns off-screen-ish but not so far they never arrive (tiles).
 const MIN_SPAWN_DIST = 13;
 const MAX_SPAWN_DIST = 30;
 const BASE_SPAWN_INTERVAL = 2.25;
 const BASE_SPAWN_CHANCE = 0.6;
+const INITIAL_SPAWN_GRACE = 8;
 const LOCAL_ACTIVITY_RADIUS = 58 * TILE;
 
 export class Spawner {
-  constructor() { this.timer = 1.5; }
+  constructor() { this.timer = INITIAL_SPAWN_GRACE; this.world = null; }
 
   update(dt, game) {
     if (!game.isHost) return;
+    // A new world should give the player time to orient themselves before the
+    // first natural spawn. The world identity also resets this after a world
+    // reset without requiring the game lifecycle to know spawner internals.
+    if (this.world !== game.world) {
+      this.world = game.world;
+      this.timer = INITIAL_SPAWN_GRACE;
+    }
     this.timer -= dt;
     if (this.timer > 0) return;
     const tuning = ENEMY_DIFFICULTY_TUNING[normalizeDifficulty(game.difficulty)] || ENEMY_DIFFICULTY_TUNING.normal;
@@ -29,7 +37,10 @@ export class Spawner {
 
     // Keep a small, readable population near each player while still scaling
     // gently for co-op instead of flooding the world.
-    const globalCap = Math.min(MAX_ENEMIES, 6 + players.length * 2 + (tuning.globalCapBonus || 0));
+    const coOpBonus = Math.max(0, players.length - 1);
+    const globalCap = Math.min(MAX_ENEMIES,
+      3 + coOpBonus * 2 + Math.max(0, tuning.globalCapBonus || 0)
+    );
     const active = game.enemies.filter(e => !e.fromBoss && !e.dead).length;
     if (active >= globalCap) return;
 
@@ -44,7 +55,9 @@ export class Spawner {
       }))
       .sort((a, b) => a.nearby - b.nearby);
 
-    const localCap = Math.min(globalCap, 4 + players.length + (tuning.localCapBonus || 0));
+    const localCap = Math.min(globalCap,
+      2 + coOpBonus + Math.max(0, tuning.localCapBonus || 0)
+    );
     for (const { p, nearby } of candidates) {
       if (nearby >= localCap) continue;
       if (this._trySpawnAround(game, p, players)) return;

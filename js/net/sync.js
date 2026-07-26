@@ -1,12 +1,12 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
-import { MSG } from './protocol.js?v=realms-2';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=realms-difficulty-21';
-import { Player, assignColor } from '../entities/player.js?v=realms-diamond-1';
-import { Projectile } from '../entities/projectile.js?v=realms-diamond-3';
-import { ThrownItem } from '../entities/thrown.js?v=realms-2';
-import { ITEMS } from '../data/items.js?v=realms-diamond-1';
-import { ENEMIES } from '../data/enemies.js?v=realms-2';
-import { BOSSES } from '../data/bosses.js?v=realms-2';
+import { MSG } from './protocol.js?v=realms-difficulty-22';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=realms-difficulty-22';
+import { Player, assignColor } from '../entities/player.js?v=realms-difficulty-22';
+import { Projectile } from '../entities/projectile.js?v=realms-difficulty-22';
+import { ThrownItem } from '../entities/thrown.js?v=realms-difficulty-22';
+import { ITEMS } from '../data/items.js?v=realms-difficulty-22';
+import { ENEMIES } from '../data/enemies.js?v=realms-difficulty-22';
+import { BOSSES } from '../data/bosses.js?v=realms-difficulty-22';
 
 // ---------- Welcome (host builds, client applies) ----------
 export function buildWelcome(game, forId) {

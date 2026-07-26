@@ -1,10 +1,10 @@
 // Summoner Realms — combat & interaction resolution (weapons, mining, placing).
-import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY } from '../config.js?v=realms-2';
-import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=realms-2';
-import { item as getItem } from '../data/items.js?v=realms-diamond-1';
-import { Projectile } from '../entities/projectile.js?v=realms-diamond-3';
-import { ThrownItem } from '../entities/thrown.js?v=realms-2';
-import { angleTo, aabb, clamp } from '../utils.js?v=realms-2';
+import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY } from '../config.js?v=realms-difficulty-22';
+import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=realms-difficulty-22';
+import { item as getItem } from '../data/items.js?v=realms-difficulty-22';
+import { Projectile } from '../entities/projectile.js?v=realms-difficulty-22';
+import { ThrownItem } from '../entities/thrown.js?v=realms-difficulty-22';
+import { angleTo, aabb, clamp } from '../utils.js?v=realms-difficulty-22';
 
 const MINE_RATE = 95;
 const MINE_SOUND_INTERVAL = 0.32;
