@@ -186,7 +186,10 @@ function fireFreezeGun(m, game) {
   m.freezeActive = 0.32;
   m.freezeDefensePending = false;
   m.freezeTarget = null;
-  m.freezeCooldown = m.def.freezeCooldown || 2.8;
+  m.freezeDefenseWindow = 0;
+  m.freezeDefenseHitCount = 0;
+  m.freezeDefenseDamage = 0;
+  m.freezeCooldown = m.def.freezeCooldown || 8;
   m.pose = 'freezeFire';
   m.poseTimer = 0.34;
   m.recoil = 1;
@@ -579,6 +582,12 @@ function updateAidan(m, game, owner, ownerCenter, dt) {
   const d = m.def;
   m.portalCooldown = Math.max(0, (m.portalCooldown || 0) - dt);
   m.freezeCooldown = Math.max(0, (m.freezeCooldown || 0) - dt);
+  m.freezeDefenseWindow = Math.max(0, (m.freezeDefenseWindow || 0) - dt);
+  if (m.freezeDefenseWindow <= 0 && !m.freezeDefensePending &&
+      !(m.freezeWindup > 0 || m.freezeActive > 0)) {
+    m.freezeDefenseHitCount = 0;
+    m.freezeDefenseDamage = 0;
+  }
   m.jetpackCooldown = Math.max(0, (m.jetpackCooldown || 0) - dt);
   m.poseTimer = Math.max(0, (m.poseTimer || 0) - dt);
   m.recoil = Math.max(0, (m.recoil || 0) - dt * 7);
@@ -595,6 +604,10 @@ function updateAidan(m, game, owner, ownerCenter, dt) {
   m.targetScanCd = Math.max(0, (m.targetScanCd || 0) - dt);
   tickRadioactive(m, game, dt);
 
+  // Active actions own the controller. A defensive freeze can never cancel
+  // an already-running portal, railgun, jetpack, or attack pose; it waits here
+  // until that action has released control. Once its wind-up starts, the
+  // freeze state remains the only state allowed to update until the shot.
   if (m.portalState) { updatePortal(m, game, dt); return; }
   if (m.freezeWindup > 0) { updateFreezeGun(m, game, dt); return; }
   if (m.freezeActive > 0) {
@@ -603,7 +616,21 @@ function updateAidan(m, game, owner, ownerCenter, dt) {
     m.pose = 'freezeFire';
     return;
   }
+  if (m.railgunWindup > 0) { updateRailgun(m, game, owner, dt); return; }
+  if (m.railgunActive > 0) {
+    settleAidan(m, game, dt);
+    m.moveAmount = 0;
+    m.pose = 'railgunFire';
+    return;
+  }
   if (m.jetpackTime > 0) { updateJetpack(m, game, ownerCenter, dt); return; }
+
+  // Finish a short attack/recoil pose before considering queued defense.
+  if (m.poseTimer > 0 && m.pose !== 'idle' && m.pose !== 'move') {
+    settleAidan(m, game, dt);
+    m.moveAmount = 0;
+    return;
+  }
 
   if (m.freezeDefensePending && m.freezeCooldown <= 0) {
     const defenseTarget = aliveTarget(m.freezeTarget)
@@ -623,8 +650,6 @@ function updateAidan(m, game, owner, ownerCenter, dt) {
     beginJetpack(m, game, ownerCenter);
     return;
   }
-
-  if (m.railgunWindup > 0) { updateRailgun(m, game, owner, dt); return; }
 
   const c = centerOf(m);
   if (!trackedTarget(game, m.target) || !aliveTarget(m.target) || m.targetScanCd <= 0) {
@@ -689,6 +714,9 @@ export function initAidanState(m) {
   m.freezeAngle = 0;
   m.freezeTarget = null;
   m.freezeDefensePending = false;
+  m.freezeDefenseWindow = 0;
+  m.freezeDefenseHitCount = 0;
+  m.freezeDefenseDamage = 0;
   m.jetpackCooldown = 0;
   m.jetpackTime = 0;
   m.jetpackTarget = null;
