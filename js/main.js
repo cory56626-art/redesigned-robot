@@ -21,6 +21,7 @@ import * as craftSys from './systems/crafting.js?v=realms-qor-45';
 import { applyPotion } from './systems/combat.js?v=realms-qor-45';
 import { smartTarget } from './systems/smartcursor.js?v=realms-qor-45';
 import { Minimap } from './systems/minimap.js?v=realms-qor-45';
+import { CharacterManager, applyCharacter, captureCharacter, defaultAppearance } from './systems/characters.js?v=realms-qor-45';
 import { MinimapUI } from './ui/minimap.js?v=realms-qor-45';
 import { Bobber, findBait, rollCatch, openCrate } from './systems/fishing.js?v=realms-qor-45';
 import { Player, assignColor } from './entities/player.js?v=realms-qor-45';
@@ -66,6 +67,9 @@ class Game {
     this.spawner = new Spawner();
     this.progression = new Progression();
     this.minimap = new Minimap();
+    this.characters = new CharacterManager();
+    this.activeCharId = null;
+    this.activeCharacter = null;
 
     this.players = new Map();
     this.localPlayer = null;
@@ -108,6 +112,11 @@ class Game {
     this.playerName = s.name || 'Summoner';
     this.playerColorIndex = s.colorIndex || 0;
     this.playerColor = assignColor(this.playerColorIndex);
+    this.activeCharId = s.activeCharId || null;
+    if (this.activeCharId) {
+      this.activeCharacter = this.characters.read(this.activeCharId);
+      if (!this.activeCharacter) this.activeCharId = null;
+    }
     this.settings = {
       smartCursor: s.smartCursor || (detectDefaultMode() === 'mobile' ? 'on' : 'hold'),
       screenShake: s.screenShake !== false,
@@ -420,7 +429,12 @@ class Game {
     this.world.applyDiffArray(data.diffs);
     this.world.applyWallDiffArray(data.wallDiffs);
     this.progression = new Progression();
-    this.progression.deserialize(data.progression);
+    // Pre-4.1 saves kept the player and progression inside the world. Lift them
+    // into a character record on first load so nothing is lost on upgrade.
+    if (data.player && data.player.inventory && !data.player.charId) {
+      const adopted = this.characters.adoptFromWorldSave({ ...data, migratedName: this.playerName });
+      if (adopted) { this.selectCharacter(adopted); this.toast('Imported your old character', 'good'); }
+    }
     this.minimap.deserialize(data.explored);
     this._resetEntities();
     this.time = new DayNight(data.time || 0, data.day || 1);
@@ -428,14 +442,10 @@ class Game {
     this.weather.deserialize(data.weather);
     this._createLocalPlayer(false);
     this._spawnGuide(data.npc);
+    // Only the position is world-scoped now; the character supplied everything
+    // else in _createLocalPlayer.
     const pd = data.player;
-    if (pd) {
-      this.localPlayer.x = pd.x; this.localPlayer.y = pd.y;
-      this.localPlayer.inventory.deserialize(pd.inventory);
-      this.localPlayer.recomputeStats();
-      this.localPlayer.hp = pd.hp != null ? pd.hp : this.localPlayer.maxHp;
-      this.localPlayer.mana = pd.mana != null ? pd.mana : this.localPlayer.maxMana;
-    }
+    if (pd && pd.x != null) { this.localPlayer.x = pd.x; this.localPlayer.y = pd.y; }
     this.currentSaveId = id;
     this._enterPlaying();
     this.toast('Loaded ' + data.name, 'good');
@@ -450,10 +460,15 @@ class Game {
   }
 
   _createLocalPlayer(fresh) {
-    const p = new Player(this.selfId, { name: this.playerName, color: this.playerColor, isLocal: true });
-    if (fresh) { p.inventory = starterInventory(); }
-    p.recomputeStats();
-    p.hp = p.maxHp; p.mana = p.maxMana;
+    const c = this._requireCharacter();
+    const p = new Player(this.selfId, { name: c.name, color: c.appearance.shirt, isLocal: true });
+    // The character carries the inventory and appearance across worlds, so the
+    // `fresh` flag no longer decides what you are holding — a brand-new
+    // character already starts with the starter kit.
+    applyCharacter(c, p);
+    if (this.progression && c.progression) this.progression.deserialize(c.progression);
+    this.playerName = c.name;
+    this.playerColor = c.appearance.shirt;
     const tx = Math.floor(this.world.spawnX / TILE);
     p.x = this.world.spawnX; p.y = this.world.spawnPixelY(tx, p.h);
     this.localPlayer = p;
@@ -549,12 +564,17 @@ class Game {
       wallDiffs: this.world.getWallDiffArray(),
       progression: this.progression.serialize(),
       explored: this.minimap.serialize(),
-      player: { x: p.x, y: p.y, hp: p.hp, mana: p.mana, inventory: p.inventory.serialize() },
+      // Where this character last stood *in this world*. Everything else
+      // about them (inventory, gear, progress) belongs to the character record.
+      player: { x: p.x, y: p.y, charId: this.activeCharId },
       npc: this.npc ? this.npc.serialize() : null,
     };
   }
 
   saveGame(manual) {
+    // The character is its own record, so a world save has to flush it too —
+    // otherwise inventory changes would be lost on quit.
+    this.saveCharacter();
     if (!this.world || !this.currentSaveId) return;
     if (this.net && !this.isHost) { if (manual) this.toast('Only the host can save the shared world', 'bad'); return; }
     setSaveIndicator('saving');
@@ -589,6 +609,7 @@ class Game {
       name: this.playerName,
       colorIndex: this.playerColorIndex,
       controlMode: this.controlMode,
+      activeCharId: this.activeCharId,
     }, this.settings));
   }
   setSetting(key, value) {
@@ -598,6 +619,45 @@ class Game {
   }
   cyclePlayerColor() { this.playerColorIndex = (this.playerColorIndex + 1) % 8; this.playerColor = assignColor(this.playerColorIndex); if (this.localPlayer) this.localPlayer.color = this.playerColor; this.saveSettings(); }
   setControlMode(mode) { applyControlMode(this, mode); this.saveSettings(); }
+
+  // ---- Characters ----
+  // A character owns its inventory, gear and progress and can be carried into
+  // any world; the world save only keeps terrain and world state.
+  createCharacter(name, appearance) {
+    const { id, data } = this.characters.create(name, appearance || defaultAppearance(0));
+    this.activeCharId = id;
+    this.activeCharacter = data;
+    this.saveSettings();
+    this.toast('Created ' + data.name, 'good');
+    return id;
+  }
+  selectCharacter(id) {
+    const c = this.characters.read(id);
+    if (!c) { this.toast('Character not found', 'bad'); return; }
+    this.activeCharId = id;
+    this.activeCharacter = c;
+    this.saveSettings();
+  }
+  deleteCharacter(id) {
+    this.characters.remove(id);
+    if (this.activeCharId === id) { this.activeCharId = null; this.activeCharacter = null; this.saveSettings(); }
+  }
+  // Every path into a world needs someone to play as. Rather than blocking with
+  // an error, fall back to a default character so a first-time player is never
+  // stuck at the menu.
+  _requireCharacter() {
+    if (this.activeCharacter) return this.activeCharacter;
+    const existing = this.characters.list()[0];
+    if (existing) { this.selectCharacter(existing.id); return this.activeCharacter; }
+    this.createCharacter(this.playerName || 'Summoner', defaultAppearance(this.playerColorIndex || 0));
+    return this.activeCharacter;
+  }
+  // Write the live player back to their character record.
+  saveCharacter() {
+    if (!this.activeCharId || !this.activeCharacter || !this.localPlayer) return;
+    captureCharacter(this.activeCharacter, this.localPlayer, this.progression);
+    this.characters.write(this.activeCharId, this.activeCharacter);
+  }
 
   // Zoom. Ctrl+wheel and +/- step it; the Settings slider sets it directly.
   setZoom(z) {

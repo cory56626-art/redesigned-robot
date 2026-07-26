@@ -123,6 +123,13 @@ export const SAVE_INDEX_KEY = 'summonerRealms.saves';
 export const SETTINGS_KEY = 'summonerRealms.settings';
 export const AUTOSAVE_INTERVAL = 30; // seconds
 export const SAVE_VERSION = 3;
+
+// Characters live in their own store, separate from worlds, so one character
+// can be taken into several worlds (the Terraria model). Same prefix/index
+// shape as the world saves above.
+export const CHAR_PREFIX = 'summonerRealms.char.';
+export const CHAR_INDEX_KEY = 'summonerRealms.characters';
+export const CHAR_VERSION = 1;
 // Width of the v1 world, needed to decode legacy flat-index tile diffs.
 export const LEGACY_WORLD_W = 420;
 

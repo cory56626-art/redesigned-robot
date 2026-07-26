@@ -1838,7 +1838,7 @@ export class Renderer {
     ctx.translate(-(x + w / 2), -(y + h) + bob);
 
     const skin = p.skin || '#f0c9a0';
-    const legColor = gear.legs ? gear.legs.color : '#2a2f45';
+    const legColor = gear.legs ? gear.legs.color : (p.pantsColor || '#2a2f45');
     const bodyColor = gear.chest ? gear.chest.color : p.color;
 
     // ---- Legs ----
@@ -1888,8 +1888,7 @@ export class Renderer {
       ctx.fillStyle = this._shade(hc, -0.35);
       ctx.fillRect(x, y + 4, w, 1.5);
     } else {
-      ctx.fillStyle = p.hairColor || this._shade(p.color, -0.3);
-      ctx.fillRect(x + 1, y, w - 2, 3);
+      this._drawHair(ctx, p, x, y, w);
     }
     // eyes
     ctx.fillStyle = '#222';
@@ -1909,6 +1908,35 @@ export class Renderer {
       if (!p.isLocal) this._miniHp(ctx, p, p.hp / p.maxHp, p.color);
     }
     ctx.textAlign = 'left';
+  }
+
+  // Hair silhouettes, chosen on the character screen. Bare-headed only — a
+  // helmet replaces the whole crown, which is why this sits in the else branch.
+  _drawHair(ctx, p, x, y, w) {
+    const c = p.hairColor || this._shade(p.color, -0.3);
+    const lit = this._shade(c, 0.22);
+    const style = p.hairStyle || 'short';
+    if (style === 'bald') return;
+    ctx.fillStyle = c;
+    if (style === 'short') {
+      ctx.fillRect(x + 1, y, w - 2, 3);
+    } else if (style === 'swept') {
+      ctx.fillRect(x + 1, y, w - 2, 3);
+      // A fringe falling over the brow on the facing side.
+      ctx.fillRect(p.facing > 0 ? x + w - 4 : x + 1, y + 2, 3, 3);
+    } else if (style === 'long') {
+      ctx.fillRect(x + 1, y, w - 2, 3);
+      // Falls past the jaw on both sides of the head.
+      ctx.fillRect(x, y + 1, 2, 9);
+      ctx.fillRect(x + w - 2, y + 1, 2, 9);
+    } else if (style === 'mohawk') {
+      ctx.fillRect(x + w / 2 - 1.5, y - 3, 3, 6);
+      ctx.fillStyle = this._shade(c, -0.25);
+      ctx.fillRect(x + 1, y, w - 2, 1.5);
+      ctx.fillStyle = c;
+    }
+    ctx.fillStyle = lit;
+    ctx.fillRect(x + 1, y, w - 2, 1);
   }
 
   // The held item swings with the weapon rather than sitting still beside a

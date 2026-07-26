@@ -80,6 +80,7 @@
 
       <div class="menu-buttons">
         <button class="btn primary hidden" id="btnContinue">Continue</button>
+        <button class="btn" id="btnCharacters">Characters</button>
         <button class="btn primary" id="btnNewWorld">New World</button>
         <button class="btn" id="btnLoadWorld">Load World</button>
         <button class="btn" id="btnMultiplayer">Multiplayer</button>
@@ -96,11 +97,39 @@
         </div>
       </div>
       <div class="menu-row">
-        <label>Player name</label>
-        <input type="text" id="playerNameInput" maxlength="14" placeholder="Summoner" />
-        <span class="color-swatch" id="playerColorSwatch" title="Your color (click to change)"></span>
+        <label>Character</label>
+        <span id="activeCharLabel" class="hint">None selected</span>
       </div>
       <p class="version">4.1: Quality of Realms · original art &amp; content</p>
+    </div>
+  </div>
+
+  <!-- ============ CHARACTERS ============ -->
+  <div id="charSelectDialog" class="overlay dialog hidden">
+    <div class="dialog-panel">
+      <h2>Characters</h2>
+      <p class="hint">A character keeps its own inventory, gear and progress, and can be taken into any world.</p>
+      <div id="charList" class="save-list"></div>
+      <div class="dialog-buttons">
+        <button class="btn" id="charSelectClose">Close</button>
+        <button class="btn primary" id="charNewBtn">New Character</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="charCreateDialog" class="overlay dialog hidden">
+    <div class="dialog-panel">
+      <h2 id="charCreateTitle">New Character</h2>
+      <div class="char-preview-row">
+        <canvas id="charPreview" class="char-preview" width="96" height="128"></canvas>
+        <div class="char-options" id="charOptions"></div>
+      </div>
+      <label for="charNameInput">Name</label>
+      <input type="text" id="charNameInput" maxlength="14" placeholder="Summoner" />
+      <div class="dialog-buttons">
+        <button class="btn" id="charCreateCancel">Cancel</button>
+        <button class="btn primary" id="charCreateConfirm">Create</button>
+      </div>
     </div>
   </div>
 

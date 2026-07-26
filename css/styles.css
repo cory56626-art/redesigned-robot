@@ -612,3 +612,28 @@ input[type="range"]::-moz-range-thumb {
 @media (max-width: 700px) {
   .minimap-widget { width: 116px; height: 74px; }
 }
+
+/* ---------------- Character screens ---------------- */
+.char-preview-row { display: flex; gap: var(--s4); align-items: flex-start; margin-bottom: var(--s3); }
+.char-preview {
+  width: 96px; height: 128px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, #1b2340, #10152a);
+  image-rendering: pixelated;
+}
+.char-options { flex: 1; display: flex; flex-direction: column; gap: var(--s2); min-width: 0; }
+.char-opt { display: flex; align-items: center; gap: var(--s2); }
+.char-opt > label { color: var(--muted); font-size: 13px; min-width: 58px; }
+.char-swatches { display: flex; gap: 4px; flex-wrap: wrap; }
+.char-swatch {
+  width: 20px; height: 20px;
+  border-radius: 5px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.char-swatch.active { border-color: var(--teal); box-shadow: 0 0 0 2px rgba(126, 224, 192, 0.25); }
+.char-item .save-name { display: flex; align-items: center; gap: var(--s2); }
+.char-dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }

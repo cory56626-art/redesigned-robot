@@ -21,6 +21,13 @@ export class Player {
     this.id = id;
     this.name = opts.name || 'Summoner';
     this.color = opts.color || '#7ee0c0';
+    // Appearance, set from the character record (see systems/characters.js).
+    // The renderer already read `skin`/`hairColor`; nothing produced them until
+    // characters existed.
+    this.skin = opts.skin || '#f0c9a0';
+    this.hairStyle = opts.hairStyle || 'short';
+    this.hairColor = opts.hairColor || '#3a2a1e';
+    this.pantsColor = opts.pantsColor || '#2a2f45';
     this.isLocal = !!opts.isLocal;
     this.w = PLAYER_W; this.h = PLAYER_H;
     this.x = 0; this.y = 0; this.vx = 0; this.vy = 0;
@@ -325,6 +332,7 @@ export class Player {
   netState() {
     return {
       id: this.id, name: this.name, color: this.color,
+      look: [this.skin, this.hairStyle, this.hairColor, this.pantsColor],
       x: Math.round(this.x), y: Math.round(this.y),
       hp: Math.round(this.hp), maxHp: this.maxHp,
       mana: Math.round(this.mana), maxMana: this.maxMana,
@@ -341,6 +349,7 @@ export class Player {
   }
   applyNetState(s) {
     this.name = s.name; this.color = s.color;
+    if (s.look) { this.skin = s.look[0]; this.hairStyle = s.look[1]; this.hairColor = s.look[2]; this.pantsColor = s.look[3]; }
     this.netTarget = { x: s.x, y: s.y };
     this.hp = s.hp; this.maxHp = s.maxHp; this.mana = s.mana; this.maxMana = s.maxMana;
     this.facing = s.facing; this.alive = s.alive; this.selectedId = s.selectedId;

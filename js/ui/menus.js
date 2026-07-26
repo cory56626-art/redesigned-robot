@@ -6,6 +6,7 @@ import { Sprites } from '../art/sprites.js?v=realms-qor-45';
 import { item as getItem } from '../data/items.js?v=realms-qor-45';
 import { availableRecipes } from '../systems/crafting.js?v=realms-qor-45';
 import { claudeNotesHTML } from './claude-notes.js?v=realms-qor-45';
+import { SKIN_TONES, HAIR_COLORS, HAIR_STYLES, SHIRT_COLORS, PANTS_COLORS, defaultAppearance } from '../systems/characters.js?v=realms-qor-45';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [
@@ -55,10 +56,18 @@ export class Menus {
     $('controlModeSeg').querySelectorAll('.seg-btn').forEach(b => {
       b.onclick = () => g.setControlMode(b.dataset.mode);
     });
-    $('playerNameInput').value = g.playerName;
-    $('playerNameInput').oninput = (e) => { g.playerName = e.target.value.trim() || 'Summoner'; g.saveSettings(); };
-    $('playerColorSwatch').style.background = g.playerColor;
-    $('playerColorSwatch').onclick = () => { g.cyclePlayerColor(); $('playerColorSwatch').style.background = g.playerColor; };
+    // Name and colour moved onto the character record; the main menu just
+    // reports which character is active.
+    $('btnCharacters').onclick = () => this.openCharacters();
+    $('charSelectClose').onclick = () => this.hide('charSelectDialog');
+    $('charNewBtn').onclick = () => this.openCharacterCreate();
+    $('charCreateCancel').onclick = () => this.hide('charCreateDialog');
+    $('charCreateConfirm').onclick = () => {
+      const name = $('charNameInput').value.trim() || 'Summoner';
+      g.createCharacter(name, this._draftLook);
+      this.hide('charCreateDialog');
+      this.openCharacters();
+    };
 
     // ---- New world dialog ----
     $('newWorldDifficulty').addEventListener('input', () => this._syncNewWorldDifficulty());
@@ -186,7 +195,7 @@ export class Menus {
   isOpen(id) { return !$(id).classList.contains('hidden'); }
 
   anyModalOpen() {
-    return ['mainMenu', 'pauseMenu', 'inventoryScreen', 'newWorldDialog', 'loadWorldDialog', 'mpMenu', 'minimapDialog',
+    return ['mainMenu', 'pauseMenu', 'inventoryScreen', 'newWorldDialog', 'loadWorldDialog', 'mpMenu', 'minimapDialog', 'charSelectDialog', 'charCreateDialog',
       'commandPanel', 'howtoDialog', 'claudeNotesDialog', 'confirmDialog', 'deathScreen', 'settingsDialog', 'npcDialog']
       .some(id => this.isOpen(id));
   }
@@ -195,7 +204,7 @@ export class Menus {
   // one of them: in Terraria the world keeps running and you keep moving and
   // using items with your bag open, which is what this list encodes.
   anyBlockingModalOpen() {
-    return ['mainMenu', 'pauseMenu', 'newWorldDialog', 'loadWorldDialog', 'mpMenu', 'minimapDialog',
+    return ['mainMenu', 'pauseMenu', 'newWorldDialog', 'loadWorldDialog', 'mpMenu', 'minimapDialog', 'charSelectDialog', 'charCreateDialog',
       'commandPanel', 'howtoDialog', 'claudeNotesDialog', 'confirmDialog', 'deathScreen', 'settingsDialog', 'npcDialog']
       .some(id => this.isOpen(id));
   }
@@ -208,7 +217,7 @@ export class Menus {
   }
 
   // ---- Main menu / pause visibility ----
-  showMainMenu() { this.refreshContinue(); this.show('mainMenu'); }
+  showMainMenu() { this.refreshContinue(); this.refreshActiveChar(); this.show('mainMenu'); }
   hideMainMenu() { this.hide('mainMenu'); }
   // Show "Continue" only when there's at least one save to resume.
   refreshContinue() {
@@ -252,6 +261,117 @@ export class Menus {
   }
 
   // ---- Load dialog ----
+  // Which character the main menu says you are playing as.
+  refreshActiveChar() {
+    const el = $('activeCharLabel');
+    if (!el) return;
+    const c = this.game.activeCharacter;
+    el.textContent = c ? `${c.name}` : 'None selected — create one to play';
+    el.style.color = c ? (c.appearance ? c.appearance.shirt : '') : '';
+  }
+
+  openCharacters() {
+    const g = this.game;
+    const list = $('charList');
+    list.innerHTML = '';
+    const chars = g.characters.list();
+    if (!chars.length) {
+      list.innerHTML = '<div class="empty-note">No characters yet. Create one to start playing.</div>';
+    }
+    for (const c of chars) {
+      const div = document.createElement('div');
+      div.className = 'save-item char-item';
+      const date = new Date(c.updated).toLocaleString();
+      const look = c.appearance || {};
+      const active = g.activeCharId === c.id;
+      div.innerHTML = `<div class="save-info">
+        <div class="save-name"><span class="char-dot" style="background:${escapeHtml(look.shirt || '#7ee0c0')}"></span>${escapeHtml(c.name)}${active ? ' <span class="hint small">(active)</span>' : ''}</div>
+        <div class="save-meta">${c.defeated || 0} boss${(c.defeated || 0) === 1 ? '' : 'es'} defeated · ${date}</div>
+      </div>`;
+      const play = document.createElement('button');
+      play.className = 'btn small' + (active ? '' : ' primary');
+      play.textContent = active ? 'Selected' : 'Select';
+      play.onclick = () => { g.selectCharacter(c.id); this.openCharacters(); this.refreshActiveChar(); };
+      const del = document.createElement('button');
+      del.className = 'btn small danger'; del.textContent = 'Delete';
+      del.onclick = () => this.confirm('Delete Character?',
+        `Permanently delete "${c.name}" and everything they are carrying? This cannot be undone.`,
+        () => { g.deleteCharacter(c.id); this.openCharacters(); this.refreshActiveChar(); });
+      div.appendChild(play); div.appendChild(del);
+      list.appendChild(div);
+    }
+    this.show('charSelectDialog');
+  }
+
+  openCharacterCreate() {
+    this._draftLook = defaultAppearance(Math.floor(Math.random() * 6));
+    $('charNameInput').value = '';
+    this._buildCharOptions();
+    this.hide('charSelectDialog');
+    this.show('charCreateDialog');
+    this._drawCharPreview();
+  }
+
+  // Swatch rows, one per appearance field.
+  _buildCharOptions() {
+    const wrap = $('charOptions');
+    wrap.innerHTML = '';
+    const rows = [
+      ['Skin', 'skin', SKIN_TONES, (v) => v],
+      ['Hair', 'hairColor', HAIR_COLORS, (v) => v],
+      ['Style', 'hair', HAIR_STYLES, () => null],
+      ['Shirt', 'shirt', SHIRT_COLORS, (v) => v],
+      ['Trousers', 'pants', PANTS_COLORS, (v) => v],
+    ];
+    for (const [label, key, pool, colorOf] of rows) {
+      const row = document.createElement('div');
+      row.className = 'char-opt';
+      const lb = document.createElement('label');
+      lb.textContent = label;
+      row.appendChild(lb);
+      const sw = document.createElement('div');
+      sw.className = 'char-swatches';
+      for (const v of pool) {
+        const b = document.createElement('button');
+        b.className = 'char-swatch' + (this._draftLook[key] === v ? ' active' : '');
+        const col = colorOf(v);
+        // The hair-style row has no colour to show, so it labels itself.
+        if (col) b.style.background = col;
+        else { b.style.background = 'var(--panel2)'; b.style.width = 'auto'; b.style.padding = '2px 7px'; b.style.color = 'var(--muted)'; b.style.fontSize = '11px'; b.textContent = v; }
+        b.onclick = () => { this._draftLook[key] = v; this._buildCharOptions(); this._drawCharPreview(); };
+        sw.appendChild(b);
+      }
+      row.appendChild(sw);
+      wrap.appendChild(row);
+    }
+  }
+
+  // Live preview, drawn with the same construction the in-world renderer uses.
+  _drawCharPreview() {
+    const c = $('charPreview');
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, c.width, c.height);
+    const look = this._draftLook;
+    const S = 4; // preview is drawn at 4x
+    const w = 12, h = 26;
+    const ox = (c.width - w * S) / 2, oy = (c.height - h * S) / 2 + 8;
+    const px = (x, y, ww, hh, col) => { ctx.fillStyle = col; ctx.fillRect(ox + x * S, oy + y * S, ww * S, hh * S); };
+    px(1, h - 8, 4, 8, look.pants);
+    px(w - 5, h - 8, 4, 8, look.pants);
+    px(0, 8, w, h - 14, look.shirt);
+    px(0, h - 8, w, 2, 'rgba(0,0,0,0.2)');
+    px(1, 0, w - 2, 9, look.skin);
+    if (look.hair !== 'bald') {
+      px(1, 0, w - 2, 3, look.hairColor);
+      if (look.hair === 'swept') px(w - 4, 2, 3, 3, look.hairColor);
+      if (look.hair === 'long') { px(0, 1, 2, 9, look.hairColor); px(w - 2, 1, 2, 9, look.hairColor); }
+      if (look.hair === 'mohawk') px(w / 2 - 1.5, -3, 3, 6, look.hairColor);
+    }
+    px(w - 5, 4, 2, 2, '#222');
+  }
+
   openLoadDialog() {
     const list = $('saveList');
     list.innerHTML = '';
