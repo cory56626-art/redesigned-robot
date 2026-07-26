@@ -83,6 +83,7 @@ export class Boss {
     this.bob = Math.random() * 6;
     this.spawnTime = 0;
     this.attackPulse = 0;
+    this.freezeT = 0;
 
     // ---- State machine ----
     this.aiState = 'reposition';
@@ -149,6 +150,13 @@ export class Boss {
     if (this.hurtFlash > 0) this.hurtFlash -= dt;
     if (this.attackPulse > 0) this.attackPulse -= dt;
     if (this.invuln > 0) this.invuln -= dt;
+    if (this.freezeT > 0) {
+      this.freezeT = Math.max(0, this.freezeT - dt);
+      this.vx = 0;
+      this.vy = 0;
+      this._updateAnim(dt);
+      return;
+    }
     this.bob += dt * 3;
     for (const [k, v] of this.cooldowns) if (v > 0) this.cooldowns.set(k, v - dt);
     this._updatePhase(game);
@@ -599,6 +607,26 @@ export class Boss {
     }
   }
 
+  applyFreeze(duration = 5, game) {
+    const wasFrozen = this.freezeT > 0;
+    this.freezeT = Math.max(this.freezeT || 0, duration);
+    this.vx = 0;
+    this.vy = 0;
+    this.telegraph = 0;
+    this.chosen = null;
+    this.charge = null;
+    this.aiState = 'recover';
+    this.recover = 0.35;
+    if (!wasFrozen) {
+      const c = this.center();
+      game?.fx?.ring(c.x, c.y, '#61eaff', Math.max(this.w, this.h) * 0.75, { life: 0.4, width: 3 });
+      game?.fx?.burst(c.x, c.y, ['#dffcff', '#61eaff', '#2b8fff'], 22, {
+        speed: 120, life: 0.55, gravity: -20, glow: true, size: 2,
+      });
+      game?.floatText?.(c.x, this.y - 10, 'FROZEN', '#bffcff');
+    }
+  }
+
   takeDamage(amount, game, crit) {
     if (this.dead || this.invuln > 0 || this.hidden) return;
     this.hp -= amount;
@@ -625,7 +653,7 @@ export class Boss {
     return {
       key: this.key, name: this.name, difficulty: this.difficulty, x: Math.round(this.x), y: Math.round(this.y),
       hp: Math.round(this.hp), maxHp: this.maxHp, phase: this.phaseIndex, facing: this.facing,
-      state: this.aiState, hidden: this.hidden ? 1 : 0, tel: this.telegraph > 0 ? 1 : 0,
+      state: this.aiState, hidden: this.hidden ? 1 : 0, tel: this.telegraph > 0 ? 1 : 0, frz: Math.round((this.freezeT || 0) * 100) / 100,
     };
   }
 }
