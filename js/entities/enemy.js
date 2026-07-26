@@ -69,6 +69,7 @@ export class Enemy {
     this.pendingAttack = null;
     this.dead = false;
     this.hurtFlash = 0;
+    this.freezeT = 0;
     this.walkAnim = 0;
     this.animTime = Math.random() * Math.PI * 2;
     this.fromBoss = false;
@@ -78,8 +79,15 @@ export class Enemy {
 
   update(dt, game) {
     if (this.iframes > 0) this.iframes -= dt;
-    if (this.attackCd > 0) this.attackCd -= dt;
     if (this.hurtFlash > 0) this.hurtFlash -= dt;
+    if (this.freezeT > 0) {
+      this.freezeT = Math.max(0, this.freezeT - dt);
+      this.vx = 0;
+      this.vy = 0;
+      this.animTime += dt;
+      return;
+    }
+    if (this.attackCd > 0) this.attackCd -= dt;
     if (this.jumpCd > 0) this.jumpCd -= dt;
     this.walkAnim += Math.abs(this.vx) * dt * 0.1;
     this.animTime += dt;
@@ -290,6 +298,24 @@ export class Enemy {
     }
   }
 
+  applyFreeze(duration = 5, game) {
+    const wasFrozen = this.freezeT > 0;
+    this.freezeT = Math.max(this.freezeT || 0, duration);
+    this.vx = 0;
+    this.vy = 0;
+    this.telegraph = 0;
+    this.pendingAttack = null;
+    this.dashTime = 0;
+    if (!wasFrozen) {
+      const c = this.center();
+      game?.fx?.ring(c.x, c.y, '#61eaff', Math.max(this.w, this.h) * 0.9, { life: 0.35, width: 2 });
+      game?.fx?.burst(c.x, c.y, ['#dffcff', '#61eaff', '#2b8fff'], 14, {
+        speed: 80, life: 0.45, gravity: -10, glow: true, size: 2,
+      });
+      game?.floatText?.(c.x, this.y - 6, 'FROZEN', '#bffcff');
+    }
+  }
+
   takeDamage(amount, kbx, kby, game, effect, crit) {
     if (this.dead) return;
     // A short window of invulnerability after a hit, so several projectiles
@@ -321,6 +347,7 @@ export class Enemy {
     if (effect.burn) { this.burn = { time: effect.burn, dps: 4 }; }
     if (effect.poison) { this.poison = { time: effect.poison, dps: 3 }; }
     if (effect.slow) { this.slowT = effect.slow; }
+    if (effect.freeze) this.applyFreeze(effect.freeze);
   }
 
   tickEffects(dt, game) {
@@ -330,6 +357,6 @@ export class Enemy {
   }
 
   netState() {
-    return { netId: this.netId, key: this.key, x: Math.round(this.x), y: Math.round(this.y), hp: Math.round(this.hp), facing: this.facing, f: this.hurtFlash > 0 ? 1 : 0 };
+    return { netId: this.netId, key: this.key, x: Math.round(this.x), y: Math.round(this.y), hp: Math.round(this.hp), facing: this.facing, f: this.hurtFlash > 0 ? 1 : 0, frz: Math.round((this.freezeT || 0) * 100) / 100 };
   }
 }
