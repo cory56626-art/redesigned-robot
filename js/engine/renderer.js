@@ -539,6 +539,11 @@ export class Renderer {
 
   _drawEnemies(game, ctx) {
     for (const e of game.enemies) {
+      // A malformed replicated enemy must not abort the whole canvas frame.
+      // Keep the context isolated so a failed glow/gradient cannot brighten
+      // the rest of the scene or hide the player.
+      ctx.save();
+      try {
       this._drawEnemyTelegraph(ctx, e);
       switch (e.key) {
         case 'slugling': this._drawSlugling(ctx, e); break;
@@ -554,6 +559,16 @@ export class Renderer {
         default: this._drawUnknownEnemy(ctx, e); break;
       }
       if (e.hp < e.maxHp) this._miniHp(ctx, e, e.hp / e.maxHp, '#ff6b7d');
+      } catch (err) {
+        if (e && !e._renderFaultReported) {
+          e._renderFaultReported = true;
+          console.warn('[Summoner Realms] skipped malformed enemy render', e.key, err);
+        }
+      } finally {
+        // Never leak a glow blend mode into the rest of the scene.
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+      }
     }
   }
 
