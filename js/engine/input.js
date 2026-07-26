@@ -2,7 +2,7 @@
 // Produces a platform-agnostic InputState so PC and mobile drive gameplay and
 // networking identically. Keyboard/mouse and touch joysticks both feed the same
 // intents: move, jump, aim, primary-use, mine, place, consume.
-import { REACH, TILE } from '../config.js?v=realms-qor-47';
+import { REACH, TILE } from '../config.js?v=realms-qor-48';
 
 // Wheel-to-hotbar feel. One notch on a typical mouse is ~100px of deltaY;
 // WHEEL_STEP is deliberately a little under that so a notch always registers,

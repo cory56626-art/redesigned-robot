@@ -1,6 +1,6 @@
 // Summoner Realms — projectiles for ranged/mage weapons, minions, enemies, bosses.
-import { GRAVITY, TILE } from '../config.js?v=realms-qor-47';
-import { aabb, dist2 } from '../utils.js?v=realms-qor-47';
+import { GRAVITY, TILE } from '../config.js?v=realms-qor-48';
+import { aabb, dist2 } from '../utils.js?v=realms-qor-48';
 
 export class Projectile {
   constructor(opts) {

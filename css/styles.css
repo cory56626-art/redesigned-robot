@@ -126,9 +126,10 @@ canvas#game {
   padding-top: max(var(--s5), env(safe-area-inset-top));
   padding-bottom: max(var(--s5), env(safe-area-inset-bottom));
 }
-.overlay.menu {
-  background: radial-gradient(1200px 800px at 50% -10%, #1b2450 0%, #080b16 62%);
-}
+/* The menu now has a live scene drawn on the game canvas behind it (see
+   ui/menuscene.js), so the backdrop is a wash rather than an opaque gradient —
+   and the panel's own blur frosts the world showing through it. */
+.overlay.menu { background: rgba(6, 9, 20, 0.28); }
 .overlay.dialog { background: rgba(4, 6, 14, 0.74); backdrop-filter: blur(4px); }
 /* Pause keeps the world visible behind it — the render loop is still drawing,
    so a solid backdrop (as `.overlay.menu` uses) would hide a live scene. The
@@ -150,22 +151,32 @@ canvas#game {
 .dialog-panel.wide { width: min(660px, 96vw); }
 .dialog-panel.narrow { width: min(380px, 94vw); }
 
-.game-title {
-  /* Capped so "SummonerRealms" (one long word) always fits the panel and is
-     never clipped at the viewport edge; wraps to two lines on narrow screens. */
-  font-size: clamp(30px, 6vw, 46px);
-  letter-spacing: 0.5px;
-  line-height: 1.02;
-  margin-bottom: var(--s1);
-  color: var(--teal);
-  max-width: 100%;
-  overflow-wrap: break-word;
-  text-shadow: 0 3px 0 #0a3a30, 0 0 22px rgba(126, 224, 192, 0.35);
+/* Present to assistive tech, absent from the layout. */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
 }
-/* inline-block keeps "Realms" whole; the <wbr> before it is the only break
-   point, so the title splits cleanly as "Summoner" / "Realms" when it wraps. */
-.game-title span { display: inline-block; color: var(--violet); text-shadow: 0 3px 0 #3a1a5a, 0 0 22px rgba(197, 139, 255, 0.35); }
-.tagline { color: var(--muted); margin-bottom: var(--s5); font-size: 14px; }
+
+/* Original bitmap lettering, sized and animated in ui/menuscene.js. The canvas
+   is laid out at full panel width; its backing store is sized to whole pixel
+   blocks so the letters stay crisp. */
+.menu-title {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  margin-bottom: var(--s2);
+  filter: drop-shadow(0 0 18px rgba(126, 224, 192, 0.22));
+}
+
+.tagline {
+  color: var(--muted);
+  margin-bottom: var(--s5);
+  font-size: 14px;
+  min-height: 2.6em;
+  transition: opacity 0.55s ease;
+}
+.tagline.fading { opacity: 0; }
 .version { color: var(--faint); font-size: 12px; margin-top: var(--s4); text-align: center; }
 
 h1, h2, h3, h4 { color: var(--ink); }

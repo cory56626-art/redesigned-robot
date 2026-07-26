@@ -8,9 +8,9 @@
 // open — and said nothing about the rest, so a player with no Forge in sight
 // concluded the pickaxes had no recipe at all. Every row is listed now, and the
 // ones you cannot make say why in one plain sentence.
-import { catalogue, craft as doCraft, blockerText, stationLabel, nearbyStations } from '../systems/crafting.js?v=realms-qor-47';
-import { item as getItem } from '../data/items.js?v=realms-qor-47';
-import { Sprites } from '../art/sprites.js?v=realms-qor-47';
+import { catalogue, craft as doCraft, blockerText, stationLabel, nearbyStations } from '../systems/crafting.js?v=realms-qor-48';
+import { item as getItem } from '../data/items.js?v=realms-qor-48';
+import { Sprites } from '../art/sprites.js?v=realms-qor-48';
 
 const $ = (id) => document.getElementById(id);
 
