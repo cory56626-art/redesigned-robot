@@ -51,7 +51,9 @@ export const MINIONS = {
     portalTrigger: 360, portalSourceDistance: 64, portalExitDistance: 80, portalCooldown: 2.2,
     railgunDamage: 75, railgunCharge: 5, railgunCooldown: 14, railgunRange: 1800, railgunMinRange: 192,
     radioDamage: 5, radioTick: 0.5, radioDuration: 20,
-    desc: 'Aidan, the grounded armored nanotech summon: pathfinding movement, Portal Pursuit, nanobot pulses, and a five-second purple railgun charge.',
+    freezeDamage: 0, freezeCharge: 0.7, freezeDuration: 5, freezeSpeed: 520, freezeCooldown: 2.8, freezeRange: 900,
+    jetpackDuration: 1.55, jetpackCooldown: 4.0,
+    desc: 'Aidan, the player-sized grounded nanotech summon: articulated walk cycle, Portal Pursuit, nanobot pulses, a five-second purple railgun charge, defensive freeze gun, and jetpack recovery.',
   },
 };
 
