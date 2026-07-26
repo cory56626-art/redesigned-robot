@@ -1,7 +1,8 @@
 // Summoner Realms — minion entity. Owned by a player; the owner's client
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
-import { minionDef } from '../data/minions.js?v=realms-difficulty-22';
+import { minionDef } from '../data/minions.js?v=aidan-summon-1';
+import { initAidanState, updateAidanState } from './aidan.js?v=aidan-summon-1';
 import { dist2, aabb, angleTo } from '../utils.js?v=realms-difficulty-22';
 import { TILE } from '../config.js?v=realms-difficulty-22';
 import { Projectile } from './projectile.js?v=realms-difficulty-22';
@@ -95,6 +96,7 @@ export class Minion {
     // Flying minions (wisp/raven/emberling) may pass over terrain; grounded ones
     // (beetle/sentinel) should respect it more strictly.
     this.flying = !!d.flying || d.behavior === 'homing' || d.behavior === 'shooter' || d.behavior === 'dive';
+    if (d.behavior === 'aidan') initAidanState(this);
   }
 
   // Enemies and bosses share a target interface. Diamond Heart is a minion,
@@ -103,7 +105,7 @@ export class Minion {
 
   update(dt, game) {
     if (this.dead) return;
-    this.anim += dt * (this.def.behavior === 'diamondHeart' ? 3.8 : 6);
+    this.anim += dt * (this.def.behavior === 'diamondHeart' ? 3.8 : this.def.behavior === 'aidan' ? 4.4 : 6);
     this._world = game.world; // used by grounded steering
     if (this.cd > 0) this.cd -= dt;
     if (this.returnTimer > 0) this.returnTimer -= dt;
@@ -117,6 +119,10 @@ export class Minion {
 
     if (this.def.behavior === 'diamondHeart') {
       this._updateDiamondHeart(dt, game, owner, oc);
+      return;
+    }
+    if (this.def.behavior === 'aidan') {
+      updateAidanState(this, game, owner, oc, dt);
       return;
     }
     const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
