@@ -2,44 +2,44 @@
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty,
-} from './config.js?v=realms-difficulty-22';
-import { hashString, mulberry32, dist2, uid } from './utils.js?v=realms-difficulty-22';
-import { World } from './world/world.js?v=realms-difficulty-22';
-import { T } from './world/tiles.js?v=realms-difficulty-22';
-import { Sprites } from './art/sprites.js?v=realms-difficulty-22';
-import { Camera } from './engine/camera.js?v=realms-difficulty-22';
-import { Input } from './engine/input.js?v=realms-difficulty-22';
-import { AudioManager } from './engine/audio.js?v=realms-difficulty-22';
-import { Renderer } from './engine/renderer.js?v=realms-stability-25';
-import { Fx } from './engine/fx.js?v=realms-difficulty-22';
-import { DayNight } from './systems/daynight.js?v=realms-difficulty-22';
-import { Spawner } from './systems/spawner.js?v=realms-difficulty-22';
-import { Progression } from './systems/progression.js?v=realms-difficulty-22';
-import { starterInventory } from './systems/inventory.js?v=realms-difficulty-22';
-import * as craftSys from './systems/crafting.js?v=realms-difficulty-22';
-import { applyPotion } from './systems/combat.js?v=realms-difficulty-22';
-import { smartTarget } from './systems/smartcursor.js?v=realms-difficulty-22';
-import { Player, assignColor } from './entities/player.js?v=realms-difficulty-22';
-import { Enemy } from './entities/enemy.js?v=realms-difficulty-22';
-import { Boss } from './entities/boss.js?v=realms-difficulty-22';
-import { Minion } from './entities/minion.js?v=realms-difficulty-22';
-import { Npc } from './entities/npc.js?v=realms-difficulty-22';
-import { Projectile } from './entities/projectile.js?v=realms-difficulty-22';
-import { DropItem } from './entities/droppeditem.js?v=realms-difficulty-22';
-import { FallingTree } from './entities/fallingtree.js?v=realms-difficulty-22';
-import { ThrownItem } from './entities/thrown.js?v=realms-difficulty-22';
-import { ENEMIES } from './data/enemies.js?v=realms-difficulty-22';
-import { BOSSES } from './data/bosses.js?v=realms-difficulty-22';
-import { item as getItem } from './data/items.js?v=realms-difficulty-22';
-import { HUD } from './ui/hud.js?v=realms-difficulty-22';
-import { Menus } from './ui/menus.js?v=realms-difficulty-22';
-import { NpcDialog } from './ui/npcdialog.js?v=realms-difficulty-22';
-import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=realms-difficulty-22';
-import { SaveManager, setSaveIndicator } from './save.js?v=realms-difficulty-22';
-import { CommandConsole } from './commands.js?v=realms-difficulty-22';
-import { Net } from './net/net.js?v=realms-stability-23';
-import { MSG } from './net/protocol.js?v=realms-difficulty-22';
-import * as sync from './net/sync.js?v=realms-stability-25';
+} from './config.js?v=aidan-summon-1';
+import { hashString, mulberry32, dist2, uid } from './utils.js?v=aidan-summon-1';
+import { World } from './world/world.js?v=aidan-summon-1';
+import { T } from './world/tiles.js?v=aidan-summon-1';
+import { Sprites } from './art/sprites.js?v=aidan-summon-1';
+import { Camera } from './engine/camera.js?v=aidan-summon-1';
+import { Input } from './engine/input.js?v=aidan-summon-1';
+import { AudioManager } from './engine/audio.js?v=aidan-summon-1';
+import { Renderer } from './engine/renderer.js?v=aidan-summon-1';
+import { Fx } from './engine/fx.js?v=aidan-summon-1';
+import { DayNight } from './systems/daynight.js?v=aidan-summon-1';
+import { Spawner } from './systems/spawner.js?v=aidan-summon-1';
+import { Progression } from './systems/progression.js?v=aidan-summon-1';
+import { starterInventory } from './systems/inventory.js?v=aidan-summon-1';
+import * as craftSys from './systems/crafting.js?v=aidan-summon-1';
+import { applyPotion } from './systems/combat.js?v=aidan-summon-1';
+import { smartTarget } from './systems/smartcursor.js?v=aidan-summon-1';
+import { Player, assignColor } from './entities/player.js?v=aidan-summon-1';
+import { Enemy } from './entities/enemy.js?v=aidan-summon-1';
+import { Boss } from './entities/boss.js?v=aidan-summon-1';
+import { Minion } from './entities/minion.js?v=aidan-summon-1';
+import { Npc } from './entities/npc.js?v=aidan-summon-1';
+import { Projectile } from './entities/projectile.js?v=aidan-summon-1';
+import { DropItem } from './entities/droppeditem.js?v=aidan-summon-1';
+import { FallingTree } from './entities/fallingtree.js?v=aidan-summon-1';
+import { ThrownItem } from './entities/thrown.js?v=aidan-summon-1';
+import { ENEMIES } from './data/enemies.js?v=aidan-summon-1';
+import { BOSSES } from './data/bosses.js?v=aidan-summon-1';
+import { item as getItem } from './data/items.js?v=aidan-summon-1';
+import { HUD } from './ui/hud.js?v=aidan-summon-1';
+import { Menus } from './ui/menus.js?v=aidan-summon-1';
+import { NpcDialog } from './ui/npcdialog.js?v=aidan-summon-1';
+import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=aidan-summon-1';
+import { SaveManager, setSaveIndicator } from './save.js?v=aidan-summon-1';
+import { CommandConsole } from './commands.js?v=aidan-summon-1';
+import { Net } from './net/net.js?v=aidan-summon-1';
+import { MSG } from './net/protocol.js?v=aidan-summon-1';
+import * as sync from './net/sync.js?v=aidan-summon-1';
 
 class Game {
   constructor() {
@@ -849,8 +849,24 @@ class Game {
   }
 
   // ============ MINIONS ============
+  canSummonMinion(player, key) {
+    if (!player || key !== 'aidan') return true;
+    const active = this.minions.some(m => m.ownerId === player.id && m.key === 'aidan' && !m.dead);
+    if (active) {
+      this.toast('Only one Aidan can be active at a time.', 'bad');
+      return false;
+    }
+    const readyAt = Number(player._aidanNextSummonAt) || 0;
+    const remaining = readyAt - Date.now();
+    if (remaining > 0) {
+      this.toast('Aidan Sigil recharges in ' + Math.ceil(remaining / 1000) + 's.', 'bad');
+      return false;
+    }
+    return true;
+  }
   summonMinion(player, key) {
-    if (!player.isLocal) return;
+    if (!player.isLocal) return false;
+    if (key === 'aidan' && !this.canSummonMinion(player, key)) return false;
     const cap = player.stats ? player.stats.minionCap : 1;
     // Retire the oldest living minions until there's a free summon slot.
     const mine = this.minions.filter(m => m.ownerId === player.id && !m.dead);
@@ -858,8 +874,10 @@ class Game {
     const pc = player.center();
     const minion = new Minion(key, player.id, pc.x, pc.y - 30);
     this.minions.push(minion);
+    if (key === 'aidan') player._aidanNextSummonAt = Date.now() + 500000;
     this.toast('Summoned ' + (minion.def?.name || key), 'good');
     this.addHitParticles(pc.x, pc.y - 20, '#c58bff', 8);
+    return true;
   }
   removeMinionsOf(id) { for (const m of this.minions) if (m.ownerId === id) m.dead = true; }
 
