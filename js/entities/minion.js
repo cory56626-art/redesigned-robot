@@ -1,8 +1,8 @@
 // Summoner Realms — minion entity. Owned by a player; the owner's client
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
-import { minionDef } from '../data/minions.js?v=aidan-summon-10';
-import { initAidanState, updateAidanState } from './aidan.js?v=aidan-summon-10';
+import { minionDef } from '../data/minions.js?v=aidan-summon-11';
+import { initAidanState, updateAidanState } from './aidan.js?v=aidan-summon-11';
 import { dist2, aabb, angleTo } from '../utils.js?v=realms-difficulty-22';
 import { TILE } from '../config.js?v=realms-difficulty-22';
 import { Projectile } from './projectile.js?v=realms-difficulty-22';
@@ -904,6 +904,16 @@ export class Minion {
     this.iframes = this.def.behavior === 'diamondHeart' ? 0.85 : 0.28;
     this.hurtFlash = 0.16;
     this.vx += (knockbackX || 0) * 5;
+    if (this.key === 'aidan' && game && dmg > 0 &&
+        !(this.freezeWindup > 0 || this.freezeActive > 0)) {
+      const threat = game.nearestEnemyOrBoss?.(
+        this.x + this.w / 2, this.y + this.h / 2, this.def.freezeRange || 900
+      );
+      if (threat) {
+        this.freezeTarget = threat;
+        this.freezeDefensePending = true;
+      }
+    }
     if (this.def.behavior === 'diamondHeart') {
       // A hit is an immediate reposition command: cancel a wind-up, break
       // contact, and spend a short window in the wider retreat orbit.
@@ -938,6 +948,7 @@ export class Minion {
       dead: this.dead ? 1 : 0,
       pose: this.key === 'aidan' ? this.pose : undefined,
       mv: this.key === 'aidan' ? Math.round((this.moveAmount || 0) * 100) / 100 : undefined,
+      frz: this.key === 'aidan' ? Math.round((this.freezeWindup || 0) * 100) / 100 : undefined,
     };
   }
 }
