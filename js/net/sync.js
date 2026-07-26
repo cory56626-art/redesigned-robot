@@ -183,7 +183,7 @@ function makeGhostEnemy(es) {
   const def = ENEMIES[es.key];
   if (!def) return null;
   return {
-    netId: es.netId, key: es.key, x: es.x, y: es.y, _tx: es.x, _ty: es.y,
+    netId: es.netId, key: es.key, def, x: es.x, y: es.y, _tx: es.x, _ty: es.y,
     w: def.w, h: def.h, hp: es.hp, maxHp: def.hp, color: def.color, color2: def.color2,
     facing: es.facing, hurtFlash: 0, ghost: true,
     center() { return { x: this.x + this.w / 2, y: this.y + this.h / 2 }; },
