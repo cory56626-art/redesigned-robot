@@ -41,7 +41,7 @@ import { SaveManager, setSaveIndicator } from './save.js?v=realms-qor-41';
 import { CommandConsole } from './commands.js?v=realms-qor-41';
 import { Net } from './net/net.js?v=realms-qor-stability-42';
 import { MSG } from './net/protocol.js?v=realms-qor-41';
-import * as sync from './net/sync.js?v=realms-qor-stability-42';
+import * as sync from './net/sync.js?v=realms-qor-stability-43';
 
 class Game {
   constructor() {
