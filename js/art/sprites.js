@@ -48,7 +48,22 @@ class SpriteBank {
     this.wallCache = new Map();   // (wallId, mask) -> wall texture
     this.treeCache = new Map();   // (id, mask, variant) -> trunk/canopy texture
     this.iconCache = new Map();
+    this.bossCache = new Map(); // (boss, part, phase) -> boss part texture
     this.ready = false;
+  }
+
+  // ---- Boss parts ----
+  // Segmented bosses are assembled from a small set of reusable pieces (head,
+  // body segment, tail, leg), one set per phase, exactly the way the reference
+  // art is laid out. Each piece is rasterised once into an offscreen canvas and
+  // then blitted rotated along the body chain, so a six-node Gravemaw costs six
+  // drawImage calls rather than a few hundred path operations every frame.
+  // `imageSmoothingEnabled` is off in the renderer, so these stay crisp.
+  getBossPart(part, phase) {
+    const key = (GM_PARTS.indexOf(part) << 4) | (phase & 0xf);
+    let c = this.bossCache.get(key);
+    if (!c) { c = buildGravemawPart(part, phase); this.bossCache.set(key, c); }
+    return c;
   }
 
   init() {
@@ -747,6 +762,267 @@ export function framingMask(world, tx, ty, id) {
   if (same(-1, 1)) m |= SW;
   if (same(-1, -1)) m |= NW;
   return m;
+}
+
+// ---------------------------------------------------------------------------
+// Gravemaw parts
+// ---------------------------------------------------------------------------
+// Built from the design sheet's own modular breakdown: a head, a repeating
+// armoured body segment, a tail spike and a leg, in a Phase I ("Buried Hunger",
+// jaws shut) and a Phase II ("Open Maw", gaping and spined) variant. Every part
+// is drawn facing +X and centred on its canvas, so the renderer can blit it
+// rotated along the body chain without per-part anchor bookkeeping.
+
+export const GM_PARTS = ['head', 'segment', 'tail', 'leg'];
+
+const GM = {
+  boneHi: '#efe3c6', boneLit: '#d9c9a4', bone: '#bda887', boneSh: '#8b7a5b', boneDeep: '#5f5340',
+  tooth: '#f2e9d2', toothHi: '#fffdf5',
+  scaleLit: '#5a7a42', scale: '#41603a', scaleDark: '#2c4128', scaleOut: '#1e2c1c',
+  band: '#221c1a', lash: '#3a2f28',
+  eye: '#ff3d6e', eyeGlow: '#ff8fb4', socket: '#2a1018',
+  maw: '#180a10', gum: '#6b2b3a',
+};
+
+// Filled polygon from a flat [x,y,...] list.
+function gmPoly(ctx, pts, fill) {
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.moveTo(pts[0], pts[1]);
+  for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// A row of tapering fangs along an edge. `dir` is -1 for teeth pointing up.
+function gmTeeth(ctx, x0, x1, y, len, step, dir, fill) {
+  ctx.fillStyle = fill;
+  for (let x = x0; x < x1; x += step) {
+    const l = len * (0.65 + ((x * 7) % 5) / 10);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + step * 0.5, y + l * dir);
+    ctx.lineTo(x + step * 0.92, y);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function buildGravemawPart(part, phase) {
+  const p2 = phase >= 1;
+  if (part === 'head') return gmHead(p2);
+  if (part === 'segment') return gmSegment(p2);
+  if (part === 'tail') return gmTail(p2);
+  return gmLeg(p2);
+}
+
+function gmHead(p2) {
+  const w = p2 ? 42 : 32, h = p2 ? 32 : 24;
+  const c = makeCanvas(w, h);
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  if (!p2) {
+    // ---- Phase I: jaws shut into a crocodile grin ----
+    // Cranium, tapering to a blunt snout on the right.
+    gmPoly(ctx, [3, 7, 9, 3, 20, 3, 29, 9, 30, 13, 4, 14], GM.bone);
+    gmPoly(ctx, [3, 7, 9, 3, 20, 3, 24, 6, 5, 9], GM.boneLit);   // lit upper plate
+    gmPoly(ctx, [24, 6, 29, 9, 30, 13, 22, 12], GM.boneSh);      // shaded snout side
+    // Backswept brow ridges.
+    ctx.fillStyle = GM.boneSh;
+    for (const [bx, by] of [[7, 2], [12, 1], [17, 2]]) {
+      gmPoly(ctx, [bx, by + 3, bx - 3, by - 1, bx + 3, by + 1], GM.boneSh);
+    }
+    // Lower jaw.
+    gmPoly(ctx, [5, 14, 29, 13, 27, 19, 7, 19], GM.bone);
+    gmPoly(ctx, [5, 17, 27, 17, 27, 19, 7, 19], GM.boneSh);
+    // Interlocking fangs along the closed mouth line. Kept small and tight:
+    // oversized teeth here read as a gaping maw, which is Phase II's job.
+    ctx.fillStyle = GM.band;
+    ctx.fillRect(10, 13, 19, 2);
+    gmTeeth(ctx, 11, 28, 13, 2.4, 2.6, 1, GM.tooth);   // upper, pointing down
+    gmTeeth(ctx, 12, 29, 15, 2.4, 2.6, -1, GM.tooth);  // lower, pointing up
+    // Eye.
+    ctx.fillStyle = GM.socket;
+    ctx.beginPath(); ctx.ellipse(11, 8, 5, 4, -0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = GM.eyeGlow;
+    ctx.beginPath(); ctx.ellipse(11, 8, 3.2, 2.6, -0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = GM.eye;
+    ctx.beginPath(); ctx.ellipse(11, 8, 2.1, 1.7, -0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = GM.toothHi;
+    ctx.fillRect(10, 7, 1, 1);
+    // Nostril.
+    ctx.fillStyle = GM.boneDeep;
+    ctx.fillRect(26, 9, 2, 1);
+    // Neck joint on the trailing edge.
+    ctx.fillStyle = GM.band;
+    ctx.fillRect(2, 5, 3, 12);
+    return c;
+  }
+
+  // ---- Phase II: the maw is open ----
+  // Throat cavity first, so both jaws overlap it.
+  gmPoly(ctx, [8, 12, 34, 4, 38, 10, 36, 24, 10, 21], GM.maw);
+  gmPoly(ctx, [10, 13, 30, 7, 32, 11, 12, 18], GM.gum);
+  // Upper jaw, hinged up and back.
+  gmPoly(ctx, [3, 12, 8, 4, 22, 1, 34, 4, 38, 9, 30, 11, 8, 13], GM.bone);
+  gmPoly(ctx, [3, 12, 8, 4, 22, 1, 30, 3, 6, 9], GM.boneLit);
+  gmPoly(ctx, [30, 3, 34, 4, 38, 9, 31, 9], GM.boneSh);
+  // Heavier angular brow and backswept horns.
+  for (const [bx, by, l] of [[6, 3, 5], [11, 1, 6], [17, 0, 6], [23, 1, 5]]) {
+    gmPoly(ctx, [bx, by + 4, bx - l, by - 2, bx + 3, by + 1], GM.boneSh);
+  }
+  // Lower jaw, dropped open.
+  gmPoly(ctx, [4, 15, 12, 19, 30, 25, 38, 29, 26, 30, 8, 24], GM.bone);
+  gmPoly(ctx, [8, 21, 28, 27, 38, 29, 26, 30, 10, 25], GM.boneSh);
+  // Two ranks of long fangs.
+  ctx.save();
+  ctx.translate(0, 0);
+  gmTeeth(ctx, 10, 36, 11, 7, 3.4, 1, GM.tooth);
+  ctx.restore();
+  ctx.save();
+  ctx.rotate(0.18);
+  gmTeeth(ctx, 8, 34, 20, 6, 3.2, -1, GM.tooth);
+  ctx.restore();
+  // Eye, set deeper and angrier.
+  ctx.fillStyle = GM.socket;
+  ctx.beginPath(); ctx.ellipse(14, 7, 6, 4.4, -0.25, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = GM.eyeGlow;
+  ctx.beginPath(); ctx.ellipse(14, 7, 3.8, 2.8, -0.25, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = GM.eye;
+  ctx.beginPath(); ctx.ellipse(14, 7, 2.4, 1.8, -0.25, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = GM.toothHi;
+  ctx.fillRect(13, 6, 1, 1);
+  ctx.fillStyle = GM.band;
+  ctx.fillRect(2, 8, 3, 12);
+  return c;
+}
+
+function gmSegment(p2) {
+  const w = p2 ? 20 : 17, h = p2 ? 26 : 21;
+  const c = makeCanvas(w, h);
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  const midY = h / 2;
+
+  // Phase II bristles with bone spines, drawn behind the shell.
+  if (p2) {
+    for (const [sx, sy, dx, dy] of [[5, 4, -6, -4], [11, 3, -3, -6], [15, 5, 2, -5],
+      [5, h - 4, -6, 4], [13, h - 4, 3, 5]]) {
+      gmPoly(ctx, [sx, sy, sx + dx, sy + dy, sx + 4, sy + (dy > 0 ? 1 : -1) * 0.5], GM.boneSh);
+      gmPoly(ctx, [sx + 1, sy, sx + dx * 0.7, sy + dy * 0.7, sx + 3, sy], GM.boneLit);
+    }
+  }
+
+  // Scaled hide.
+  const bodyTop = p2 ? 5 : 3;
+  const bodyH = h - bodyTop * 2;
+  ctx.fillStyle = GM.scale;
+  ctx.fillRect(2, bodyTop, w - 4, bodyH);
+  ctx.fillStyle = GM.scaleLit;
+  ctx.fillRect(2, bodyTop, w - 4, 3);
+  ctx.fillStyle = GM.scaleDark;
+  ctx.fillRect(2, bodyTop + bodyH - 3, w - 4, 3);
+  // Individual scales.
+  ctx.fillStyle = GM.scaleOut;
+  for (let sy = bodyTop + 1; sy < bodyTop + bodyH - 1; sy += 3) {
+    for (let sx = 3 + ((sy / 3) % 2 ? 0 : 2); sx < w - 3; sx += 4) ctx.fillRect(sx, sy, 2, 1);
+  }
+
+  // Bone plate carrying the grave marker.
+  // Inset on all sides, so the scaled hide frames it the way the sheet does
+  // rather than the plate covering the whole flank.
+  const plateX = Math.round(w * 0.36), plateW = Math.round(w * 0.36);
+  const plateY = bodyTop + 3, plateH = bodyH - 6;
+  ctx.fillStyle = GM.bone;
+  ctx.fillRect(plateX, plateY, plateW, plateH);
+  ctx.fillStyle = GM.boneLit;
+  ctx.fillRect(plateX, plateY, plateW, 2);
+  ctx.fillStyle = GM.boneSh;
+  ctx.fillRect(plateX, plateY + plateH - 2, plateW, 2);
+  // The tombstone itself: an arched marker set into the plate.
+  const tx = plateX + 1, tw = plateW - 2;
+  const ty = Math.round(midY - 3), th = 6;
+  ctx.fillStyle = GM.boneDeep;
+  ctx.beginPath();
+  ctx.moveTo(tx, ty + th);
+  ctx.lineTo(tx, ty + 2.5);
+  ctx.quadraticCurveTo(tx + tw / 2, ty - 1.5, tx + tw, ty + 2.5);
+  ctx.lineTo(tx + tw, ty + th);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = GM.boneSh;
+  ctx.fillRect(tx + 1, ty + 3, tw - 2, 1);
+
+  // Dark lashed band on the trailing edge.
+  ctx.fillStyle = GM.band;
+  ctx.fillRect(0, bodyTop - 1, 3, bodyH + 2);
+  ctx.strokeStyle = GM.lash;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let ly = bodyTop; ly < bodyTop + bodyH; ly += 4) {
+    ctx.moveTo(0, ly); ctx.lineTo(3, ly + 2);
+    ctx.moveTo(3, ly); ctx.lineTo(0, ly + 2);
+  }
+  ctx.stroke();
+  return c;
+}
+
+function gmTail(p2) {
+  const w = p2 ? 24 : 20, h = p2 ? 18 : 14;
+  const c = makeCanvas(w, h);
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  const midY = h / 2;
+  // Cone tapering to the left (the tail trails behind the body).
+  gmPoly(ctx, [w, midY - 5, w - 4, midY - 6, 1, midY, w - 4, midY + 6, w, midY + 5], GM.bone);
+  gmPoly(ctx, [w, midY - 5, w - 4, midY - 6, 1, midY, w - 6, midY - 1], GM.boneLit);
+  gmPoly(ctx, [1, midY, w - 4, midY + 6, w, midY + 5, w - 6, midY + 1], GM.boneSh);
+  // Ridge rings.
+  ctx.fillStyle = GM.boneDeep;
+  for (let i = 1; i <= 3; i++) {
+    const rx = 3 + i * (w - 6) / 4;
+    const rh = 1 + i * 1.2;
+    ctx.fillRect(rx, midY - rh, 1, rh * 2);
+  }
+  if (p2) {
+    // Barbs.
+    gmPoly(ctx, [w - 7, midY - 4, w - 12, midY - 9, w - 4, midY - 5], GM.boneSh);
+    gmPoly(ctx, [w - 7, midY + 4, w - 12, midY + 9, w - 4, midY + 5], GM.boneSh);
+  }
+  return c;
+}
+
+function gmLeg(p2) {
+  const w = p2 ? 14 : 11, h = p2 ? 18 : 14;
+  const c = makeCanvas(w, h);
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  // A jointed bone limb: femur down-right, then a clawed foot.
+  ctx.strokeStyle = GM.bone;
+  ctx.lineWidth = p2 ? 3 : 2.4;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(w * 0.5, 1);
+  ctx.lineTo(w * 0.78, h * 0.5);
+  ctx.lineTo(w * 0.34, h - 3);
+  ctx.stroke();
+  ctx.strokeStyle = GM.boneLit;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(w * 0.46, 2);
+  ctx.lineTo(w * 0.72, h * 0.48);
+  ctx.stroke();
+  // Claws.
+  ctx.strokeStyle = GM.boneLit;
+  ctx.lineWidth = 1.4;
+  for (const dx of [-2.5, 0, 2.5]) {
+    ctx.beginPath();
+    ctx.moveTo(w * 0.34, h - 3);
+    ctx.lineTo(w * 0.34 + dx, h - 0.5);
+    ctx.stroke();
+  }
+  return c;
 }
 
 export const Sprites = new SpriteBank();

@@ -47,7 +47,7 @@ export const BOSSES = {
         { type: 'shockwave', cooldown: 2.8, telegraph: 0.7, recover: 0.55, weight: 3, speed: 230, damage: 16 },
         { type: 'leap', cooldown: 4.0, telegraph: 0.6, recover: 0.5, weight: 2, minRange: 70, speed: 330, damage: 20 },
       ] },
-      { name: 'Phase II — Open Maw', at: 0.5, contact: 27, speed: 82, attacks: [
+      { name: 'Phase II — Open Maw', at: 0.5, contact: 27, speed: 82, size: [78, 58], attacks: [
         { type: 'rockthrow', cooldown: 1.3, telegraph: 0.45, recover: 0.35, weight: 3, minRange: 80, needsLos: true, count: 3, spread: 0.35, projKind: 'rock', projSpeed: 330, gravity: true, damage: 17 },
         { type: 'burrow', cooldown: 5.5, telegraph: 0.6, recover: 0.4, weight: 2, damage: 24 },
         { type: 'shockwave', cooldown: 2.2, telegraph: 0.6, recover: 0.5, weight: 3, speed: 300, damage: 21 },

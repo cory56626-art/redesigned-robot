@@ -1590,80 +1590,95 @@ export class Renderer {
   }
 
   _drawGravemaw(ctx, b) {
-    const x = b.x, y = b.y, w = b.w, h = b.h;
     ctx.save();
     this._bossAura(ctx, b, b.color2, 42);
 
-    const seg = b.segments || [];
-    // Layered stone segments have individual plates and moving seams.
-    for (let i = 2; i >= 0; i--) {
-      const s = seg[i] || { x: x + 4 + i * 17, y: y + 12 };
-      const sw = 25, sh = 29;
-      ctx.fillStyle = i === 0 ? '#5d4938' : (i === 1 ? '#705940' : '#806648');
-      this._roundRect(ctx, s.x, s.y, sw, sh, 9); ctx.fill();
-      ctx.fillStyle = 'rgba(24,18,18,0.28)';
-      this._roundRect(ctx, s.x + 2, s.y + 16, sw - 4, 11, 6); ctx.fill();
-      ctx.fillStyle = '#b69a6c'; ctx.globalAlpha = 0.58;
-      ctx.beginPath();
-      ctx.moveTo(s.x + 5, s.y + 7); ctx.lineTo(s.x + 12, s.y + 4); ctx.lineTo(s.x + 18, s.y + 7);
-      ctx.lineTo(s.x + 15, s.y + 10); ctx.lineTo(s.x + 7, s.y + 10); ctx.closePath(); ctx.fill();
-      ctx.globalAlpha = 1;
-      ctx.strokeStyle = '#3c2f2a'; ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(s.x + 4, s.y + 15); ctx.lineTo(s.x + 20, s.y + 13);
-      ctx.moveTo(s.x + 8, s.y + 21); ctx.lineTo(s.x + 17, s.y + 22);
-      ctx.stroke();
-      // Small spikes make the body read as a living armored tunnel-creature.
-      ctx.fillStyle = '#927852';
-      ctx.beginPath();
-      ctx.moveTo(s.x + 4, s.y + 4); ctx.lineTo(s.x + 1, s.y - 3); ctx.lineTo(s.x + 8, s.y + 3);
-      ctx.moveTo(s.x + 17, s.y + 4); ctx.lineTo(s.x + 21, s.y - 2); ctx.lineTo(s.x + 22, s.y + 7);
-      ctx.fill();
+    const segs = b.segments || [];
+    if (!segs.length) { ctx.restore(); return; }
+
+    // Phase II is permanently gaping; in Phase I the maw opens on the wind-up
+    // and snaps shut on release, which is what the jaw value drives.
+    const phase = (b.phaseIndex >= 1 || (b.jaw || 0) > 0.45) ? 1 : 0;
+    const scale = b.w / 60; // the art is authored for the Phase I hitbox
+
+    // Blit one body part, rotated to follow the chain. Rotating past vertical
+    // would leave the part upside down, so it is mirrored instead of flipped.
+    // `ax`/`ay` are anchor fractions of the part's own size: 0.5 centres it.
+    const part = (name, node, ax = 0.5, ay = 0.5) => {
+      const img = Sprites.getBossPart(name, phase);
+      if (!img) return;
+      const a = node.a || 0;
+      const dw = img.width * scale, dh = img.height * scale;
+      ctx.save();
+      ctx.translate(node.x, node.y);
+      ctx.rotate(a);
+      if (Math.cos(a) < 0) ctx.scale(1, -1);
+      ctx.drawImage(img, -dw * ax, -dh * ay, dw, dh);
+      ctx.restore();
+    };
+
+    // Back to front: tail, then segments, then the head on top.
+    // The head sits mostly *ahead* of its node and the tail mostly *behind*
+    // its own, otherwise a centre-anchored head simply covers the first two
+    // segments and the creature reads as a blob with legs.
+    const tail = segs[segs.length - 1];
+    part('tail', tail, 0.74);
+
+    // Legs hang under alternating segments and scrabble with ground speed.
+    const legImg = Sprites.getBossPart('leg', phase);
+    if (legImg) {
+      const gait = b.walkAnim != null ? b.walkAnim : (b.bob || 0) * 2;
+      for (let i = 1; i < segs.length - 1; i++) {
+        const s = segs[i];
+        const swing = Math.sin(gait * 2.2 - i * 1.3) * 0.45;
+        for (const side of [-1, 1]) {
+          ctx.save();
+          ctx.translate(s.x, s.y + b.h * 0.16);
+          ctx.rotate((s.a || 0) + swing * side * 0.6);
+          ctx.scale(1, side);
+          ctx.drawImage(legImg, -legImg.width * 0.5 * scale, 0, legImg.width * scale, legImg.height * scale);
+          ctx.restore();
+        }
+      }
     }
 
-    const headX = b.facing > 0 ? x + w - 22 : x + 5;
-    const headY = y + 13;
-    ctx.fillStyle = '#8f734d';
-    ctx.beginPath(); ctx.ellipse(headX + (b.facing > 0 ? 3 : 0), headY + 7, 15, 15, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#b8945e';
-    ctx.globalAlpha = 0.55;
-    ctx.beginPath(); ctx.ellipse(headX + (b.facing > 0 ? 0 : 5), headY + 1, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.globalAlpha = 1;
+    for (let i = segs.length - 2; i >= 1; i--) part('segment', segs[i]);
+    part('head', segs[0], 0.30);
 
-    // Jaw gape is simulation-driven: it opens during the telegraph and snaps
-    // shut on release.
-    const jaw = b.jaw != null ? b.jaw : 0;
-    const mouthX = b.facing > 0 ? x + w - 21 : x + 4;
-    ctx.fillStyle = '#1c1720';
-    this._roundRect(ctx, mouthX, y + 17 - jaw * 4, 18, 16 + jaw * 8, 7); ctx.fill();
-    ctx.fillStyle = '#ead8a5';
-    for (let i = 0; i < 4; i++) {
-      const tx = b.facing > 0 ? mouthX + 1 + i * 5 : mouthX + 17 - i * 5;
-      ctx.beginPath();
-      ctx.moveTo(tx, y + 19 - jaw * 3);
-      ctx.lineTo(tx + (b.facing > 0 ? 3 : -3), y + 27 - jaw * 3);
-      ctx.lineTo(tx + (b.facing > 0 ? 6 : -6), y + 19 - jaw * 3);
-      ctx.closePath(); ctx.fill();
-    }
-    ctx.fillStyle = b.telegraph > 0 ? '#ffd28c' : '#ff6b4d';
-    ctx.fillRect(b.facing > 0 ? x + w - 30 : x + 13, y + 8, 6, 5);
-    ctx.fillStyle = '#25191b';
-    ctx.fillRect(b.facing > 0 ? x + w - 28 : x + 14, y + 9, 2, 2);
-
-    // Stone tendrils and feet dig into the ground when it is not airborne.
-    ctx.strokeStyle = '#493a32'; ctx.lineWidth = 3; ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x + 12, y + h - 4); ctx.lineTo(x + 7, y + h + 3);
-    ctx.moveTo(x + 27, y + h - 3); ctx.lineTo(x + 30, y + h + 4);
-    ctx.moveTo(x + 47, y + h - 4); ctx.lineTo(x + 53, y + h + 2);
-    ctx.stroke();
+    // Telegraph glow at the throat, so a wind-up is readable at a distance.
     if (b.telegraph > 0) {
-      ctx.strokeStyle = '#d3b985'; ctx.globalAlpha = 0.55; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.arc(x + w / 2, y + h - 2, 22 + (1 - b.telegraph / (b.telegraphMax || 0.6)) * 10, 0, Math.PI * 2); ctx.stroke();
-      ctx.globalAlpha = 1;
+      const head = segs[0];
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const r = 13 * scale;
+      const g = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, r);
+      g.addColorStop(0, 'rgba(255,61,110,0.28)');
+      g.addColorStop(1, 'rgba(255,61,110,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(head.x, head.y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
     }
-    if (b.hurtFlash > 0) { ctx.fillStyle = 'rgba(255,255,255,0.54)'; this._roundRect(ctx, x + 2, y + 7, w - 4, h - 4, 10); ctx.fill(); }
-    if (b.invuln > 0) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; this._roundRect(ctx, x + 1, y + 7, w - 2, h - 5, 10); ctx.stroke(); }
+
+    // Damage and invulnerability read across the whole body.
+    if (b.hurtFlash > 0) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(0.65, b.hurtFlash * 5);
+      ctx.fillStyle = '#fff';
+      for (const s of segs) {
+        ctx.beginPath(); ctx.arc(s.x, s.y, b.h * 0.26, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+    if (b.invuln > 0) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let i = 0; i < segs.length; i++) {
+        const s = segs[i];
+        if (i === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);
+      }
+      ctx.stroke();
+    }
     ctx.restore();
   }
 

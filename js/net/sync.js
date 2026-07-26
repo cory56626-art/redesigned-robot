@@ -7,6 +7,7 @@ import { ThrownItem } from '../entities/thrown.js?v=realms-qor-41';
 import { ITEMS } from '../data/items.js?v=realms-qor-41';
 import { ENEMIES } from '../data/enemies.js?v=realms-qor-41';
 import { BOSSES } from '../data/bosses.js?v=realms-qor-41';
+import { GRAVEMAW_SEGMENTS, updateGravemawChain } from '../entities/boss.js?v=realms-qor-41';
 
 // ---------- Welcome (host builds, client applies) ----------
 export function buildWelcome(game, forId) {
@@ -110,6 +111,11 @@ function applyEntitySnapshot(game, msg) {
     if (!b) b = makeGhostBoss(bs);
     b._tx = bs.x; b._ty = bs.y; b.hp = bs.hp; b.maxHp = bs.maxHp; b.facing = bs.facing;
     b.phaseName = (BOSSES[bs.key].phases[bs.phase] || {}).name || '';
+    b.phaseIndex = bs.phase || 0;
+    // Phase 2 Gravemaw is physically larger, so the ghost has to resize too or
+    // its art and hit feedback disagree with the host.
+    if (bs.w) b.w = bs.w;
+    if (bs.h) b.h = bs.h;
     if (b.ghost) {
       b.hidden = !!bs.hidden;
       b.aiState = bs.state || '';
@@ -147,7 +153,7 @@ function makeGhostEnemy(es) {
 function makeGhostBoss(bs) {
   const def = BOSSES[bs.key];
   const segments = [];
-  for (let i = 0; i < 3; i++) segments.push({ x: bs.x + 4 + i * 17, y: bs.y + 12 });
+  for (let i = 0; i < GRAVEMAW_SEGMENTS; i++) segments.push({ x: bs.x + 4 + i * 12, y: bs.y + 12, a: 0 });
   return {
     key: bs.key, name: bs.name, x: bs.x, y: bs.y, _tx: bs.x, _ty: bs.y,
     w: def.w, h: def.h, hp: bs.hp, maxHp: bs.maxHp, color: def.color, color2: def.color2,
@@ -157,6 +163,7 @@ function makeGhostBoss(bs) {
     hidden: !!bs.hidden, telegraph: 0, telegraphMax: 0.6, attackPulse: 0,
     warnAt: null, warnTime: 0, warnMax: 0.6,
     squashX: 1, squashY: 1, jaw: 0, shardSpin: 0, segments, ghostTrail: [],
+    phaseIndex: bs.phase || 0, coil: 0, landPulse: 0,
     aiState: bs.state || '',
     center() { return { x: this.x + this.w / 2, y: this.y + this.h / 2 }; },
   };
@@ -173,15 +180,12 @@ export function interpolateGhosts(game, dt) {
     b.shardSpin += dt * (b.telegraph > 0 ? 5.5 : 0.7);
     if (b.hurtFlash > 0) b.hurtFlash -= dt;
     // Segment lag, so a replicated Gravemaw undulates like the host's.
+    // Run the host's own chain solver rather than a second approximation, so a
+    // replicated Gravemaw undulates identically instead of almost-identically.
     if (b.movement === 'gravemaw' && b.segments) {
-      const headX = b.x + (b.facing > 0 ? b.w - 29 : 4);
-      const lagK = 1 - Math.pow(0.02, dt);
-      const order = b.facing > 0 ? [2, 1, 0] : [0, 1, 2];
-      for (let i = 0; i < 3; i++) {
-        const s = b.segments[order[i]];
-        s.x += ((headX - b.facing * i * 17) - s.x) * lagK;
-        s.y += ((b.y + 12 + Math.sin(b.bob + i * 0.9) * 2) - s.y) * lagK;
-      }
+      b.coil += ((b.telegraph > 0 ? 1 : 0) - b.coil) * (1 - Math.pow(0.02, dt));
+      if (b.landPulse > 0) b.landPulse = Math.max(0, b.landPulse - dt * 2.4);
+      updateGravemawChain(b, dt);
     }
   }
   for (const d of game.drops) { if (d.ghost) d.bob += dt * 4; }

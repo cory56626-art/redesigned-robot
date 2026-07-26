@@ -33,6 +33,92 @@ const CHARGE_HOME_ACCEL = 380;   // px/s^2 bending the leap back toward the play
 // How far outside the arena a charging boss may stray before being clamped.
 const CHARGE_LEASH_TILES = 18;
 
+// Nodes in Gravemaw's body chain: head, four armoured segments, tail. Exported
+// because js/net/sync.js builds and interpolates the same chain for replicated
+// ghosts and would otherwise silently drift from this number.
+export const GRAVEMAW_SEGMENTS = 6;
+
+// How strongly each body node is pulled back toward its resting spine each
+// step. Too low and the body keeps whatever shape it lands in; too high and it
+// becomes a rigid stick that cannot bend around a turn.
+const SPINE_BLEND = 0.14;
+
+// One follow-chain step for Gravemaw's body.
+//
+// The head is driven straight to the front of the hitbox; every other node
+// chases the node ahead of it, holding a fixed spacing but with a
+// *progressively slower* response the further back it sits. That gradient is
+// what makes motion travel down the body as a wave — the previous version used
+// one lag constant for all three segments, so the whole creature slid around as
+// a single rigid lump, which is exactly what read as weightless.
+//
+// Exported and shared so a replicated ghost undulates identically to the host's
+// copy rather than running a second, subtly different approximation.
+export function updateGravemawChain(b, dt) {
+  const segs = b.segments;
+  if (!segs || !segs.length) return;
+
+  // Coiling pulls the segments in tight; the ripple runs an impact down them.
+  const spacing = Math.max(8, b.w * 0.245 * (1 - b.coil * 0.3));
+  const facing = b.facing || 1;
+
+  const head = segs[0];
+  const headX = b.x + (facing > 0 ? b.w * 0.74 : b.w * 0.26);
+  const headY = b.y + b.h * 0.44 + Math.sin(b.bob) * 1.5 - b.coil * 3;
+  const headK = 1 - Math.pow(0.00008, dt);
+  head.x += (headX - head.x) * headK;
+  head.y += (headY - head.y) * headK;
+
+  for (let i = 1; i < segs.length; i++) {
+    const s = segs[i], prev = segs[i - 1];
+    let dx = s.x - prev.x, dy = s.y - prev.y;
+    let d = Math.hypot(dx, dy) || 0.0001;
+
+    // A pure follow chain has no preferred pose: whatever shape it happens to
+    // fall into, it keeps — so after a drop the body would settle standing on
+    // end and simply stay there. Blend the trailing direction toward a resting
+    // spine (straight back from the head, then continuing the previous
+    // segment's line) so the creature straightens out behind itself while
+    // still being free to curve while it moves.
+    let rx, ry;
+    if (i === 1) { rx = -facing; ry = 0; }
+    else { rx = prev.x - segs[i - 2].x; ry = prev.y - segs[i - 2].y; }
+    const rl = Math.hypot(rx, ry) || 1;
+    let ux = dx / d + ((rx / rl) - dx / d) * SPINE_BLEND;
+    let uy = dy / d + ((ry / rl) - dy / d) * SPINE_BLEND;
+    const ul = Math.hypot(ux, uy) || 1;
+    ux /= ul; uy /= ul;
+
+    // Where this node *should* sit: one spacing behind the node ahead.
+    let tx = prev.x + ux * spacing;
+    let ty = prev.y + uy * spacing;
+    // Idle undulation plus the landing shockwave, both phase-shifted by index
+    // so they propagate rather than moving every segment together.
+    ty += Math.sin(b.bob * 1.4 - i * 0.85) * (1.4 + b.coil * 1.2);
+    if (b.landPulse > 0) ty += Math.sin(b.landPulse * 9 - i * 1.1) * b.landPulse * 4.5;
+    const k = 1 - Math.pow(0.0004 + i * 0.004, dt);
+    s.x += (tx - s.x) * k;
+    s.y += (ty - s.y) * k;
+
+    // Hard bound. Lag alone is not enough: during a fast leap the head can
+    // outrun the chain faster than the springs close the gap, and because each
+    // node chases the one ahead the error compounds down the body until the
+    // segments visibly come off the creature. A segment may trail, but it can
+    // never sit further than this from its parent.
+    dx = s.x - prev.x; dy = s.y - prev.y;
+    d = Math.hypot(dx, dy) || 0.0001;
+    const maxD = spacing * 1.45;
+    if (d > maxD) { s.x = prev.x + (dx / d) * maxD; s.y = prev.y + (dy / d) * maxD; }
+
+    // Each part points at the node ahead of it, so the body visibly bends.
+    s.a = Math.atan2(prev.y - s.y, prev.x - s.x);
+  }
+  // The head looks the way it is travelling, i.e. away from the next node.
+  head.a = segs.length > 1
+    ? Math.atan2(head.y - segs[1].y, head.x - segs[1].x)
+    : (facing > 0 ? 0 : Math.PI);
+}
+
 const BOSS_DIFFICULTY_TUNING = {
   // Normal is still a real step up from the original 520 HP baseline, but
   // keeps enough attack/recovery time for a first clear.
@@ -117,7 +203,9 @@ export class Boss {
     this.jaw = 0;
     this.shardSpin = 0;
     this.segments = [];
-    for (let i = 0; i < 3; i++) this.segments.push({ x: x + 4 + i * 17, y: y + 12 });
+    for (let i = 0; i < GRAVEMAW_SEGMENTS; i++) this.segments.push({ x: x + 4 + i * 12, y: y + 12, a: 0 });
+    this.coil = 0;       // anticipation: body compresses before a leap
+    this.landPulse = 0;  // impact ripple travelling down the body
     this.ghostTrail = [];
     this._trailTimer = 0;
   }
@@ -143,6 +231,7 @@ export class Boss {
       this.aiState = 'reposition';
       this.stateTime = 0;
       this.chosen = null; this.telegraph = 0;
+      this._applyPhaseSize(game);
       game.toast(`${this.name}: ${this.phase().name}!`, 'bad');
       const c = this.center();
       game.fx.ring(c.x, c.y, this.color2, 90, { life: 0.55, width: 4 });
@@ -185,9 +274,10 @@ export class Boss {
         // Landing from a leap slams the ground.
         if (this.onGround && this.charge.airborne) {
           this.charge.airborne = false;
-          game.fx.ring(cx, this.y + this.h, this.color2, 60, { life: 0.3, width: 3 });
-          game.fx.burst(cx, this.y + this.h, '#a08a68', 16, { speed: 150, life: 0.5, gravity: 500 });
-          game.fx.shake(5, 0.35);
+          game.fx.ring(cx, this.y + this.h, this.color2, 78, { life: 0.38, width: 4 });
+          game.fx.burst(cx, this.y + this.h, '#a08a68', 26, { speed: 190, life: 0.6, gravity: 520 });
+          game.fx.shake(8, 0.45);
+          this.landPulse = 1; // ripples down the body (see updateGravemawChain)
         }
       } else {
         // A flying charge held its launch velocity for the whole duration and
@@ -382,6 +472,24 @@ export class Boss {
     }
   }
 
+  // A phase may declare its own body size. Gravemaw's second phase is a
+  // physically larger creature, not just a different sprite, so the hitbox
+  // grows with it. Growing about the centre keeps the boss where the player
+  // expects it, and the new box can end up inside terrain — so it is nudged
+  // clear immediately rather than being left stuck in rock.
+  _applyPhaseSize(game) {
+    const size = this.phase().size;
+    const w = size ? size[0] : this.def.w;
+    const h = size ? size[1] : this.def.h;
+    if (w === this.w && h === this.h) return;
+    this.x += (this.w - w) / 2;
+    this.y += (this.h - h); // grow upward from the feet so it doesn't sink
+    this.w = w; this.h = h;
+    if (game && game.world && game.world.rectHitsSolid(this.x, this.y, this.w, this.h)) {
+      this._nudgeOutOfTerrain(game.world);
+    }
+  }
+
   // Hard backstop during a charge: however the arc turns out, the boss stays
   // within a leash of the nearest player so a lunge can never end the fight by
   // leaving the screen.
@@ -443,19 +551,20 @@ export class Boss {
     // leap instead of every piece bobbing independently. The jaw gapes on the
     // wind-up and closes on release.
     if (this.movement === 'gravemaw') {
-      const headX = this.x + (this.facing > 0 ? this.w - 29 : 4);
-      const headY = this.y + 12;
-      const lagK = 1 - Math.pow(0.02, dt);
-      const order = this.facing > 0 ? [2, 1, 0] : [0, 1, 2];
-      for (let i = 0; i < 3; i++) {
-        const s = this.segments[order[i]];
-        const tx = headX - this.facing * i * 17;
-        const ty = headY + Math.sin(this.bob + i * 0.9) * 2;
-        s.x += (tx - s.x) * lagK;
-        s.y += (ty - s.y) * lagK;
-      }
+      // Anticipation: the body gathers up before a lunge and releases after it.
+      const coilTarget = this.telegraph > 0 ? 1 : 0;
+      this.coil += (coilTarget - this.coil) * (1 - Math.pow(0.02, dt));
+      if (this.landPulse > 0) this.landPulse = Math.max(0, this.landPulse - dt * 2.4);
+
+      updateGravemawChain(this, dt);
+
+      // The jaw snaps shut far faster than it opens, so a bite reads as a bite
+      // rather than as a symmetric fade in both directions.
       const jawTarget = this.telegraph > 0 ? 1 : 0;
-      this.jaw += (jawTarget - this.jaw) * (1 - Math.pow(0.005, dt));
+      const jawK = jawTarget > this.jaw
+        ? 1 - Math.pow(0.05, dt)    // opening: deliberate
+        : 1 - Math.pow(0.000002, dt); // closing: snap
+      this.jaw += (jawTarget - this.jaw) * jawK;
     }
 
     // Sovereign: shards spin up as an attack charges, and it smears at speed.
@@ -665,7 +774,7 @@ export class Boss {
   netState() {
     return {
       key: this.key, name: this.name, difficulty: this.difficulty, x: Math.round(this.x), y: Math.round(this.y),
-      hp: Math.round(this.hp), maxHp: this.maxHp, phase: this.phaseIndex, facing: this.facing,
+      hp: Math.round(this.hp), maxHp: this.maxHp, phase: this.phaseIndex, facing: this.facing, w: this.w, h: this.h,
       state: this.aiState, hidden: this.hidden ? 1 : 0, tel: this.telegraph > 0 ? 1 : 0,
     };
   }
