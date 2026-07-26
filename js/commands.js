@@ -1,8 +1,8 @@
 // Summoner Realms — Demo Commands console (testing only).
-import { ITEMS, DEMO_GIVE_ALL } from './data/items.js?v=aidan-summon-1';
-import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=aidan-summon-1';
-import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=aidan-summon-1';
-import { TRACKS } from './engine/music.js?v=aidan-summon-1';
+import { ITEMS, DEMO_GIVE_ALL } from './data/items.js?v=aidan-summon-12';
+import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=aidan-summon-12';
+import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=aidan-summon-12';
+import { TRACKS } from './engine/music.js?v=aidan-summon-12';
 
 const $ = (id) => document.getElementById(id);
 
