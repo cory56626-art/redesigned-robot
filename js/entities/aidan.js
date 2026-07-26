@@ -24,6 +24,11 @@ function aliveTarget(target) {
     target.hp != null && target.hp > 0;
 }
 
+function trackedTarget(game, target) {
+  return !!target &&
+    ((game.enemies || []).includes(target) || (game.bosses || []).includes(target));
+}
+
 function clamp(value, lo, hi) {
   return Math.max(lo, Math.min(hi, value));
 }
@@ -89,14 +94,17 @@ function orbitTarget(m, target, owner, dt) {
     moveAidan(m, oc.x + owner.facing * -80, oc.y - 42, speed, dt);
   }
 
-  // Aidan is airborne, but never allowed to sink into the terrain while
-  // orbiting a boss that is flying or hovering. Keeping his boots above the
-  // owner's head makes the permanent armor silhouette readable and prevents
-  // the summon from becoming an invisible damage source below the ground.
+  // Keep the airborne armor silhouette inside a readable flight lane. He never
+  // sinks into terrain, and a hovering boss cannot pull him off the top of the
+  // camera where the player would lose track of the summon.
   const flightFloor = owner.y - (m.h || 54) - 10;
+  const flightCeiling = Math.max(24, oc.y - 260);
   if (m.y > flightFloor) {
     m.y = flightFloor;
     if (m.vy > 0) m.vy = 0;
+  } else if (m.y < flightCeiling) {
+    m.y = flightCeiling;
+    if (m.vy < 0) m.vy = 0;
   }
 }
 
@@ -137,7 +145,7 @@ function beamHits(game, sx, sy, ex, ey) {
 function tickRadioactive(m, game, dt) {
   if (!m.radioactiveTargets) return;
   for (const [target, state] of m.radioactiveTargets) {
-    if (!aliveTarget(target)) {
+    if (!aliveTarget(target) || !trackedTarget(game, target)) {
       m.radioactiveTargets.delete(target);
       continue;
     }
@@ -357,7 +365,7 @@ function updateAidan(m, game, owner, ownerCenter, dt) {
   if (m.railgunWindup > 0) { updateRailgun(m, game, owner, dt); return; }
 
   const c = centerOf(m);
-  if (!aliveTarget(m.target) || m.targetScanCd <= 0) {
+  if (!trackedTarget(game, m.target) || !aliveTarget(m.target) || m.targetScanCd <= 0) {
     m.target = nearestTarget(game, c.x, c.y, d.range || 1500);
     m.targetScanCd = 0.22;
   }
