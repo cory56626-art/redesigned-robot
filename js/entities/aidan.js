@@ -1,8 +1,8 @@
 // Summoner Realms — Aidan summon controller and pixel-tech presentation.
 // Aidan is intentionally kept in its own module: his multi-stage portal and
 // railgun states are too specific to safely squeeze into the generic minion AI.
-import { TILE } from '../config.js?v=aidan-summon-10';
-import { Projectile } from './projectile.js?v=aidan-summon-10';
+import { TILE } from '../config.js?v=aidan-summon-11';
+import { Projectile } from './projectile.js?v=aidan-summon-11';
 import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-difficulty-22';
 import * as AI from '../systems/ai.js?v=realms-difficulty-22';
 
@@ -13,6 +13,9 @@ const PORTAL_GOLD = '#ffd05a';
 const RAIL_PURPLE = '#c46cff';
 const RAIL_CORE = '#f1c4ff';
 const RADIOACTIVE = '#baff6b';
+const FREEZE_BLUE = '#3fcfff';
+const FREEZE_CYAN = '#62f1ff';
+const FREEZE_CORE = '#e9ffff';
 
 function centerOf(entity) {
   return entity.center ? entity.center() : {
@@ -59,8 +62,8 @@ function nearestTarget(game, x, y, range) {
 function syncGroundPose(m) {
   const speed = Math.max(1, m.def.speed || 180);
   m.moveAmount = clamp(Math.abs(m.vx) / speed, 0, 1);
-  if (!m.poseTimer && !m.portalState &&
-      m.pose !== 'railgunCharge' && m.pose !== 'railgunFire') {
+  if (!m.poseTimer && !m.portalState && !m.freezeWindup && !m.freezeActive &&
+      !m.jetpackTime && m.pose !== 'railgunCharge' && m.pose !== 'railgunFire') {
     m.pose = m.moveAmount > 0.05 ? 'move' : 'idle';
   }
 }
@@ -81,12 +84,18 @@ function pathDirection(m, game, tx, ty) {
 function walkAidanTo(m, game, tx, ty, dt, stopDistance = 8) {
   const world = game.world;
   const c = centerOf(m);
+  const startX = m.x, startY = m.y;
   let dir = 0;
+  let blocked = false;
+  const wantsTravel = Math.abs(tx - c.x) > stopDistance || Math.abs(ty - c.y) > 24;
   if (Math.abs(tx - c.x) > stopDistance) {
     dir = pathDirection(m, game, tx, ty);
     if (m.onGround && dir && !AI.safeAhead(m, world, dir) && ty - c.y < 40) {
       const gap = AI.gapWidth(m, world, dir);
-      if (gap > 3) dir = 0;
+      if (gap > 3) {
+        dir = 0;
+        blocked = true;
+      }
     }
     if (m.onGround && dir && AI.shouldJump(m, world, dir) && (m.jumpCd || 0) <= 0) {
       m.vy = -300;
@@ -101,7 +110,16 @@ function walkAidanTo(m, game, tx, ty, dt, stopDistance = 8) {
   applyGravity(m, dt);
   moveAndCollide(m, world, dt);
   clampToWorld(m, world);
-  m.walkCycle = (m.walkCycle || 0) + Math.abs(m.vx) * dt * 0.055;
+  m.walkCycle = (m.walkCycle || 0) + Math.abs(m.vx) * dt * 0.075;
+
+  const moved = Math.hypot(m.x - startX, m.y - startY);
+  if (!wantsTravel || moved > 1.2) {
+    m.stuckTimer = 0;
+  } else if (blocked || (m.onGround && Math.abs(dir) > 0 && moved < 0.7)) {
+    m.stuckTimer = (m.stuckTimer || 0) + dt;
+  } else {
+    m.stuckTimer = Math.max(0, (m.stuckTimer || 0) - dt * 0.5);
+  }
   syncGroundPose(m);
 }
 
@@ -111,6 +129,155 @@ function walkAidanToRange(m, game, target, desired, dt) {
   let side = Math.sign(c.x - tc.x);
   if (!side) side = m.facing < 0 ? -1 : 1;
   walkAidanTo(m, game, tc.x + side * desired, tc.y, dt, 8);
+}
+
+function beginFreezeGun(m, game, target) {
+  const c = centerOf(m);
+  const tc = centerOf(target);
+  m.freezeTarget = target;
+  m.freezeAngle = Math.atan2(tc.y - c.y, tc.x - c.x);
+  m.freezeWindup = m.def.freezeCharge || 0.7;
+  m.freezeProgress = 0;
+  m.freezeActive = 0;
+  m.freezeDefensePending = false;
+  m.railgunWindup = 0;
+  m.railgunActive = 0;
+  m.railgunTarget = null;
+  m.railgunOrigin = null;
+  m.railgunBeamEnd = null;
+  m.vx = 0;
+  m.vy = 0;
+  m.moveAmount = 0;
+  m.pose = 'freezeCharge';
+  m.poseTimer = m.freezeWindup;
+  game.fx?.ring(c.x, c.y, FREEZE_BLUE, 28, {
+    life: m.freezeWindup, from: 40, width: 2,
+  });
+  game.fx?.burst(c.x + Math.cos(m.freezeAngle) * 10, c.y + Math.sin(m.freezeAngle) * 10,
+    FREEZE_CYAN, 6, { speed: 45, spread: 0.42, life: 0.28, glow: true, size: 2 });
+}
+
+function fireFreezeGun(m, game) {
+  const c = centerOf(m);
+  const angle = m.freezeAngle || 0;
+  const origin = {
+    x: c.x + Math.cos(angle) * 16,
+    y: c.y + Math.sin(angle) * 16,
+  };
+  game.addProjectile(new Projectile({
+    x: origin.x - 6,
+    y: origin.y - 4,
+    vx: Math.cos(angle) * (m.def.freezeSpeed || 520),
+    vy: Math.sin(angle) * (m.def.freezeSpeed || 520),
+    w: 12,
+    h: 8,
+    damage: 0,
+    ownerType: 'minion',
+    ownerId: m.ownerId,
+    kind: 'aidanFreeze',
+    color: FREEZE_CORE,
+    trail: FREEZE_BLUE,
+    effect: { freeze: m.def.freezeDuration || 5 },
+    knockback: 0,
+    life: 2.2,
+  }), true);
+  m.freezeWindup = 0;
+  m.freezeProgress = 1;
+  m.freezeActive = 0.32;
+  m.freezeDefensePending = false;
+  m.freezeTarget = null;
+  m.freezeCooldown = m.def.freezeCooldown || 2.8;
+  m.pose = 'freezeFire';
+  m.poseTimer = 0.34;
+  m.recoil = 1;
+  game.fx?.flash(origin.x, origin.y, 0.7, 0.16);
+  game.fx?.streak(origin.x, origin.y, angle, FREEZE_CORE, 16, {
+    speed: 270, spread: 0.22, life: 0.24, size: 2.5, glow: true,
+  });
+  game.fx?.ring(origin.x, origin.y, FREEZE_BLUE, 20, { life: 0.22, width: 2 });
+}
+
+function updateFreezeGun(m, game, dt) {
+  const target = aliveTarget(m.freezeTarget) ? m.freezeTarget : null;
+  const c = centerOf(m);
+  if (target) {
+    const tc = centerOf(target);
+    const desired = Math.atan2(tc.y - c.y, tc.x - c.x);
+    m.freezeAngle = approachAngle(m.freezeAngle || desired, desired, dt * 7.5);
+    m.facing = Math.cos(m.freezeAngle) < 0 ? -1 : 1;
+  }
+  m.freezeWindup -= dt;
+  m.freezeProgress = 1 - clamp(m.freezeWindup / (m.def.freezeCharge || 0.7), 0, 1);
+  settleAidan(m, game, dt);
+  m.moveAmount = 0;
+  m.pose = 'freezeCharge';
+  if (m.freezeWindup <= 0) fireFreezeGun(m, game);
+}
+
+function beginJetpack(m, game, ownerCenter) {
+  m.jetpackTarget = { x: ownerCenter.x, y: ownerCenter.y - 18 };
+  m.jetpackTime = m.def.jetpackDuration || 1.55;
+  m.jetpackCooldown = m.def.jetpackCooldown || 4.0;
+  m.jetpackFxTimer = 0;
+  m.stuckTimer = 0;
+  m.vx = 0;
+  m.vy = -320;
+  m.onGround = false;
+  m.moveAmount = 0;
+  m.pose = 'jetpack';
+  m.poseTimer = 0;
+  const c = centerOf(m);
+  game.fx?.burst(c.x - (m.facing || 1) * 5, c.y + 9, [FREEZE_CYAN, PORTAL_CYAN, '#ffffff'], 12, {
+    speed: 150, spread: 0.7, life: 0.55, gravity: 180, glow: true, size: 2,
+  });
+  game.fx?.ring(c.x, c.y + 8, FREEZE_BLUE, 20, { life: 0.28, width: 2 });
+}
+
+function updateJetpack(m, game, ownerCenter, dt) {
+  const world = game.world;
+  const target = m.jetpackTarget || { x: ownerCenter.x, y: ownerCenter.y - 18 };
+  const c = centerOf(m);
+  const dx = target.x - c.x;
+  const dy = target.y - c.y;
+  const distance = Math.hypot(dx, dy);
+  m.vx = clamp(dx * 4.2, -270, 270);
+  m.vy = clamp(dy * 4.2 - 80, -380, 300);
+
+  const nx = m.x + m.vx * dt;
+  const ny = m.y + m.vy * dt;
+  if (!world.rectHitsSolid(nx, m.y, m.w, m.h)) m.x = nx;
+  else m.vx = 0;
+  if (!world.rectHitsSolid(m.x, ny, m.w, m.h)) m.y = ny;
+  else m.vy = 0;
+  clampToWorld(m, world);
+  m.onGround = false;
+  m.moveAmount = 0;
+  m.pose = 'jetpack';
+
+  m.jetpackFxTimer = (m.jetpackFxTimer || 0) - dt;
+  if (m.jetpackFxTimer <= 0) {
+    const c2 = centerOf(m);
+    game.fx?.streak(c2.x - (m.facing || 1) * 4, c2.y + 9, Math.PI / 2,
+      FREEZE_CYAN, 5, { speed: 90, spread: 0.6, life: 0.16, size: 2, glow: true });
+    m.jetpackFxTimer = 0.07;
+  }
+
+  m.jetpackTime -= dt;
+  if (distance < 18 || m.jetpackTime <= 0) {
+    const safeX = target.x - m.w / 2;
+    const safeY = target.y - m.h / 2;
+    if (!world.rectHitsSolid(safeX, safeY, m.w, m.h)) {
+      m.x = safeX;
+      m.y = safeY;
+    }
+    m.jetpackTime = 0;
+    m.vx = 0;
+    m.vy = 0;
+    m.pose = 'idle';
+    m.onGround = false;
+    m.replanTimer = 0;
+    m.stuckTimer = 0;
+  }
 }
 
 function settleAidan(m, game, dt) {
@@ -409,9 +576,15 @@ function fireBasicPulse(m, game, owner, target) {
 function updateAidan(m, game, owner, ownerCenter, dt) {
   const d = m.def;
   m.portalCooldown = Math.max(0, (m.portalCooldown || 0) - dt);
+  m.freezeCooldown = Math.max(0, (m.freezeCooldown || 0) - dt);
+  m.jetpackCooldown = Math.max(0, (m.jetpackCooldown || 0) - dt);
   m.poseTimer = Math.max(0, (m.poseTimer || 0) - dt);
   m.recoil = Math.max(0, (m.recoil || 0) - dt * 7);
-  if (m.poseTimer <= 0 && (m.pose === 'pulse' || m.pose === 'railgunFire' || m.pose === 'portalExit')) m.pose = 'idle';
+  m.freezeActive = Math.max(0, (m.freezeActive || 0) - dt);
+  if (m.poseTimer <= 0 && (
+      m.pose === 'pulse' || m.pose === 'railgunFire' ||
+      m.pose === 'freezeFire' || m.pose === 'portalExit'
+    )) m.pose = 'idle';
   m.railgunCooldown = Math.max(0, (m.railgunCooldown || 0) - dt);
   m.basicCooldown = Math.max(0, (m.basicCooldown || 0) - dt);
   m.jumpCd = Math.max(0, (m.jumpCd || 0) - dt);
@@ -421,6 +594,32 @@ function updateAidan(m, game, owner, ownerCenter, dt) {
   tickRadioactive(m, game, dt);
 
   if (m.portalState) { updatePortal(m, game, dt); return; }
+  if (m.freezeWindup > 0) { updateFreezeGun(m, game, dt); return; }
+  if (m.freezeActive > 0) {
+    settleAidan(m, game, dt);
+    m.moveAmount = 0;
+    m.pose = 'freezeFire';
+    return;
+  }
+  if (m.jetpackTime > 0) { updateJetpack(m, game, ownerCenter, dt); return; }
+
+  if (m.freezeDefensePending && m.freezeCooldown <= 0) {
+    const defenseTarget = aliveTarget(m.freezeTarget)
+      ? m.freezeTarget
+      : nearestTarget(game, cX(m), cY(m), d.freezeRange || 900);
+    if (defenseTarget) {
+      beginFreezeGun(m, game, defenseTarget);
+      return;
+    }
+    m.freezeDefensePending = false;
+    m.freezeTarget = null;
+  }
+
+  if ((m.stuckTimer || 0) > 0.85 && m.jetpackCooldown <= 0) {
+    beginJetpack(m, game, ownerCenter);
+    return;
+  }
+
   if (m.railgunWindup > 0) { updateRailgun(m, game, owner, dt); return; }
 
   const c = centerOf(m);
@@ -464,6 +663,9 @@ function updateAidan(m, game, owner, ownerCenter, dt) {
   }
 }
 
+function cX(m) { return m.x + m.w / 2; }
+function cY(m) { return m.y + m.h / 2; }
+
 export function initAidanState(m) {
   m.portalState = null;
   m.portalCooldown = 0;
@@ -476,6 +678,18 @@ export function initAidanState(m) {
   m.railgunOrigin = null;
   m.railgunBeamEnd = null;
   m.railgunTarget = null;
+  m.freezeCooldown = 0;
+  m.freezeWindup = 0;
+  m.freezeProgress = 0;
+  m.freezeActive = 0;
+  m.freezeAngle = 0;
+  m.freezeTarget = null;
+  m.freezeDefensePending = false;
+  m.jetpackCooldown = 0;
+  m.jetpackTime = 0;
+  m.jetpackTarget = null;
+  m.jetpackFxTimer = 0;
+  m.stuckTimer = 0;
   m.basicCooldown = 0.35;
   m.pose = 'idle';
   m.poseTimer = 0;
@@ -537,22 +751,34 @@ function drawPortal(ctx, portal, time, scale = 1) {
 }
 
 
-function drawAidanLeg(ctx, x, y, stride, lift = 0) {
+function drawAidanLeg(ctx, x, y, stride, lift = 0, knee = 0) {
   ctx.save();
-  ctx.translate(x + stride * 0.6, y - lift);
-  ctx.rotate(stride * 0.12);
+  ctx.translate(x, y);
+  ctx.rotate(stride * 0.10);
   ctx.fillStyle = '#4b2d1b';
-  ctx.fillRect(-2, 0, 4, 9);
-  ctx.fillStyle = '#9d6128';
-  ctx.fillRect(-2, 1, 4, 6);
-  ctx.fillStyle = '#e1aa3a';
-  ctx.fillRect(-2, 2, 3, 2);
-  ctx.fillStyle = '#33231d';
-  ctx.fillRect(-3, 7, 6, 3);
+  ctx.fillRect(-2, 0, 4, 4);
+  ctx.fillStyle = '#a96729';
+  ctx.fillRect(-1, 0, 3, 4);
+  ctx.fillStyle = '#e7b545';
+  ctx.fillRect(-1, 1, 2, 1);
+
+  ctx.translate(stride * 0.56, 4 - lift);
+  ctx.rotate(-stride * 0.08 - knee * 0.07);
+  ctx.fillStyle = '#3b291e';
+  ctx.fillRect(-2, 0, 4, 6);
+  ctx.fillStyle = '#9b5e26';
+  ctx.fillRect(-1, 0, 3, 5);
+  ctx.fillStyle = '#dca63a';
+  ctx.fillRect(-1, 1, 2, 2);
+
+  ctx.translate(stride * 0.18, 5);
+  ctx.rotate(-stride * 0.06);
+  ctx.fillStyle = '#2c2020';
+  ctx.fillRect(-3, -1, 7, 3);
   ctx.fillStyle = '#d99c32';
-  ctx.fillRect(-2, 7, 4, 1);
-  ctx.fillStyle = '#f0c44f';
-  ctx.fillRect(-3, 4, 1, 2);
+  ctx.fillRect(-2, -1, 4, 1);
+  ctx.fillStyle = '#f3c450';
+  ctx.fillRect(2, 0, 2, 1);
   ctx.restore();
 }
 
@@ -651,6 +877,69 @@ function drawRailgun(ctx, angle, charge, recoil = 0) {
   ctx.restore();
 }
 
+function drawFreezeGun(ctx, angle, charge, recoil = 0) {
+  ctx.save();
+  ctx.rotate(angle);
+  ctx.translate(-recoil * 2.4, 0);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.30;
+  ctx.fillStyle = FREEZE_CYAN;
+  ctx.fillRect(0, -6, 37, 12);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+
+  // Dark frame and silver heat-shield, matching the supplied sci-fi reference.
+  ctx.fillStyle = '#182236';
+  ctx.fillRect(1, -5, 31, 10);
+  ctx.fillStyle = '#59677f';
+  ctx.fillRect(7, -7, 19, 3);
+  ctx.fillStyle = '#aebbd0';
+  ctx.fillRect(10, -8, 13, 2);
+  ctx.fillRect(26, -5, 7, 10);
+  ctx.fillStyle = '#29364e';
+  ctx.fillRect(27, -3, 6, 6);
+
+  // Cyan cryo canister.
+  ctx.fillStyle = '#0b5cb8';
+  ctx.fillRect(5, -4, 16, 8);
+  ctx.fillStyle = '#32d9ff';
+  ctx.fillRect(7, -3, 12, 6);
+  ctx.fillStyle = '#b9fbff';
+  ctx.fillRect(9, -2, 7, 2);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.7 + charge * 0.3;
+  ctx.fillStyle = FREEZE_CORE;
+  ctx.fillRect(11, -1, 8, 2);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+
+  // Crystal muzzle and underside handle.
+  ctx.fillStyle = '#1b86df';
+  ctx.beginPath();
+  ctx.moveTo(31, -4); ctx.lineTo(38, -7); ctx.lineTo(36, -2);
+  ctx.lineTo(41, 0); ctx.lineTo(36, 2); ctx.lineTo(38, 7);
+  ctx.lineTo(31, 4); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#a9f7ff';
+  ctx.fillRect(34, -2, 5, 2);
+  ctx.fillStyle = '#182236';
+  ctx.beginPath();
+  ctx.moveTo(12, 4); ctx.lineTo(21, 4); ctx.lineTo(19, 13);
+  ctx.lineTo(13, 12); ctx.lineTo(9, 6); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#6d7890';
+  ctx.fillRect(13, 8, 5, 2);
+
+  if (charge > 0) {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.28 + charge * 0.42;
+    ctx.strokeStyle = FREEZE_CYAN;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(38, 0, 4 + charge * 4, -0.9, 0.9);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function localAimAngle(face, worldAngle) {
   const raw = face > 0 ? worldAngle : Math.PI - worldAngle;
   return Math.atan2(Math.sin(raw), Math.cos(raw));
@@ -667,25 +956,35 @@ export function drawAidan(ctx, m) {
   const face = m.facing < 0 ? -1 : 1;
   const pose = m.pose || ((m.moveAmount || 0) > 0.08 ? 'move' : 'idle');
   const grounded = m.onGround !== false;
-  const moving = grounded && (m.moveAmount || 0) > 0.06 &&
-    pose !== 'railgunCharge' && pose !== 'railgunFire';
-  const walkPhase = m.walkCycle != null ? m.walkCycle : t * 2.35;
-  const gait = Math.sin(walkPhase);
-  const stride = moving ? gait * 3.0 : Math.sin(t * 1.8) * 0.16;
-  const lift = moving ? Math.max(0, gait) * 1.25 : 0;
-  const otherLift = moving ? Math.max(0, -gait) * 1.25 : 0;
-  const walkBob = moving ? Math.abs(gait) * 0.48 : 0;
-  const breathing = Math.sin(t * 2.25) * 0.22;
-  const chargeCrouch = pose === 'railgunCharge' ? 0.9 + Math.sin(t * 13) * 0.18 : 0;
-  const fireKick = pose === 'railgunFire' ? -0.75 : 0;
-  const bodyY = breathing + walkBob + chargeCrouch + fireKick;
-  const recoil = Math.max(0, Math.min(1, m.recoil || 0));
+  const freezePose = pose === 'freezeCharge' || pose === 'freezeFire' ||
+    m.freezeWindup > 0 || m.freezeActive > 0;
+  const jetpackPose = pose === 'jetpack' || m.jetpackTime > 0;
   const railPose = pose === 'railgunCharge' || pose === 'railgunFire' ||
     m.railgunWindup > 0 || m.railgunActive > 0;
+  const moving = grounded && (m.moveAmount || 0) > 0.06 &&
+    !railPose && !freezePose && !jetpackPose;
+  const walkPhase = m.walkCycle != null ? m.walkCycle : t * 2.35;
+  const gait = Math.sin(walkPhase);
+  const stride = moving ? gait * 3.8 : Math.sin(t * 1.8) * 0.16;
+  const lift = moving ? Math.max(0, gait) * 1.8 : 0;
+  const otherLift = moving ? Math.max(0, -gait) * 1.8 : 0;
+  const knee = moving ? Math.max(0, gait) * 1.3 : 0;
+  const otherKnee = moving ? Math.max(0, -gait) * 1.3 : 0;
+  const walkBob = moving ? Math.abs(gait) * 0.70 : 0;
+  const breathing = Math.sin(t * 2.25) * 0.22;
+  const chargeCrouch = pose === 'railgunCharge'
+    ? 0.9 + Math.sin(t * 13) * 0.18
+    : freezePose ? 0.35 + Math.sin(t * 16) * 0.08 : 0;
+  const fireKick = pose === 'railgunFire' || pose === 'freezeFire' ? -0.75 : 0;
+  const jetBob = jetpackPose ? Math.sin(t * 18) * 0.65 - 0.8 : 0;
+  const bodyY = breathing + walkBob + chargeCrouch + fireKick + jetBob;
+  const bodyLean = jetpackPose ? -0.14 : moving ? gait * 0.035 : 0;
+  const recoil = Math.max(0, Math.min(1, m.recoil || 0));
   const portalPose = pose === 'portalAim' || pose === 'portalStep' ||
     pose === 'portalExit' || !!m.portalState;
   const pulsePose = pose === 'pulse' || (m.attackPulse || 0) > 0;
-  const worldAim = railPose ? (m.railgunAngle || 0)
+  const worldAim = freezePose ? (m.freezeAngle || 0)
+    : railPose ? (m.railgunAngle || 0)
     : portalPose ? (m.portalGunAngle || 0)
     : (m.pulseAngle || (m.facing < 0 ? Math.PI : 0));
   const aim = localAimAngle(face, worldAim);
@@ -700,13 +999,19 @@ export function drawAidan(ctx, m) {
   ctx.restore();
 
   ctx.save();
-  ctx.translate(cx, cy + bodyY);
+  ctx.translate(cx + bodyLean, cy + bodyY);
+  ctx.rotate(bodyLean);
   ctx.scale(face, 1);
 
   // Short-lived state feedback is tied to the pose, not to a scale change.
   ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = railPose ? 0.14 + (m.railgunProgress || 0) * 0.12 : 0.07;
-  ctx.fillStyle = railPose ? RAIL_PURPLE : PORTAL_CYAN;
+  ctx.globalAlpha = railPose ? 0.14 + (m.railgunProgress || 0) * 0.12
+    : freezePose ? 0.16 + (m.freezeProgress || 0) * 0.12
+    : jetpackPose ? 0.18 : 0.07;
+  ctx.fillStyle = railPose ? RAIL_PURPLE
+    : freezePose ? FREEZE_BLUE
+    : jetpackPose ? FREEZE_CYAN
+    : PORTAL_CYAN;
   ctx.beginPath();
   ctx.arc(0, -1, 10.5 + Math.sin(t * 4) * 0.7, 0, TAU);
   ctx.fill();
@@ -721,13 +1026,24 @@ export function drawAidan(ctx, m) {
   ctx.fillStyle = PORTAL_BLUE;
   ctx.fillRect(-9, -3, 1, 3);
   ctx.fillRect(-9, 3, 1, 3);
+  if (jetpackPose) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 3; i++) {
+      const flame = 4 + Math.sin(t * 15 + i) * 1.5;
+      ctx.globalAlpha = 0.45 - i * 0.10;
+      ctx.fillStyle = i === 0 ? '#ffffff' : FREEZE_CYAN;
+      ctx.fillRect(-10 - i * 2, 5 + i * 2, 2, flame);
+    }
+    ctx.restore();
+  }
 
   // Animated legs: every stride changes the knee/boot placement.
-  drawAidanLeg(ctx, -3, 6, stride, lift);
-  drawAidanLeg(ctx, 3, 6, -stride, otherLift);
+  drawAidanLeg(ctx, -3, 6, stride, lift, knee);
+  drawAidanLeg(ctx, 3, 6, -stride, otherLift, otherKnee);
 
   // Rear arm swings opposite the front leg while walking.
-  const swing = moving ? stride * 0.18 : Math.sin(t * 1.8) * 0.04;
+  const swing = moving ? stride * 0.28 : Math.sin(t * 1.8) * 0.04;
   drawAidanArm(ctx, -5, -4 + bodyY * 0.1, -0.18 - swing, 0.88);
 
   // Compact brown-and-gold chest plate.
@@ -784,6 +1100,26 @@ export function drawAidan(ctx, m) {
       ctx.globalCompositeOperation = 'source-over';
       ctx.globalAlpha = 1;
     }
+  } else if (freezePose) {
+    // Defensive freeze gun: a two-arm aim, a visible charge, then a recoil
+    // pose after the projectile is actually released.
+    drawAidanArm(ctx, 4.5, -4, aimArm + 0.03, 0.94);
+    drawAidanArm(ctx, -4, -3, aimArm + 0.34, 0.84);
+    ctx.save();
+    ctx.translate(4.5, -3);
+    drawFreezeGun(ctx, aim, m.freezeProgress || 0, recoil);
+    ctx.restore();
+    if (pose === 'freezeCharge') {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.72;
+      ctx.strokeStyle = FREEZE_CYAN;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(10, -3, 4 + (m.freezeProgress || 0) * 5, -0.75, 0.75);
+      ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+    }
   } else if (portalPose) {
     // Portal Pursuit visibly aims the gun, steps toward the source portal, then
     // exits with a backward recoil. The portal itself remains a separate effect.
@@ -810,6 +1146,11 @@ export function drawAidan(ctx, m) {
     ctx.restore();
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
+  } else if (jetpackPose) {
+    // Jetpack recovery keeps the armor angled with the arms braced against
+    // the thrust, while the exhaust is rendered behind the body.
+    drawAidanArm(ctx, 4.5, -4, -0.44, 0.92);
+    drawAidanArm(ctx, -4, -3, 0.32, 0.84);
   } else {
     // Idle and locomotion have opposing arm/leg motion instead of a rigid pose.
     drawAidanArm(ctx, 5, -4, 0.18 - swing, 0.88);
