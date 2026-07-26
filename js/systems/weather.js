@@ -96,4 +96,5 @@ export class Weather {
 // How strongly wind pushes the player, in px/s^2 at full strength. Deliberately
 // small: it should make running into a gale feel like work, never like losing
 // control of the character.
-export const WIND_PLAYER_ACCEL = 46;
+// Keep the terrain sway visible while making character drift a subtle cue.
+export const WIND_PLAYER_ACCEL = 8;
