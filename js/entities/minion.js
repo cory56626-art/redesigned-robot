@@ -2,7 +2,7 @@
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
 import { minionDef } from '../data/minions.js?v=aidan-summon-12';
-import { initAidanState, updateAidanState } from './aidan.js?v=aidan-summon-12';
+import { initAidanState, updateAidanState } from './aidan.js?v=aidan-summon-13';
 import { dist2, aabb, angleTo } from '../utils.js?v=realms-difficulty-22';
 import { TILE } from '../config.js?v=realms-difficulty-22';
 import { Projectile } from './projectile.js?v=realms-difficulty-22';
