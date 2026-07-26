@@ -209,8 +209,10 @@ export class Player {
     // a cursor adjustment never accidentally spawns/replaces a minion.
     const aimUse = input.aimHeld && aimUseItem(sel);
 
-    // Primary use.
-    if ((input.primaryHeld || aimUse) && sel) {
+    // Primary use. Include the queued edge so a quick desktop click still
+    // reaches weapons and summons after mouseup before the next fixed step.
+    const primaryUse = input.primaryHeld || input.primaryPressed || aimUse;
+    if (primaryUse && sel) {
       if (sel.category === 'tool') {
         combat.mineAt(game, this, dt, { tool: sel });
       } else if (sel.category === 'block' || sel.category === 'station') {
