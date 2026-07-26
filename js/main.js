@@ -39,7 +39,7 @@ import { SaveManager, setSaveIndicator } from './save.js?v=realms-difficulty-22'
 import { CommandConsole } from './commands.js?v=realms-difficulty-22';
 import { Net } from './net/net.js?v=realms-stability-23';
 import { MSG } from './net/protocol.js?v=realms-difficulty-22';
-import * as sync from './net/sync.js?v=realms-stability-23';
+import * as sync from './net/sync.js?v=realms-stability-24';
 
 class Game {
   constructor() {
