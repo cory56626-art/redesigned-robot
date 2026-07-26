@@ -8,13 +8,13 @@ import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=aidan-s
 import { item as getItem } from '../data/items.js?v=aidan-summon-1';
 import { canPlaceAt } from '../systems/combat.js?v=aidan-summon-1';
 import { clamp } from '../utils.js?v=aidan-summon-1';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=aidan-summon-10';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=aidan-summon-11';
 
 const PROJ_GLOW = {
   thorn: '#7ee08a', seed: '#a7e36f', rock: '#8a7a5a', shock: '#d3b985',
   blight: '#c58bff', crystal: '#df8cff', voidorb: '#b06bff',
   spark: '#9ec3ff', wispbolt: '#9ec3ff', emberball: '#ff8c3b',
-  arcwave: '#bfe9ff', diamondSpear: '#dffcff', miniDiamondSpear: '#8be9ff', aidanPulse: '#8feaff',
+  arcwave: '#bfe9ff', diamondSpear: '#dffcff', miniDiamondSpear: '#8be9ff', aidanPulse: '#8feaff', aidanFreeze: '#61eaff',
 };
 
 // Background colour anchors by depth, in tile rows. `colorAtDepth` interpolates
@@ -500,6 +500,35 @@ export class Renderer {
         continue;
       }
 
+      if (pr.kind === 'aidanFreeze') {
+        const pulse = 1 + Math.sin((pr.x + pr.y) * 0.02 + performance.now() * 0.01) * 0.10;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.24 * pulse;
+        ctx.fillStyle = '#31cfff';
+        ctx.beginPath(); ctx.arc(0, 0, 11 * pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#217bd2';
+        ctx.beginPath();
+        ctx.moveTo(-10, 0); ctx.lineTo(-3, -3); ctx.lineTo(2, -7);
+        ctx.lineTo(9, -3); ctx.lineTo(13, 0); ctx.lineTo(8, 3);
+        ctx.lineTo(2, 7); ctx.lineTo(-3, 3); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#9ef7ff';
+        ctx.beginPath();
+        ctx.moveTo(-8, 0); ctx.lineTo(-1, -2); ctx.lineTo(7, 0);
+        ctx.lineTo(-1, 2); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#f1ffff';
+        ctx.fillRect(-3, -1, 7, 2);
+        ctx.globalAlpha = 0.7;
+        ctx.fillStyle = '#62eaff';
+        for (let i = 0; i < 3; i++) {
+          const x = -13 - i * 5;
+          ctx.fillRect(x, -1 + i % 2, 3, 2);
+        }
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        continue;
+      }
+
       if (pr.kind === 'diamondSpear' || pr.kind === 'miniDiamondSpear') {
         const mini = pr.kind === 'miniDiamondSpear';
         const len = mini ? 8 : 25;
@@ -554,6 +583,43 @@ export class Renderer {
   }
 
 
+  _drawFreezeOverlay(ctx, entity) {
+    if (!entity || !(entity.freezeT > 0)) return;
+    const cx = entity.x + entity.w / 2;
+    const cy = entity.y + entity.h / 2;
+    const t = entity.animTime != null ? entity.animTime : (entity.bob || 0);
+    const pulse = 1 + Math.sin(t * 9) * 0.08;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.10;
+    ctx.fillStyle = '#63eaff';
+    ctx.fillRect(-entity.w * 0.55, -entity.h * 0.56, entity.w * 1.1, entity.h * 1.12);
+    ctx.globalAlpha = 0.8;
+    ctx.strokeStyle = '#bffcff';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(0, 0, (Math.max(entity.w, entity.h) * 0.72 + 5) * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = '#2b9df2';
+    ctx.globalAlpha = 0.65;
+    ctx.beginPath();
+    ctx.arc(0, 0, (Math.max(entity.w, entity.h) * 0.88 + 8) * pulse, t * 2, t * 2 + Math.PI * 1.45);
+    ctx.stroke();
+    for (let i = 0; i < 6; i++) {
+      const a = t * 1.3 + i * Math.PI / 3;
+      const r = Math.max(entity.w, entity.h) * 0.74 + 4;
+      const tip = r + 6 + Math.sin(t * 5 + i) * 1.5;
+      ctx.fillStyle = i % 2 ? '#bffcff' : '#3ed8ff';
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * (r - 2), Math.sin(a) * (r - 2));
+      ctx.lineTo(Math.cos(a + 0.16) * tip, Math.sin(a + 0.16) * tip);
+      ctx.lineTo(Math.cos(a - 0.12) * (r - 2), Math.sin(a - 0.12) * (r - 2));
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+
   _drawEnemies(game, ctx) {
     for (const e of game.enemies) {
       // A malformed replicated enemy must not abort the whole canvas frame.
@@ -576,6 +642,7 @@ export class Renderer {
         default: this._drawUnknownEnemy(ctx, e); break;
       }
       if (e.hp < e.maxHp) this._miniHp(ctx, e, e.hp / e.maxHp, '#ff6b7d');
+      if (e.freezeT > 0) this._drawFreezeOverlay(ctx, e);
       } catch (err) {
         if (e && !e._renderFaultReported) {
           e._renderFaultReported = true;
@@ -1407,6 +1474,7 @@ export class Renderer {
       else if (b.key === 'gravemaw') this._drawGravemaw(ctx, b);
       else this._drawBlightSovereign(ctx, b);
       ctx.restore();
+      if (b.freezeT > 0) this._drawFreezeOverlay(ctx, b);
       this._drawBossWarning(ctx, b);
     }
   }
