@@ -1,7 +1,7 @@
 // Summoner Realms — item catalogue. All original names/designs.
 // Categories: weapon (melee/ranged/mage/summon), tool, armor, accessory,
 // potion, ammo, material, block, station, summonitem.
-import { T, SHAPE, packTile } from '../world/tiles.js?v=realms-qor-46';
+import { T, SHAPE, packTile } from '../world/tiles.js?v=realms-qor-47';
 
 export const ITEMS = {};
 

@@ -398,9 +398,15 @@ input[type="range"]::-moz-range-thumb {
 .inv-slot canvas { width: 76%; height: 76%; image-rendering: pixelated; pointer-events: none; }
 
 .inv-craft { width: min(320px, 94vw); }
-.craft-list { display: flex; flex-direction: column; gap: var(--s1); max-height: 52vh; overflow-y: auto; }
+.craft-list { display: flex; flex-direction: column; gap: var(--s1); max-height: 46vh; overflow-y: auto; }
 .craft-item { display: flex; align-items: center; gap: var(--s2); background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 9px; cursor: pointer; transition: border-color 0.12s, background 0.12s; }
-.craft-item.disabled { opacity: 0.45; cursor: not-allowed; }
+.craft-item.disabled { cursor: not-allowed; }
+/* Out-of-reach and short-on-materials read differently: a missing station is a
+   "go somewhere" problem, missing materials is a "go get some" problem. Both
+   stay legible — dimming them out of readability is what hid the recipes. */
+.craft-item.short { opacity: 0.72; }
+.craft-item.away { opacity: 0.58; border-style: dashed; }
+.craft-item.disabled .craft-icon { filter: grayscale(0.65); }
 .craft-item:hover:not(.disabled) { border-color: var(--teal); background: #182046; }
 .craft-item .craft-icon { width: 32px; height: 32px; image-rendering: pixelated; flex-shrink: 0; }
 .craft-item .craft-info { flex: 1; min-width: 0; }
@@ -408,6 +414,87 @@ input[type="range"]::-moz-range-thumb {
 .craft-item .craft-cost { font-size: 11px; color: var(--faint); }
 .craft-item .craft-cost .ok { color: var(--green); }
 .craft-item .craft-cost .no { color: var(--red); }
+.craft-item .craft-block { font-size: 11px; font-weight: 600; }
+.craft-item.short .craft-block { color: var(--gold); }
+.craft-item.away .craft-block { color: var(--muted); }
+
+/* Which stations are in reach, always on show — the panel used to be silent
+   about this, which is what made 92 of 102 recipes look nonexistent. */
+.station-line { font-size: 11px; color: var(--faint); margin-bottom: var(--s2); letter-spacing: 0.2px; }
+.station-line b { color: var(--teal); font-weight: 700; }
+.craft-divider {
+  font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: 1px;
+  margin: var(--s2) 0 var(--s1); padding-top: var(--s2); border-top: 1px solid var(--border);
+}
+
+.craft-search { margin-bottom: var(--s2); position: relative; display: flex; align-items: center; gap: var(--s1); }
+.craft-search input[type="text"] { flex: 1; min-width: 0; width: 100%; min-height: 34px; font-size: 13px; padding: 6px 10px; }
+.craft-search.big input[type="text"] { min-height: 40px; font-size: 14px; }
+
+/* ---- Expanded crafting ---- */
+.craft-panel { width: min(1040px, 96vw); display: flex; flex-direction: column; }
+.craft-head { display: flex; align-items: baseline; gap: var(--s3); }
+.craft-head h2 { margin-bottom: 0; }
+.craft-head .station-line { margin-bottom: 0; }
+
+.filter-chips { display: flex; flex-wrap: wrap; gap: var(--s1); margin-bottom: var(--s3); }
+.fchip {
+  background: var(--bg2); color: var(--muted); border: 1px solid var(--border);
+  border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.fchip:hover { color: var(--ink); border-color: var(--border-strong); }
+.fchip.active { background: var(--teal); border-color: var(--teal); color: #05201a; }
+.fchip:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+/* A floor on the height so the centred dialog doesn't jump up the screen
+   every time a filter narrows the grid. */
+.craft-browse { display: flex; gap: var(--s3); align-items: stretch; min-height: 300px; }
+.craft-grid {
+  flex: 1; min-width: 0; display: grid; gap: var(--s2);
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  align-content: start; max-height: 54vh; overflow-y: auto; padding-right: 2px;
+}
+.craft-cell {
+  position: relative; aspect-ratio: 1; background: var(--bg2);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; padding: 0; transition: border-color 0.12s, background 0.12s;
+}
+.craft-cell canvas { width: 74%; height: 74%; image-rendering: pixelated; pointer-events: none; }
+.craft-cell:hover { background: #182046; }
+.craft-cell:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.craft-cell.selected { border-color: var(--teal); background: #182046; box-shadow: 0 0 0 1px var(--teal); }
+.craft-cell.short canvas { filter: grayscale(0.45); opacity: 0.8; }
+.craft-cell.away canvas { filter: grayscale(0.7); opacity: 0.62; }
+.craft-cell .cell-count { position: absolute; bottom: 1px; right: 4px; font-size: 11px; font-weight: 800; text-shadow: 0 1px 2px #000; pointer-events: none; }
+/* One dot, bottom-left: gold = have the bench, not the materials; hollow =
+   the station is elsewhere. Ready cells carry no dot — nothing to report. */
+.craft-cell .cell-dot { position: absolute; top: 3px; left: 3px; width: 5px; height: 5px; border-radius: 50%; pointer-events: none; }
+.craft-cell.short .cell-dot { background: var(--gold); }
+.craft-cell.away .cell-dot { border: 1px solid var(--muted); }
+
+.craft-detail {
+  width: 268px; flex-shrink: 0; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: var(--s3); max-height: 54vh; overflow-y: auto;
+}
+.craft-detail .cd-name { font-weight: 800; font-size: 15px; margin-bottom: 2px; }
+.craft-detail .cd-tag { font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: var(--s2); }
+.craft-detail .cd-desc { font-size: 12px; color: var(--muted); line-height: 1.5; margin: var(--s2) 0; }
+.craft-detail .cd-rule { border-top: 1px solid var(--border); margin: var(--s3) 0 var(--s2); }
+.craft-detail .cd-ing { display: flex; align-items: center; gap: var(--s2); font-size: 12px; padding: 3px 0; }
+.craft-detail .cd-ing canvas { width: 20px; height: 20px; image-rendering: pixelated; flex-shrink: 0; }
+.craft-detail .cd-ing .cd-have { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 700; }
+.craft-detail .cd-ing.ok .cd-have { color: var(--green); }
+.craft-detail .cd-ing.no .cd-have { color: var(--red); }
+.craft-detail .cd-block { font-size: 12px; font-weight: 700; margin: var(--s2) 0; }
+.craft-detail .cd-block.short { color: var(--gold); }
+.craft-detail .cd-block.away { color: var(--muted); }
+.craft-detail .cd-station { font-size: 11px; color: var(--faint); }
+.craft-detail .btn { width: 100%; margin-top: var(--s2); }
+.craft-detail .cd-stat { font-size: 12px; color: var(--muted); }
+.craft-detail .cd-stat b { color: var(--ink); font-weight: 700; }
+.craft-empty { color: var(--faint); font-size: 13px; text-align: center; padding: var(--s5) var(--s3); }
 
 .item-tooltip {
   position: fixed; z-index: 50; background: rgba(8, 11, 24, 0.97); border: 1px solid var(--border-strong);
@@ -443,9 +530,16 @@ input[type="range"]::-moz-range-thumb {
   .inv-grid { grid-template-columns: repeat(5, var(--slot)); }
   .inv-body { gap: var(--s3); }
   .inv-right { min-width: 0; }
+  /* The detail pane stacks under the grid rather than squeezing beside it. */
+  .craft-browse { flex-direction: column; }
+  .craft-detail { width: 100%; max-height: none; }
+  .craft-grid { max-height: 38vh; }
+  .craft-head { flex-wrap: wrap; }
 }
 @media (max-height: 620px) {
-  .craft-list { max-height: 34vh; }
+  .craft-list { max-height: 30vh; }
+  .craft-grid { max-height: 42vh; }
+  .craft-detail { max-height: 42vh; }
 }
 
 /* ---------------- Guide NPC dialogue ---------------- */

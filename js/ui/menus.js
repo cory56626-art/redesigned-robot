@@ -1,12 +1,11 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=realms-qor-46';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=realms-qor-46';
-import { Sprites } from '../art/sprites.js?v=realms-qor-46';
-import { item as getItem } from '../data/items.js?v=realms-qor-46';
-import { availableRecipes } from '../systems/crafting.js?v=realms-qor-46';
-import { claudeNotesHTML } from './claude-notes.js?v=realms-qor-46';
-import { SKIN_TONES, HAIR_COLORS, HAIR_STYLES, SHIRT_COLORS, PANTS_COLORS, defaultAppearance } from '../systems/characters.js?v=realms-qor-46';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=realms-qor-47';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=realms-qor-47';
+import { Sprites } from '../art/sprites.js?v=realms-qor-47';
+import { item as getItem } from '../data/items.js?v=realms-qor-47';
+import { claudeNotesHTML } from './claude-notes.js?v=realms-qor-47';
+import { SKIN_TONES, HAIR_COLORS, HAIR_STYLES, SHIRT_COLORS, PANTS_COLORS, defaultAppearance } from '../systems/characters.js?v=realms-qor-47';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [
@@ -196,7 +195,7 @@ export class Menus {
 
   anyModalOpen() {
     return ['mainMenu', 'pauseMenu', 'inventoryScreen', 'newWorldDialog', 'loadWorldDialog', 'mpMenu', 'minimapDialog', 'charSelectDialog', 'charCreateDialog',
-      'commandPanel', 'howtoDialog', 'claudeNotesDialog', 'confirmDialog', 'deathScreen', 'settingsDialog', 'npcDialog']
+      'commandPanel', 'howtoDialog', 'claudeNotesDialog', 'confirmDialog', 'deathScreen', 'settingsDialog', 'npcDialog', 'craftingDialog']
       .some(id => this.isOpen(id));
   }
 
@@ -205,7 +204,7 @@ export class Menus {
   // using items with your bag open, which is what this list encodes.
   anyBlockingModalOpen() {
     return ['mainMenu', 'pauseMenu', 'newWorldDialog', 'loadWorldDialog', 'mpMenu', 'minimapDialog', 'charSelectDialog', 'charCreateDialog',
-      'commandPanel', 'howtoDialog', 'claudeNotesDialog', 'confirmDialog', 'deathScreen', 'settingsDialog', 'npcDialog']
+      'commandPanel', 'howtoDialog', 'claudeNotesDialog', 'confirmDialog', 'deathScreen', 'settingsDialog', 'npcDialog', 'craftingDialog']
       .some(id => this.isOpen(id));
   }
 
@@ -408,6 +407,7 @@ export class Menus {
         <li><kbd>F</kbd> — talk to the Guide · <kbd>Ctrl</kbd> — hold for <b>Smart Cursor</b> (or set it to Always in Settings)</li>
         <li><kbd>+</kbd> / <kbd>-</kbd> or <kbd>Ctrl</kbd>+scroll — <b>zoom</b> in and out</li>
         <li><kbd>M</kbd> — open the <b>map</b> (drag to pan, scroll or pinch to zoom)</li>
+        <li><kbd>C</kbd> — open <b>crafting</b> (search by name or material, filter by category)</li>
         <li><kbd>Esc</kbd> — pause · <kbd>Enter</kbd> — chat (multiplayer)</li>
       </ul>
       <h4>Mobile Controls</h4>
@@ -424,7 +424,7 @@ export class Menus {
       <h4>Tips</h4>
       <ul>
         <li>You start with only a <b>pickaxe</b>, an <b>axe</b>, and a <b>sword</b>. Chop trees with the axe (they topple and drop wood — leaves only give twigs), mine stone &amp; ore with the pickaxe.</li>
-        <li>Craft a <b>Crafting Bench</b> from wood, then build a Smeltery, Forge and Aether Altar as you progress.</li>
+        <li>Craft a <b>Crafting Bench</b> from wood, then build a Smeltery, Forge and Aether Altar as you progress. The crafting panel lists <b>every</b> recipe — the ones you can't make yet say why, so "Needs a Forge" tells you what to go build.</li>
         <li>An <b>Oaken Mallet</b> (8 wood, no bench needed) reshapes any block you hit: full → half → the four slopes → raised half → back to full. Slopes are walked up smoothly, so they make ramps out of terraces. Swing it at open space to knock out the background wall behind it.</li>
         <li><b>Oaken Walkways</b> (1 wood → 4) are thin platforms: stand on them, jump up <i>through</i> them, and hold <kbd>S</kbd> to drop back down.</li>
         <li><b>Bombs</b> are a mining tool as much as a weapon — they arc, bounce, and blow craters in dirt and stone. Stand clear: the blast hurts you too.</li>
@@ -488,6 +488,11 @@ export class Menus {
       this._syncSlots();
       this._craftTimer -= dt;
       if (this._craftTimer <= 0) { this._craftTimer = 0.4; this.renderCrafting(); this._renderStats(this.game.localPlayer); }
+    } else if (this.game.ui.crafting && this.game.ui.crafting.isOpen()) {
+      // The expanded view can be open on its own (C without the bag), and it
+      // still has to notice you walking up to a Forge.
+      this._craftTimer -= dt;
+      if (this._craftTimer <= 0) { this._craftTimer = 0.4; this.game.ui.crafting.renderBig(); }
     }
     if (this.isOpen('deathScreen')) this._updateRespawnButton();
   }
@@ -829,42 +834,13 @@ export class Menus {
       + (def.desc ? `<div class="tt-desc">${def.desc}</div>` : '');
   }
 
+  // Both crafting views live in ui/crafting.js; this is the hook the inventory
+  // tick already calls.
   renderCrafting(force) {
-    const p = this.game.localPlayer;
-    if (!p) return;
-    const list = $('craftList');
-    const recs = availableRecipes(this.game, p);
-    // Rebuilding ~80 rows every tick was most of the inventory's cost. Only do
-    // it when what's craftable (or the material counts shown) actually changed.
-    const sig = recs.map(r => r.recipe.id + (r.craftable ? '1' : '0') +
-      r.recipe.in.map(i => p.inventory.count(i.item)).join(',')).join('|');
-    if (!force && sig === this._craftSig) return;
-    this._craftSig = sig;
-    list.innerHTML = '';
-    const stations = [...new Set(recs.map(r => r.recipe.station))];
-    $('craftStationLabel').textContent = `(near: ${stations.filter(Boolean).join(', ') || 'hand only — place a Crafting Bench'})`;
-    // sort craftable first
-    recs.sort((a, b) => (b.craftable - a.craftable));
-    for (const r of recs) {
-      const rec = r.recipe;
-      const out = getItem(rec.out.item);
-      const div = document.createElement('div');
-      div.className = 'craft-item' + (r.craftable ? '' : ' disabled');
-      const cv = document.createElement('canvas'); cv.width = 34; cv.height = 34; cv.className = 'craft-icon';
-      const icon = Sprites.getIcon(out); if (icon) cv.getContext('2d').drawImage(icon, 0, 0, 34, 34);
-      div.appendChild(cv);
-      const info = document.createElement('div'); info.className = 'craft-info';
-      const cost = rec.in.map(ing => {
-        const have = p.inventory.count(ing.item);
-        const cls = have >= ing.count ? 'ok' : 'no';
-        return `<span class="${cls}">${getItem(ing.item).name} ${have}/${ing.count}</span>`;
-      }).join(', ');
-      info.innerHTML = `<div class="craft-name">${out.name}${rec.out.count > 1 ? ' ×' + rec.out.count : ''} <span class="hint small">[${rec.station || 'hand'}]</span></div><div class="craft-cost">${cost}</div>`;
-      div.appendChild(info);
-      if (r.craftable) div.onclick = () => { this.game.craftRecipe(rec); this.renderInventory(); };
-      list.appendChild(div);
-    }
-    if (!recs.length) list.innerHTML = '<div class="empty-note">Place & stand near a Crafting Bench to see recipes.</div>';
+    const cu = this.game.ui.crafting;
+    if (!cu) return;
+    cu.renderList(force);
+    if (cu.isOpen()) cu.renderBig(force);
   }
 
   // ---- Multiplayer sidebar ----

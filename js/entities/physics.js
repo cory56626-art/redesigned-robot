@@ -1,5 +1,5 @@
 // Summoner Realms — shared tile collision. Per-axis swept AABB against the grid.
-import { TILE, GRAVITY, MAX_FALL } from '../config.js?v=realms-qor-46';
+import { TILE, GRAVITY, MAX_FALL } from '../config.js?v=realms-qor-47';
 
 // How far an entity is lifted to walk onto a hammered slope or half block.
 // A full tile, so even a 45-degree slope is climbed regardless of `stepHeight`

@@ -16,11 +16,11 @@
 //
 // Deterministic from a numeric seed. `tools/worldgen-check.mjs` asserts the
 // invariants this file is responsible for.
-import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE } from '../config.js?v=realms-qor-46';
-import { T, isSolid } from './tiles.js?v=realms-qor-46';
-import { W } from './walls.js?v=realms-qor-46';
-import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=realms-qor-46';
-import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep } from '../utils.js?v=realms-qor-46';
+import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE } from '../config.js?v=realms-qor-47';
+import { T, isSolid } from './tiles.js?v=realms-qor-47';
+import { W } from './walls.js?v=realms-qor-47';
+import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=realms-qor-47';
+import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep } from '../utils.js?v=realms-qor-47';
 
 // Half-width of the guaranteed flat, cave-free plain the player spawns on.
 const SPAWN_PLAIN = 13;

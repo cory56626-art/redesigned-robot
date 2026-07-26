@@ -1,8 +1,8 @@
 // Summoner Realms — crafting logic.
-import { TILE } from '../config.js?v=realms-qor-46';
-import { RECIPES } from '../data/recipes.js?v=realms-qor-46';
-import { tileDef } from '../world/tiles.js?v=realms-qor-46';
-import { item as getItem } from '../data/items.js?v=realms-qor-46';
+import { TILE } from '../config.js?v=realms-qor-47';
+import { RECIPES } from '../data/recipes.js?v=realms-qor-47';
+import { tileDef } from '../world/tiles.js?v=realms-qor-47';
+import { item as getItem } from '../data/items.js?v=realms-qor-47';
 
 // Which crafting stations are within reach of the player? (null = by hand)
 export function nearbyStations(game, player) {
@@ -33,6 +33,63 @@ export function availableRecipes(game, player) {
     out.push({ recipe: r, craftable: canCraft(player.inventory, r) });
   }
   return out;
+}
+
+// Display names for the stations, so the UI never has to say "forge" in lower
+// case in the middle of a sentence.
+export const STATION_LABEL = {
+  null: 'hand', bench: 'Crafting Bench', smeltery: 'Smeltery', forge: 'Forge', altar: 'Aether Altar',
+};
+export function stationLabel(station) { return STATION_LABEL[station] || STATION_LABEL[null]; }
+
+// Every recipe the player could ever make, annotated with what is stopping it.
+//
+// `availableRecipes` above hides anything whose station is out of reach, which
+// is 92 of 102 recipes when you are standing in the open — and it says nothing
+// about why. That is what made the pickaxes look as though they had no recipe
+// at all. This returns the whole catalogue instead and names the blocker, and
+// the UI dims rather than hides.
+//
+//   state 'ready' — craft it now
+//         'short' — station is in reach, materials are not
+//         'away'  — the station itself is somewhere else
+//
+// Boss-locked recipes are still omitted: revealing them would spoil which boss
+// gates which gear before you have met it.
+export function catalogue(game, player) {
+  const stations = nearbyStations(game, player); // one 11x11 scan for all 102
+  const inv = player.inventory;
+  const out = [];
+  for (const recipe of RECIPES) {
+    if (game.progression.isRecipeLocked(recipe)) continue;
+    const hasStation = stations.has(recipe.station);
+    // Resolve counts once here so the renderer does no inventory work per frame.
+    const ingredients = recipe.in.map(ing => ({
+      item: ing.item, need: ing.count, have: inv.count(ing.item),
+    }));
+    const missing = ingredients.filter(i => i.have < i.need);
+    out.push({
+      recipe,
+      ingredients,
+      missing,
+      station: recipe.station,
+      hasStation,
+      state: !hasStation ? 'away' : (missing.length ? 'short' : 'ready'),
+    });
+  }
+  return out;
+}
+
+// The single sentence a row shows about why it cannot be crafted. One blocker,
+// not a list: the first thing standing in your way is the useful one.
+export function blockerText(entry) {
+  if (entry.state === 'ready') return null;
+  if (entry.state === 'away') return 'Needs a ' + stationLabel(entry.station);
+  const m = entry.missing[0];
+  const short = m.need - m.have;
+  const name = getItem(m.item).name;
+  const more = entry.missing.length > 1 ? ` +${entry.missing.length - 1} more` : '';
+  return `Missing ${short} ${name}${more}`;
 }
 
 export function craft(game, player, recipe) {

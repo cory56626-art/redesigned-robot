@@ -4,8 +4,8 @@
 // so a felled tree reads as toppling from the point of impact rather than
 // blinking out. Multiplayer note: the animation is client-local; the tile
 // removals themselves replicate to everyone.
-import { TILE } from '../config.js?v=realms-qor-46';
-import { isTree, isLeaf } from '../world/tiles.js?v=realms-qor-46';
+import { TILE } from '../config.js?v=realms-qor-47';
+import { isTree, isLeaf } from '../world/tiles.js?v=realms-qor-47';
 
 // Neighbour bits, matching the renderer's tile framing.
 const N = 1, E = 2, S = 4, WBIT = 8;

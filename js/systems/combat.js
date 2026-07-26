@@ -1,11 +1,11 @@
 // Summoner Realms — combat & interaction resolution (weapons, mining, placing).
-import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY } from '../config.js?v=realms-qor-46';
-import { T, tileDef, isTree, isLeaf, isShapeable, tileShape, HAMMER_CYCLE, SHAPE } from '../world/tiles.js?v=realms-qor-46';
-import { W, wallDef, hasWall } from '../world/walls.js?v=realms-qor-46';
-import { item as getItem, platformItemFor } from '../data/items.js?v=realms-qor-46';
-import { Projectile } from '../entities/projectile.js?v=realms-qor-46';
-import { ThrownItem } from '../entities/thrown.js?v=realms-qor-46';
-import { angleTo, aabb, clamp } from '../utils.js?v=realms-qor-46';
+import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY } from '../config.js?v=realms-qor-47';
+import { T, tileDef, isTree, isLeaf, isShapeable, tileShape, HAMMER_CYCLE, SHAPE } from '../world/tiles.js?v=realms-qor-47';
+import { W, wallDef, hasWall } from '../world/walls.js?v=realms-qor-47';
+import { item as getItem, platformItemFor } from '../data/items.js?v=realms-qor-47';
+import { Projectile } from '../entities/projectile.js?v=realms-qor-47';
+import { ThrownItem } from '../entities/thrown.js?v=realms-qor-47';
+import { angleTo, aabb, clamp } from '../utils.js?v=realms-qor-47';
 
 const MINE_RATE = 95;
 const MINE_SOUND_INTERVAL = 0.32;

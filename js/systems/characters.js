@@ -9,8 +9,8 @@
 // Deliberately shaped like SaveManager in js/save.js (same prefix/index/list/
 // read/write pattern), so the two stores behave identically and the character
 // select screen can reuse the world-select markup.
-import { CHAR_PREFIX, CHAR_INDEX_KEY, CHAR_VERSION } from '../config.js?v=realms-qor-46';
-import { Inventory, starterInventory } from './inventory.js?v=realms-qor-46';
+import { CHAR_PREFIX, CHAR_INDEX_KEY, CHAR_VERSION } from '../config.js?v=realms-qor-47';
+import { Inventory, starterInventory } from './inventory.js?v=realms-qor-47';
 
 // Appearance palettes. Kept here rather than in the UI so the renderer, the
 // customization screen and the network all agree on the same set.

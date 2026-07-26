@@ -2,49 +2,50 @@
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty,
-} from './config.js?v=realms-qor-46';
-import { hashString, mulberry32, dist2, uid } from './utils.js?v=realms-qor-46';
-import { World } from './world/world.js?v=realms-qor-46';
-import { T } from './world/tiles.js?v=realms-qor-46';
-import { Sprites } from './art/sprites.js?v=realms-qor-46';
-import { Camera } from './engine/camera.js?v=realms-qor-46';
-import { Input } from './engine/input.js?v=realms-qor-46';
-import { AudioManager } from './engine/audio.js?v=realms-qor-46';
-import { Renderer } from './engine/renderer.js?v=realms-qor-46';
-import { Fx } from './engine/fx.js?v=realms-qor-46';
-import { DayNight } from './systems/daynight.js?v=realms-qor-46';
-import { Weather } from './systems/weather.js?v=realms-qor-46';
-import { Spawner } from './systems/spawner.js?v=realms-qor-46';
-import { Progression } from './systems/progression.js?v=realms-qor-46';
-import { starterInventory } from './systems/inventory.js?v=realms-qor-46';
-import * as craftSys from './systems/crafting.js?v=realms-qor-46';
-import { applyPotion } from './systems/combat.js?v=realms-qor-46';
-import { smartTarget } from './systems/smartcursor.js?v=realms-qor-46';
-import { Minimap } from './systems/minimap.js?v=realms-qor-46';
-import { CharacterManager, applyCharacter, captureCharacter, defaultAppearance } from './systems/characters.js?v=realms-qor-46';
-import { MinimapUI } from './ui/minimap.js?v=realms-qor-46';
-import { Bobber, findBait, rollCatch, openCrate } from './systems/fishing.js?v=realms-qor-46';
-import { Player, assignColor } from './entities/player.js?v=realms-qor-46';
-import { Enemy } from './entities/enemy.js?v=realms-qor-46';
-import { Boss } from './entities/boss.js?v=realms-qor-46';
-import { Minion } from './entities/minion.js?v=realms-qor-46';
-import { Npc } from './entities/npc.js?v=realms-qor-46';
-import { Projectile } from './entities/projectile.js?v=realms-qor-46';
-import { DropItem } from './entities/droppeditem.js?v=realms-qor-46';
-import { FallingTree } from './entities/fallingtree.js?v=realms-qor-46';
-import { ThrownItem } from './entities/thrown.js?v=realms-qor-46';
-import { ENEMIES } from './data/enemies.js?v=realms-qor-46';
-import { BOSSES } from './data/bosses.js?v=realms-qor-46';
-import { item as getItem } from './data/items.js?v=realms-qor-46';
-import { HUD } from './ui/hud.js?v=realms-qor-46';
-import { Menus } from './ui/menus.js?v=realms-qor-46';
-import { NpcDialog } from './ui/npcdialog.js?v=realms-qor-46';
-import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=realms-qor-46';
-import { SaveManager, setSaveIndicator } from './save.js?v=realms-qor-46';
-import { CommandConsole } from './commands.js?v=realms-qor-46';
-import { Net } from './net/net.js?v=realms-qor-46';
-import { MSG } from './net/protocol.js?v=realms-qor-46';
-import * as sync from './net/sync.js?v=realms-qor-46';
+} from './config.js?v=realms-qor-47';
+import { hashString, mulberry32, dist2, uid } from './utils.js?v=realms-qor-47';
+import { World } from './world/world.js?v=realms-qor-47';
+import { T } from './world/tiles.js?v=realms-qor-47';
+import { Sprites } from './art/sprites.js?v=realms-qor-47';
+import { Camera } from './engine/camera.js?v=realms-qor-47';
+import { Input } from './engine/input.js?v=realms-qor-47';
+import { AudioManager } from './engine/audio.js?v=realms-qor-47';
+import { Renderer } from './engine/renderer.js?v=realms-qor-47';
+import { Fx } from './engine/fx.js?v=realms-qor-47';
+import { DayNight } from './systems/daynight.js?v=realms-qor-47';
+import { Weather } from './systems/weather.js?v=realms-qor-47';
+import { Spawner } from './systems/spawner.js?v=realms-qor-47';
+import { Progression } from './systems/progression.js?v=realms-qor-47';
+import { starterInventory } from './systems/inventory.js?v=realms-qor-47';
+import * as craftSys from './systems/crafting.js?v=realms-qor-47';
+import { applyPotion } from './systems/combat.js?v=realms-qor-47';
+import { smartTarget } from './systems/smartcursor.js?v=realms-qor-47';
+import { Minimap } from './systems/minimap.js?v=realms-qor-47';
+import { CharacterManager, applyCharacter, captureCharacter, defaultAppearance } from './systems/characters.js?v=realms-qor-47';
+import { MinimapUI } from './ui/minimap.js?v=realms-qor-47';
+import { CraftingUI } from './ui/crafting.js?v=realms-qor-47';
+import { Bobber, findBait, rollCatch, openCrate } from './systems/fishing.js?v=realms-qor-47';
+import { Player, assignColor } from './entities/player.js?v=realms-qor-47';
+import { Enemy } from './entities/enemy.js?v=realms-qor-47';
+import { Boss } from './entities/boss.js?v=realms-qor-47';
+import { Minion } from './entities/minion.js?v=realms-qor-47';
+import { Npc } from './entities/npc.js?v=realms-qor-47';
+import { Projectile } from './entities/projectile.js?v=realms-qor-47';
+import { DropItem } from './entities/droppeditem.js?v=realms-qor-47';
+import { FallingTree } from './entities/fallingtree.js?v=realms-qor-47';
+import { ThrownItem } from './entities/thrown.js?v=realms-qor-47';
+import { ENEMIES } from './data/enemies.js?v=realms-qor-47';
+import { BOSSES } from './data/bosses.js?v=realms-qor-47';
+import { item as getItem } from './data/items.js?v=realms-qor-47';
+import { HUD } from './ui/hud.js?v=realms-qor-47';
+import { Menus } from './ui/menus.js?v=realms-qor-47';
+import { NpcDialog } from './ui/npcdialog.js?v=realms-qor-47';
+import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=realms-qor-47';
+import { SaveManager, setSaveIndicator } from './save.js?v=realms-qor-47';
+import { CommandConsole } from './commands.js?v=realms-qor-47';
+import { Net } from './net/net.js?v=realms-qor-47';
+import { MSG } from './net/protocol.js?v=realms-qor-47';
+import * as sync from './net/sync.js?v=realms-qor-47';
 
 class Game {
   constructor() {
@@ -141,6 +142,8 @@ class Game {
     this.ui.menus = new Menus(this);
     this.ui.npcDialog = new NpcDialog(this);
     this.ui.minimap = new MinimapUI(this);
+    this.ui.crafting = new CraftingUI(this);
+    this.ui.crafting.bind();
     this.commands = new CommandConsole(this);
     this._wireInputActions();
     this.ui.menus.refreshContinue(); // reflect any existing saves on first paint
@@ -177,6 +180,7 @@ class Game {
     inp.on('hotbarScroll', (d) => { if (this.localPlayer) { let n = (this.localPlayer.inventory.selected + d + HOTBAR_SIZE) % HOTBAR_SIZE; this.selectHotbar(n); } });
     inp.on('zoomStep', (d) => this.nudgeZoom(d));
     inp.on('map', () => { if (this.state === 'playing') this.ui.minimap.toggle(); });
+    inp.on('crafting', () => { if (this.state === 'playing') this.ui.crafting.toggle(); });
     inp.on('interact', () => this.interact());
     inp.on('smartToggle', () => { /* the input layer owns the latch; nothing else to do */ });
   }
@@ -193,6 +197,7 @@ class Game {
   _handleEscape() {
     const m = this.ui.menus;
     if (this.commands.isOpen()) { this.commands.close(); return; }
+    if (this.ui.crafting && this.ui.crafting.isOpen()) { this.ui.crafting.close(); return; }
     if (m.isOpen('minimapDialog')) { m.hide('minimapDialog'); return; }
     if (m.isOpen('npcDialog')) { if (this.ui.npcDialog) this.ui.npcDialog.close(); else m.hide('npcDialog'); return; }
     if (m.isOpen('settingsDialog')) { m.hide('settingsDialog'); return; }

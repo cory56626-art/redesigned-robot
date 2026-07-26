@@ -1,5 +1,5 @@
 // Summoner Realms — day / night cycle.
-import { DAY_LENGTH } from '../config.js?v=realms-qor-46';
+import { DAY_LENGTH } from '../config.js?v=realms-qor-47';
 
 export class DayNight {
   constructor(t = DAY_LENGTH * 0.15, day = 1) {
