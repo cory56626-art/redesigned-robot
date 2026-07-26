@@ -488,7 +488,7 @@ export class Renderer {
       if (pr.kind === 'aidanPulse') {
         ctx.globalCompositeOperation = 'lighter';
         ctx.globalAlpha = 0.25;
-        ctx.fillStyle = #2e9cff;
+        ctx.fillStyle = '#2e9cff';
         ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
         ctx.globalAlpha = 1;
         ctx.strokeStyle = '#d9fbff'; ctx.lineWidth = 1.5;
