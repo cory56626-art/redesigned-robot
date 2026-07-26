@@ -47,6 +47,10 @@ export class World {
     if (record) this.diffs.set(i, id);
     this.mineProgress.delete(i);
     this._recomputeTopSolidColumn(tx);
+    // Let a cached view of the terrain (the minimap) repaint just the affected
+    // chunk. There was no change hook before this; every caller instead had to
+    // remember to poke the systems that care.
+    if (this.onTileChanged) this.onTileChanged(tx, ty);
   }
 
   // ---- Background walls ----

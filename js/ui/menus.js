@@ -84,6 +84,10 @@ export class Menus {
     $('btnJoinServer').onclick = () => { const code = $('joinCodeInput').value.trim().toUpperCase(); if (code) g.joinRoom(code); };
     $('mpClose').onclick = () => this.hide('mpMenu');
 
+    // ---- Map ----
+    $('minimapClose').onclick = () => this.hide('minimapDialog');
+    $('minimapRecentre').onclick = () => { g.ui.minimap.follow = true; };
+
     // ---- Pause menu ----
     $('btnResume').onclick = () => g.setPaused(false);
     $('btnSaveGame').onclick = () => { g.saveGame(true); };
@@ -182,7 +186,7 @@ export class Menus {
   isOpen(id) { return !$(id).classList.contains('hidden'); }
 
   anyModalOpen() {
-    return ['mainMenu', 'pauseMenu', 'inventoryScreen', 'newWorldDialog', 'loadWorldDialog', 'mpMenu',
+    return ['mainMenu', 'pauseMenu', 'inventoryScreen', 'newWorldDialog', 'loadWorldDialog', 'mpMenu', 'minimapDialog',
       'commandPanel', 'howtoDialog', 'claudeNotesDialog', 'confirmDialog', 'deathScreen', 'settingsDialog', 'npcDialog']
       .some(id => this.isOpen(id));
   }
@@ -191,7 +195,7 @@ export class Menus {
   // one of them: in Terraria the world keeps running and you keep moving and
   // using items with your bag open, which is what this list encodes.
   anyBlockingModalOpen() {
-    return ['mainMenu', 'pauseMenu', 'newWorldDialog', 'loadWorldDialog', 'mpMenu',
+    return ['mainMenu', 'pauseMenu', 'newWorldDialog', 'loadWorldDialog', 'mpMenu', 'minimapDialog',
       'commandPanel', 'howtoDialog', 'claudeNotesDialog', 'confirmDialog', 'deathScreen', 'settingsDialog', 'npcDialog']
       .some(id => this.isOpen(id));
   }
@@ -282,6 +286,7 @@ export class Menus {
         <li><kbd>1</kbd>–<kbd>0</kbd> / scroll — select hotbar · <kbd>E</kbd> — inventory &amp; crafting · <kbd>Q</kbd> — use potion</li>
         <li><kbd>F</kbd> — talk to the Guide · <kbd>Ctrl</kbd> — hold for <b>Smart Cursor</b> (or set it to Always in Settings)</li>
         <li><kbd>+</kbd> / <kbd>-</kbd> or <kbd>Ctrl</kbd>+scroll — <b>zoom</b> in and out</li>
+        <li><kbd>M</kbd> — open the <b>map</b> (drag to pan, scroll or pinch to zoom)</li>
         <li><kbd>Esc</kbd> — pause · <kbd>Enter</kbd> — chat (multiplayer)</li>
       </ul>
       <h4>Mobile Controls</h4>

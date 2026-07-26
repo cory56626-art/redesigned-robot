@@ -74,6 +74,27 @@ ellipses, and a despeckle pass removes lone tiles and one-tile pillars.
 - **Zoom** via `+`/`-` or `Ctrl`+scroll, persisted in settings.
 - **Transparent pause screen**, so the world stays visible behind it.
 
+**Gravemaw** rebuilt from the supplied design sheet's own modular breakdown —
+head, armoured body segment, tail spike and leg, one set per phase, each
+rasterised once into a cached offscreen canvas and blitted rotated along the
+body chain. The old chain was three nodes sharing one lag constant, so the
+creature slid around as a rigid lump; it is now six nodes each chasing the one
+ahead with a progressively slower response, so motion travels down the body as
+a wave. Two consequences had to be solved: relative chasing compounds error
+down the chain (a hard 1.45x-spacing clamp bounds it), and a pure follow chain
+has no preferred pose so it settled standing on end after a drop (each node now
+blends toward a resting spine). Phase II grows the real hitbox to 78x58 and
+re-seats via `_nudgeOutOfTerrain`; size and phase ride the wire so ghosts match,
+and `net/sync.js` imports the chain solver rather than keeping a second copy.
+
+**Minimap** — fog of war, revealed by travelling. One bit per tile (~22KB raw,
+~30KB base64 in the save) and a 1px-per-tile raster repainted per 32x32 chunk,
+so editing a tile repaints one chunk instead of 182,000 cells. `World.set` gained
+an `onTileChanged` hook — there was no change notification before. `M` expands
+the map; drag to pan, scroll or pinch to zoom (the first pinch handling in the
+codebase). The expanded map registers as a blocking modal, so it stops movement
+and mining while the world keeps simulating.
+
 **New harness invariants** — cave depth grading, cave connectivity, and the
 "no floating trunks" check relaxed to accept diagonal support so leaning
 corruption trunks are legal.

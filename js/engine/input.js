@@ -144,6 +144,8 @@ export class Input {
         this.state.consumePressed = true;
       } else if (k === 'f') {
         this.fire('interact');
+      } else if (k === 'm') {
+        this.fire('map');
       } else if (k === 'control') {
         this.smartHeld = true;
       } else if (k === '+' || k === '=') {

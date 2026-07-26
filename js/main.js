@@ -20,6 +20,8 @@ import { starterInventory } from './systems/inventory.js?v=realms-qor-41';
 import * as craftSys from './systems/crafting.js?v=realms-qor-41';
 import { applyPotion } from './systems/combat.js?v=realms-qor-41';
 import { smartTarget } from './systems/smartcursor.js?v=realms-qor-41';
+import { Minimap } from './systems/minimap.js?v=realms-qor-41';
+import { MinimapUI } from './ui/minimap.js?v=realms-qor-41';
 import { Bobber, findBait, rollCatch, openCrate } from './systems/fishing.js?v=realms-qor-41';
 import { Player, assignColor } from './entities/player.js?v=realms-qor-41';
 import { Enemy } from './entities/enemy.js?v=realms-qor-41';
@@ -63,6 +65,7 @@ class Game {
     this.weather = new Weather();
     this.spawner = new Spawner();
     this.progression = new Progression();
+    this.minimap = new Minimap();
 
     this.players = new Map();
     this.localPlayer = null;
@@ -115,7 +118,7 @@ class Game {
     };
     this.smartTarget = null;
 
-    this.ui = { hud: null, menus: null, npcDialog: null };
+    this.ui = { hud: null, menus: null, npcDialog: null, minimap: null };
     this.commands = null;
   }
 
@@ -128,6 +131,7 @@ class Game {
     this.ui.hud = new HUD(this);
     this.ui.menus = new Menus(this);
     this.ui.npcDialog = new NpcDialog(this);
+    this.ui.minimap = new MinimapUI(this);
     this.commands = new CommandConsole(this);
     this._wireInputActions();
     this.ui.menus.refreshContinue(); // reflect any existing saves on first paint
@@ -163,15 +167,24 @@ class Game {
     inp.on('hotbar', (i) => this.selectHotbar(i));
     inp.on('hotbarScroll', (d) => { if (this.localPlayer) { let n = (this.localPlayer.inventory.selected + d + HOTBAR_SIZE) % HOTBAR_SIZE; this.selectHotbar(n); } });
     inp.on('zoomStep', (d) => this.nudgeZoom(d));
+    inp.on('map', () => { if (this.state === 'playing') this.ui.minimap.toggle(); });
     inp.on('interact', () => this.interact());
     inp.on('smartToggle', () => { /* the input layer owns the latch; nothing else to do */ });
   }
 
   // Escape resolves one layer at a time, outermost first, so it never both
   // closes a dialog and pauses the game in a single press.
+  // Point the minimap at the current world and subscribe it to tile edits, so
+  // mining or building repaints just the affected chunk.
+  _attachMinimap() {
+    this.minimap.attach(this.world);
+    this.world.onTileChanged = (tx, ty) => this.minimap.markTile(tx, ty);
+  }
+
   _handleEscape() {
     const m = this.ui.menus;
     if (this.commands.isOpen()) { this.commands.close(); return; }
+    if (m.isOpen('minimapDialog')) { m.hide('minimapDialog'); return; }
     if (m.isOpen('npcDialog')) { if (this.ui.npcDialog) this.ui.npcDialog.close(); else m.hide('npcDialog'); return; }
     if (m.isOpen('settingsDialog')) { m.hide('settingsDialog'); return; }
     if (m.isOpen('howtoDialog')) { m.hide('howtoDialog'); return; }
@@ -221,6 +234,10 @@ class Game {
 
     if (this.state === 'playing') {
       this.renderer.draw(this);
+      // Render-rate, cosmetic work: reveal what the camera can see and repaint
+      // any chunks that changed, then draw the widget / expanded map.
+      this.minimap.update(dt, this);
+      this.ui.minimap.draw();
       this.ui.hud.update();
       this._updateTalkButton();
       this.ui.menus.tick(dt);
@@ -353,6 +370,7 @@ class Game {
     this.worldName = name;
     this.difficulty = normalizeDifficulty(difficulty);
     this.world = new World(this.seed);
+    this._attachMinimap();
     this.progression = new Progression();
     this._resetEntities();
     this.time = new DayNight();
@@ -379,10 +397,12 @@ class Game {
     this.worldName = data.name;
     this.difficulty = normalizeDifficulty(data.difficulty);
     this.world = new World(this.seed);
+    this._attachMinimap();
     this.world.applyDiffArray(data.diffs);
     this.world.applyWallDiffArray(data.wallDiffs);
     this.progression = new Progression();
     this.progression.deserialize(data.progression);
+    this.minimap.deserialize(data.explored);
     this._resetEntities();
     this.time = new DayNight(data.time || 0, data.day || 1);
     this.weather = new Weather(this.seed);
@@ -425,6 +445,7 @@ class Game {
     this.seed = seed; this.worldName = name || 'Realm';
     this.difficulty = normalizeDifficulty(difficulty);
     this.world = new World(seed);
+    this._attachMinimap();
     this.world.applyDiffArray(diffs);
     this.world.applyWallDiffArray(wallDiffs);
     this.progression = new Progression();
@@ -475,6 +496,7 @@ class Game {
     if (!this.world) return;
     const inv = this.localPlayer.inventory;
     this.world = new World(this.seed);
+    this._attachMinimap();
     this._resetEntities();               // clears enemies, bosses, drops, minions, projectiles
     this.time = new DayNight();           // fresh morning, not whatever time it was
     this.localPlayer.inventory = inv;
@@ -507,6 +529,7 @@ class Game {
       diffs: this.world.getDiffArray(),
       wallDiffs: this.world.getWallDiffArray(),
       progression: this.progression.serialize(),
+      explored: this.minimap.serialize(),
       player: { x: p.x, y: p.y, hp: p.hp, mana: p.mana, inventory: p.inventory.serialize() },
       npc: this.npc ? this.npc.serialize() : null,
     };

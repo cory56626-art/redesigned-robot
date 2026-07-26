@@ -578,3 +578,37 @@ input[type="range"]::-moz-range-thumb {
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--teal); }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------------- Minimap ----------------
+   The HUD root is pointer-events:none, so the widget opts back in to be
+   clickable — the same trick .icon-btn and .hotbar use. */
+.minimap-widget {
+  pointer-events: auto;
+  width: 168px;
+  height: 104px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(7, 10, 19, 0.85);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  image-rendering: pixelated;
+}
+.minimap-widget:hover { border-color: var(--teal); }
+
+.map-panel { width: min(92vw, 1100px); max-width: 1100px; }
+.minimap-big {
+  width: 100%;
+  height: min(62vh, 620px);
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #070a13;
+  touch-action: none; /* we handle pan/pinch ourselves */
+  cursor: grab;
+  image-rendering: pixelated;
+}
+.minimap-big:active { cursor: grabbing; }
+
+@media (max-width: 700px) {
+  .minimap-widget { width: 116px; height: 74px; }
+}

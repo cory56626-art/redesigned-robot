@@ -48,6 +48,19 @@ export function claudeNotesHTML() {
     <li><b class="cn-good">Smart Cursor.</b> Now tool-dependent, like Terraria's: an axe targets the tree's
       <i>base</i>, a pickaxe digs a walkable passage toward where you point. It used to blend distance, tool
       match and aim into one score, so an off-aim tile could win.</li>
+    <li><b class="cn-good">Gravemaw rebuilt</b> from the design sheet's own modular breakdown — head, armoured
+      segment, tail spike and leg, one set per phase, cached as offscreen canvases and blitted rotated along the
+      body. The old three-node chain shared one lag constant so the whole creature slid as a rigid lump; it is now
+      six nodes each chasing the one ahead a little more slowly, so motion travels down the body as a wave. A hard
+      clamp stops the segments coming off during a leap, and a spine blend stops the body settling on end after a
+      drop. Phase II is physically larger, not just a different sprite.</li>
+    <li><b class="cn-good">Minimap.</b> Fog of war: the map starts black and fills in as you travel. One bit per
+      tile (~22KB, base64'd into the save), repainted per 32&times;32 chunk when a tile changes rather than
+      redrawing 182,000 cells a frame. <kbd>M</kbd> expands it — drag to pan, scroll or pinch to zoom. The expanded
+      map blocks movement and mining but the world keeps running behind it.</li>
+    <li><b class="cn-good">Water &amp; fishing.</b> Still pools in cave basins and surface ponds, swimming, plus
+      passive fauna (cows, pigs, bunnies, grubs, emberflies) that drop meat, hide and bait, and a fishing rod with
+      depth-dependent catch tables and crates.</li>
     <li><b class="cn-good">Zoom</b> with <kbd>+</kbd>/<kbd>-</kbd> or <kbd>Ctrl</kbd>+scroll, a transparent
       pause screen, smooth wheel hotbar scrolling, a difficulty picker in the multiplayer host flow, and
       Grovekeeper's phase-2 leap arced and leashed so it can no longer fly off screen.</li>
