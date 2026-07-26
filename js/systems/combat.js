@@ -1,7 +1,7 @@
 // Summoner Realms — combat & interaction resolution (weapons, mining, placing).
 import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY } from '../config.js?v=realms-difficulty-22';
 import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=realms-difficulty-22';
-import { item as getItem } from '../data/items.js?v=realms-difficulty-22';
+import { item as getItem } from '../data/items.js?v=aidan-summon-1';
 import { Projectile } from '../entities/projectile.js?v=realms-difficulty-22';
 import { ThrownItem } from '../entities/thrown.js?v=realms-difficulty-22';
 import { angleTo, aabb, clamp } from '../utils.js?v=realms-difficulty-22';
@@ -133,6 +133,13 @@ export function useWeapon(game, player, item) {
   }
 
   if (item.weaponClass === 'summon') {
+    // Aidan is a unique, demo-only summon. Check before spending mana so a
+    // duplicate attempt never consumes resources or bypasses the 500s lockout.
+    if (item.summonMinion === 'aidan' && game.canSummonMinion &&
+        !game.canSummonMinion(player, item.summonMinion)) {
+      player.useTimer = 0.3;
+      return;
+    }
     if (player.mana < item.manaCost) {
       game.toast('Not enough Aether', 'bad');
       game.floatText(pc.x, pc.y - 10, 'Low Aether', '#6a7bff');
