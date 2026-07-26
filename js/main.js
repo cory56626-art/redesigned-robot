@@ -10,7 +10,7 @@ import { Sprites } from './art/sprites.js?v=realms-qor-41';
 import { Camera } from './engine/camera.js?v=realms-qor-41';
 import { Input } from './engine/input.js?v=realms-qor-41';
 import { AudioManager } from './engine/audio.js?v=realms-qor-41';
-import { Renderer } from './engine/renderer.js?v=realms-qor-stability-42';
+import { Renderer } from './engine/renderer.js?v=realms-qor-stability-44';
 import { Fx } from './engine/fx.js?v=realms-qor-41';
 import { DayNight } from './systems/daynight.js?v=realms-qor-41';
 import { Weather } from './systems/weather.js?v=realms-qor-stability-42';
@@ -41,7 +41,7 @@ import { SaveManager, setSaveIndicator } from './save.js?v=realms-qor-41';
 import { CommandConsole } from './commands.js?v=realms-qor-41';
 import { Net } from './net/net.js?v=realms-qor-stability-42';
 import { MSG } from './net/protocol.js?v=realms-qor-41';
-import * as sync from './net/sync.js?v=realms-qor-stability-43';
+import * as sync from './net/sync.js?v=realms-qor-stability-44';
 
 class Game {
   constructor() {
