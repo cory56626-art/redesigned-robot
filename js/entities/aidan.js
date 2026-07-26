@@ -1,8 +1,8 @@
 // Summoner Realms — Aidan summon controller and pixel-tech presentation.
 // Aidan is intentionally kept in its own module: his multi-stage portal and
 // railgun states are too specific to safely squeeze into the generic minion AI.
-import { TILE } from '../config.js?v=aidan-summon-5';
-import { Projectile } from './projectile.js?v=aidan-summon-5';
+import { TILE } from '../config.js?v=aidan-summon-6';
+import { Projectile } from './projectile.js?v=aidan-summon-6';
 
 const TAU = Math.PI * 2;
 const PORTAL_BLUE = '#2e9cff';
