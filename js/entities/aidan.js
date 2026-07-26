@@ -533,6 +533,21 @@ function drawAidanArm(ctx, x, y, angle, length = 1) {
   ctx.restore();
 }
 
+function armorPolygon(ctx, points, fill, stroke = null) {
+  if (!points || points.length < 3) return;
+  ctx.beginPath();
+  ctx.moveTo(points[0][0], points[0][1]);
+  for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+  ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.fill();
+  if (stroke) {
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+}
+
 function drawPortalGun(ctx, angle, recoil = 0) {
   ctx.save();
   ctx.rotate(angle);
