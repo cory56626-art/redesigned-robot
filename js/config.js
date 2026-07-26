@@ -4,7 +4,7 @@
 // Single build stamp for every cache-busted module import. Bump this once per
 // release instead of editing per-module `?build=` strings (which drifted out of
 // sync and could ship a half-updated module graph).
-export const BUILD = 'aidan-summon-11';
+export const BUILD = 'aidan-summon-12';
 
 export const WORLD_DIFFICULTIES = Object.freeze([
   { key: 'normal', label: 'Normal', tier: 'Buffed baseline', hint: 'Enemies and bosses are tougher than the old baseline, but attacks stay readable.' },
