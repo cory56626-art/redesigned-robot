@@ -2,6 +2,7 @@ name: Deploy Summoner Realms to GitHub Pages
 
 # Force a fresh Pages deployment for the current gameplay build.
 # Aidan freeze-gun and jetpack recovery refresh.
+# Final branch publish after cache-busted Aidan build.
 
 on:
   push:
