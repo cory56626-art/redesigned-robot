@@ -1,5 +1,5 @@
 // Summoner Realms — minion definitions. Summoned by summoner weapons.
-// behavior: homing | charge | dive | shooter | guard | fastmelee | diamondHeart
+// behavior: homing | charge | dive | shooter | guard | fastmelee | diamondHeart | aidan
 export const MINIONS = {
   wisp: {
     key: 'wisp', name: 'Wisp', behavior: 'homing', damage: 8, speed: 200, range: 300,
@@ -42,6 +42,16 @@ export const MINIONS = {
     dashTripleChance: 0.34,
     beamDamage: 3, beamTick: 0.1, beamDuration: 2.5, beamWindup: 0.8, beamBlinkInterval: 0.3, beamFlashDuration: 0.1, beamHitWidth: 24, dodgeSpeed: 680, dodgeDuration: 0.20, dodgeRate: 1.10, beamRate: 5.2,
     desc: 'A winged crystal avatar with a great sword, explosive spear, triple dash, and sky beams.',
+  },
+  aidan: {
+    key: 'aidan', name: 'Aidan', behavior: 'aidan',
+    damage: 26, speed: 250, range: 1800, color: '#c88b2e', color2: '#5a341d',
+    w: 34, h: 54, maxHp: 1400, flying: true,
+    basicDamage: 26, basicRate: 1.05, basicSpeed: 720, basicRange: 352,
+    portalTrigger: 360, portalSourceDistance: 64, portalExitDistance: 48, portalCooldown: 2.2,
+    railgunDamage: 75, railgunCharge: 5, railgunCooldown: 14, railgunRange: 1800, railgunMinRange: 192,
+    radioDamage: 5, radioTick: 0.5, radioDuration: 20,
+    desc: 'Aidan, the armored nanotech summon: Portal Pursuit, nanobot pulses, and a five-second purple railgun charge.',
   },
 };
 
