@@ -206,7 +206,7 @@ function updateFreezeGun(m, game, dt) {
     m.freezeAngle = approachAngle(m.freezeAngle || desired, desired, dt * 7.5);
     m.facing = Math.cos(m.freezeAngle) < 0 ? -1 : 1;
   }
-  m.freezeWindup -= dt;
+  m.freezeWindup = Math.max(0, m.freezeWindup - dt);
   m.freezeProgress = 1 - clamp(m.freezeWindup / (m.def.freezeCharge || 0.7), 0, 1);
   settleAidan(m, game, dt);
   m.moveAmount = 0;
@@ -609,6 +609,8 @@ function updateAidan(m, game, owner, ownerCenter, dt) {
       : nearestTarget(game, cX(m), cY(m), d.freezeRange || 900);
     if (defenseTarget) {
       beginFreezeGun(m, game, defenseTarget);
+      // Spend the trigger tick as part of the visible 0.7s aim window.
+      updateFreezeGun(m, game, dt);
       return;
     }
     m.freezeDefensePending = false;
