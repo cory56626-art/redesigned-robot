@@ -1,8 +1,8 @@
 // Summoner Realms — Aidan summon controller and pixel-tech presentation.
 // Aidan is intentionally kept in its own module: his multi-stage portal and
 // railgun states are too specific to safely squeeze into the generic minion AI.
-import { TILE } from '../config.js?v=aidan-summon-1';
-import { Projectile } from './projectile.js?v=aidan-summon-1';
+import { TILE } from '../config.js?v=aidan-summon-5';
+import { Projectile } from './projectile.js?v=aidan-summon-5';
 
 const TAU = Math.PI * 2;
 const PORTAL_BLUE = '#2e9cff';
@@ -65,6 +65,8 @@ function moveAidan(m, x, y, speed, dt, stopDistance = 0) {
   }
   m.vx = vx; m.vy = vy;
   m.x += vx * dt; m.y += vy * dt;
+  m.moveAmount = clamp(Math.hypot(vx, vy) / Math.max(speed, 1), 0, 1);
+  if (!m.poseTimer && m.moveAmount > 0.04) m.pose = 'move';
   if (Math.abs(vx) > 2) m.facing = vx < 0 ? -1 : 1;
 }
 
@@ -86,6 +88,8 @@ function orbitTarget(m, target, owner, dt) {
   const vy = (dy * inv * radial + tangent.y * 0.24 * side) * speed;
   m.vx = vx; m.vy = vy;
   m.x += vx * dt; m.y += vy * dt;
+  m.moveAmount = clamp(Math.hypot(vx, vy) / Math.max(speed, 1), 0, 1);
+  if (!m.poseTimer && m.moveAmount > 0.04) m.pose = 'move';
   if (Math.abs(vx) > 2) m.facing = vx < 0 ? -1 : 1;
 
   // If the target is far from the owner but not far enough to trigger a portal,
@@ -192,6 +196,9 @@ function fireRailgun(m, game, owner) {
   m.railgunWindup = 0;
   m.railgunTarget = null;
   m.railgunCooldown = m.def.railgunCooldown || 14;
+  m.pose = 'railgunFire';
+  m.poseTimer = 0.30;
+  m.recoil = 1;
 
   const damage = (m.def.railgunDamage || 75) *
     ((owner.stats && owner.stats.summonMul) || 1);
@@ -232,6 +239,8 @@ function updateRailgun(m, game, owner, dt) {
   m.railgunBeamEnd = clearShotEnd(game, origin.x, origin.y, m.railgunAngle || 0,
     m.def.railgunRange || 1500);
   m.vx = 0; m.vy = 0;
+  m.moveAmount = 0;
+  m.pose = 'railgunCharge';
   if (m.railgunWindup <= 0) fireRailgun(m, game, owner);
 }
 
@@ -260,6 +269,9 @@ function beginPortal(m, game, target) {
   m.portalGunAngle = angle;
   m.facing = Math.cos(angle) < 0 ? -1 : 1;
   m.vx = 0; m.vy = 0;
+  m.moveAmount = 0;
+  m.pose = 'portalAim';
+  m.poseTimer = 0;
   game.fx?.ring(source.x, source.y, PORTAL_BLUE, 30, { life: 0.34, width: 2 });
   game.fx?.burst(source.x, source.y, [PORTAL_BLUE, PORTAL_CYAN, PORTAL_GOLD], 12, {
     speed: 95, life: 0.45, gravity: -15, glow: true, size: 2,
@@ -280,6 +292,8 @@ function updatePortal(m, game, dt) {
 
   // 0.00–0.32: the armored summon visibly moves into the portal it fired.
   if (ps.time < 0.32) {
+    m.pose = 'portalStep';
+    m.moveAmount = 1;
     const q = clamp(ps.time / 0.32, 0, 1);
     m.x = ps.start.x + (ps.source.x - m.w / 2 - ps.start.x) * q;
     m.y = ps.start.y + (ps.source.y - m.h / 2 - ps.start.y) * q;
@@ -293,6 +307,7 @@ function updatePortal(m, game, dt) {
 
   if (!ps.entered) {
     ps.entered = true;
+    m.pose = 'portalTravel';
     m.hidden = true;
     game.fx?.burst(ps.source.x, ps.source.y, [PORTAL_BLUE, PORTAL_GOLD], 20, {
       speed: 150, life: 0.5, gravity: -10, glow: true, size: 2,
@@ -307,6 +322,8 @@ function updatePortal(m, game, dt) {
 
   if (!ps.exited) {
     ps.exited = true;
+    m.pose = 'portalExit';
+    m.poseTimer = 0.34;
     m.x = ps.exit.x - m.w / 2;
     m.y = ps.exit.y - m.h / 2;
     m.hidden = false;
@@ -319,6 +336,7 @@ function updatePortal(m, game, dt) {
 
   // 0.60–0.98: give the exit animation a beat before returning to combat.
   if (ps.time < 0.98) {
+    m.pose = 'portalExit';
     const away = target ? centerOf(target) : centerOf(m);
     const dir = Math.sign(m.x + m.w / 2 - away.x) || m.facing;
     m.x += dir * 20 * dt;
@@ -328,6 +346,9 @@ function updatePortal(m, game, dt) {
 
   m.hidden = false;
   m.portalState = null;
+  m.pose = 'idle';
+  m.poseTimer = 0;
+  m.moveAmount = 0;
   m.portalCooldown = m.def.portalCooldown || 2.2;
   m.targetScanCd = 0;
 }
@@ -348,6 +369,10 @@ function fireBasicPulse(m, game, owner, target) {
   }), true);
   m.basicCooldown = m.def.basicRate || 1.05;
   m.attackPulse = 0.2;
+  m.pose = 'pulse';
+  m.poseTimer = 0.24;
+  m.pulseAngle = angle;
+  m.recoil = 1;
   game.fx?.streak(c.x + Math.cos(angle) * 12, c.y + Math.sin(angle) * 12,
     angle, PORTAL_CYAN, 8, { speed: 240, spread: 0.32, life: 0.16, size: 2, glow: true });
 }
@@ -355,6 +380,9 @@ function fireBasicPulse(m, game, owner, target) {
 function updateAidan(m, game, owner, ownerCenter, dt) {
   const d = m.def;
   m.portalCooldown = Math.max(0, (m.portalCooldown || 0) - dt);
+  m.poseTimer = Math.max(0, (m.poseTimer || 0) - dt);
+  m.recoil = Math.max(0, (m.recoil || 0) - dt * 7);
+  if (m.poseTimer <= 0 && (m.pose === 'pulse' || m.pose === 'railgunFire' || m.pose === 'portalExit')) m.pose = 'idle';
   m.railgunCooldown = Math.max(0, (m.railgunCooldown || 0) - dt);
   m.basicCooldown = Math.max(0, (m.basicCooldown || 0) - dt);
   m.railgunActive = Math.max(0, (m.railgunActive || 0) - dt);
@@ -418,6 +446,11 @@ export function initAidanState(m) {
   m.railgunBeamEnd = null;
   m.railgunTarget = null;
   m.basicCooldown = 0.35;
+  m.pose = 'idle';
+  m.poseTimer = 0;
+  m.moveAmount = 0;
+  m.recoil = 0;
+  m.pulseAngle = 0;
   m.radioactiveTargets = new Map();
   m.hidden = false;
 }
@@ -464,177 +497,267 @@ function drawPortal(ctx, portal, time, scale = 1) {
   ctx.restore();
 }
 
-function drawPortalGun(ctx, angle) {
+
+function drawAidanLeg(ctx, x, y, stride, lift = 0) {
   ctx.save();
-  ctx.rotate(angle);
-  ctx.fillStyle = '#173151';
-  ctx.fillRect(2, -4, 25, 8);
-  ctx.fillStyle = '#e8b63e';
-  ctx.fillRect(3, -6, 19, 3);
-  ctx.fillRect(19, -7, 8, 14);
-  ctx.fillStyle = '#377dc5';
-  ctx.fillRect(6, -3, 14, 3);
-  ctx.fillStyle = '#8feaff';
-  ctx.fillRect(22, -3, 5, 6);
-  ctx.fillStyle = '#ffd967';
-  ctx.fillRect(27, -5, 4, 10);
-  ctx.fillStyle = '#1a2738';
-  ctx.beginPath();
-  ctx.moveTo(5, 4); ctx.lineTo(12, 4); ctx.lineTo(15, 16); ctx.lineTo(9, 18); ctx.lineTo(4, 8);
-  ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = '#61b9ff';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.arc(9, 9, 5, 0.2, 2.8); ctx.stroke();
+  ctx.translate(x + stride * 0.32, y - lift);
+  ctx.rotate(stride * 0.09);
+  ctx.fillStyle = '#4b2d1b';
+  ctx.fillRect(-2, 0, 4, 8);
+  ctx.fillStyle = '#9d6128';
+  ctx.fillRect(-2, 1, 4, 6);
+  ctx.fillStyle = '#e1aa3a';
+  ctx.fillRect(-2, 2, 3, 2);
+  ctx.fillStyle = '#33231d';
+  ctx.fillRect(-3, 7, 6, 3);
+  ctx.fillStyle = '#d99c32';
+  ctx.fillRect(-2, 7, 4, 1);
   ctx.restore();
 }
 
-function drawRailgun(ctx, angle, charge) {
+function drawAidanArm(ctx, x, y, angle, length = 1) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.fillStyle = '#4b2d1b';
+  ctx.fillRect(-2, 0, 4, 7 * length);
+  ctx.fillStyle = '#a96729';
+  ctx.fillRect(-1, 1, 3, 5 * length);
+  ctx.fillStyle = '#e3ad3d';
+  ctx.fillRect(-1, 2, 2, 2);
+  ctx.translate(0, 7 * length);
+  ctx.fillStyle = '#3a271d';
+  ctx.fillRect(-2, -1, 5, 4);
+  ctx.fillStyle = '#e4ad3d';
+  ctx.fillRect(-1, -1, 3, 2);
+  ctx.restore();
+}
+
+function drawPortalGun(ctx, angle, recoil = 0) {
   ctx.save();
   ctx.rotate(angle);
-  ctx.globalAlpha = 0.35;
-  ctx.fillStyle = RAIL_PURPLE;
-  ctx.fillRect(2, -5, 47, 10);
+  ctx.translate(-recoil * 2.5, 0);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.25;
+  ctx.fillStyle = PORTAL_CYAN;
+  ctx.fillRect(0, -4, 24, 8);
   ctx.globalAlpha = 1;
-  ctx.fillStyle = '#171928';
-  ctx.fillRect(0, -5, 42, 10);
-  ctx.fillStyle = '#3c334d';
-  ctx.fillRect(6, -8, 27, 3);
-  ctx.fillStyle = PORTAL_GOLD;
-  ctx.fillRect(5, -7, 8, 2);
-  ctx.fillStyle = RAIL_PURPLE;
-  ctx.fillRect(11, -2, 28, 3);
-  ctx.fillStyle = '#efb8ff';
-  ctx.fillRect(13, -1, Math.max(2, 25 * charge), 1);
-  ctx.fillStyle = '#b68cff';
-  ctx.fillRect(34, -7, 9, 3);
-  ctx.fillStyle = '#24243a';
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#1b2d48';
+  ctx.fillRect(0, -3, 20, 6);
+  ctx.fillStyle = '#e9b941';
+  ctx.fillRect(1, -5, 14, 2);
+  ctx.fillRect(14, -6, 7, 12);
+  ctx.fillStyle = '#3d89d2';
+  ctx.fillRect(4, -2, 11, 2);
+  ctx.fillStyle = PORTAL_CYAN;
+  ctx.fillRect(17, -2, 5, 4);
+  ctx.fillStyle = '#f5cb58';
+  ctx.fillRect(21, -4, 3, 8);
+  ctx.fillStyle = '#192333';
   ctx.beginPath();
-  ctx.moveTo(11, 5); ctx.lineTo(22, 5); ctx.lineTo(19, 15); ctx.lineTo(10, 12);
+  ctx.moveTo(3, 3); ctx.lineTo(9, 3); ctx.lineTo(12, 12); ctx.lineTo(7, 13); ctx.lineTo(2, 6);
   ctx.closePath(); ctx.fill();
-  ctx.fillStyle = PORTAL_GOLD;
-  ctx.fillRect(39, -5, 5, 2);
+  ctx.strokeStyle = '#65c7ff';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.arc(7, 7, 4, 0.2, 2.8); ctx.stroke();
   ctx.restore();
 }
 
-function armorPolygon(ctx, points, fill, stroke = null) {
+function drawRailgun(ctx, angle, charge, recoil = 0) {
+  ctx.save();
+  ctx.rotate(angle);
+  ctx.translate(-recoil * 3, 0);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.32;
+  ctx.fillStyle = RAIL_PURPLE;
+  ctx.fillRect(0, -5, 37, 10);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#171928';
+  ctx.fillRect(0, -4, 33, 8);
+  ctx.fillStyle = '#493b55';
+  ctx.fillRect(4, -7, 21, 3);
+  ctx.fillStyle = PORTAL_GOLD;
+  ctx.fillRect(4, -6, 7, 2);
+  ctx.fillStyle = RAIL_PURPLE;
+  ctx.fillRect(8, -1, 23, 3);
+  ctx.fillStyle = '#efb8ff';
+  ctx.fillRect(10, 0, Math.max(2, 20 * charge), 1);
+  ctx.fillStyle = '#b68cff';
+  ctx.fillRect(25, -6, 8, 3);
+  ctx.fillStyle = '#25243a';
   ctx.beginPath();
-  ctx.moveTo(points[0][0], points[0][1]);
-  for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
-  ctx.closePath();
-  ctx.fillStyle = fill; ctx.fill();
-  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
+  ctx.moveTo(8, 4); ctx.lineTo(17, 4); ctx.lineTo(15, 12); ctx.lineTo(8, 10);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = PORTAL_GOLD;
+  ctx.fillRect(30, -4, 4, 2);
+  ctx.restore();
+}
+
+function localAimAngle(face, worldAngle) {
+  const raw = face > 0 ? worldAngle : Math.PI - worldAngle;
+  return Math.atan2(Math.sin(raw), Math.cos(raw));
 }
 
 export function drawAidan(ctx, m) {
   if (!m || m.dead || m.hidden) return;
-  const x = m.x, y = m.y, w = m.w || 34, h = m.h || 54;
+
+  // The hitbox is deliberately player-sized (12x26). Weapons may extend beyond
+  // it, just like a player holding a large tool, but the armored body does not.
+  const x = m.x, y = m.y, w = m.w || 12, h = m.h || 26;
   const cx = x + w / 2, cy = y + h / 2;
   const t = m.anim || 0;
-  const bob = Math.sin(t * 1.7) * 1.2;
   const face = m.facing < 0 ? -1 : 1;
-  const weaponAngle = m.railgunWindup > 0 || m.railgunActive > 0
-    ? (m.railgunAngle || 0) * face
-    : (m.portalState ? (m.portalGunAngle || 0) * face : 0);
+  const pose = m.pose || ((m.moveAmount || 0) > 0.08 ? 'move' : 'idle');
+  const moving = (m.moveAmount || 0) > 0.08 && pose !== 'railgunCharge' && pose !== 'railgunFire';
+  const walkPhase = t * 2.35;
+  const stride = moving ? Math.sin(walkPhase) * 2.2 : Math.sin(t * 1.8) * 0.22;
+  const lift = moving ? Math.max(0, Math.sin(walkPhase)) * 0.55 : 0;
+  const breathing = Math.sin(t * 2.25) * 0.32;
+  const chargeCrouch = pose === 'railgunCharge' ? 0.9 + Math.sin(t * 13) * 0.18 : 0;
+  const fireKick = pose === 'railgunFire' ? -0.75 : 0;
+  const bodyY = breathing + lift + chargeCrouch + fireKick;
+  const recoil = Math.max(0, Math.min(1, m.recoil || 0));
+  const railPose = pose === 'railgunCharge' || pose === 'railgunFire' ||
+    m.railgunWindup > 0 || m.railgunActive > 0;
+  const portalPose = pose === 'portalAim' || pose === 'portalStep' ||
+    pose === 'portalExit' || !!m.portalState;
+  const pulsePose = pose === 'pulse' || (m.attackPulse || 0) > 0;
+  const worldAim = railPose ? (m.railgunAngle || 0)
+    : portalPose ? (m.portalGunAngle || 0)
+    : (m.pulseAngle || (m.facing < 0 ? Math.PI : 0));
+  const aim = localAimAngle(face, worldAim);
+  const aimArm = aim - Math.PI / 2;
 
   ctx.save();
-  ctx.globalAlpha = 0.2;
+  ctx.globalAlpha = 0.22;
   ctx.fillStyle = '#261b27';
-  ctx.beginPath(); ctx.ellipse(cx, y + h + 8, 19, 3.5, 0, 0, TAU); ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(cx, y + h + 4, 8 + (moving ? 1 : 0), 2.2, 0, 0, TAU);
+  ctx.fill();
   ctx.restore();
 
   ctx.save();
-  ctx.translate(cx, cy + bob);
+  ctx.translate(cx, cy + bodyY);
   ctx.scale(face, 1);
 
-  // A small warm/cyan halo separates the fixed brown-and-gold armor silhouette
-  // from the background without making it look like a floating blob.
+  // Short-lived state feedback is tied to the pose, not to a scale change.
   ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = 0.10;
-  ctx.fillStyle = PORTAL_CYAN;
-  ctx.beginPath(); ctx.arc(0, -2, 29 + Math.sin(t * 2) * 1.5, 0, TAU); ctx.fill();
+  ctx.globalAlpha = railPose ? 0.14 + (m.railgunProgress || 0) * 0.12 : 0.07;
+  ctx.fillStyle = railPose ? RAIL_PURPLE : PORTAL_CYAN;
+  ctx.beginPath();
+  ctx.arc(0, -1, 10.5 + Math.sin(t * 4) * 0.7, 0, TAU);
+  ctx.fill();
   ctx.globalCompositeOperation = 'source-over';
   ctx.globalAlpha = 1;
 
-  // Rear tech pack and exhaust fins.
+  // Back-mounted nanotech pack and cyan exhaust pixels.
   ctx.fillStyle = '#2a1d1a';
-  ctx.fillRect(-15, -11, 5, 22);
-  ctx.fillStyle = '#b8792b';
-  ctx.fillRect(-17, -9, 3, 17);
+  ctx.fillRect(-7, -5, 3, 12);
+  ctx.fillStyle = '#a96b28';
+  ctx.fillRect(-8, -4, 2, 9);
   ctx.fillStyle = PORTAL_BLUE;
-  ctx.fillRect(-18, -5, 2, 5); ctx.fillRect(-18, 3, 2, 5);
+  ctx.fillRect(-9, -3, 1, 3);
+  ctx.fillRect(-9, 3, 1, 3);
 
-  // Greaves and plated boots; the armor never swaps off during any state.
-  armorPolygon(ctx, [[-11, 8], [-2, 8], [-3, 24], [-11, 24], [-14, 20]], '#71431f', '#2a1b18');
-  armorPolygon(ctx, [[2, 8], [11, 8], [14, 20], [11, 24], [3, 24]], '#71431f', '#2a1b18');
-  ctx.fillStyle = '#c78a2d';
-  ctx.fillRect(-10, 11, 7, 4); ctx.fillRect(3, 11, 7, 4);
-  ctx.fillStyle = '#f4c956';
-  ctx.fillRect(-9, 12, 5, 2); ctx.fillRect(4, 12, 5, 2);
-  ctx.fillStyle = '#4b2d1b';
-  ctx.fillRect(-13, 21, 12, 4); ctx.fillRect(1, 21, 12, 4);
-  ctx.fillStyle = '#e2a83b';
-  ctx.fillRect(-11, 21, 8, 2); ctx.fillRect(3, 21, 8, 2);
+  // Animated legs: every stride changes the knee/boot placement.
+  drawAidanLeg(ctx, -3, 6, stride, lift);
+  drawAidanLeg(ctx, 3, 6, -stride, Math.max(0, -Math.sin(walkPhase)) * 0.55);
 
-  // Torso/chest plate with the reference's broad warm metal planes.
-  armorPolygon(ctx, [[-13, -12], [13, -12], [11, 9], [5, 13], [-5, 13], [-11, 9]], '#70421f', '#2a1b18');
-  armorPolygon(ctx, [[-9, -10], [0, -13], [9, -10], [7, 5], [0, 9], [-7, 5]], '#b87727');
-  ctx.fillStyle = '#e9b83f';
-  ctx.fillRect(-6, -8, 12, 4);
+  // Rear arm swings opposite the front leg while walking.
+  const swing = moving ? stride * 0.10 : Math.sin(t * 1.8) * 0.05;
+  drawAidanArm(ctx, -5, -4 + bodyY * 0.1, -0.18 - swing, 0.88);
+
+  // Compact brown-and-gold chest plate.
+  armorPolygon(ctx, [[-5, -7], [5, -7], [5, 5], [2, 7], [-2, 7], [-5, 5]], '#70421f', '#2a1b18');
+  armorPolygon(ctx, [[-3.5, -6], [0, -7], [3.5, -6], [3, 3], [0, 5], [-3, 3]], '#b87828');
+  ctx.fillStyle = '#edbb46';
+  ctx.fillRect(-3, -5, 6, 2);
   ctx.fillStyle = '#ffd965';
-  ctx.fillRect(-4, -8, 5, 2);
-  ctx.fillStyle = '#57341c';
-  ctx.fillRect(-8, 1, 16, 3);
+  ctx.fillRect(-2, -5, 3, 1);
+  ctx.fillStyle = '#56331c';
+  ctx.fillRect(-3, 1, 6, 2);
   ctx.fillStyle = PORTAL_BLUE;
-  ctx.fillRect(-2, -2, 4, 4);
-  ctx.fillStyle = '#b9f3ff';
-  ctx.fillRect(-1, -2, 2, 2);
+  ctx.fillRect(-1, -1, 2, 2);
 
-  // Shoulder plates and armored arms.
-  ctx.fillStyle = '#b8792b';
-  ctx.beginPath(); ctx.ellipse(-14, -9, 6, 6, 0, 0, TAU); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(14, -9, 6, 6, 0, 0, TAU); ctx.fill();
+  // Shoulder caps keep the silhouette readable at player scale.
+  ctx.fillStyle = '#b97c2d';
+  ctx.beginPath(); ctx.arc(-5, -5, 2.5, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(5, -5, 2.5, 0, TAU); ctx.fill();
   ctx.fillStyle = '#f0c44f';
-  ctx.fillRect(-16, -11, 4, 2); ctx.fillRect(12, -11, 4, 2);
-  armorPolygon(ctx, [[-17, -5], [-12, -4], [-13, 8], [-18, 7], [-20, 2]], '#865025', '#2a1b18');
-  armorPolygon(ctx, [[12, -4], [17, -5], [20, 2], [18, 7], [13, 8]], '#865025', '#2a1b18');
-  ctx.fillStyle = '#d59b35';
-  ctx.fillRect(-18, 3, 5, 3); ctx.fillRect(13, 3, 5, 3);
+  ctx.fillRect(-6, -6, 2, 1);
+  ctx.fillRect(4, -6, 2, 1);
 
-  // Helmet: a closed knight visor with the gold silhouette from the reference.
-  armorPolygon(ctx, [[-11, -27], [-5, -33], [7, -32], [12, -25], [10, -14], [4, -10], [-9, -13]], '#805025', '#2a1b18');
-  armorPolygon(ctx, [[-7, -29], [3, -30], [8, -25], [7, -16], [0, -13], [-7, -16]], '#c88d2e');
+  // Closed knight helmet: always on, with no face or weapon swap.
+  armorPolygon(ctx, [[-4, -14], [2, -14], [5, -11], [4, -6], [-4, -6], [-5, -9]], '#805025', '#2a1b18');
+  armorPolygon(ctx, [[-3, -13], [2, -13], [3.5, -10], [3, -7], [-3, -7]], '#c88d2e');
   ctx.fillStyle = '#f3c64d';
-  ctx.fillRect(-5, -29, 7, 3);
-  ctx.fillStyle = '#ffd967';
-  ctx.fillRect(-3, -29, 4, 2);
+  ctx.fillRect(-2, -13, 4, 1.5);
   ctx.fillStyle = '#151b23';
-  ctx.fillRect(-6, -22, 14, 5);
-  ctx.fillStyle = '#5b6f77';
-  ctx.fillRect(-4, -21, 10, 2);
+  ctx.fillRect(-3, -10, 7, 2.4);
+  ctx.fillStyle = '#83d8ef';
+  ctx.fillRect(-2, -9.5, 5, 0.9);
   ctx.fillStyle = '#f5ce5c';
-  ctx.fillRect(7, -23, 3, 8);
+  ctx.fillRect(3, -11, 1, 4);
   ctx.fillStyle = '#3d251b';
-  ctx.fillRect(-9, -15, 15, 3);
+  ctx.fillRect(-3, -7, 6, 1.5);
 
-  // Technology held in-hand: the railgun or portal gun, never a sword.
-  if (m.railgunWindup > 0 || m.railgunActive > 0) {
-    drawRailgun(ctx, weaponAngle, m.railgunProgress || 0);
-  } else if (m.portalState) {
-    drawPortalGun(ctx, weaponAngle);
-  } else if (m.attackPulse > 0) {
+  if (railPose) {
+    // Railgun wind-up uses a two-arm braced stance; the charge pulse jitters
+    // only the weapon, while the body stays readable and player-sized.
+    drawAidanArm(ctx, 4.5, -4, aimArm + 0.02, 0.92);
+    drawAidanArm(ctx, -4, -3, aimArm + 0.34, 0.82);
+    ctx.save();
+    ctx.translate(4, -2.5);
+    drawRailgun(ctx, aim, m.railgunProgress || 0, recoil);
+    ctx.restore();
+    if (pose === 'railgunFire') {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.9;
+      ctx.strokeStyle = RAIL_CORE;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(5, -2, 5 + (1 - recoil) * 7, -0.8, 0.8);
+      ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+    }
+  } else if (portalPose) {
+    // Portal Pursuit visibly aims the gun, steps toward the source portal, then
+    // exits with a backward recoil. The portal itself remains a separate effect.
+    drawAidanArm(ctx, 4.5, -4, aimArm, 0.94);
+    drawAidanArm(ctx, -4, -3, -0.16 - swing, 0.82);
+    ctx.save();
+    ctx.translate(4.5, -3);
+    drawPortalGun(ctx, aim, recoil);
+    ctx.restore();
+  } else if (pulsePose) {
+    // Nanobot pulse: the front gauntlet thrusts forward and contracts on release.
+    drawAidanArm(ctx, 4.5, -4, aimArm, 1.0);
+    drawAidanArm(ctx, -4, -3, -0.16 - swing, 0.82);
+    ctx.save();
+    ctx.translate(10, -4);
+    ctx.rotate(aim);
     ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.75;
     ctx.strokeStyle = PORTAL_CYAN;
-    ctx.globalAlpha = m.attackPulse / 0.2;
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(16, 3, 7 + (0.2 - m.attackPulse) * 16, -0.8, 0.8); ctx.stroke();
-    ctx.globalAlpha = 1;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, 2.5 + (1 - recoil) * 4, -0.9, 0.9);
+    ctx.stroke();
+    ctx.restore();
     ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+  } else {
+    // Idle and locomotion have opposing arm/leg motion instead of a rigid pose.
+    drawAidanArm(ctx, 5, -4, 0.18 - swing, 0.88);
   }
 
   if (m.hurtFlash > 0) {
-    ctx.globalAlpha = clamp(m.hurtFlash / 0.12, 0, 1) * 0.65;
+    ctx.globalAlpha = Math.min(0.75, Math.max(0, m.hurtFlash / 0.12));
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(-18, -34, 36, 60);
+    ctx.fillRect(-6, -15, 12, 29);
   }
   ctx.restore();
 }
