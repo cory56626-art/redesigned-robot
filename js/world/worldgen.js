@@ -17,7 +17,7 @@
 // Deterministic from a numeric seed. `tools/worldgen-check.mjs` asserts the
 // invariants this file is responsible for.
 import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE, LIQUID_MAX } from '../config.js?v=quality-of-realms-1';
-import { T, isSolid } from './tiles.js?v=quality-of-realms-1';
+import { T, isSolid, isFlora } from './tiles.js?v=quality-of-realms-1';
 import { W } from './walls.js?v=quality-of-realms-1';
 import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=quality-of-realms-1';
 import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep, lerp } from '../utils.js?v=quality-of-realms-1';
@@ -841,9 +841,13 @@ function decorate(tiles, w, h, surface, biome, rand, spawnTx) {
       x += 2;
       continue;
     }
-    if (def.grassChance && rand() < def.grassChance && tiles[idx(x, s - 1)] === T.AIR &&
-        (ground === T.GRASS || ground === T.BLIGHTGRASS)) {
-      tiles[idx(x, s - 1)] = T.TALLGRASS;
+    // Surface undergrowth. The old generator had exactly one plant (tall grass)
+    // on exactly one tile type, which is why the overworld read as empty. Each
+    // biome now gets its own weighted mix, so walking from the forest into the
+    // dunes changes what is growing underfoot as well as what the ground is.
+    if (def.groundCover && rand() < def.groundCover.chance && tiles[idx(x, s - 1)] === T.AIR &&
+        (ground === T.GRASS || ground === T.BLIGHTGRASS || ground === T.SNOW || ground === T.SAND)) {
+      tiles[idx(x, s - 1)] = pickWeighted(def.groundCover.plants, rand);
     }
     if (def.iceChance && rand() < def.iceChance) {
       blobTilesOnly(tiles, w, h, x, s + 2 + Math.floor(rand() * 6), 1 + Math.floor(rand() * 2), T.ICE, [T.SNOW, T.STONE]);
@@ -860,14 +864,49 @@ function decorate(tiles, w, h, surface, biome, rand, spawnTx) {
     }
   }
 
-  // Cave dressing: stalagmites on floors, stalactites on ceilings.
+  // Cave dressing: stalagmites and mushrooms on floors, stalactites, vines and
+  // glowmoss on ceilings. Glowmoss is the only light source down here that the
+  // player did not place, so it does real work: it picks out the shape of a
+  // chamber before you have torches to spare.
   for (let x = 2; x < w - 2; x++) {
     for (let y = Math.max(surface[x] + 6, UNDERGROUND_Y - 20); y < h - BEDROCK - 1; y++) {
       if (tiles[idx(x, y)] !== T.AIR) continue;
-      if (rand() < 0.020 && tiles[idx(x, y + 1)] !== T.AIR && tiles[idx(x, y - 1)] === T.AIR) tiles[idx(x, y)] = T.STALAGMITE;
-      else if (rand() < 0.018 && tiles[idx(x, y - 1)] !== T.AIR && tiles[idx(x, y + 1)] === T.AIR) tiles[idx(x, y)] = T.STALACTITE;
+      const floor = tiles[idx(x, y + 1)] !== T.AIR;
+      const ceiling = tiles[idx(x, y - 1)] !== T.AIR;
+      if (floor && !ceiling) {
+        const r = rand();
+        if (r < 0.020) tiles[idx(x, y)] = T.STALAGMITE;
+        else if (r < 0.034) tiles[idx(x, y)] = T.MUSHROOM;
+        else if (r < 0.042) tiles[idx(x, y)] = T.GLOWMOSS;
+      } else if (ceiling && !floor) {
+        const r = rand();
+        if (r < 0.018) tiles[idx(x, y)] = T.STALACTITE;
+        else if (r < 0.030) tiles[idx(x, y)] = T.VINE;
+        else if (r < 0.038) tiles[idx(x, y)] = T.GLOWMOSS;
+      }
     }
   }
+
+  // Reeds along the banks of anything that will hold water. Placed before the
+  // water pass so they end up standing *in* the shallows, which is where reeds
+  // belong.
+  for (let x = 2; x < w - 2; x++) {
+    const s = surface[x];
+    if (tiles[idx(x, s)] === T.AIR || tiles[idx(x, s - 1)] !== T.AIR) continue;
+    // A dip: lower than both neighbours a couple of columns out.
+    if (surface[x - 2] < s && surface[x + 2] < s && rand() < 0.25) {
+      tiles[idx(x, s - 1)] = T.REEDS;
+    }
+  }
+}
+
+// Pick from a [{ tile, weight }] list.
+function pickWeighted(list, rand) {
+  let total = 0;
+  for (const e of list) total += e.weight;
+  let r = rand() * total;
+  for (const e of list) { r -= e.weight; if (r <= 0) return e.tile; }
+  return list[list.length - 1].tile;
 }
 
 function blobTilesOnly(tiles, w, h, cx, cy, r, id, replaceable) {
@@ -891,6 +930,38 @@ function placeTree(tiles, w, h, x, baseY, def, rand) {
   const [minH, maxH] = def.treeHeight || [5, 9];
   const height = minH + Math.floor(rand() * (maxH - minH + 1));
   const trunk = def.treeTile != null ? def.treeTile : T.WOOD;
+
+  // Corruption trees grow wrong. The trunk lurches from side to side as it
+  // climbs and throws out short bare branches, so a corrupted grove reads as
+  // diseased rather than as the same tree in a different palette.
+  if (def.canopy === 'twisted') {
+    let tx = x;
+    let leanDir = rand() < 0.5 ? -1 : 1;
+    for (let i = 0; i < height; i++) {
+      const y = baseY - i;
+      if (y <= 1) break;
+      // Lurch every few segments, and never twice the same way in a row, so the
+      // trunk zig-zags instead of simply leaning over.
+      if (i > 0 && i % 2 === 0 && rand() < 0.62) {
+        const nx = tx + leanDir;
+        if (nx > 1 && nx < w - 2 && tiles[idx(nx, y)] === T.AIR) {
+          // Keep the column connected: fill the corner it just stepped past.
+          if (tiles[idx(tx, y)] === T.AIR) tiles[idx(tx, y)] = trunk;
+          tx = nx;
+        }
+        leanDir = -leanDir;
+      }
+      if (tiles[idx(tx, y)] !== T.AIR) break;
+      tiles[idx(tx, y)] = trunk;
+      // Bare branch stubs, one tile out, on alternating sides.
+      if (i >= 2 && rand() < 0.42) {
+        const bx = tx + (rand() < 0.5 ? -1 : 1);
+        if (bx > 0 && bx < w - 1 && tiles[idx(bx, y)] === T.AIR) tiles[idx(bx, y)] = trunk;
+      }
+    }
+    return; // no canopy: these are dead
+  }
+
   for (let i = 0; i < height; i++) {
     const y = baseY - i;
     if (y > 1 && tiles[idx(x, y)] === T.AIR) tiles[idx(x, y)] = trunk;
@@ -1137,12 +1208,14 @@ function sealSpawn(tiles, walls, w, h, surface, spawnTx, biome) {
       if (tiles[idx(x, s + dy)] === T.AIR) { tiles[idx(x, s + dy)] = def.sub; walls[idx(x, s + dy)] = def.subWall; }
     }
     // Keep headroom above the plain. Right at spawn this is unconditional so a
-    // canopy can never box the player in; further out, trees are left standing.
+    // canopy can never box the player in; further out, trees and undergrowth
+    // are left standing. Clearing the undergrowth too used to leave a 26-tile
+    // strip of conspicuously bare ground around every spawn.
     for (let dy = 1; dy <= 2; dy++) {
       const id = tiles[idx(x, s - dy)];
       if (id === T.AIR) continue;
-      const isFlora = id === def.treeTile || id === def.leafTile;
-      if (!isFlora || Math.abs(dx) <= 3) tiles[idx(x, s - dy)] = T.AIR;
+      const keepable = id === def.treeTile || id === def.leafTile || isFlora(id);
+      if (!keepable || Math.abs(dx) <= 3) tiles[idx(x, s - dy)] = T.AIR;
     }
   }
 }

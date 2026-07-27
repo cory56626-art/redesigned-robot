@@ -8,6 +8,9 @@ import { T } from './tiles.js?v=quality-of-realms-1';
 import { W } from './walls.js?v=quality-of-realms-1';
 import { mulberry32 } from '../utils.js?v=quality-of-realms-1';
 
+// groundCover : the undergrowth mix for this band — a chance plus a weighted
+//               list of plants. Each biome grows something different, so
+//               crossing a seam changes the flora as well as the ground.
 // amp      : surface height amplitude in tiles (how hilly)
 // rough    : weight of the high-frequency octaves (how jagged)
 // lift     : average height offset in tiles (negative = higher ground)
@@ -18,7 +21,11 @@ export const BIOMES = {
     surface: T.SAND, sub: T.SAND, subDepth: [7, 13], stone: T.SANDSTONE,
     wall: W.SANDSTONE, subWall: W.SANDSTONE, stoneWall: W.SANDSTONE,
     amp: 3.5, rough: 0.25, lift: 5,
-    treeChance: 0, cactusChance: 0.05, grassChance: 0.02, vineChance: 0,
+    treeChance: 0, cactusChance: 0.05, vineChance: 0,
+    groundCover: { chance: 0.10, plants: [
+      { tile: T.DUNESHRUB, weight: 6 },
+      { tile: T.SHORTGRASS, weight: 2 },
+    ] },
     skyDay: ['#4f7fb5', '#e0cd97'], skyNight: ['#0c1226', '#2a2438'],
   },
   forest: {
@@ -26,7 +33,13 @@ export const BIOMES = {
     surface: T.GRASS, sub: T.DIRT, subDepth: [5, 9], stone: T.STONE,
     wall: W.DIRT, subWall: W.DIRT, stoneWall: W.STONE,
     amp: 9.5, rough: 0.45, lift: 0,
-    treeChance: 0.22, cactusChance: 0, grassChance: 0.3, vineChance: 0,
+    treeChance: 0.22, cactusChance: 0, vineChance: 0,
+    groundCover: { chance: 0.52, plants: [
+      { tile: T.SHORTGRASS, weight: 10 },
+      { tile: T.TALLGRASS, weight: 6 },
+      { tile: T.FLOWERS, weight: 5 },
+      { tile: T.FERN, weight: 3 },
+    ] },
     treeTile: T.WOOD, leafTile: T.LEAVES, treeHeight: [5, 9], canopy: 'round',
     skyDay: ['#3a6ea5', '#8fc0e8'], skyNight: ['#0a0e22', '#1a1d3a'],
   },
@@ -35,7 +48,11 @@ export const BIOMES = {
     surface: T.SNOW, sub: T.SNOW, subDepth: [6, 11], stone: T.STONE,
     wall: W.SNOW, subWall: W.SNOW, stoneWall: W.STONE,
     amp: 13, rough: 0.5, lift: -4,
-    treeChance: 0.26, cactusChance: 0, grassChance: 0.04, vineChance: 0,
+    treeChance: 0.26, cactusChance: 0, vineChance: 0,
+    groundCover: { chance: 0.22, plants: [
+      { tile: T.FROSTBRACKEN, weight: 8 },
+      { tile: T.SHORTGRASS, weight: 2 },
+    ] },
     treeTile: T.FROSTWOOD, leafTile: T.FROSTLEAVES, treeHeight: [7, 13], canopy: 'conifer',
     iceChance: 0.16,
     skyDay: ['#5b81ad', '#cfe2f2'], skyNight: ['#0b1224', '#232c46'],
@@ -45,8 +62,14 @@ export const BIOMES = {
     surface: T.BLIGHTGRASS, sub: T.DIRT, subDepth: [4, 8], stone: T.BLIGHTSTONE,
     wall: W.BLIGHT, subWall: W.DIRT, stoneWall: W.BLIGHT,
     amp: 15, rough: 0.85, lift: -2,
-    treeChance: 0.07, cactusChance: 0, grassChance: 0.05, vineChance: 0.06,
-    treeTile: T.WOOD, leafTile: null, treeHeight: [4, 8], canopy: 'dead',
+    treeChance: 0.12, cactusChance: 0, vineChance: 0.06,
+    groundCover: { chance: 0.30, plants: [
+      { tile: T.BLIGHTBLOOM, weight: 6 },
+      { tile: T.TALLGRASS, weight: 3 },
+    ] },
+    // Corruption trees are twisted: the trunk lurches side to side as it grows
+    // and throws out bare, asymmetric branches instead of a canopy.
+    treeTile: T.WOOD, leafTile: null, treeHeight: [5, 10], canopy: 'twisted',
     chasmChance: 0.35,
     skyDay: ['#4a2f5a', '#7a5a86'], skyNight: ['#14081e', '#2a1436'],
   },

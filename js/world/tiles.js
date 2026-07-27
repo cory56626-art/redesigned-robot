@@ -39,6 +39,18 @@ export const T = {
   TALLGRASS: 30,
   STALAGMITE: 31,
   STALACTITE: 32,
+  // --- Added in 4.1: flora ---
+  // All non-solid decor that sways with the wind (see `sway` below).
+  SHORTGRASS: 33,
+  FLOWERS: 34,
+  FERN: 35,
+  REEDS: 36,
+  VINE: 37,
+  MUSHROOM: 38,
+  GLOWMOSS: 39,
+  DUNESHRUB: 40,
+  FROSTBRACKEN: 41,
+  BLIGHTBLOOM: 42,
 };
 
 // Each entry: name, solid, color (fallback), hardness, minPower, drop item id,
@@ -90,6 +102,24 @@ export const TILES = {
   [T.TALLGRASS]:  { name: 'Tall Grass', solid: false, color: '#5c9c46', hardness: 4, minPower: 0, drop: 'fiber', dropChance: 0.5, decor: true, blastResist: 0 },
   [T.STALAGMITE]: { name: 'Stalagmite', solid: false, color: '#7b7f8c', hardness: 18, minPower: 0, drop: 'stone', dropChance: 0.6, decor: true, blastResist: 0 },
   [T.STALACTITE]: { name: 'Stalactite', solid: false, color: '#7b7f8c', hardness: 18, minPower: 0, drop: 'stone', dropChance: 0.6, decor: true, blastResist: 0 },
+
+  // Flora. Every one is non-solid decor you walk straight through, and every
+  // one carries a `sway` weight: how far the wind moves it, relative to a tree
+  // canopy's 1.0. Grass whips, a shrub barely shifts, and a hanging vine swings
+  // more than either because it is pivoting from the top.
+  //
+  // `anchor` says which side the plant is rooted to, so the renderer knows
+  // where the pivot is: 'floor' (default), 'ceiling', or 'any'.
+  [T.SHORTGRASS]:   { name: 'Meadow Grass', solid: false, color: '#5c9c46', hardness: 3, minPower: 0, drop: 'fiber', dropChance: 0.4, decor: true, sway: 1.15, flora: true, blastResist: 0 },
+  [T.FLOWERS]:      { name: 'Wildflowers', solid: false, color: '#6ea84f', hardness: 3, minPower: 0, drop: 'fiber', dropChance: 0.5, decor: true, sway: 1.0, flora: true, blastResist: 0 },
+  [T.FERN]:         { name: 'Shadefern', solid: false, color: '#3f7a3c', hardness: 4, minPower: 0, drop: 'fiber', dropChance: 0.6, decor: true, sway: 0.8, flora: true, blastResist: 0 },
+  [T.REEDS]:        { name: 'Bank Reeds', solid: false, color: '#7f9a4a', hardness: 3, minPower: 0, drop: 'fiber', dropChance: 0.7, decor: true, sway: 1.3, flora: true, blastResist: 0 },
+  [T.VINE]:         { name: 'Hanging Vine', solid: false, color: '#4a7a3a', hardness: 4, minPower: 0, drop: 'fiber', dropChance: 0.5, decor: true, sway: 1.4, flora: true, anchor: 'ceiling', blastResist: 0 },
+  [T.MUSHROOM]:     { name: 'Cavecap', solid: false, color: '#c4a08a', hardness: 5, minPower: 0, drop: 'fiber', dropChance: 0.5, decor: true, sway: 0.25, flora: true, blastResist: 0 },
+  [T.GLOWMOSS]:     { name: 'Glowmoss', solid: false, color: '#6fd6c0', hardness: 4, minPower: 0, drop: 'fiber', dropChance: 0.4, decor: true, sway: 0.2, flora: true, light: 0.22, anchor: 'any', blastResist: 0 },
+  [T.DUNESHRUB]:    { name: 'Dune Shrub', solid: false, color: '#9a9a58', hardness: 6, minPower: 0, drop: 'fiber', dropChance: 0.6, decor: true, sway: 0.55, flora: true, blastResist: 0 },
+  [T.FROSTBRACKEN]: { name: 'Frost Bracken', solid: false, color: '#8fb4a8', hardness: 5, minPower: 0, drop: 'fiber', dropChance: 0.5, decor: true, sway: 0.7, flora: true, blastResist: 0 },
+  [T.BLIGHTBLOOM]:  { name: 'Blightbloom', solid: false, color: '#8a52ab', hardness: 5, minPower: 0, drop: 'fiber', dropChance: 0.5, decor: true, sway: 0.9, flora: true, light: 0.12, blastResist: 0 },
 };
 
 export function tileDef(id) { return TILES[id] || TILES[T.AIR]; }
@@ -98,6 +128,17 @@ export function tileLight(id) { return (TILES[id] && TILES[id].light) || 0; }
 export function isTree(id) { return !!(TILES[id] && TILES[id].tree); }
 export function isLeaf(id) { return !!(TILES[id] && TILES[id].leaf); }
 export function isDecor(id) { return !!(TILES[id] && TILES[id].decor); }
+// How much the wind moves this tile, relative to a tree canopy. 0 = fixed.
+export function swayWeight(id) {
+  const d = TILES[id];
+  if (!d) return 0;
+  if (d.sway != null) return d.sway;
+  return d.leaf ? 1 : 0;
+}
+export function isFlora(id) { return !!(TILES[id] && TILES[id].flora); }
+// 'floor' | 'ceiling' | 'any' — which edge the plant is rooted to, and so
+// where its sway pivot sits.
+export function floraAnchor(id) { return (TILES[id] && TILES[id].anchor) || 'floor'; }
 export function tileMat(id) { return (TILES[id] && TILES[id].mat) || null; }
 export function blastResist(id) {
   const d = TILES[id];

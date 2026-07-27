@@ -1,7 +1,8 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
 import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=quality-of-realms-1';
-import { T, isSolid, isTree, isLeaf, tileDef } from '../world/tiles.js?v=quality-of-realms-1';
+import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=quality-of-realms-1';
+import { SH } from '../world/shapes.js?v=quality-of-realms-1';
 import { W, hasWall } from '../world/walls.js?v=quality-of-realms-1';
 import { BIOMES } from '../world/biomes.js?v=quality-of-realms-1';
 import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=quality-of-realms-1';
@@ -9,6 +10,13 @@ import { item as getItem } from '../data/items.js?v=quality-of-realms-1';
 import { canPlaceAt } from '../systems/combat.js?v=quality-of-realms-1';
 import { clamp } from '../utils.js?v=quality-of-realms-1';
 import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=quality-of-realms-1';
+
+// Fallback appearance for players without a character record (remote players
+// on an older client, or a world loaded before characters existed).
+const DEFAULT_LOOK = {
+  skin: '#f0c9a0', hair: '#4a3a2a', hairStyle: 'short',
+  shirt: '#7ee0c0', pants: '#2a2f45', eyes: '#222222',
+};
 
 const PROJ_GLOW = {
   thorn: '#7ee08a', seed: '#a7e36f', rock: '#8a7a5a', shock: '#d3b985',
@@ -360,12 +368,19 @@ export class Renderer {
 
   _drawTiles(game, ctx, tx0, ty0, tx1, ty1) {
     const world = game.world;
+    const t = game.time ? game.time.t : 0;
     for (let ty = ty0; ty <= ty1; ty++) {
       for (let tx = tx0; tx <= tx1; tx++) {
         const id = world.get(tx, ty);
         if (id === T.AIR) continue;
         const spr = this._tileSprite(world, tx, ty, id);
-        if (spr) ctx.drawImage(spr, tx * TILE, ty * TILE, TILE, TILE);
+        if (spr) {
+          const shape = world.getShape(tx, ty);
+          const sway = swayWeight(id);
+          if (sway > 0) this._drawSwaying(game, ctx, spr, tx, ty, id, sway, t);
+          else if (shape !== SH.FULL) this._drawShaped(ctx, spr, tx, ty, shape);
+          else ctx.drawImage(spr, tx * TILE, ty * TILE, TILE, TILE);
+        }
         // Mining cracks.
         const ratio = world.miningRatio(tx, ty);
         if (ratio > 0.01) {
@@ -375,6 +390,63 @@ export class Renderer {
         }
       }
     }
+  }
+
+  // Foliage bending in the wind.
+  //
+  // The tile is sheared around its anchored edge rather than translated, so the
+  // rooted end stays put and only the free end moves — which is the difference
+  // between a plant bending and a sprite sliding sideways.
+  //
+  // The phase comes from the tile's own coordinates, so neighbouring tiles of
+  // one canopy move together as a mass while a plant twenty tiles away is out
+  // of step. Without that, either everything moves in lockstep (which reads as
+  // the whole world sliding) or every tile is independent (which reads as
+  // static).
+  _drawSwaying(game, ctx, spr, tx, ty, id, sway, t) {
+    const wind = game.weather ? game.weather.windAtTile(game.world, tx, ty) : 0;
+    const x = tx * TILE, y = ty * TILE;
+    if (Math.abs(wind) < 0.005) { ctx.drawImage(spr, x, y, TILE, TILE); return; }
+
+    // Base lean from the wind, plus a rustle that runs across the world as a
+    // travelling wave so gusts visibly move through foliage.
+    const phase = tx * 0.42 + ty * 0.19;
+    const rustle = Math.sin(t * 2.6 + phase) * 0.35 + Math.sin(t * 4.7 + phase * 1.7) * 0.15;
+    const lean = wind * (1 + rustle) * sway * 3.2;
+
+    const anchor = floraAnchor(id);
+    // Hanging things pivot at the top, everything else at its roots.
+    const pivotY = anchor === 'ceiling' ? y : y + TILE;
+    const dir = anchor === 'ceiling' ? 1 : -1;
+
+    ctx.save();
+    ctx.translate(x + TILE / 2, pivotY);
+    // A shear rather than a rotation: it keeps the tile grid-aligned, so a
+    // canopy of many tiles bends as one sheet instead of coming apart at the
+    // seams the way independent rotations would.
+    ctx.transform(1, 0, (lean / TILE) * dir, 1, 0, 0);
+    ctx.drawImage(spr, -TILE / 2, pivotY === y ? 0 : -TILE, TILE, TILE);
+    ctx.restore();
+  }
+
+  // A hammered tile: draw the full sprite clipped to its shape.
+  _drawShaped(ctx, spr, tx, ty, shape) {
+    const x = tx * TILE, y = ty * TILE;
+    ctx.save();
+    ctx.beginPath();
+    switch (shape) {
+      case SH.HALF_BOTTOM: ctx.rect(x, y + TILE / 2, TILE, TILE / 2); break;
+      case SH.HALF_TOP: ctx.rect(x, y, TILE, TILE / 2); break;
+      case SH.SLOPE_NE: ctx.moveTo(x, y + TILE); ctx.lineTo(x + TILE, y); ctx.lineTo(x + TILE, y + TILE); break;
+      case SH.SLOPE_NW: ctx.moveTo(x, y); ctx.lineTo(x + TILE, y + TILE); ctx.lineTo(x, y + TILE); break;
+      case SH.SLOPE_SE: ctx.moveTo(x, y); ctx.lineTo(x + TILE, y); ctx.lineTo(x + TILE, y + TILE); break;
+      case SH.SLOPE_SW: ctx.moveTo(x, y); ctx.lineTo(x + TILE, y); ctx.lineTo(x, y + TILE); break;
+      default: ctx.rect(x, y, TILE, TILE);
+    }
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(spr, x, y, TILE, TILE);
+    ctx.restore();
   }
 
   // Pick the right variant for a tile from its neighbours: trunks and canopies
@@ -1794,81 +1866,154 @@ export class Renderer {
     ctx.restore();
   }
 
+  // The Gravemaw — a burrowing armoured tunnel-worm.
+  //
+  // Rebuilt in 4.1. The old drawing placed the head from the bounding box while
+  // the body segments came from a separately-simulated trail, so head and body
+  // visibly came apart whenever it moved. Everything is now drawn *from the
+  // chain* (boss._updateAnim), tail first, so the creature is one connected
+  // animal by construction. Each segment is oriented along its own link, which
+  // is what lets the body arc through a leap instead of sliding sideways.
   _drawGravemaw(ctx, b) {
     const x = b.x, y = b.y, w = b.w, h = b.h;
     ctx.save();
     this._bossAura(ctx, b, b.color2, 42);
 
     const seg = b.segments || [];
-    // Layered stone segments have individual plates and moving seams.
-    for (let i = 2; i >= 0; i--) {
-      const s = seg[i] || { x: x + 4 + i * 17, y: y + 12 };
-      const sw = 25, sh = 29;
-      ctx.fillStyle = i === 0 ? '#5d4938' : (i === 1 ? '#705940' : '#806648');
-      this._roundRect(ctx, s.x, s.y, sw, sh, 9); ctx.fill();
-      ctx.fillStyle = 'rgba(24,18,18,0.28)';
-      this._roundRect(ctx, s.x + 2, s.y + 16, sw - 4, 11, 6); ctx.fill();
-      ctx.fillStyle = '#b69a6c'; ctx.globalAlpha = 0.58;
-      ctx.beginPath();
-      ctx.moveTo(s.x + 5, s.y + 7); ctx.lineTo(s.x + 12, s.y + 4); ctx.lineTo(s.x + 18, s.y + 7);
-      ctx.lineTo(s.x + 15, s.y + 10); ctx.lineTo(s.x + 7, s.y + 10); ctx.closePath(); ctx.fill();
-      ctx.globalAlpha = 1;
+    const headX = b.headX != null ? b.headX : x + w / 2;
+    const headY = b.headY != null ? b.headY : y + 20;
+    const crouch = b.crouch || 0;
+
+    // Ground shadow, tightening as it lands.
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h + 1, w * 0.42, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // ---- Body, tail first so each segment overlaps the one behind it ----
+    for (let i = seg.length - 1; i >= 0; i--) {
+      const s = seg[i];
+      // Segments taper toward the tail.
+      const r = 13 - i * 2.2;
+      const shade = i === 0 ? '#806648' : i === 1 ? '#705940' : '#5d4938';
+      ctx.save();
+      ctx.translate(s.x, s.y);
+      ctx.rotate(s.angle || 0);
+
+      // Plate.
+      ctx.fillStyle = shade;
+      this._roundRect(ctx, -r, -r * 0.92, r * 2, r * 1.84, r * 0.55); ctx.fill();
+      // Underside shadow gives the segment volume.
+      ctx.fillStyle = 'rgba(24,18,18,0.30)';
+      this._roundRect(ctx, -r + 2, r * 0.1, r * 2 - 4, r * 0.72, r * 0.4); ctx.fill();
+      // Top highlight where the light would catch the ridge.
+      ctx.fillStyle = 'rgba(200,175,130,0.35)';
+      this._roundRect(ctx, -r + 3, -r * 0.85, r * 2 - 6, r * 0.45, r * 0.3); ctx.fill();
+      // Seam rings between plates.
       ctx.strokeStyle = '#3c2f2a'; ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(s.x + 4, s.y + 15); ctx.lineTo(s.x + 20, s.y + 13);
-      ctx.moveTo(s.x + 8, s.y + 21); ctx.lineTo(s.x + 17, s.y + 22);
+      ctx.moveTo(-r + 1, -r * 0.2); ctx.lineTo(r - 1, -r * 0.2);
       ctx.stroke();
-      // Small spikes make the body read as a living armored tunnel-creature.
+      // Dorsal spines, shrinking down the body.
       ctx.fillStyle = '#927852';
       ctx.beginPath();
-      ctx.moveTo(s.x + 4, s.y + 4); ctx.lineTo(s.x + 1, s.y - 3); ctx.lineTo(s.x + 8, s.y + 3);
-      ctx.moveTo(s.x + 17, s.y + 4); ctx.lineTo(s.x + 21, s.y - 2); ctx.lineTo(s.x + 22, s.y + 7);
-      ctx.fill();
+      ctx.moveTo(-3, -r * 0.9); ctx.lineTo(0, -r * 1.5); ctx.lineTo(3, -r * 0.9);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
     }
 
-    const headX = b.facing > 0 ? x + w - 22 : x + 5;
-    const headY = y + 13;
-    ctx.fillStyle = '#8f734d';
-    ctx.beginPath(); ctx.ellipse(headX + (b.facing > 0 ? 3 : 0), headY + 7, 15, 15, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#b8945e';
-    ctx.globalAlpha = 0.55;
-    ctx.beginPath(); ctx.ellipse(headX + (b.facing > 0 ? 0 : 5), headY + 1, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.globalAlpha = 1;
+    // ---- Head, anchored to the front of the chain ----
+    ctx.save();
+    ctx.translate(headX, headY + crouch * 2);
+    ctx.scale(b.facing, 1);
+    // Landing squash reaches the head too.
+    ctx.scale(b.squashX || 1, b.squashY || 1);
 
-    // Jaw gape is simulation-driven: it opens during the telegraph and snaps
-    // shut on release.
+    // Skull: heavier and blockier than the body, so the front of the animal
+    // reads as the dangerous end.
+    ctx.fillStyle = '#8f734d';
+    this._roundRect(ctx, -14, -15, 30, 28, 9); ctx.fill();
+    ctx.fillStyle = 'rgba(200,175,130,0.4)';
+    this._roundRect(ctx, -11, -14, 24, 8, 5); ctx.fill();
+    ctx.fillStyle = 'rgba(30,22,18,0.25)';
+    this._roundRect(ctx, -12, 4, 26, 8, 4); ctx.fill();
+    // Brow ridge.
+    ctx.fillStyle = '#6d5537';
+    ctx.beginPath();
+    ctx.moveTo(-12, -8); ctx.lineTo(2, -15); ctx.lineTo(16, -7); ctx.lineTo(14, -3); ctx.lineTo(-10, -3);
+    ctx.closePath(); ctx.fill();
+
+    // Jaw. It gapes through the wind-up and snaps shut on release, hinged at
+    // the back of the skull so it swings rather than sliding open.
     const jaw = b.jaw != null ? b.jaw : 0;
-    const mouthX = b.facing > 0 ? x + w - 21 : x + 4;
+    ctx.save();
+    ctx.translate(-10, 2);
+    ctx.rotate(jaw * 0.65);
     ctx.fillStyle = '#1c1720';
-    this._roundRect(ctx, mouthX, y + 17 - jaw * 4, 18, 16 + jaw * 8, 7); ctx.fill();
+    this._roundRect(ctx, 0, 0, 26, 13, 5); ctx.fill();
     ctx.fillStyle = '#ead8a5';
-    for (let i = 0; i < 4; i++) {
-      const tx = b.facing > 0 ? mouthX + 1 + i * 5 : mouthX + 17 - i * 5;
+    for (let i = 0; i < 5; i++) {
+      const tx = 2 + i * 5;
       ctx.beginPath();
-      ctx.moveTo(tx, y + 19 - jaw * 3);
-      ctx.lineTo(tx + (b.facing > 0 ? 3 : -3), y + 27 - jaw * 3);
-      ctx.lineTo(tx + (b.facing > 0 ? 6 : -6), y + 19 - jaw * 3);
+      ctx.moveTo(tx, 1); ctx.lineTo(tx + 2, 7); ctx.lineTo(tx + 4, 1);
       ctx.closePath(); ctx.fill();
     }
-    ctx.fillStyle = b.telegraph > 0 ? '#ffd28c' : '#ff6b4d';
-    ctx.fillRect(b.facing > 0 ? x + w - 30 : x + 13, y + 8, 6, 5);
-    ctx.fillStyle = '#25191b';
-    ctx.fillRect(b.facing > 0 ? x + w - 28 : x + 14, y + 9, 2, 2);
+    ctx.restore();
+    // Upper fangs, fixed to the skull.
+    ctx.fillStyle = '#f2e3b8';
+    for (let i = 0; i < 4; i++) {
+      const tx = -8 + i * 6;
+      ctx.beginPath();
+      ctx.moveTo(tx, 2); ctx.lineTo(tx + 2, 8); ctx.lineTo(tx + 4, 2);
+      ctx.closePath(); ctx.fill();
+    }
 
-    // Stone tendrils and feet dig into the ground when it is not airborne.
-    ctx.strokeStyle = '#493a32'; ctx.lineWidth = 3; ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x + 12, y + h - 4); ctx.lineTo(x + 7, y + h + 3);
-    ctx.moveTo(x + 27, y + h - 3); ctx.lineTo(x + 30, y + h + 4);
-    ctx.moveTo(x + 47, y + h - 4); ctx.lineTo(x + 53, y + h + 2);
-    ctx.stroke();
+    // Eye, glowing hotter as an attack charges.
+    const charge = b.telegraph > 0 ? 1 - b.telegraph / (b.telegraphMax || 0.6) : 0;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(7, -7, 0, 7, -7, 9 + charge * 6);
+    g.addColorStop(0, charge > 0 ? '#ffd28c' : '#ff6b4d');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = 0.5 + charge * 0.5;
+    ctx.fillStyle = g;
+    ctx.fillRect(-4, -18, 24, 24);
+    ctx.restore();
+    ctx.fillStyle = charge > 0 ? '#ffd28c' : '#ff6b4d';
+    ctx.fillRect(5, -9, 6, 5);
+    ctx.fillStyle = '#25191b';
+    ctx.fillRect(7, -8, 2, 3);
+    ctx.restore();
+
+    // Stone tendrils gripping the ground, splayed wider during a wind-up as it
+    // braces for the leap.
+    if (b.onGround) {
+      ctx.strokeStyle = '#493a32'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (const s of seg) {
+        const spread = 5 + crouch * 4;
+        ctx.moveTo(s.x - 4, s.y + 10); ctx.lineTo(s.x - spread, s.y + 18);
+        ctx.moveTo(s.x + 4, s.y + 10); ctx.lineTo(s.x + spread, s.y + 18);
+      }
+      ctx.stroke();
+    }
+
     if (b.telegraph > 0) {
       ctx.strokeStyle = '#d3b985'; ctx.globalAlpha = 0.55; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.arc(x + w / 2, y + h - 2, 22 + (1 - b.telegraph / (b.telegraphMax || 0.6)) * 10, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x + w / 2, y + h - 2, 22 + charge * 12, 0, Math.PI * 2); ctx.stroke();
       ctx.globalAlpha = 1;
     }
-    if (b.hurtFlash > 0) { ctx.fillStyle = 'rgba(255,255,255,0.54)'; this._roundRect(ctx, x + 2, y + 7, w - 4, h - 4, 10); ctx.fill(); }
-    if (b.invuln > 0) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; this._roundRect(ctx, x + 1, y + 7, w - 2, h - 5, 10); ctx.stroke(); }
+    if (b.hurtFlash > 0) {
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = '#fff';
+      for (const s of seg) { ctx.beginPath(); ctx.arc(s.x, s.y, 12, 0, Math.PI * 2); ctx.fill(); }
+      ctx.beginPath(); ctx.arc(headX, headY, 15, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    if (b.invuln > 0) {
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(headX, headY, 16, 0, Math.PI * 2); ctx.stroke();
+    }
     ctx.restore();
   }
 
@@ -1977,51 +2122,41 @@ export class Renderer {
     }
   }
 
+  // The player.
+  //
+  // Rebuilt in 4.1 around a *pose*: a small set of numbers derived from what the
+  // player is doing (walk cycle, airborne, swimming, swinging) that every body
+  // part reads from. The old version drew a fixed stack of rectangles with one
+  // leg offset, so the character never looked like it was doing anything.
+  //
+  // Equipment is drawn as layers over the body using each armor item's own
+  // colour, which is what finally makes armor visible on the character instead
+  // of being a number in a panel.
   _drawPlayer(ctx, p, game) {
     const x = p.x, y = p.y, w = p.w, h = p.h;
-    const legSwing = Math.sin(p.walkAnim) * 3;
-    // legs
-    ctx.fillStyle = '#2a2f45';
-    ctx.fillRect(x + 1, y + h - 8 + Math.max(0, legSwing), 4, 8 - Math.max(0, legSwing));
-    ctx.fillRect(x + w - 5, y + h - 8 + Math.max(0, -legSwing), 4, 8 - Math.max(0, -legSwing));
-    // torso (player colour)
-    ctx.fillStyle = p.color;
-    this._roundRect(ctx, x, y + 8, w, h - 14, 2); ctx.fill();
-    // belt/legs armor accent
-    ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(x, y + h - 8, w, 2);
-    // head
-    ctx.fillStyle = '#f0c9a0';
-    ctx.fillRect(x + 1, y, w - 2, 9);
-    // hair/cap
-    ctx.fillStyle = this._shade(p.color, -0.3);
-    ctx.fillRect(x + 1, y, w - 2, 3);
-    // eyes
-    ctx.fillStyle = '#222';
-    ctx.fillRect(p.facing > 0 ? x + w - 5 : x + 3, y + 4, 2, 2);
-    // held item toward aim
-    const sel = p.isLocal ? p.inventory.selectedItem() : (p.selectedId ? getItem(p.selectedId) : null);
-    if (sel) {
-      const icon = Sprites.getIcon(sel);
-      if (icon) {
-        const hx = x + w / 2, hy = y + 14;
-        ctx.save();
-        ctx.translate(hx, hy);
-        ctx.scale(p.facing, 1);
-        ctx.drawImage(icon, 0, -6, 12, 12);
-        ctx.restore();
-      }
-    }
-    // melee swing arc
-    if (p.swing) {
-      const prog = p.swing.time / p.swing.dur;
-      const a = p.swing.angle + (prog - 0.5) * 1.8 * (p.facing);
-      const r = (p.swing.reach || 26);
-      const cx = x + w / 2, cy = y + h / 2;
-      ctx.strokeStyle = p.swing.color || 'rgba(255,255,255,0.7)';
-      ctx.lineWidth = 3; ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, a - 0.5, a + 0.5); ctx.stroke();
-    }
+    const app = p.appearance || DEFAULT_LOOK;
+    const eq = p.inventory ? p.inventory.equip : null;
+
+    const pose = this._playerPose(p);
+    ctx.save();
+    ctx.translate(x + w / 2, y + h);
+    ctx.scale(p.facing, 1);
+    ctx.translate(-w / 2, -h);
+    // Whole-body bob: the torso rises and falls through the stride, and
+    // breathes slowly when idle.
+    ctx.translate(0, pose.bodyY);
+
+    this._drawPlayerLegs(ctx, p, pose, app, eq);
+    this._drawPlayerTorso(ctx, p, pose, app, eq);
+    this._drawPlayerArms(ctx, p, pose, app, eq, game);
+    this._drawPlayerHead(ctx, p, pose, app, eq);
+
+    ctx.restore();
+
+    // The swing trail is drawn in world space, unflipped, because its arc is
+    // already expressed as a world angle.
+    if (p.swing) this._drawSwing(ctx, p);
+
     // name + hp for remote players
     if (!p.isLocal || game.net) {
       ctx.font = '5px sans-serif'; ctx.textAlign = 'center';
@@ -2030,6 +2165,258 @@ export class Renderer {
       if (!p.isLocal) this._miniHp(ctx, p, p.hp / p.maxHp, p.color);
     }
     ctx.textAlign = 'left';
+  }
+
+  // Derive every animation number from the player's actual state, once.
+  _playerPose(p) {
+    const moving = Math.abs(p.vx) > 5;
+    const airborne = !p.onGround && !p.submerged;
+    const t = p.walkAnim;
+    const idleT = (performance.now() / 1000) * 1.6 + (p.x * 0.01);
+
+    if (p.submerged) {
+      // Swimming: legs kick, arms sweep, body tips forward.
+      const k = Math.sin(idleT * 4);
+      return {
+        legFront: k * 5, legBack: -k * 5, armFront: -k * 0.5, armBack: k * 0.5,
+        bodyY: Math.sin(idleT * 3) * 0.6, lean: 0.25, crouch: 0, swim: true,
+      };
+    }
+    if (airborne) {
+      // Rising: legs tucked. Falling: legs reaching for the ground.
+      const rising = p.vy < 0;
+      return {
+        legFront: rising ? -3 : 2.5, legBack: rising ? 2 : -1.5,
+        armFront: rising ? -0.9 : -0.35, armBack: rising ? 0.5 : 0.7,
+        bodyY: 0, lean: rising ? -0.1 : 0.08, crouch: rising ? 1 : 0, swim: false,
+      };
+    }
+    if (moving) {
+      // Walk cycle: legs and arms counter-swing, torso bobs at twice the
+      // stride frequency (once per footfall, not once per cycle).
+      return {
+        legFront: Math.sin(t) * 4.2, legBack: Math.sin(t + Math.PI) * 4.2,
+        armFront: Math.sin(t + Math.PI) * 0.75, armBack: Math.sin(t) * 0.75,
+        bodyY: -Math.abs(Math.sin(t)) * 1.1, lean: 0.06, crouch: 0, swim: false,
+      };
+    }
+    // Idle: a slow breath, nothing else.
+    return {
+      legFront: 0, legBack: 0,
+      armFront: Math.sin(idleT) * 0.1, armBack: -Math.sin(idleT) * 0.1,
+      bodyY: Math.sin(idleT) * 0.35, lean: 0, crouch: 0, swim: false,
+    };
+  }
+
+  // Colour for an equipment slot, falling back to the body's own colour when
+  // nothing is worn there.
+  _gearColor(eq, slot, fallback) {
+    const ref = eq && eq[slot];
+    if (!ref) return null;
+    const def = getItem(ref.id);
+    return (def && def.color) || fallback;
+  }
+
+  _drawPlayerLegs(ctx, p, pose, app, eq) {
+    const w = p.w, h = p.h;
+    const legs = this._gearColor(eq, 'legs');
+    const col = legs || app.pants;
+    const boot = legs ? this._shade(legs, -0.28) : this._shade(app.pants, -0.35);
+    const top = h - 9;
+
+    for (const [dx, swing, shadeAmt] of [[w - 5.5, pose.legFront, 0], [1, pose.legBack, -0.12]]) {
+      const lift = Math.max(0, swing);
+      ctx.fillStyle = this._shade(col, shadeAmt);
+      ctx.fillRect(dx, top + lift, 4, 9 - lift);
+      ctx.fillStyle = boot;
+      ctx.fillRect(dx - 0.5, h - 2 + lift * 0.2, 5, 2);
+      // Armored legs get a knee plate, so a full set is readable at a glance.
+      if (legs) {
+        ctx.fillStyle = this._shade(legs, 0.25);
+        ctx.fillRect(dx, top + lift + 2, 4, 1.5);
+      }
+    }
+  }
+
+  _drawPlayerTorso(ctx, p, pose, app, eq) {
+    const w = p.w, h = p.h;
+    const chest = this._gearColor(eq, 'chest');
+    const col = chest || app.shirt;
+    const top = 8, bottom = h - 9;
+
+    ctx.save();
+    // A slight forward lean while moving, pivoting at the hips.
+    ctx.translate(w / 2, bottom);
+    ctx.rotate(pose.lean * 0.35);
+    ctx.translate(-w / 2, -bottom);
+
+    ctx.fillStyle = col;
+    this._roundRect(ctx, 0, top, w, bottom - top + 1, 2); ctx.fill();
+    // Lit from the upper left, shadowed toward the back — the same light the
+    // terrain uses, so the character sits in the same world.
+    ctx.fillStyle = 'rgba(255,255,255,0.13)';
+    this._roundRect(ctx, 0.5, top + 0.5, w - 4, bottom - top - 2, 2); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(w - 3, top + 1, 3, bottom - top - 1);
+
+    if (chest) {
+      // Chest plate: a raised collar and a centre seam.
+      ctx.fillStyle = this._shade(chest, 0.3);
+      ctx.fillRect(1, top, w - 2, 2);
+      ctx.fillStyle = this._shade(chest, -0.3);
+      ctx.fillRect(w / 2 - 0.5, top + 2, 1, bottom - top - 2);
+      // Shoulder pauldrons.
+      ctx.fillStyle = this._shade(chest, 0.18);
+      this._roundRect(ctx, -1, top + 0.5, 4, 3.5, 1.5); ctx.fill();
+      this._roundRect(ctx, w - 3, top + 0.5, 4, 3.5, 1.5); ctx.fill();
+    } else {
+      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+      ctx.fillRect(0, bottom - 1, w, 2); // belt
+    }
+    ctx.restore();
+  }
+
+  _drawPlayerArms(ctx, p, pose, app, eq, game) {
+    const w = p.w, h = p.h;
+    const chest = this._gearColor(eq, 'chest');
+    const sleeve = chest ? this._shade(chest, -0.1) : app.shirt;
+    const shoulderY = 11;
+
+    // Back arm, behind the torso.
+    ctx.save();
+    ctx.translate(2, shoulderY);
+    ctx.rotate(pose.armBack);
+    ctx.fillStyle = this._shade(sleeve, -0.22);
+    ctx.fillRect(-1.5, 0, 3, 8);
+    ctx.fillStyle = this._shade(app.skin, -0.15);
+    ctx.fillRect(-1.5, 7, 3, 2.5);
+    ctx.restore();
+
+    // Front arm holds whatever is selected. During a swing the arm follows the
+    // weapon rather than the walk cycle, which is what makes the swing read as
+    // a swing and not as the character waving while a sprite spins nearby.
+    const sel = p.isLocal ? (p.inventory && p.inventory.selectedItem()) : (p.selectedId ? getItem(p.selectedId) : null);
+    let armAngle = pose.armFront;
+    if (p.swing) {
+      const k = this._swingProgress(p);
+      // Local angle relative to the (already flipped) body.
+      armAngle = -1.1 + k * 2.2;
+    } else if (p.fishing) {
+      armAngle = -0.5;
+    }
+
+    ctx.save();
+    ctx.translate(w - 2, shoulderY);
+    ctx.rotate(armAngle);
+    ctx.fillStyle = sleeve;
+    ctx.fillRect(-1.5, 0, 3, 8);
+    ctx.fillStyle = app.skin;
+    ctx.fillRect(-1.5, 7, 3, 2.5);
+    // Held item, in the hand, rotating with the arm.
+    if (sel) {
+      const icon = Sprites.getIcon(sel);
+      if (icon) {
+        ctx.save();
+        ctx.translate(0, 9);
+        ctx.rotate(p.swing ? 0.5 : 0.9);
+        ctx.drawImage(icon, -6, -11, 12, 12);
+        ctx.restore();
+      }
+    }
+    ctx.restore();
+  }
+
+  _drawPlayerHead(ctx, p, pose, app, eq) {
+    const w = p.w;
+    const head = this._gearColor(eq, 'head');
+    // Head bobs a touch behind the torso, which is what stops the character
+    // reading as one rigid block.
+    const hy = pose.crouch ? 0.5 : 0;
+
+    ctx.fillStyle = app.skin;
+    ctx.fillRect(1, hy, w - 2, 9);
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    ctx.fillRect(w - 3, hy, 2, 9);
+
+    if (head) {
+      // Helmet over the hair: a dome plus a brow band and a nose guard.
+      ctx.fillStyle = head;
+      this._roundRect(ctx, 0.5, hy - 0.5, w - 1, 6, 2); ctx.fill();
+      ctx.fillStyle = this._shade(head, 0.28);
+      ctx.fillRect(1, hy, w - 2, 1.5);
+      ctx.fillStyle = this._shade(head, -0.3);
+      ctx.fillRect(w - 4, hy + 3.5, 3, 3);   // nose guard, on the facing side
+      ctx.fillRect(0.5, hy + 4.5, w - 1, 1); // brow band
+    } else {
+      // Hair.
+      ctx.fillStyle = app.hair;
+      ctx.fillRect(1, hy, w - 2, 3);
+      if (app.hairStyle === 'long') ctx.fillRect(1, hy, 2.5, 8);
+      else if (app.hairStyle === 'spiky') {
+        for (let i = 0; i < 3; i++) ctx.fillRect(2 + i * 3, hy - 1.5, 2, 2);
+      }
+    }
+
+    // Eye, on the facing side.
+    ctx.fillStyle = app.eyes;
+    ctx.fillRect(w - 5, hy + 4.5, 2, 2);
+  }
+
+  // 0..1 through the current swing.
+  _swingProgress(p) {
+    if (!p.swing) return 0;
+    return Math.max(0, Math.min(1, p.swing.time / p.swing.dur));
+  }
+
+  // A real swing: the arc sweeps from wind-up to follow-through, with a tapered
+  // trail behind the leading edge. The shape depends on the weapon — a sword
+  // sweeps, a spear thrusts, a heavy weapon takes a slow wide arc — so the
+  // weapon classes finally look as different as they play.
+  _drawSwing(ctx, p) {
+    const def = getItem(p.swing.item);
+    const kind = (def && def.meleeKind) || 'sword';
+    const k = this._swingProgress(p);
+    const reach = p.swing.reach || 26;
+    const cx = p.x + p.w / 2, cy = p.y + p.h / 2 - 2;
+    const base = p.swing.angle;
+
+    ctx.save();
+    ctx.lineCap = 'round';
+
+    if (kind === 'spear') {
+      // A thrust: out fast, back slower, with a straight streak.
+      const ext = Math.sin(Math.min(1, k * 1.35) * Math.PI) * reach;
+      const tipX = cx + Math.cos(base) * ext, tipY = cy + Math.sin(base) * ext;
+      const grad = ctx.createLinearGradient(cx, cy, tipX, tipY);
+      grad.addColorStop(0, 'rgba(255,255,255,0)');
+      grad.addColorStop(1, p.swing.color || 'rgba(255,255,255,0.8)');
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(tipX, tipY); ctx.stroke();
+    } else {
+      // Sweep. Heavy weapons cover more arc and lag behind the input.
+      const span = kind === 'heavy' ? 2.5 : 1.9;
+      const eased = kind === 'heavy' ? k * k * (3 - 2 * k) : k;
+      const a = base + (eased - 0.5) * span * p.facing;
+      // Trail: several arcs fading behind the leading edge.
+      const steps = 5;
+      for (let i = steps; i >= 1; i--) {
+        const back = a - (i / steps) * 0.55 * p.facing;
+        ctx.globalAlpha = (1 - i / steps) * 0.5 * (1 - k * 0.5);
+        ctx.strokeStyle = p.swing.color || 'rgba(255,255,255,0.85)';
+        ctx.lineWidth = 3 - (i / steps) * 1.6;
+        ctx.beginPath();
+        ctx.arc(cx, cy, reach * (0.75 + 0.25 * (1 - i / steps)), back - 0.12, back + 0.12);
+        ctx.stroke();
+      }
+      // Leading edge.
+      ctx.globalAlpha = 1 - k * 0.35;
+      ctx.strokeStyle = p.swing.color || 'rgba(255,255,255,0.95)';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(cx, cy, reach, a - 0.3, a + 0.18); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
   }
 
   // The cast line and its bobber. The bobber rides the water's own wave when

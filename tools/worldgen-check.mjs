@@ -340,27 +340,57 @@ for (let s = 0; s < SEEDS; s++) {
   check(seed, 'blightore stays deep', blightOutsideCorruption === 0, `${blightOutsideCorruption} above the underground line`);
 
   // ---- Trees are rooted and their leaves are supported ----
+  //
+  // "Rooted" is a *connectivity* property, not a per-tile one. Corruption trees
+  // grow twisted trunks with bare branch stubs, and a branch legitimately has
+  // air beneath it — the thing that would actually be wrong is a piece of tree
+  // that connects to nothing. So the check floods outward from every trunk tile
+  // standing on solid ground and asserts the whole tree is reached.
   let trees = 0, floatingTrunks = 0, floatingLeaves = 0;
+  const treeSeen = new Set();
+  const treeCells = [];
+  const key = (x, y) => y * width + x;
+  const isTreePart = (x, y) => {
+    const d = TILES[at(x, y)];
+    return !!(d && (d.tree || d.leaf));
+  };
+
+  const stack2 = [];
   for (let x = 1; x < width - 1; x++) {
-    for (let y = 1; y < surface[x] + 2; y++) {
-      const id = at(x, y);
-      const def = TILES[id];
-      if (def && def.tree) {
-        if (at(x, y + 1) === T.AIR) floatingTrunks++;
-        if (!TILES[at(x, y + 1)] || !TILES[at(x, y + 1)].tree) trees++;
-      } else if (def && def.leaf) {
-        // A leaf must have at least one non-air neighbour, or it is orphaned.
-        let support = 0;
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          if (at(x + dx, y + dy) !== T.AIR) support++;
+    for (let y = 1; y < surface[x] + 3; y++) {
+      const d = TILES[at(x, y)];
+      if (!d || !d.tree) continue;
+      treeCells.push(key(x, y));
+      // A root: a trunk tile resting on solid ground.
+      if (!isSolid(at(x, y + 1))) continue;
+      trees++;
+      if (treeSeen.has(key(x, y))) continue;
+      stack2.push([x, y]); treeSeen.add(key(x, y));
+      while (stack2.length) {
+        const [cx, cy] = stack2.pop();
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = cx + dx, ny = cy + dy;
+            if (nx < 1 || nx >= width - 1 || ny < 1 || ny >= height) continue;
+            if (treeSeen.has(key(nx, ny)) || !isTreePart(nx, ny)) continue;
+            treeSeen.add(key(nx, ny));
+            stack2.push([nx, ny]);
+          }
         }
-        if (support === 0) floatingLeaves++;
       }
     }
   }
+  for (const k of treeCells) if (!treeSeen.has(k)) floatingTrunks++;
+  for (let x = 1; x < width - 1; x++) {
+    for (let y = 1; y < surface[x] + 3; y++) {
+      const d = TILES[at(x, y)];
+      if (!d || !d.leaf) continue;
+      if (!treeSeen.has(key(x, y))) floatingLeaves++;
+    }
+  }
   stats.trees.push(trees);
-  check(seed, 'no floating trunks', floatingTrunks === 0, `${floatingTrunks} trunk tiles hanging in air`);
-  check(seed, 'no orphaned leaves', floatingLeaves === 0, `${floatingLeaves} isolated leaf tiles`);
+  check(seed, 'no floating trunks', floatingTrunks === 0, `${floatingTrunks} trunk tiles not connected to the ground`);
+  check(seed, 'no orphaned leaves', floatingLeaves === 0, `${floatingLeaves} leaf tiles not connected to a rooted trunk`);
   check(seed, 'forest has trees', trees > 20, `only ${trees} trees`);
 
   stats.surfaceSpan.push(Math.max(...surface) - Math.min(...surface));

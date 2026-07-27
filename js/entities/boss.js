@@ -154,7 +154,7 @@ export class Boss {
       this.freezeT = Math.max(0, this.freezeT - dt);
       this.vx = 0;
       this.vy = 0;
-      this._updateAnim(dt);
+      this._updateAnim(dt, game);
       return;
     }
     this.bob += dt * 3;
@@ -167,8 +167,8 @@ export class Boss {
     this._updateLeash(dt, game, target);
     if (this.dead) return; // fled
 
-    if (this.hidden) { this._updateHidden(dt, game, target); this._updateAnim(dt); return; }
-    if (!target) { this._drift(dt, game); this._updateAnim(dt); return; }
+    if (this.hidden) { this._updateHidden(dt, game, target); this._updateAnim(dt, game); return; }
+    if (!target) { this._drift(dt, game); this._updateAnim(dt, game); return; }
 
     const ph = this.phase();
     const speedMul = this.enraged ? this.tuning.enrageMove : 1;
@@ -195,7 +195,7 @@ export class Boss {
         this._flyMove(game, dt);
       }
       if (this.charge.time <= 0) { this.charge = null; this.aiState = 'recover'; this.recover = 0.4; }
-      this._updateAnim(dt);
+      this._updateAnim(dt, game);
       this._contactDamage(game, ph);
       return;
     }
@@ -241,7 +241,7 @@ export class Boss {
     }
 
     clampToWorld(this, game.world);
-    this._updateAnim(dt);
+    this._updateAnim(dt, game);
     this._contactDamage(game, ph);
   }
 
@@ -398,7 +398,7 @@ export class Boss {
 
   // Per-frame animation state. Living here rather than in the renderer keeps it
   // tied to the simulation clock, so it looks the same at any frame rate.
-  _updateAnim(dt) {
+  _updateAnim(dt, game) {
     // Squash while winding up, stretch on release, spring back to rest.
     let targetX = 1, targetY = 1;
     if (this.telegraph > 0) {
@@ -412,23 +412,60 @@ export class Boss {
     this.squashX += (targetX - this.squashX) * spring;
     this.squashY += (targetY - this.squashY) * spring;
 
-    // Gravemaw: segments trail the head with lag, so the body follows through a
-    // leap instead of every piece bobbing independently. The jaw gapes on the
-    // wind-up and closes on release.
+    // Gravemaw.
+    //
+    // The head is now the *first link of the chain* rather than a separate
+    // thing drawn from the bounding box, and each following segment is pulled
+    // toward its predecessor and then constrained to a fixed link length. That
+    // constraint is the whole difference: without it the segments merely eased
+    // toward offsets computed from the box, so the body slid around
+    // independently of the head and the creature came apart whenever it moved.
     if (this.movement === 'gravemaw') {
-      const headX = this.x + (this.facing > 0 ? this.w - 29 : 4);
-      const headY = this.y + 12;
-      const lagK = 1 - Math.pow(0.02, dt);
-      const order = this.facing > 0 ? [2, 1, 0] : [0, 1, 2];
-      for (let i = 0; i < 3; i++) {
-        const s = this.segments[order[i]];
-        const tx = headX - this.facing * i * 17;
-        const ty = headY + Math.sin(this.bob + i * 0.9) * 2;
-        s.x += (tx - s.x) * lagK;
-        s.y += (ty - s.y) * lagK;
+      this.headX = this.x + (this.facing > 0 ? this.w - 20 : 20);
+      this.headY = this.y + 20;
+
+      const LINK = 15;
+      const lagK = 1 - Math.pow(0.0006, dt);
+      let px = this.headX, py = this.headY;
+      for (let i = 0; i < this.segments.length; i++) {
+        const s = this.segments[i];
+        // Follow the previous link...
+        s.x += (px - s.x) * lagK;
+        s.y += (py - s.y) * lagK;
+        // ...then hold the link length exactly, so the body can arc behind a
+        // leap and swing through a turn without ever detaching.
+        const dx = s.x - px, dy = s.y - py;
+        const d = Math.hypot(dx, dy) || 1;
+        s.x = px + (dx / d) * LINK;
+        s.y = py + (dy / d) * LINK;
+        // A gentle undulation along the body, strongest at the tail.
+        s.y += Math.sin(this.bob * 1.6 + i * 1.1) * (0.5 + i * 0.35);
+        s.angle = Math.atan2(s.y - py, s.x - px);
+        px = s.x; py = s.y;
       }
+
+      // Anticipation and impact. The jaw snaps shut rather than easing, and
+      // landing squashes the body — a heavy creature has to look heavy.
       const jawTarget = this.telegraph > 0 ? 1 : 0;
-      this.jaw += (jawTarget - this.jaw) * (1 - Math.pow(0.005, dt));
+      if (jawTarget > this.jaw) {
+        this.jaw += (jawTarget - this.jaw) * (1 - Math.pow(0.02, dt)); // gape open
+      } else {
+        this.jaw = Math.max(0, this.jaw - dt * 9);                      // snap shut
+      }
+
+      // Crouch during a wind-up, so the leap has a visible gather before it.
+      const crouchTarget = this.telegraph > 0 ? 1 : 0;
+      this.crouch = (this.crouch || 0) + (crouchTarget - (this.crouch || 0)) * (1 - Math.pow(0.02, dt));
+
+      const wasAir = this._wasAirborne;
+      this._wasAirborne = !this.onGround;
+      if (wasAir && this.onGround) {
+        // Landing: squash, shake and a burst of dust at the feet.
+        this.squashX = 1.35; this.squashY = 0.68;
+        game?.fx?.shake?.(2.4, 0.16);
+        game?.fx?.burst?.(this.x + this.w / 2, this.y + this.h,
+          '#8a7358', 12, { speed: 120, life: 0.5, size: 2.4, gravity: 220 });
+      }
     }
 
     // Sovereign: shards spin up as an attack charges, and it smears at speed.

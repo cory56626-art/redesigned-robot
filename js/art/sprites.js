@@ -317,6 +317,9 @@ class SpriteBank {
     const c = makeCanvas(TS, TS);
     const ctx = c.getContext('2d');
     const base = def.color || '#888';
+    // Flora is drawn as actual plants on a transparent tile rather than as a
+    // filled square, so the ground shows through behind it.
+    if (def.flora) { this._flora(ctx, id, def, base); return c; }
     ctx.fillStyle = base;
     ctx.fillRect(0, 0, TS, TS);
     const rand = mulberry32((id * 2654435761) >>> 0);
@@ -414,6 +417,148 @@ class SpriteBank {
   }
 
   // ---- Item icons ----
+  // Plants. Each is a handful of strokes on a transparent tile, seeded from the
+  // tile id so every instance of a species looks the same — the *variation*
+  // between neighbouring plants comes from the wind sway at draw time, not from
+  // baking different sprites, which keeps the atlas tiny.
+  _flora(ctx, id, def, base) {
+    const rand = mulberry32(((id + 7) * 2654435761) >>> 0);
+    const dark = shade(base, -0.28), light = shade(base, 0.26);
+
+    const blade = (x, bottom, height, lean, w = 1) => {
+      ctx.strokeStyle = rand() < 0.4 ? light : base;
+      ctx.lineWidth = w;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x, bottom);
+      ctx.quadraticCurveTo(x + lean * 0.4, bottom - height * 0.6, x + lean, bottom - height);
+      ctx.stroke();
+    };
+
+    switch (id) {
+      case T.SHORTGRASS:
+        for (let i = 0; i < 6; i++) {
+          const x = 1 + rand() * (TS - 2);
+          blade(x, TS, 5 + rand() * 6, (rand() - 0.5) * 5);
+        }
+        break;
+      case T.FLOWERS: {
+        for (let i = 0; i < 4; i++) blade(2 + rand() * (TS - 4), TS, 5 + rand() * 5, (rand() - 0.5) * 4);
+        const petals = ['#e8688a', '#ffd166', '#8ac6ff', '#f2f2f2', '#c58bff'];
+        for (let i = 0; i < 3; i++) {
+          const x = 2 + rand() * (TS - 4), y = 3 + rand() * 5;
+          ctx.strokeStyle = base; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(x, TS); ctx.lineTo(x, y + 1); ctx.stroke();
+          ctx.fillStyle = petals[(rand() * petals.length) | 0];
+          ctx.fillRect(x - 1, y - 1, 2, 2);
+          ctx.fillStyle = '#ffe9a0';
+          ctx.fillRect(x, y, 1, 1);
+        }
+        break;
+      }
+      case T.FERN:
+        // A central stem with paired fronds, narrowing toward the tip.
+        ctx.strokeStyle = dark; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(TS / 2, TS); ctx.lineTo(TS / 2, 2); ctx.stroke();
+        for (let i = 0; i < 5; i++) {
+          const y = TS - 2 - i * 2.6;
+          const len = 5.5 - i * 0.8;
+          ctx.strokeStyle = i % 2 ? base : light;
+          ctx.beginPath();
+          ctx.moveTo(TS / 2, y); ctx.lineTo(TS / 2 - len, y - 1.6);
+          ctx.moveTo(TS / 2, y); ctx.lineTo(TS / 2 + len, y - 1.6);
+          ctx.stroke();
+        }
+        break;
+      case T.REEDS:
+        for (let i = 0; i < 4; i++) {
+          const x = 2 + i * 3.4 + rand();
+          blade(x, TS, 11 + rand() * 5, (rand() - 0.5) * 3, 1.2);
+          ctx.fillStyle = shade(base, -0.35);
+          ctx.fillRect(x - 0.5, 2 + rand() * 3, 1.5, 3); // seed head
+        }
+        break;
+      case T.VINE:
+        // Hangs from the ceiling: the pivot is at the top.
+        ctx.strokeStyle = base; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(TS / 2, 0);
+        ctx.quadraticCurveTo(TS / 2 + 2, TS * 0.5, TS / 2 - 1, TS);
+        ctx.stroke();
+        for (let i = 0; i < 4; i++) {
+          const y = 2 + i * 3.6;
+          ctx.fillStyle = i % 2 ? light : dark;
+          ctx.fillRect(TS / 2 + (i % 2 ? 1 : -3), y, 3, 2);
+        }
+        break;
+      case T.MUSHROOM:
+        for (let i = 0; i < 2; i++) {
+          const x = 3 + i * 6 + rand() * 2, h = 4 + rand() * 3;
+          ctx.fillStyle = shade(base, 0.3);
+          ctx.fillRect(x - 0.5, TS - h, 1.6, h);          // stalk
+          ctx.fillStyle = i ? shade(base, -0.2) : base;
+          ctx.beginPath();
+          ctx.ellipse(x + 0.3, TS - h, 3.2, 2.2, 0, Math.PI, 0);
+          ctx.fill();
+          ctx.fillStyle = '#f2e6d8';
+          ctx.fillRect(x - 1, TS - h - 1, 1, 1);           // speck
+        }
+        break;
+      case T.GLOWMOSS: {
+        // Clings to any surface, so it fills the tile edges rather than sitting
+        // on the floor.
+        ctx.fillStyle = base;
+        for (let i = 0; i < 16; i++) {
+          const x = rand() * TS, y = rand() * TS;
+          ctx.globalAlpha = 0.35 + rand() * 0.5;
+          ctx.fillRect(x, y, 1 + rand() * 2, 1 + rand());
+        }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = light;
+        for (let i = 0; i < 5; i++) ctx.fillRect(rand() * TS, rand() * TS, 1, 1);
+        break;
+      }
+      case T.DUNESHRUB:
+        ctx.strokeStyle = shade(base, -0.3); ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(TS / 2, TS); ctx.lineTo(TS / 2, TS - 5); ctx.stroke();
+        for (let i = 0; i < 7; i++) {
+          const a = -Math.PI * (0.15 + rand() * 0.7);
+          const r = 3 + rand() * 4;
+          ctx.strokeStyle = rand() < 0.5 ? base : light;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(TS / 2, TS - 5);
+          ctx.lineTo(TS / 2 + Math.cos(a) * r, TS - 5 + Math.sin(a) * r);
+          ctx.stroke();
+        }
+        break;
+      case T.FROSTBRACKEN:
+        for (let i = 0; i < 5; i++) {
+          const x = 2 + rand() * (TS - 4);
+          blade(x, TS, 6 + rand() * 5, (rand() - 0.5) * 4);
+        }
+        ctx.fillStyle = '#eaf4ff';
+        for (let i = 0; i < 5; i++) ctx.fillRect(rand() * TS, rand() * (TS - 4), 1, 1); // rime
+        break;
+      case T.BLIGHTBLOOM:
+        for (let i = 0; i < 3; i++) {
+          const x = 3 + rand() * (TS - 6);
+          ctx.strokeStyle = shade(base, -0.25); ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(x, TS);
+          ctx.quadraticCurveTo(x + 2, TS - 6, x - 1, TS - 10);
+          ctx.stroke();
+          ctx.fillStyle = light;
+          ctx.beginPath(); ctx.arc(x - 1, TS - 10, 2.2, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#e8c8ff';
+          ctx.fillRect(x - 1.5, TS - 10.5, 1, 1);
+        }
+        break;
+      default:
+        for (let i = 0; i < 5; i++) blade(2 + rand() * (TS - 4), TS, 6 + rand() * 4, (rand() - 0.5) * 4);
+    }
+  }
+
   getIcon(item) {
     if (!item) return null;
     if (this.iconCache.has(item.id)) return this.iconCache.get(item.id);
