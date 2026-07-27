@@ -28,6 +28,34 @@ export const RECIPES = [
   { out: { item: 'healLesser', count: 2 }, in: [{ item: 'fiber', count: 3 }, { item: 'clay', count: 1 }], station: 'bench' },
   { out: { item: 'verdantEffigy', count: 1 }, in: [{ item: 'wood', count: 12 }, { item: 'fiber', count: 8 }, { item: 'clay', count: 2 }], station: 'bench' },
 
+  // --- Hammers: block sculpting ---
+  // Available from the very first bench, because shaping terrain is a building
+  // tool rather than a reward — locking it behind progression would just make
+  // early building worse for no reason.
+  { out: { item: 'woodHammer', count: 1 }, in: [{ item: 'wood', count: 8 }, { item: 'stick', count: 2 }], station: null },
+  { out: { item: 'cupriteHammer', count: 1 }, in: [{ item: 'cupriteBar', count: 4 }, { item: 'wood', count: 3 }], station: 'forge' },
+  { out: { item: 'ironveinHammer', count: 1 }, in: [{ item: 'ironveinBar', count: 5 }, { item: 'wood', count: 3 }], station: 'forge' },
+
+  // --- Fishing ---
+  { out: { item: 'woodRod', count: 1 }, in: [{ item: 'wood', count: 8 }, { item: 'fiber', count: 5 }], station: 'bench' },
+  { out: { item: 'cupriteRod', count: 1 }, in: [{ item: 'cupriteBar', count: 3 }, { item: 'wood', count: 5 }, { item: 'fiber', count: 4 }], station: 'forge' },
+  { out: { item: 'glimmerRod', count: 1 }, in: [{ item: 'glimmerBar', count: 4 }, { item: 'aetheriteBar', count: 2 }, { item: 'fiber', count: 6 }], station: 'forge' },
+  { out: { item: 'emptyBucket', count: 1 }, in: [{ item: 'cupriteBar', count: 3 }], station: 'forge' },
+
+  // --- Cooking: raw meat and fish into food ---
+  // Food shares the healing cooldown, so it supplements potions rather than
+  // replacing them — but it can be eaten at full health for its buff.
+  { out: { item: 'cookedBeef', count: 1 }, in: [{ item: 'rawBeef', count: 1 }], station: 'smeltery' },
+  { out: { item: 'cookedPork', count: 1 }, in: [{ item: 'rawPork', count: 1 }], station: 'smeltery' },
+  { out: { item: 'cookedMutton', count: 1 }, in: [{ item: 'rawMutton', count: 1 }], station: 'smeltery' },
+  { out: { item: 'cookedGame', count: 1 }, in: [{ item: 'rawGame', count: 1 }], station: 'smeltery' },
+  { out: { item: 'cookedFish', count: 1 }, in: [{ item: 'rawFish', count: 1 }], station: 'smeltery' },
+
+  // --- Fauna materials ---
+  { out: { item: 'fiber', count: 3 }, in: [{ item: 'wool', count: 1 }], station: 'bench' },
+  { out: { item: 'flintArrow', count: 20 }, in: [{ item: 'feather', count: 2 }, { item: 'stick', count: 2 }, { item: 'stone', count: 1 }], station: 'bench' },
+  { out: { item: 'huntersBoots', count: 1 }, in: [{ item: 'leather', count: 6 }, { item: 'fiber', count: 4 }], station: 'bench' },
+
   // --- Throwables ---
   // Deliberately cheap and craftable early: bombs are a mining tool as much as a
   // weapon, and running out of them shouldn't be a wall.

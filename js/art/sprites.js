@@ -434,7 +434,15 @@ class SpriteBank {
       else if (item.weaponClass === 'mage') this._mage(ctx, col, col2, item.mageKind);
       else if (item.weaponClass === 'summon') this._summon(ctx, col, col2);
     } else if (cat === 'throwable') this._throwable(ctx, col, col2, item.throwKind);
-    else if (cat === 'tool') { if (item.tool && item.tool.kind === 'axe') this._axe(ctx, col, col2); else this._pick(ctx, col, col2); }
+    else if (cat === 'tool') {
+      const kind = item.tool && item.tool.kind;
+      if (kind === 'axe') this._axe(ctx, col, col2);
+      else if (kind === 'hammer') this._hammer(ctx, col, col2);
+      else this._pick(ctx, col, col2);
+    } else if (cat === 'fishingrod') this._rod(ctx, col, col2);
+    else if (cat === 'bait') this._bait(ctx, col, col2, item.bait);
+    else if (cat === 'crate') this._crate(ctx, col, col2);
+    else if (cat === 'bucket') this._bucket(ctx, col, col2, item.bucket);
     else if (cat === 'armor') this._armor(ctx, col, col2, item.slot);
     else if (cat === 'accessory') this._accessory(ctx, col, col2, item.accKind);
     else if (cat === 'potion') this._potion(ctx, col);
@@ -448,6 +456,105 @@ class SpriteBank {
     else if (item.matKind === 'bar') this._bar(ctx, col, col2);
     else this._nugget(ctx, col, col2);
     return c;
+  }
+
+  // A hammer reads as a heavy square head on a short haft — deliberately
+  // blunt-looking so it is never mistaken for the pickaxe beside it in the bag.
+  _hammer(ctx, col, col2) {
+    ctx.strokeStyle = '#7a5a2a'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(6, 17); ctx.lineTo(13, 7); ctx.stroke();
+    ctx.save();
+    ctx.translate(14, 6); ctx.rotate(-0.6);
+    ctx.fillStyle = col;
+    ctx.fillRect(-5, -4, 10, 8);
+    ctx.fillStyle = shade(col, 0.28);
+    ctx.fillRect(-5, -4, 10, 2.5);
+    ctx.fillStyle = col2;
+    ctx.fillRect(3, -4, 2, 8);
+    ctx.restore();
+  }
+
+  // Rod: a tapering pole with a line and a bobber, so it is legible at 20px.
+  _rod(ctx, col, col2) {
+    ctx.strokeStyle = col; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(4, 17); ctx.lineTo(16, 4); ctx.stroke();
+    ctx.strokeStyle = shade(col, 0.35); ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(5, 16); ctx.lineTo(15, 5); ctx.stroke();
+    // Line and float.
+    ctx.strokeStyle = 'rgba(240,244,250,0.8)'; ctx.lineWidth = 0.7;
+    ctx.beginPath(); ctx.moveTo(16, 4); ctx.quadraticCurveTo(18, 10, 14, 15); ctx.stroke();
+    ctx.fillStyle = '#e8e4da';
+    ctx.beginPath(); ctx.arc(14, 15, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#c04a4a';
+    ctx.beginPath(); ctx.arc(14, 14.2, 1.1, 0, Math.PI * 2); ctx.fill();
+    // Grip wrap.
+    ctx.strokeStyle = col2; ctx.lineWidth = 2.6;
+    ctx.beginPath(); ctx.moveTo(4, 17); ctx.lineTo(7, 14); ctx.stroke();
+  }
+
+  // Bait: a small curled creature. Grade adds a highlight so better bait is
+  // visibly better in the bag rather than only in the tooltip.
+  _bait(ctx, col, col2, grade) {
+    ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(5, 14);
+    ctx.quadraticCurveTo(10, 17, 13, 12);
+    ctx.quadraticCurveTo(15, 8, 11, 6);
+    ctx.stroke();
+    ctx.strokeStyle = col2; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(6, 13); ctx.quadraticCurveTo(10, 15.5, 12.5, 11.5);
+    ctx.stroke();
+    ctx.fillStyle = '#20242c';
+    ctx.fillRect(10, 5.5, 1.4, 1.4);
+    if (grade >= 3) {
+      ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(10, 10, 0, 10, 10, 9);
+      g.addColorStop(0, col2); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.fillRect(1, 1, 18, 18);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+  }
+
+  // Crate: a banded box, drawn in perspective so it reads as a container.
+  _crate(ctx, col, col2) {
+    ctx.fillStyle = col;
+    ctx.fillRect(3, 5, 14, 12);
+    ctx.fillStyle = shade(col, 0.22);
+    ctx.fillRect(3, 5, 14, 2.5);
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.fillRect(3, 14.5, 14, 2.5);
+    // Bands.
+    ctx.strokeStyle = col2; ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(3, 9.5); ctx.lineTo(17, 9.5);
+    ctx.moveTo(10, 5); ctx.lineTo(10, 17);
+    ctx.stroke();
+    ctx.strokeStyle = shade(col2, -0.25); ctx.lineWidth = 1;
+    ctx.strokeRect(3.5, 5.5, 13, 11);
+  }
+
+  // Bucket: a tapered pail with a handle, filled or not.
+  _bucket(ctx, col, col2, kind) {
+    const body = kind === 'water' ? col2 : col;
+    ctx.strokeStyle = shade(body, -0.1); ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(10, 8, 5.5, Math.PI, 0); ctx.stroke(); // handle
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.moveTo(5, 8); ctx.lineTo(15, 8); ctx.lineTo(13.5, 17); ctx.lineTo(6.5, 17);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = shade(body, 0.25);
+    ctx.fillRect(5, 8, 10, 1.6);
+    if (kind === 'water') {
+      ctx.fillStyle = '#3f7fc0';
+      ctx.beginPath();
+      ctx.moveTo(6, 10.5); ctx.lineTo(14, 10.5); ctx.lineTo(13.2, 16); ctx.lineTo(6.8, 16);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#7ec2f0';
+      ctx.fillRect(6, 10.3, 8, 0.9);
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(6.5, 15.5, 7, 1.5);
   }
 
   _melee(ctx, col, col2, kind) {

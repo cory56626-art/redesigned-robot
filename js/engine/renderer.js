@@ -66,6 +66,7 @@ export class Renderer {
     this._drawLiquid(game, ctx, tx0, ty0, tx1, ty1);
     this._drawFallingTrees(game, ctx);
     this._drawDrops(game, ctx);
+    this._drawCritters(game, ctx);
     this._drawNpc(game, ctx);
     this._drawMinions(game, ctx);
     this._drawEnemies(game, ctx);
@@ -73,6 +74,7 @@ export class Renderer {
     this._drawThrown(game, ctx);
     this._drawProjectiles(game, ctx);
     this._drawPlayers(game, ctx);
+    this._drawFishingLines(game, ctx);
     this._drawAimHighlight(game, ctx);
     // Ordinary particles sit under the lighting; glowing ones are drawn after it
     // (see below) because they are light, and shouldn't be dimmed by darkness.
@@ -513,6 +515,118 @@ export class Renderer {
       }
       ctx.globalAlpha = 1;
       ctx.restore();
+    }
+  }
+
+  // Wildlife. Every animal is a few shapes with a walk bob, but the bob is what
+  // matters: a static rectangle standing in a field reads as a prop, and the
+  // same rectangle breathing and stepping reads as alive.
+  _drawCritters(game, ctx) {
+    if (!game.critters || !game.critters.length) return;
+    for (const c of game.critters) {
+      if (c.dead) continue;
+      ctx.save();
+      const step = Math.sin(c.anim * 9) * (Math.abs(c.vx) > 4 ? 1 : 0);
+      const breathe = Math.sin(c.anim * 2.2) * 0.4;
+      ctx.translate(c.x + c.w / 2, c.y + c.h);
+      ctx.scale(c.facing, 1);
+      ctx.translate(-c.w / 2, -c.h);
+
+      if (c.kind === 'bug') this._drawBug(ctx, c, step);
+      else this._drawAnimal(ctx, c, step, breathe);
+
+      if (c.hurtFlash > 0) {
+        ctx.globalAlpha = 0.55;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, c.w, c.h);
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+    }
+  }
+
+  _drawAnimal(ctx, c, step, breathe) {
+    const w = c.w, h = c.h;
+    // Shadow, so animals sit on the ground instead of hovering over it.
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.beginPath(); ctx.ellipse(w / 2, h, w * 0.42, 1.6, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Legs, contra-swinging.
+    ctx.fillStyle = this._shade(c.color2, -0.15);
+    const legH = Math.max(3, h * 0.3);
+    ctx.fillRect(w * 0.18, h - legH + step, 2, legH - step);
+    ctx.fillRect(w * 0.68, h - legH - step, 2, legH + step);
+
+    // Body.
+    ctx.fillStyle = c.color;
+    this._roundRect(ctx, 1, h * 0.22 + breathe, w - 2, h * 0.58, Math.min(5, h * 0.3));
+    ctx.fill();
+    // Underside shading gives the body volume.
+    ctx.fillStyle = 'rgba(0,0,0,0.14)';
+    this._roundRect(ctx, 2, h * 0.55, w - 4, h * 0.24, 3); ctx.fill();
+
+    // Head, forward and slightly higher than the body.
+    const hs = Math.max(4, w * 0.3);
+    ctx.fillStyle = c.color;
+    this._roundRect(ctx, w - hs - 0.5, h * 0.1 + breathe, hs, hs, 2.5); ctx.fill();
+
+    // Species markers: horns, snout, ears, comb — a handful of pixels each,
+    // but enough that a cow is not just a big rabbit.
+    ctx.fillStyle = c.color2;
+    if (c.key === 'cow') {
+      ctx.fillRect(w - hs - 1, h * 0.06 + breathe, 2, 2);       // horn
+      ctx.fillRect(1, h * 0.3, w * 0.35, h * 0.22);              // hide patch
+    } else if (c.key === 'pig') {
+      ctx.fillRect(w - 2, h * 0.28 + breathe, 2, 2.5);           // snout
+    } else if (c.key === 'sheep') {
+      ctx.fillStyle = this._shade(c.color, -0.1);
+      for (let i = 0; i < 4; i++) ctx.fillRect(2 + i * (w - 5) / 3, h * 0.2 + breathe, 3, 3);
+      ctx.fillStyle = c.color2;
+    } else if (c.key === 'rabbit') {
+      ctx.fillRect(w - hs + 1, h * 0.1 + breathe - 4, 1.5, 5);   // ears
+      ctx.fillRect(w - hs + 3, h * 0.1 + breathe - 4, 1.5, 5);
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(1.5, h * 0.5, 2, 0, Math.PI * 2); ctx.fill(); // tail
+    } else if (c.key === 'chicken') {
+      ctx.fillRect(w - hs * 0.6, h * 0.02 + breathe, 3, 2.5);    // comb
+      ctx.fillStyle = '#e8a33a';
+      ctx.fillRect(w - 1.5, h * 0.24 + breathe, 2, 1.5);         // beak
+    } else if (c.key === 'frog') {
+      ctx.fillStyle = '#2a3a24';
+      ctx.fillRect(w - hs + 1, h * 0.06 + breathe, 1.5, 1.5);    // bulging eye
+    }
+
+    // Eye.
+    ctx.fillStyle = '#20242c';
+    ctx.fillRect(w - hs * 0.45, h * 0.22 + breathe, 1.4, 1.4);
+  }
+
+  _drawBug(ctx, c, step) {
+    const w = c.w, h = c.h;
+    // Fliers glow faintly, which is most of how you spot one at night.
+    if (c.def.light) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, 9);
+      g.addColorStop(0, c.color2);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = 0.5 + Math.sin(c.anim * 4) * 0.18;
+      ctx.fillStyle = g;
+      ctx.fillRect(w / 2 - 9, h / 2 - 9, 18, 18);
+      ctx.restore();
+    }
+    ctx.fillStyle = c.color;
+    this._roundRect(ctx, 0, h * 0.15, w, h * 0.7, 2); ctx.fill();
+    ctx.fillStyle = c.color2;
+    if (c.def.behavior === 'flutter') {
+      // Wings beat fast enough to blur into two arcs.
+      const beat = Math.abs(Math.sin(c.anim * 26));
+      ctx.globalAlpha = 0.55;
+      ctx.beginPath(); ctx.ellipse(w * 0.35, h * 0.2, w * 0.45, 1 + beat * 2.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    } else {
+      // Segments, offset by the crawl cycle.
+      for (let i = 0; i < 3; i++) ctx.fillRect(1 + i * (w - 2) / 3, h * 0.3 + (i % 2 ? step * 0.4 : 0), 1.5, h * 0.4);
     }
   }
 
@@ -1918,6 +2032,46 @@ export class Renderer {
     ctx.textAlign = 'left';
   }
 
+  // The cast line and its bobber. The bobber rides the water's own wave when
+  // nothing is happening and dips sharply on a bite, so the tell is unmissable
+  // without needing a UI prompt.
+  _drawFishingLines(game, ctx) {
+    for (const p of game.players.values()) {
+      const line = p.fishing;
+      if (!line) continue;
+      const rodTipX = p.x + p.w / 2 + p.facing * 9;
+      const rodTipY = p.y + 8;
+
+      const bite = line.biting;
+      const bob = bite
+        ? Math.sin(line.bob * 26) * 2.2 + 2.5
+        : Math.sin(line.bob * 2.2 + line.tx * 0.55) * 0.8;
+      const bx = line.x, by = line.y + bob;
+
+      // Line, sagging between rod tip and bobber.
+      ctx.strokeStyle = 'rgba(235,240,250,0.55)';
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(rodTipX, rodTipY);
+      ctx.quadraticCurveTo((rodTipX + bx) / 2, Math.max(rodTipY, by) + 6, bx, by);
+      ctx.stroke();
+
+      // Bobber.
+      ctx.fillStyle = bite ? '#ff6b7d' : '#e8e4da';
+      ctx.beginPath(); ctx.arc(bx, by, 2.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = bite ? '#ffd0d6' : '#c04a4a';
+      ctx.beginPath(); ctx.arc(bx, by - 1, 1.2, 0, Math.PI * 2); ctx.fill();
+
+      // Ripples spreading from the bite.
+      if (bite) {
+        ctx.strokeStyle = 'rgba(255,224,138,0.7)';
+        ctx.lineWidth = 0.7;
+        const r = 3 + (1 - line.biteTimer / 0.9) * 7;
+        ctx.beginPath(); ctx.arc(bx, line.y, r, 0, Math.PI * 2); ctx.stroke();
+      }
+    }
+  }
+
   _miniHp(ctx, e, ratio, color) {
     const w = e.w, x = e.x, y = e.y - 4;
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x - 1, y, w + 2, 3);
@@ -1983,6 +2137,14 @@ export class Renderer {
       for (const t of game.thrown) {
         if (!t.light) continue;
         extra.push({ tx: Math.floor(t.x / TILE), ty: Math.floor(t.y / TILE), level: t.light });
+      }
+    }
+    // Glowing bugs. A drifting glowmoth is often the only thing lighting a deep
+    // cave before you have torches, which is exactly why it is worth catching.
+    if (game.critters) {
+      for (const c of game.critters) {
+        if (!c.def || !c.def.light) continue;
+        extra.push({ tx: Math.floor((c.x + c.w / 2) / TILE), ty: Math.floor((c.y + c.h / 2) / TILE), level: c.def.light });
       }
     }
     // Explosion flashes, fading out over their life.

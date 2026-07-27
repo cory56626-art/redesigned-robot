@@ -11,6 +11,7 @@ import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=quali
 import { Inventory } from '../systems/inventory.js?v=quality-of-realms-1';
 import { item as getItem } from '../data/items.js?v=quality-of-realms-1';
 import * as combat from '../systems/combat.js?v=quality-of-realms-1';
+import * as fishing from '../systems/fishing.js?v=quality-of-realms-1';
 import { clamp } from '../utils.js?v=quality-of-realms-1';
 
 export class Player {
@@ -45,6 +46,8 @@ export class Player {
     this.alive = true;
     this.respawnTimer = 0;
     this.swing = null; // {time, dur, dir, item}
+    this.fishing = null; // active cast: {tx,ty,x,y,timer,biting,...}
+    this.submerged = false;
     this.inventory = new Inventory();
     this.cheats = { fly: false, godmode: false };
     this.selectedId = null; // for remote render
@@ -179,6 +182,9 @@ export class Player {
     const manaRegen = MANA_REGEN * (this.castTimer > 0 ? CAST_REGEN_MULT : 1);
     this.mana = Math.min(this.maxMana, this.mana + manaRegen * dt);
 
+    // ---- Fishing line ----
+    fishing.tickFishing(game, this, dt);
+
     // ---- Hazard tiles (thornvine etc.) ----
     this._tickHazards(game);
 
@@ -216,6 +222,11 @@ export class Player {
     // Clicking the Guide talks to them rather than swinging at them.
     if (input.primaryPressed && game.clickedNpc && game.clickedNpc(input.aimX, input.aimY)) return;
 
+    // Clicking a bug collects it as bait rather than attacking it. Swatting a
+    // cricket with a sword and getting nothing would be a poor way to learn
+    // that bugs are the fishing bait.
+    if (input.primaryPressed && game.catchBugAt && game.catchBugAt(input.aimX, input.aimY)) return;
+
     // Consume (potion) via dedicated button/key.
     if (input.consumePressed && sel && sel.category === 'potion') combat.consumeSelected(game, this);
 
@@ -250,6 +261,12 @@ export class Player {
         if (this.placeTimer <= 0) { if (combat.placeSelected(game, this)) this.placeTimer = 0.12; }
       } else if (sel.category === 'potion') {
         if (input.primaryPressed) combat.consumeSelected(game, this);
+      } else if (sel.category === 'bucket') {
+        if (input.primaryPressed && this.useTimer <= 0) combat.useBucket(game, this, sel);
+      } else if (sel.category === 'fishingrod') {
+        // One press casts, the next reels — so it must be edge-triggered, or
+        // holding the button would cast and reel on alternate frames.
+        if (input.primaryPressed && this.useTimer <= 0) fishing.useRod(game, this, sel);
       } else if (sel.category === 'weapon') {
         if (this.useTimer <= 0) combat.useWeapon(game, this, sel);
       } else if (sel.category === 'throwable') {

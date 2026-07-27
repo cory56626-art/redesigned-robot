@@ -13,6 +13,8 @@
     "check:worldgen": "node tools/worldgen-check.mjs 40",
     "check:build": "node tools/stamp-build.mjs --check",
     "stamp": "node tools/stamp-build.mjs",
-    "check": "npm run check:worldgen && npm run check:build"
+    "check": "npm run check:worldgen && npm run check:build",
+    "check:smoke": "node tools/smoke-test.mjs",
+    "serve": "npx http-server -p 8899 -c-1 --silent ."
   }
 }

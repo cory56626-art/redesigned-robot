@@ -1,6 +1,7 @@
 // Summoner Realms — natural enemy spawning (host only). Biome + day/night aware.
 import { TILE, UNDERGROUND_Y, MAX_ENEMIES, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=quality-of-realms-1';
 import { ENEMIES } from '../data/enemies.js?v=quality-of-realms-1';
+import { FAUNA } from '../data/fauna.js?v=quality-of-realms-1';
 import { aabb, dist2 } from '../utils.js?v=quality-of-realms-1';
 
 // Keep spawns off-screen-ish but not so far they never arrive (tiles).
@@ -11,11 +12,24 @@ const BASE_SPAWN_CHANCE = 0.6;
 const INITIAL_SPAWN_GRACE = 8;
 const LOCAL_ACTIVITY_RADIUS = 58 * TILE;
 
+// Wildlife has its own budget so a meadow full of sheep never crowds out the
+// hostile spawns (or vice versa). It is also much slower-paced: animals are
+// scenery that happens to be alive, not pressure.
+const FAUNA_INTERVAL = 4.5;
+const FAUNA_CAP = 14;
+const FAUNA_MIN_DIST = 6;
+const FAUNA_MAX_DIST = 34;
+
 export class Spawner {
-  constructor() { this.timer = INITIAL_SPAWN_GRACE; this.world = null; }
+  constructor() {
+    this.timer = INITIAL_SPAWN_GRACE;
+    this.faunaTimer = 2;
+    this.world = null;
+  }
 
   update(dt, game) {
     if (!game.isHost) return;
+    this._updateFauna(dt, game);
     // A new world should give the player time to orient themselves before the
     // first natural spawn. The world identity also resets this after a world
     // reset without requiring the game lifecycle to know spawner internals.
@@ -104,6 +118,99 @@ export class Spawner {
       game.spawnEnemy(key, x, y);
       return true;
     }
+    return false;
+  }
+
+  // ---- Wildlife ----
+  //
+  // Deliberately kept apart from the hostile spawner above: its own timer, its
+  // own cap, its own placement rules. Animals appear closer than enemies do —
+  // seeing a rabbit bolt away from you is the point, and that only works if it
+  // spawns somewhere you can see it.
+  _updateFauna(dt, game) {
+    this.faunaTimer -= dt;
+    if (this.faunaTimer > 0) return;
+    this.faunaTimer = FAUNA_INTERVAL;
+    if (game.critters.length >= FAUNA_CAP) return;
+
+    const players = [...game.players.values()].filter(p => p.alive);
+    if (!players.length) return;
+    const p = players[(Math.random() * players.length) | 0];
+
+    const pTileX = Math.floor((p.x + p.w / 2) / TILE);
+    const pTileY = Math.floor((p.y + p.h / 2) / TILE);
+    const underground = pTileY >= UNDERGROUND_Y;
+    const isDay = game.time.isDay;
+
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = FAUNA_MIN_DIST + ((Math.random() * (FAUNA_MAX_DIST - FAUNA_MIN_DIST + 1)) | 0);
+      const sx = Math.max(3, Math.min(game.world.width - 4, pTileX + side * dist));
+      const biome = underground ? game.world.biomeAt(sx, pTileY) : game.world.biomeAt(sx, 0);
+
+      const pool = this._faunaPool(biome, isDay);
+      if (!pool.length) continue;
+      const key = pool[(Math.random() * pool.length) | 0];
+      const def = FAUNA[key];
+
+      let x, y;
+      if (def.behavior === 'flutter') {
+        const spot = this._findOpenAirNear(game, sx, underground ? pTileY : game.world.surfaceY(sx) - 5, def);
+        if (!spot) continue;
+        x = spot.x; y = spot.y;
+      } else {
+        const footTy = underground ? this._findFloorNear(game, sx, pTileY) : game.world.surfaceY(sx);
+        if (footTy == null) continue;
+        x = sx * TILE;
+        y = footTy * TILE - def.h;
+      }
+
+      // Frogs and the like want to be near water; everything else wants to be
+      // out of it, so nothing spawns already drowning.
+      const liq = game.world.liquid;
+      if (liq) {
+        const wet = liq.rectTouchesWater(x, y, def.w, def.h);
+        if (def.nearWater) {
+          if (!this._waterWithin(game, x, y, 6)) continue;
+          if (wet) continue;
+        } else if (wet) continue;
+      }
+
+      if (game.world.rectHitsSolid(x, y, def.w, def.h)) continue;
+      if (def.behavior !== 'flutter' && !this._supported(game, x, y, def)) continue;
+      game.spawnCritter(key, x, y);
+      return;
+    }
+  }
+
+  _faunaPool(biome, isDay) {
+    const pool = [];
+    for (const key in FAUNA) {
+      const d = FAUNA[key];
+      if (!d.biomes.includes(biome)) continue;
+      if (d.time === 'night' && isDay) continue;
+      if (d.time === 'day' && !isDay) continue;
+      pool.push(key);
+    }
+    return pool;
+  }
+
+  _waterWithin(game, x, y, tiles) {
+    const liq = game.world.liquid;
+    if (!liq) return false;
+    const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
+    for (let dy = -tiles; dy <= tiles; dy++) {
+      for (let dx = -tiles; dx <= tiles; dx++) {
+        if (liq.get(tx + dx, ty + dy) > 0) return true;
+      }
+    }
+    return false;
+  }
+
+  _supported(game, x, y, def) {
+    const tx0 = Math.floor(x / TILE), tx1 = Math.floor((x + def.w - 1) / TILE);
+    const belowTy = Math.floor((y + def.h) / TILE);
+    for (let tx = tx0; tx <= tx1; tx++) if (game.world.isSolidAt(tx, belowTy)) return true;
     return false;
   }
 

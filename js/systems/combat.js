@@ -1,5 +1,5 @@
 // Summoner Realms — combat & interaction resolution (weapons, mining, placing).
-import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY } from '../config.js?v=quality-of-realms-1';
+import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=quality-of-realms-1';
 import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=quality-of-realms-1';
 import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=quality-of-realms-1';
 import { SH, nextShape } from '../world/shapes.js?v=quality-of-realms-1';
@@ -98,6 +98,10 @@ export function useWeapon(game, player, item) {
     const targets = [];
     for (const e of game.enemies) targets.push(e);
     for (const b of game.bosses) targets.push(b);
+    // Wildlife is hittable — that is how you get meat and hide. Bugs are not:
+    // they are caught by clicking (see game.catchBugAt), and letting a sword
+    // delete one would just lose the player their bait.
+    for (const c of game.critters) if (c.kind !== 'bug') targets.push(c);
     for (const tgt of targets) {
       const tcx = tgt.x + tgt.w / 2, tcy = tgt.y + tgt.h / 2;
       const d = Math.hypot(tcx - pc.x, tcy - pc.y);
@@ -413,6 +417,47 @@ export function mineAt(game, player, dt, source) {
 }
 
 // ---------------------------------------------------------------------------
+// Buckets
+// ---------------------------------------------------------------------------
+
+// Pour a full pail into the aimed tile, or scoop a full tile of water into an
+// empty one. Swapping the item in place keeps the pail in the same hotbar slot,
+// so repeatedly moving water doesn't shuffle the bar around.
+export function useBucket(game, player, item) {
+  const { tx, ty } = aimTile(game, player);
+  if (!withinReach(player, tx, ty)) {
+    game.floatText(tx * TILE + TILE / 2, ty * TILE, 'Too far away', '#ff8b7d');
+    return false;
+  }
+  const liq = game.world.liquid;
+  if (!liq) return false;
+  const slot = player.inventory.selected;
+
+  if (item.bucket === 'empty') {
+    if (liq.get(tx, ty) < LIQUID_MAX) {
+      game.floatText(tx * TILE + TILE / 2, ty * TILE, 'Not enough water', '#ff8b7d');
+      return false;
+    }
+    liq.set(tx, ty, 0, true);
+    game.netEditLiquid(tx, ty, 0);
+    player.inventory.slots[slot] = { id: 'waterBucket', count: 1 };
+  } else {
+    if (game.world.get(tx, ty) !== T.AIR || liq.get(tx, ty) > 0) {
+      game.floatText(tx * TILE + TILE / 2, ty * TILE, 'No room', '#ff8b7d');
+      return false;
+    }
+    liq.set(tx, ty, LIQUID_MAX, true);
+    game.netEditLiquid(tx, ty, LIQUID_MAX);
+    player.inventory.slots[slot] = { id: 'emptyBucket', count: 1 };
+  }
+  player.useTimer = 0.3;
+  game.audio?.blockPlace?.();
+  game.addHitParticles(tx * TILE + TILE / 2, ty * TILE + TILE / 2, '#4f8fd0', 5);
+  game.markDirty();
+  return true;
+}
+
+// ---------------------------------------------------------------------------
 // Hammer — block sculpting
 // ---------------------------------------------------------------------------
 
@@ -615,8 +660,11 @@ export function applyPotion(game, player, index, def) {
   if (eff.heal && player.healCd > 0) { game.toast('Healing recharging… ' + Math.ceil(player.healCd) + 's', 'bad'); return false; }
   if (eff.mana && player.manaCd > 0) { game.toast('Tonic recharging… ' + Math.ceil(player.manaCd) + 's', 'bad'); return false; }
   if (eff.buff && player.buffCd > 0) { game.toast('Brew recharging… ' + Math.ceil(player.buffCd) + 's', 'bad'); return false; }
-  // Don't waste a potion (or start a cooldown) if it would do nothing.
-  if (eff.heal && player.hp >= player.maxHp) { game.toast('Health already full', 'bad'); return false; }
+  // Don't waste a potion (or start a cooldown) if it would do nothing. Food is
+  // the exception: it is eaten for the buff as much as for the healing, so a
+  // full-health meal is a reasonable thing to want.
+  const worthItAnyway = def.food && eff.buff;
+  if (eff.heal && player.hp >= player.maxHp && !worthItAnyway) { game.toast('Health already full', 'bad'); return false; }
   if (eff.mana && player.mana >= player.maxMana) { game.toast('Aether already full', 'bad'); return false; }
 
   if (eff.heal) { player.heal(eff.heal); player.startHealCooldown(); }

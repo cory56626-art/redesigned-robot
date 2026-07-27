@@ -1,7 +1,7 @@
 // Summoner Realms — game orchestrator, main loop, and all cross-system glue.
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
-  HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty, ZOOM_DEFAULT,
+  HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty, ZOOM_DEFAULT, REACH,
 } from './config.js?v=quality-of-realms-1';
 import { hashString, mulberry32, dist2, uid } from './utils.js?v=quality-of-realms-1';
 import { World } from './world/world.js?v=quality-of-realms-1';
@@ -19,6 +19,9 @@ import { Progression } from './systems/progression.js?v=quality-of-realms-1';
 import { starterInventory } from './systems/inventory.js?v=quality-of-realms-1';
 import * as craftSys from './systems/crafting.js?v=quality-of-realms-1';
 import { applyPotion } from './systems/combat.js?v=quality-of-realms-1';
+import * as fishing from './systems/fishing.js?v=quality-of-realms-1';
+import { Critter } from './entities/critter.js?v=quality-of-realms-1';
+import { FAUNA } from './data/fauna.js?v=quality-of-realms-1';
 import { smartTarget } from './systems/smartcursor.js?v=quality-of-realms-1';
 import { Player, assignColor } from './entities/player.js?v=quality-of-realms-1';
 import { Enemy } from './entities/enemy.js?v=quality-of-realms-1';
@@ -69,6 +72,7 @@ class Game {
     this.enemies = [];
     this.enemyById = new Map();
     this.minions = [];
+    this.critters = [];    // passive wildlife and bugs
     this.bosses = [];
     this.projectiles = [];
     this.drops = [];
@@ -273,6 +277,7 @@ class Game {
       this.spawner.update(dt, this);
       for (const e of this.enemies.slice()) { if (!e.ghost) { e.update(dt, this); e.tickEffects && e.tickEffects(dt, this); } }
       for (const b of this.bosses.slice()) if (!b.ghost) b.update(dt, this);
+      for (const c of this.critters.slice()) if (!c.ghost) c.update(dt, this);
       for (const d of this.drops.slice()) if (!d.ghost) d.update(dt, this);
     } else {
       sync.interpolateGhosts(this, dt);
@@ -297,6 +302,7 @@ class Game {
     this.enemies = this.enemies.filter(e => { if (e.dead) { this.enemyById.delete(e.netId); return false; } return true; });
     if (this.isHost) this.bosses = this.bosses.filter(b => !b.dead);
     this.minions = this.minions.filter(m => !m.dead);
+    this.critters = this.critters.filter(c => !c.dead);
     this.projectiles = this.projectiles.filter(p => !p.dead);
     this.drops = this.drops.filter(d => !d.dead);
     this.thrown = this.thrown.filter(t => !t.dead);
@@ -360,7 +366,7 @@ class Game {
 
   // ============ WORLD LIFECYCLE ============
   _resetEntities() {
-    this.players.clear(); this.enemies = []; this.enemyById.clear(); this.minions = [];
+    this.players.clear(); this.enemies = []; this.enemyById.clear(); this.minions = []; this.critters = [];
     this.bosses = []; this.projectiles = []; this.drops = []; this.dropById.clear();
     this.particles = []; this.rings = []; this.flashes = []; this.floatTexts = []; this.fallingTrees = []; this.thrown = [];
     this.npc = null;
@@ -462,7 +468,7 @@ class Game {
     this.weather = new Weather(seed, weather);
     this.progression = new Progression();
     this.progression.deserialize(progression);
-    this.enemies = []; this.enemyById.clear(); this.minions = []; this.bosses = [];
+    this.enemies = []; this.enemyById.clear(); this.minions = []; this.critters = []; this.bosses = [];
     this.projectiles = []; this.drops = []; this.dropById.clear(); this.particles = []; this.rings = []; this.flashes = []; this.floatTexts = [];
     this.fallingTrees = []; this.thrown = [];
     // keep players map empty except local (added here)
@@ -644,6 +650,7 @@ class Game {
     if (!s) return;
     const def = getItem(s.id);
     if (def.category === 'armor' || def.category === 'accessory') { p.inventory.equipFromSlot(index); p.recomputeStats(); this.markDirty(); }
+    else if (def.category === 'crate') { fishing.openCrate(this, p, index, def); }
     else if (def.category === 'potion') { this._consumePotionAt(p, index, def); }
     else { // move into selected hotbar slot
       if (index >= HOTBAR_SIZE) { p.inventory.swap(index, p.inventory.selected); }
@@ -903,6 +910,9 @@ class Game {
   }
   hurtEnemyOrBoss(target, dmg, kb, ownerId, crit, effect) {
     if (this.bosses.includes(target)) this.hurtBoss(target, dmg, ownerId, crit);
+    // Wildlife is local and unsynced: it takes damage directly rather than
+    // going through the host-authoritative enemy path.
+    else if (target instanceof Critter) target.takeDamage(dmg, kb, -1, this);
     else this.hurtEnemy(target, dmg, kb, -1, effect, ownerId, crit);
   }
   applyEnemyDamageToPlayer(player, dmg, kbx) {
@@ -1048,6 +1058,59 @@ class Game {
     return startY;
   }
 
+  // ============ WILDLIFE ============
+  spawnCritter(key, x, y) {
+    if (!this.isHost) return null;
+    if (this.critters.length > 40) return null;
+    const c = new Critter(key, x, y, this.nextNetId());
+    this.critters.push(c);
+    return c;
+  }
+
+  // Killing an animal drops meat and materials. Bugs are never killed for
+  // drops — they are caught (see catchBugAt), so a squashed bug gives nothing,
+  // which nudges the player toward catching them properly.
+  onCritterDeath(c) {
+    if (!this.isHost) return;
+    const def = FAUNA[c.key];
+    this.addHitParticles(c.x + c.w / 2, c.y + c.h / 2, c.color, 10);
+    for (const drop of def.drops || []) {
+      if (Math.random() <= drop.chance) {
+        const n = drop.min + ((Math.random() * (drop.max - drop.min + 1)) | 0);
+        if (n > 0) this.spawnDrop(c.x + c.w / 2, c.y, drop.item, n);
+      }
+    }
+  }
+
+  // Clicking a bug collects it as bait rather than attacking it. Returns true
+  // when a bug was taken, so the click doesn't also swing whatever is held.
+  catchBugAt(worldX, worldY) {
+    const p = this.localPlayer;
+    if (!p || !p.alive) return false;
+    const reachPx = REACH * TILE;
+    for (const c of this.critters) {
+      if (c.dead || c.kind !== 'bug') continue;
+      // Generous grab box: bugs are tiny and they move.
+      if (worldX < c.x - 6 || worldX > c.x + c.w + 6) continue;
+      if (worldY < c.y - 6 || worldY > c.y + c.h + 6) continue;
+      const pc = p.center();
+      if (Math.hypot(c.x - pc.x, c.y - pc.y) > reachPx) {
+        this.floatText(c.x, c.y - 6, 'Too far', '#ff8b7d');
+        return false;
+      }
+      const id = c.def.catchItem;
+      const leftover = p.inventory.add(id, 1);
+      if (leftover > 0) { this.toast('No room for ' + getItem(id).name, 'bad'); return false; }
+      c.dead = true;
+      this.floatText(c.x, c.y - 6, '+1 ' + getItem(id).name.split(' ')[0], '#7ee0c0');
+      this.playPickupSound(id);
+      this.addHitParticles(c.x + c.w / 2, c.y + c.h / 2, c.color, 5);
+      this.onBugCaught && this.onBugCaught(id);
+      return true;
+    }
+    return false;
+  }
+
   // ============ DROPS ============
   spawnDrop(x, y, itemId, count) {
     const d = new DropItem(this.nextNetId(), itemId, count, x, y);
@@ -1083,6 +1146,11 @@ class Game {
   netEditWall(tx, ty, id) {
     if (!this.net || this.net.status !== 'connected') return;
     const msg = { t: MSG.WALL_EDIT, tx, ty, id };
+    if (this.isHost) this.net.broadcast(msg); else this.net.toHost(msg);
+  }
+  netEditLiquid(tx, ty, level) {
+    if (!this.net || this.net.status !== 'connected') return;
+    const msg = { t: MSG.LIQUID_EDIT, tx, ty, level };
     if (this.isHost) this.net.broadcast(msg); else this.net.toHost(msg);
   }
   netEditShape(tx, ty, id) {

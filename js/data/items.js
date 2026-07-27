@@ -229,6 +229,59 @@ mat('sovereignCore', "Sovereign's Core", '#c58bff', 'drop', 4, 'Pulsing heart of
 mat('emberDust', 'Ember Dust', '#ff8c3b', 'drop', 1, 'Warm to the touch.');
 mat('aetherShard', 'Aether Shard', '#8ad9ff', 'drop', 2, 'Crystalized Aether.');
 
+// ---------- Fauna drops, food and cooking ----------
+// Raw meat is a material; cooking it at a Smeltery turns it into a food item
+// that heals a little and grants a short buff. Food shares the healing
+// cooldown, so it supplements potions rather than replacing them — but unlike a
+// potion it can still be eaten at full health for the buff alone.
+mat('rawBeef', 'Raw Beef', '#c05a5a', 'food', 0, 'Cook it at a Smeltery.');
+mat('rawPork', 'Raw Pork', '#d98a8a', 'food', 0, 'Cook it at a Smeltery.');
+mat('rawMutton', 'Raw Mutton', '#c47b7b', 'food', 0, 'Cook it at a Smeltery.');
+mat('rawGame', 'Raw Game', '#b06a5a', 'food', 0, 'Small game. Cook it at a Smeltery.');
+mat('rawFish', 'Raw Fish', '#8fb8d8', 'food', 0, 'Caught with a rod. Cook it at a Smeltery.');
+mat('leather', 'Cured Hide', '#8a6242', 'misc', 1, 'Tough hide from grazing animals.');
+mat('wool', 'Raw Wool', '#efeadd', 'misc', 0, 'Soft fleece. Spins into fiber.');
+mat('feather', 'Down Feather', '#f4f0e4', 'misc', 0, 'Light and stiff. Fletches arrows.');
+
+const food = (id, name, color, heal, buff, desc) =>
+  def({ id, name, category: 'potion', color, maxStack: 30, food: true, potion: { heal, buff }, desc });
+food('cookedBeef', 'Roast Beef', '#a4562f', 30, { type: 'regen', duration: 40, hpRegen: 2 }, 'Restores 30 health and keeps you mending.');
+food('cookedPork', 'Roast Pork', '#c2764f', 26, { type: 'regen', duration: 34, hpRegen: 2 }, 'Restores 26 health and keeps you mending.');
+food('cookedMutton', 'Roast Mutton', '#b06340', 26, { type: 'ironskin', duration: 30, defense: 3 }, 'Restores 26 health and toughens you up.');
+food('cookedGame', 'Roast Game', '#a86a4a', 18, { type: 'swift', duration: 30, speed: 0.12 }, 'Restores 18 health and quickens your step.');
+food('cookedFish', 'Grilled Fish', '#c8b98a', 22, { type: 'regen', duration: 30, hpRegen: 2 }, 'Restores 22 health and keeps you mending.');
+
+// ---------- Fishing ----------
+// Rods differ in how fast a fish bites and how good the loot table gets. Bait
+// is a bug (see data/fauna.js); better bait shifts the table further.
+const rod = (id, name, color, tier, power, desc) =>
+  def({ id, name, category: 'fishingrod', color, tier, rod: { power }, maxStack: 1, desc });
+rod('woodRod', 'Sapling Rod', '#9a6a3a', 0, 1, 'A bent sapling and a line. Needs bait — catch a bug.');
+rod('cupriteRod', 'Cuprite Rod', '#c47b4a', 1, 2, 'Bites come faster and the catch is better.');
+rod('glimmerRod', 'Glimmer Rod', '#ffe08a', 3, 3, 'The finest line in the realm. Crates surface often.');
+
+const bait = (id, name, color, color2, quality, desc) =>
+  def({ id, name, category: 'bait', color, color2, bait: quality, maxStack: 99, desc });
+bait('worm', 'Loam Worm', '#c98b7a', '#9a6558', 1, 'Basic bait. Dug from grassy ground.');
+bait('grub', 'Pale Grub', '#e8dcc4', '#c0ad8e', 1, 'Basic bait. Found in caves.');
+bait('cricket', 'Field Cricket', '#7a8a4a', '#4f5c2e', 2, 'Good bait. Hops through tall grass.');
+bait('beetle', 'Ironshell Beetle', '#4a5464', '#2e3642', 2, 'Good bait. Scuttles over stone.');
+bait('firefly', 'Emberfly', '#ffe9a0', '#ffb347', 3, 'Excellent bait. Only out after dark.');
+bait('glowmoth', 'Glowmoth', '#cfe0ff', '#8fa8d8', 3, 'Excellent bait. Drifts through deep caves.');
+
+// Buckets move water around by hand: the full one pours a tile's worth, the
+// empty one scoops it back up. Placement goes through the same aim-tile path
+// blocks use, so reach and the Smart Cursor behave identically.
+def({ id: 'emptyBucket', name: 'Empty Pail', category: 'bucket', color: '#9aa2b0', color2: '#5f6672', maxStack: 1, bucket: 'empty', desc: 'Scoops up a tile of water. Use it on water.' });
+def({ id: 'waterBucket', name: 'Water Pail', category: 'bucket', color: '#3f7fc0', color2: '#9aa2b0', maxStack: 1, bucket: 'water', desc: 'Pours out a tile of water. Use it on empty space.' });
+
+// Crates: fished up, opened from the inventory for a rolled reward.
+const crate = (id, name, color, color2, tier, desc) =>
+  def({ id, name, category: 'crate', color, color2, tier, maxStack: 30, desc });
+crate('woodCrate', 'Waterlogged Crate', '#8a6a3a', '#5f4a28', 1, 'Fished from the water. Open it to see what is inside.');
+crate('ironCrate', 'Banded Crate', '#8d939f', '#5c626c', 2, 'A sturdier crate. Better odds of something worth having.');
+crate('aetherCrate', 'Aetherbound Crate', '#8ad9ff', '#3f7fa0', 3, 'Hums faintly. The best of what the water gives up.');
+
 // ---------- Blocks & stations (placeable) ----------
 const block = (id, name, tile, tier = 0) => def({ id, name, category: 'block', place: tile, color: (ITEMS.stone && '#888'), tier });
 def({ id: 'planks', name: 'Oaken Planks', category: 'block', place: T.PLANKS, color: '#a67c46' });
