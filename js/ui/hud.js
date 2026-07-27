@@ -96,6 +96,16 @@ export class HUD {
     this.el.manaText.textContent = `${Math.floor(p.mana)}/${p.maxMana}`;
     this.el.clock.textContent = g.time.label;
 
+    // Wind. Only shown when there is any, and only above ground — a wind
+    // readout in a cave would be reporting a number that is always zero.
+    if (this.el.wind && g.weather) {
+      const underground = p.y / 16 > g.world.surfaceY(Math.floor(p.x / 16)) + 6;
+      const strength = g.weather.strength();
+      const show = !underground && strength > 0.06;
+      this.el.wind.classList.toggle('hidden', !show);
+      if (show) this.el.wind.textContent = g.weather.label();
+    }
+
     // Minion count
     const cap = p.stats ? p.stats.minionCap : 1;
     const mine = g.minions.filter(m => m.ownerId === p.id).length;

@@ -13,7 +13,157 @@ menu or in the pause menu. Keep this file in sync with
 > several "bugs" are automation/focus artifacts of driving a canvas game through
 > Playwright, not defects in the game. Those are called out below.
 
-Version: **Overhaul pass · 2026-07**
+Version: **4.1 — Quality of Realms · 2026-07**
+
+---
+
+## 4.1 — Quality of Realms
+
+A patch pass driven by player feedback. The headline items were four bugs that
+blocked play outright, and a cave generator that read as noise.
+
+### Bugs that blocked play
+
+- **Blocks could not be placed at all.** Placement was gated on the item's
+  *category*, but every raw material that doubles as a block — dirt, stone,
+  wood, sand, clay, snow, ice, sandstone, deepstone, blightstone — is category
+  `material` carrying a `place` tile. So the blocks you actually mine were
+  exactly the ones you could never place. It now gates on whether the item
+  *has* a tile to place, which is what `canPlaceAt` and the Smart Cursor
+  already did; all three finally agree.
+- **Swords hit through solid rock.** The melee hit test was a pure
+  radius-and-arc check with no terrain test at all. Melee now requires line of
+  sight, sampled across several points of large targets so a boss leaning out
+  of cover is still hittable. Two arcane blades declare `phasing` and may cut
+  through stone — a stated weapon perk rather than an oversight.
+- **Chopping one tree stripped its neighbour's canopy.** The leaf flood took
+  every 8-connected leaf, so two trees whose canopies touched were one blob.
+  The flood is now bounded to the felled trunk's own canopy footprint and
+  rejects leaves held up by a different standing trunk.
+- **A falling tree reverted to an older-looking model.** The topple animation
+  drew `Sprites.getTile` — the flat fallback — instead of the neighbour-aware
+  shaded trunk and canopy. Each cell's sprite selectors are now captured
+  *before* the tiles are cleared.
+- **Dropping items.** One at a time, and it flew straight back into the bag.
+  You can now drop one, a chosen amount, or the whole stack, and a drop you
+  threw refuses re-collection *by you* for a moment — anyone else can still
+  take it, so passing items in co-op works.
+- **Choppy hotbar scrolling.** Any wheel delta collapsed to ±1, so a mouse
+  notch moved one slot but a trackpad flick moved fifteen. Deltas are now
+  normalised to notches (handling `deltaMode`) and accumulated.
+
+### Cave generation, rebuilt
+
+The old generator sampled two ridged noise fields at the *same* frequency on
+both axes, smoothed the result with a symmetric cellular automaton, and OR-ed
+in fixed-radius worms. Isotropic noise has no reason to prefer horizontal
+shapes, so it produced a chaotic field of bubbles; symmetric smoothing then
+pinched off the narrow links between them; and nothing guaranteed the
+survivors connected to anything. It read as "janky and all over the place"
+because structurally that is what it was.
+
+The rewrite is built around the qualities that make a cave system read as one:
+
+- **Horizontally elongated, domain-warped noise.** x is sampled ~3× coarser
+  than y and the sample point is displaced by a low-frequency warp field, so
+  cavities come out as long bending ribbons rather than round blobs.
+- **Depth profiles anchored to the surface line.** Three profiles — dirt,
+  stone, cavern — interpolated by depth *below the grass*, so the shallow layer
+  stays tight and the cavern layer opens up, with no row where the style
+  visibly changes.
+- **A wide smoothing kernel.** 5×3 rather than 3×3, so a horizontal corridor
+  survives smoothing and only vertical speckle dissolves.
+- **Tunnels with momentum.** Angular *velocity* with damping and a restoring
+  pull toward horizontal, plus a radius that pinches and swells, so a passage
+  commits to a direction instead of jittering.
+- **Chamber clusters** built by walking a short path stamping overlapping
+  discs, so rooms have lumpy organic outlines.
+- **Sinkhole entrances** with a tapered throat, rather than 2-wide vertical
+  shafts that read as mineshafts.
+- **A connectivity pass** that fills isolated bubbles back in and bores
+  meandering links between what remains.
+
+Two subtle bugs worth recording, because both produced obviously artificial
+output: vertical is an *unstable* fixed point of the horizontal restoring
+torque (`sin(2a)` is zero there), so any tunnel launched straight down felt no
+correction and bored a pin-straight shaft hundreds of tiles deep; and a
+straight-line bore between two components is instantly readable as machine-made
+next to organic passages.
+
+Measured across 40 seeds: **13.7% / 29.1% / 34.5%** open by layer, **1.43×**
+wider than tall, **100%** of underground air reachable from the surface,
+**zero** sealed pockets.
+
+### New systems
+
+- **Flowing water.** A per-tile level with an active-set simulation, so a
+  settled world costs nothing per frame. Pools are *found* rather than placed:
+  flood-fill each enclosed basin from its floor and stop where it would spill.
+  Mine into one and it drains. Swimming, and pails to carry it.
+- **Fishing.** One button casts and reels. Rod tier, bait grade and pool size
+  decide the loot table — a puddle is not a lake. Crates open into a rolled
+  reward.
+- **Wildlife.** Cows, pigs, sheep, rabbits, chickens and frogs graze and bolt;
+  grubs, worms, crickets, beetles, emberflies and glowmoths are *caught* by
+  clicking and serve as fishing bait. Glowing bugs are real light sources.
+  Meat cooks at a Smeltery into food that heals and buffs.
+- **Wind.** Blows from one side at a time on a slow seeded cadence. Foliage is
+  sheared around its anchored edge — roots for a plant, the ceiling for a vine
+  — so only the free end moves, phased by tile position so gusts travel across
+  the world. Pushes the player gently on the surface; stops underground.
+- **Flora.** Ten new plants with per-biome mixes. Corruption trees grow
+  twisted, lurching side to side with bare branch stubs.
+- **Characters.** Split out of worlds. A summoner owns its appearance,
+  inventory and achievements and can be taken into any realm. Pre-4.1 saves
+  migrate quietly: the newest world's embedded player becomes your first
+  character, and the world saves keep their copy so rolling back loses nothing.
+- **Achievements.** 22, stored per character.
+- **Hammers.** A per-tile shape layer with real collision — half blocks and
+  four slope orientations you can genuinely walk up — plus stripping walls.
+
+### Feel and interface
+
+- **Player animation.** One static pose became a walk cycle, jump and fall
+  poses, a swim kick and an idle breath, all derived from actual state.
+  **Armour is finally drawn on the character** in each piece's own colour.
+- **Sword swings** sweep from wind-up to follow-through with a tapered trail,
+  and the arc differs by weapon class: swords sweep, spears thrust, heavy
+  weapons take a slow wide arc.
+- **Gravemaw.** Its head was positioned from the bounding box while the body
+  came from a separately-simulated trail, so the two came apart whenever it
+  moved. The head is now the first link of the chain with fixed link lengths,
+  plus anticipation before a leap, squash and dust on landing, and a jaw that
+  snaps rather than eases.
+- **Smart Cursor.** It "locked onto whatever" because it scored a 9×9
+  neighbourhood around the pointer — a tile *behind* you could win on distance,
+  and dragging gave a different answer every frame. It now walks the ray from
+  the player to the cursor and takes the first useful tile, and while place is
+  held it continues the run you are building, so dragging lays a straight
+  gapless line.
+- **Minimap.** Three sizes, draggable to pan, pinch or wheel to zoom, working
+  identically under touch. Explored tiles are saved with the world.
+- **Zoom.** `+` / `−`, Ctrl+wheel, pinch, or a settings slider — so the
+  Grovekeeper flying off in phase two stays on screen.
+- **Transparent pause.** A translucent side panel; the world keeps running and
+  you can still move, mine and build.
+- **Multiplayer.** The host panel gained the difficulty slider it never had — a
+  hosted world silently inherited whatever the host was playing — plus world
+  name and seed, a character preview, and a two-card layout.
+
+### Tests
+
+- `npm run check:worldgen` gained invariants for the new cave qualities: no
+  isolated pockets, horizontal elongation, surface reachability, the depth
+  profile, and that water is never inside rock or unsupported. The tree
+  invariant became a *connectivity* test, because twisted trees have bare
+  branch stubs and a branch legitimately has air under it.
+- `npm run check:smoke` is new: it boots the real game in a headless browser
+  and drives each system through the **actual input path** — mouse position and
+  the primary button — rather than by calling internals. That distinction is
+  the point. Every bug fixed above lived in the dispatch between an input and
+  an action, so a test that called the action directly would have passed
+  against the broken build. Writing it immediately caught that placement, the
+  hammer, melee and casting were all still unreachable from a real click.
 
 ---
 

@@ -404,6 +404,7 @@ export function mineAt(game, player, dt, source) {
       _leafDrop(game, player, tx, ty);
       game.addHitParticles(cx, cy, def.color || '#3e7a34', 5);
     } else if (Math.random() <= (res.dropChance || 1) && res.drop) {
+      if (getItem(res.drop) && getItem(res.drop).matKind === 'ore') game.onOreMined && game.onOreMined();
       _giveOrDrop(game, player, tx, ty, res.drop, 1);
       game.addHitParticles(cx, cy, def.color || '#888', 6);
     } else {
@@ -479,6 +480,7 @@ export function hammerAt(game, player, dt) {
     const shape = nextShape(game.world.getShape(tx, ty));
     game.world.setShape(tx, ty, shape);
     game.netEditShape(tx, ty, shape);
+    game.onBlockShaped && game.onBlockShaped();
     game.markDirty();
     player.hammerTimer = 0.22;
     game.audio?.pickaxeHit();
@@ -636,6 +638,10 @@ export function placeSelected(game, player) {
   if (!player.inventory.remove(sel.id, 1)) return false;
   game.world.set(tx, ty, sel.place);
   game.netEditTile(tx, ty, sel.place);
+  // Remember where this block went so the Smart Cursor can continue the run
+  // while the button stays held (see systems/smartcursor.findPlacement).
+  game.smartRun = { tx, ty, item: sel.id };
+  game.onBlockPlaced && game.onBlockPlaced();
   game.markDirty();
   game.addHitParticles(tx * TILE + TILE / 2, ty * TILE + TILE / 2, tileDef(sel.place).color || '#888', 3);
   game.audio?.blockPlace();

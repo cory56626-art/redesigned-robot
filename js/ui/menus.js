@@ -6,6 +6,9 @@ import { Sprites } from '../art/sprites.js?v=quality-of-realms-1';
 import { item as getItem } from '../data/items.js?v=quality-of-realms-1';
 import { availableRecipes } from '../systems/crafting.js?v=quality-of-realms-1';
 import { claudeNotesHTML } from './claude-notes.js?v=quality-of-realms-1';
+import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=quality-of-realms-1';
+import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=quality-of-realms-1';
+import { drawCharacterPreview } from '../art/charpreview.js?v=quality-of-realms-1';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [
@@ -48,17 +51,31 @@ export class Menus {
       this.show('newWorldDialog');
     };
     $('btnLoadWorld').onclick = () => this.openLoadDialog();
-    $('btnMultiplayer').onclick = () => this.show('mpMenu');
+    $('btnMultiplayer').onclick = () => this.openMultiplayer();
     $('btnSettings').onclick = () => this.openSettings();
     $('btnHowto').onclick = () => this.showHowTo();
     $('btnClaudeNotes').onclick = () => this.showClaudeNotes();
     $('controlModeSeg').querySelectorAll('.seg-btn').forEach(b => {
       b.onclick = () => g.setControlMode(b.dataset.mode);
     });
-    $('playerNameInput').value = g.playerName;
-    $('playerNameInput').oninput = (e) => { g.playerName = e.target.value.trim() || 'Summoner'; g.saveSettings(); };
-    $('playerColorSwatch').style.background = g.playerColor;
-    $('playerColorSwatch').onclick = () => { g.cyclePlayerColor(); $('playerColorSwatch').style.background = g.playerColor; };
+    // ---- Characters ----
+    $('btnCharacters').onclick = () => this.openCharacterSelect();
+    $('btnEditCharacter').onclick = () => this.openCharacterEditor(g.character);
+    $('charSelectClose').onclick = () => this.hide('charSelect');
+    $('charNew').onclick = () => this.openCharacterEditor(null);
+    $('charCreateCancel').onclick = () => { this.hide('charCreate'); this._stopPreview(); };
+    $('charCreateSave').onclick = () => this.saveCharacterEditor();
+    $('charPoseSeg').querySelectorAll('.seg-btn').forEach(b => {
+      b.onclick = () => {
+        $('charPoseSeg').querySelectorAll('.seg-btn').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        this._previewPose = b.dataset.pose;
+      };
+    });
+    $('btnAchievements').onclick = () => this.showAchievements();
+    $('achieveClose').onclick = () => this.hide('achievementsDialog');
+    this._buildSwatches();
+    this.refreshActiveCharacter();
 
     // ---- New world dialog ----
     $('newWorldDifficulty').addEventListener('input', () => this._syncNewWorldDifficulty());
@@ -76,7 +93,18 @@ export class Menus {
     $('loadWorldClose').onclick = () => this.hide('loadWorldDialog');
 
     // ---- Multiplayer menu ----
-    $('btnCreateServer').onclick = () => g.createServer();
+    $('mpDifficulty').addEventListener('input', () => this._syncDifficultySlider('mp'));
+    $('mpUseCurrent').addEventListener('change', () => this._syncMpHostMode());
+    $('mpChangeChar').onclick = () => this.openCharacterSelect();
+    $('btnCreateServer').onclick = () => {
+      const useCurrent = $('mpUseCurrent').checked && g.state === 'playing';
+      g.createServer({
+        useCurrent,
+        name: ($('mpWorldName').value || '').trim() || 'Shared Realm',
+        seed: ($('mpWorldSeed').value || '').trim(),
+        difficulty: difficultyForIndex($('mpDifficulty').value).key,
+      });
+    };
     $('btnJoinServer').onclick = () => { const code = $('joinCodeInput').value.trim().toUpperCase(); if (code) g.joinRoom(code); };
     $('mpClose').onclick = () => this.hide('mpMenu');
 
@@ -103,6 +131,10 @@ export class Menus {
     }
     $('settingsControlSeg').querySelectorAll('.seg-btn').forEach(b => {
       b.onclick = () => { g.setControlMode(b.dataset.mode); this._syncSettings(); };
+    });
+    $('setZoom').addEventListener('input', (e) => {
+      g.setZoom(Number(e.target.value) / 100);
+      this._syncSettings();
     });
     for (const [id, key] of [['setMaster', 'masterVolume'], ['setMusic', 'musicVolume'], ['setSfx', 'sfxVolume']]) {
       $(id).addEventListener('input', (e) => {
@@ -163,12 +195,18 @@ export class Menus {
   // ---- Generic overlay show/hide ----
   show(id) { $(id).classList.remove('hidden'); this.game.onMenuOpened(); }
   hide(id) { $(id).classList.add('hidden'); }
-  _syncNewWorldDifficulty() {
-    const info = difficultyForIndex($('newWorldDifficulty').value);
-    $('newWorldDifficultyLabel').textContent = info.label;
-    $('newWorldDifficultyTier').textContent = info.tier;
-    $('newWorldDifficultyHint').textContent = info.hint;
-    $('newWorldDifficulty').style.setProperty('--fill', (WORLD_DIFFICULTY_FILL(info.key) * 100) + '%');
+  _syncNewWorldDifficulty() { this._syncDifficultySlider('newWorld'); }
+  // Shared by the New World dialog and the multiplayer host card, so both
+  // sliders read and behave identically instead of being two near-copies.
+  _syncDifficultySlider(prefix) {
+    const slider = $(prefix + 'Difficulty');
+    if (!slider) return;
+    const info = difficultyForIndex(slider.value);
+    $(prefix + 'DifficultyLabel').textContent = info.label;
+    $(prefix + 'DifficultyTier').textContent = info.tier;
+    $(prefix + 'DifficultyHint').textContent = info.hint;
+    slider.style.setProperty('--fill', (WORLD_DIFFICULTY_FILL(info.key) * 100) + '%');
+    return info;
   }
 
   isOpen(id) { return !$(id).classList.contains('hidden'); }
@@ -223,6 +261,228 @@ export class Menus {
     input.focus();
   }
 
+  // ---- Multiplayer ----
+
+  openMultiplayer() {
+    const g = this.game;
+    // Hosting the world you are already in only makes sense when there is one.
+    const canUseCurrent = g.state === 'playing' && !!g.world;
+    const cb = $('mpUseCurrent');
+    cb.disabled = !canUseCurrent;
+    cb.checked = canUseCurrent;
+    cb.closest('.check-row').classList.toggle('disabled', !canUseCurrent);
+    this._syncDifficultySlider('mp');
+    this._syncMpHostMode();
+    this.refreshMpCharacter();
+    this.show('mpMenu');
+  }
+
+  // Hosting your current world means its name, seed and difficulty are already
+  // decided — so the fields that would contradict that are disabled rather than
+  // silently ignored.
+  _syncMpHostMode() {
+    const useCurrent = $('mpUseCurrent').checked;
+    for (const id of ['mpWorldName', 'mpWorldSeed', 'mpDifficulty']) {
+      const el = $(id);
+      el.disabled = useCurrent;
+      el.closest('div')?.classList.toggle('disabled', useCurrent);
+    }
+    $('btnCreateServer').textContent = useCurrent ? 'Host this world' : 'Start hosting';
+  }
+
+  refreshMpCharacter() {
+    const g = this.game;
+    const ch = g.character;
+    $('mpCharName').textContent = ch ? ch.name : 'Summoner';
+    const cv = $('mpCharPreview');
+    if (cv) {
+      drawCharacterPreview(cv.getContext('2d'), g.renderer,
+        (ch && ch.appearance) || defaultAppearance(0), { scale: 2.2 });
+    }
+  }
+
+  // ---- Characters ----
+
+  refreshActiveCharacter() {
+    const el = $('activeCharName');
+    if (!el) return;
+    const ch = this.game.character;
+    el.textContent = ch ? ch.name : 'None';
+    el.style.color = ch ? ch.appearance.shirt : '';
+  }
+
+  openCharacterSelect() {
+    this.renderCharacterList();
+    this.show('charSelect');
+  }
+
+  renderCharacterList() {
+    const g = this.game;
+    const wrap = $('charList');
+    wrap.innerHTML = '';
+    const list = g.characters.list();
+    if (!list.length) {
+      wrap.innerHTML = '<p class="hint">No summoners yet. Create one to begin.</p>';
+      return;
+    }
+    for (const entry of list) {
+      const row = document.createElement('div');
+      row.className = 'char-row' + (g.character && g.character.id === entry.id ? ' active' : '');
+
+      const cv = document.createElement('canvas');
+      cv.width = 48; cv.height = 76; cv.className = 'char-thumb';
+      drawCharacterPreview(cv.getContext('2d'), g.renderer, entry.appearance || defaultAppearance(0), { scale: 2.2 });
+      row.appendChild(cv);
+
+      const info = document.createElement('div');
+      info.className = 'char-info';
+      const when = new Date(entry.updated).toLocaleDateString();
+      info.innerHTML = `<b>${escapeHtml(entry.name)}</b>`
+        + `<span class="hint small">${entry.achievements || 0} achievements · last played ${when}</span>`;
+      row.appendChild(info);
+
+      const acts = document.createElement('div');
+      acts.className = 'char-actions';
+      const play = document.createElement('button');
+      play.className = 'btn small primary';
+      play.textContent = g.character && g.character.id === entry.id ? 'Selected' : 'Select';
+      play.onclick = () => {
+        g.selectCharacter(entry.id);
+        this.refreshActiveCharacter();
+        this.refreshMpCharacter();
+        this.renderCharacterList();
+      };
+      const edit = document.createElement('button');
+      edit.className = 'btn small';
+      edit.textContent = 'Customise';
+      edit.onclick = () => { g.selectCharacter(entry.id); this.openCharacterEditor(g.character); };
+      const del = document.createElement('button');
+      del.className = 'btn small danger';
+      del.textContent = 'Delete';
+      del.onclick = () => this.confirm('Delete summoner?',
+        `"${entry.name}" and everything they carry will be lost.`,
+        () => { g.deleteCharacter(entry.id); this.refreshActiveCharacter(); this.renderCharacterList(); });
+      acts.append(play, edit, del);
+      row.appendChild(acts);
+      wrap.appendChild(row);
+    }
+  }
+
+  // The editor works for both "create" and "customise": passing a record edits
+  // it in place, passing null starts a new one.
+  openCharacterEditor(record) {
+    this._editing = record || null;
+    this._draft = record
+      ? Object.assign({}, record.appearance)
+      : defaultAppearance(this.game.characters.list().length);
+    $('charCreateTitle').textContent = record ? 'Customise Summoner' : 'Create a Summoner';
+    $('charName').value = record ? record.name : '';
+    $('charName').placeholder = 'Summoner';
+    this._previewPose = 'idle';
+    this._syncSwatches();
+    this.show('charCreate');
+    this._startPreview();
+  }
+
+  _buildSwatches() {
+    for (const row of document.querySelectorAll('#charCreate .swatch-row')) {
+      const look = row.dataset.look;
+      const holder = row.querySelector('.swatches');
+      holder.innerHTML = '';
+      const values = look === 'hairStyle' ? HAIR_STYLES : LOOK_PALETTES[look];
+      for (const v of values) {
+        const b = document.createElement('button');
+        b.className = 'swatch';
+        b.dataset.value = v;
+        if (look === 'hairStyle') b.textContent = v;
+        else b.style.background = v;
+        b.onclick = () => {
+          this._draft[look] = v;
+          this._syncSwatches();
+        };
+        holder.appendChild(b);
+      }
+    }
+  }
+
+  _syncSwatches() {
+    if (!this._draft) return;
+    for (const row of document.querySelectorAll('#charCreate .swatch-row')) {
+      const look = row.dataset.look;
+      for (const b of row.querySelectorAll('.swatch')) {
+        b.classList.toggle('on', b.dataset.value === this._draft[look]);
+      }
+    }
+  }
+
+  // The preview animates, so a walk cycle actually walks.
+  _startPreview() {
+    this._stopPreview();
+    const cv = $('charPreview');
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    const t0 = performance.now();
+    const tick = () => {
+      if (this.isOpen('charCreate') === false) { this._stopPreview(); return; }
+      const t = (performance.now() - t0) / 1000;
+      drawCharacterPreview(ctx, this.game.renderer, this._draft, { pose: this._previewPose, scale: 5, t });
+      this._previewRaf = requestAnimationFrame(tick);
+    };
+    tick();
+  }
+  _stopPreview() {
+    if (this._previewRaf) cancelAnimationFrame(this._previewRaf);
+    this._previewRaf = null;
+  }
+
+  saveCharacterEditor() {
+    const g = this.game;
+    const name = ($('charName').value || '').trim() || 'Summoner';
+    if (this._editing) {
+      this._editing.name = name.slice(0, 14);
+      g.characters.write(this._editing);
+      if (g.character && g.character.id === this._editing.id) {
+        g.updateAppearance(this._draft);
+        g.playerName = this._editing.name;
+        if (g.localPlayer) g.localPlayer.name = this._editing.name;
+      }
+    } else {
+      g.createCharacter(name, this._draft);
+    }
+    this._stopPreview();
+    this.hide('charCreate');
+    this.refreshActiveCharacter();
+    if (this.isOpen('charSelect')) this.renderCharacterList();
+  }
+
+  // ---- Achievements ----
+
+  showAchievements() {
+    const g = this.game;
+    const a = g.achievements;
+    $('achieveCount').textContent = `${a.count()} / ${a.total()}`;
+    const body = $('achieveBody');
+    body.innerHTML = '';
+    for (const group of a.grouped()) {
+      const h = document.createElement('h3');
+      h.textContent = group.name;
+      body.appendChild(h);
+      const grid = document.createElement('div');
+      grid.className = 'achieve-grid';
+      for (const def of group.items) {
+        const got = a.has(def.id);
+        const card = document.createElement('div');
+        card.className = 'achieve-card' + (got ? ' got' : '');
+        card.innerHTML = `<span class="achieve-icon">${got ? def.icon : '🔒'}</span>`
+          + `<span class="achieve-name">${escapeHtml(def.name)}</span>`
+          + `<span class="hint small">${escapeHtml(def.desc)}</span>`;
+        grid.appendChild(card);
+      }
+      body.appendChild(grid);
+    }
+    this.show('achievementsDialog');
+  }
+
   // ---- Main menu / pause visibility ----
   showMainMenu() { this.refreshContinue(); this.show('mainMenu'); }
   hideMainMenu() { this.hide('mainMenu'); }
@@ -231,7 +491,15 @@ export class Menus {
     const btn = $('btnContinue');
     if (btn) btn.classList.toggle('hidden', this.game.saves.list().length === 0);
   }
-  showPause() { this.show('pauseMenu'); $('btnLeaveServer').style.display = this.game.net ? '' : 'none'; this._updatePauseSaveState(); }
+  showPause() {
+    // Transparent pause: a translucent side panel rather than a full-screen
+    // scrim, offset so it never covers the player, and non-blocking so you can
+    // keep moving and interacting while it is open.
+    $('pauseMenu').classList.add('transparent');
+    this.show('pauseMenu');
+    $('btnLeaveServer').style.display = this.game.net ? '' : 'none';
+    this._updatePauseSaveState();
+  }
   hidePause() { this.hide('pauseMenu'); }
   _updatePauseSaveState() { $('pauseSaveState').textContent = this.game.saveStateText(); }
 
@@ -301,22 +569,45 @@ export class Menus {
         <li><b>Right-click</b> — dig/chop the targeted tile with the best tool for it (pickaxe for stone, axe for trees)</li>
         <li><kbd>1</kbd>–<kbd>0</kbd> / scroll — select hotbar · <kbd>E</kbd> — inventory &amp; crafting · <kbd>Q</kbd> — use potion</li>
         <li><kbd>F</kbd> — talk to the Guide · <kbd>Ctrl</kbd> — hold for <b>Smart Cursor</b> (or set it to Always in Settings)</li>
+        <li><kbd>+</kbd>/<kbd>&minus;</kbd> or <kbd>Ctrl</kbd>+scroll — <b>zoom</b> · <kbd>M</kbd> — resize the <b>map</b></li>
+        <li>Right-click a bag slot to <b>drop one</b>; <kbd>Shift</kbd>+right-click drops the stack, <kbd>Ctrl</kbd>+right-click asks how many</li>
         <li><kbd>Esc</kbd> — pause · <kbd>Enter</kbd> — chat (multiplayer)</li>
       </ul>
       <h4>Mobile Controls</h4>
       <ul>
         <li>Left stick moves, right stick aims. Buttons: Jump, Use, Mine, Place, Bag, Item.</li>
         <li><b>◎</b> toggles Smart Cursor, which picks the best tile for you — essential when aiming with a stick.</li>
+        <li><b>🗺</b> resizes the map. Drag it to pan and pinch it to zoom; pinch anywhere else to zoom the view.</li>
         <li>Tap an item in your bag to inspect it, or drag it to another slot to rearrange.</li>
       </ul>
-      <h4>Playing with the bag open</h4>
+      <h4>Playing with the bag — or the pause menu — open</h4>
       <ul>
         <li>The world keeps running while your inventory is open, and you can still <b>move, jump and use items</b>. The panel sits in the corner rather than covering the screen.</li>
+        <li>The <b>pause menu works the same way</b>: it is a translucent side panel, and the world carries on behind it. Enemies stay live while it is open.</li>
+      </ul>
+      <h4>Water, wildlife and fishing</h4>
+      <ul>
+        <li>Water <b>flows</b>. Mine into a pool and it drains; carry it in a <b>Pail</b>. You can swim — hold jump to stroke upward.</li>
+        <li><b>Click a bug</b> to catch it rather than attacking it. Bugs are fishing bait, and better bugs are better bait.</li>
+        <li>Craft a <b>Sapling Rod</b>, stand by water and click to cast. Click again the moment the bobber dips. Rod tier, bait and how much open water you cast into all decide what you land — including <b>crates</b>.</li>
+        <li>Animals drop meat and hides. Cook meat at a <b>Smeltery</b> for food that heals <i>and</i> buffs.</li>
+      </ul>
+      <h4>Building</h4>
+      <ul>
+        <li>A <b>hammer</b> never breaks a block — it reshapes it. Each hit cycles through half-blocks and four slopes, and you can genuinely walk up a slope. Swing one at open air to strip the background wall.</li>
+        <li>With Smart Cursor held, dragging while you place <b>continues the line you started</b>, so walls and floors come out straight.</li>
+      </ul>
+      <h4>Summoners &amp; achievements</h4>
+      <ul>
+        <li>Your <b>character</b> is separate from the world: their look, inventory and achievements come with them into any realm. Make more from <b>Summoners</b> on the main menu.</li>
+        <li>There are <b>22 achievements</b> — see them from the pause menu.</li>
       </ul>
       <h4>Tips</h4>
       <ul>
         <li>You start with only a <b>pickaxe</b>, an <b>axe</b>, and a <b>sword</b>. Chop trees with the axe (they topple and drop wood — leaves only give twigs), mine stone &amp; ore with the pickaxe.</li>
         <li>Craft a <b>Crafting Bench</b> from wood, then build a Smeltery, Forge and Aether Altar as you progress.</li>
+        <li>Caves run mostly <b>sideways</b> and open up the deeper you go. Look for a sinkhole on the surface, and take torches — or catch a <b>Glowmoth</b>, which lights the way on its own.</li>
+        <li>The <b>wind</b> changes through the day and pushes you a little on the surface. It stops entirely underground.</li>
         <li><b>Bombs</b> are a mining tool as much as a weapon — they arc, bounce, and blow craters in dirt and stone. Stand clear: the blast hurts you too.</li>
         <li>Bows need <b>arrows</b>, magic drains <b>Aether</b>, and healing has a <b>cooldown</b> — watch the hotbar timers.</li>
         <li>Craft a <b>Verdant Effigy</b> and use it in the Forest to summon the first boss. Bosses <b>telegraph</b> every attack — watch for the charge-up.</li>
@@ -349,6 +640,14 @@ export class Menus {
     slider('setMaster', 'setMasterOut', st.masterVolume);
     slider('setMusic', 'setMusicOut', st.musicVolume);
     slider('setSfx', 'setSfxOut', st.sfxVolume);
+    // Zoom runs 60-200%, so its track fill is scaled to that range rather than
+    // reusing the 0-100 mapping the volume sliders use.
+    {
+      const el = $('setZoom');
+      el.value = Math.round(g.camera.zoom * 100);
+      el.style.setProperty('--fill', ((el.value - 60) / 1.4) + '%');
+      $('setZoomOut').textContent = el.value + '%';
+    }
     const ms = $('musicStatus');
     if (ms) ms.textContent = g.audio && g.audio.music ? g.audio.music.statusText() : 'Music tracks live in assets/music/.';
   }

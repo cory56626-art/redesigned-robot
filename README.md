@@ -5,12 +5,31 @@ the browser — inspired by the genre of games like Terraria, but built from scr
 with original art, names, weapons, enemies, bosses, and mechanics. No external
 game assets, sprites, music, or designs are used or copied.
 
-Explore a procedurally generated world of layered biomes and wall-backed caves,
-mine and build, blast holes in the terrain, craft progressively stronger gear
-across four combat classes, summon minions, and fight three phased bosses — solo
-or in **real peer-to-peer co-op** that works between PC and mobile.
+Explore a procedurally generated world of layered biomes, winding wall-backed
+caves and flowing water; mine, build and sculpt terrain; fish, farm wildlife and
+craft progressively stronger gear across four combat classes; summon minions and
+fight three phased bosses — solo or in **real peer-to-peer co-op** that works
+between PC and mobile.
 
 ![vertical slice](https://img.shields.io/badge/status-playable%20demo-7ee0c0)
+![version](https://img.shields.io/badge/version-4.1%20Quality%20of%20Realms-c58bff)
+
+## What's new in 4.1 — Quality of Realms
+
+- **Caves rebuilt.** Horizontally elongated, domain-warped noise with per-depth
+  profiles, momentum tunnels, chamber clusters, sinkhole entrances and a
+  connectivity pass — so the underground reads as a connected system instead of
+  a field of bubbles. 100% of underground air is reachable from the surface.
+- **Flowing water**, and **fishing** with bug bait, loot tables and crates.
+- **Wildlife** — livestock, small game, and catchable bugs that double as bait.
+- **Wind weather** that sways foliage and nudges you along the surface.
+- **Characters** split out of worlds, Terraria-style, with 22 achievements.
+- **Armour is visible on your character**, over a real animation system.
+- **A minimap**, **in-game zoom**, a **transparent pause**, and **hammers** that
+  sculpt blocks into half-blocks and walkable slopes.
+- Four bugs that blocked play: you couldn't place most blocks, swords hit
+  through rock, felling a tree stripped its neighbour, and dropped items flew
+  straight back into your bag. See `CLAUDE_NOTES.md` for the details.
 
 ---
 
@@ -74,6 +93,9 @@ Switch between **PC** and **Mobile** controls on the main menu (auto-detected).
 | Use potion | `Q` |
 | Talk to the Guide | `F` |
 | **Smart Cursor** (auto-target the best tile) | hold `Ctrl`, or set to Always in Settings |
+| Zoom in / out | `+` / `-`, or `Ctrl` + scroll wheel |
+| Map (corner → panel → fullscreen) | `M`, or click the map |
+| Drop one / a stack / an exact amount | right-click / `Shift`+right-click / `Ctrl`+right-click a bag slot |
 | Pause / back | `Esc` |
 | Chat (multiplayer) | `Enter` |
 | Demo Commands | `/` (also in the pause menu) |
@@ -82,19 +104,26 @@ Switch between **PC** and **Mobile** controls on the main menu (auto-detected).
 
 Two virtual joysticks — **left = move, right = aim** — plus on-screen buttons for
 **Jump, Use, Mine, Place, Bag (inventory), Item (potion)**, a **◎ Smart Cursor**
-toggle, a contextual **Talk** button near the Guide, and the menu. The whole UI
-is responsive and safe-area aware for phones and iPads.
+toggle, a **🗺 map** button, a contextual **Talk** button near the Guide, and the
+menu. Pinch anywhere to zoom the view; the minimap has its own drag-to-pan and
+pinch-to-zoom. The whole UI is responsive and safe-area aware for phones and
+iPads.
 
 **Smart Cursor** matters most here: aiming one specific tile with a thumbstick is
 impractical, so the game picks the most useful tile in the direction you point —
 the nearest block worth mining, the next legal spot to build, or a dark wall that
 wants a torch. It's on by default on touch.
 
-### Playing with the inventory open
+### Playing with the inventory — or the pause menu — open
 
 The world keeps running while your bag is open and you can still move, jump and
 use items, the way Terraria does. The panel is anchored in the corner rather than
 covering the screen, so the rest of the view stays visible and clickable.
+
+As of 4.1 the **pause menu works the same way**: it is a translucent side panel
+offset from your character, and the world keeps simulating behind it — so you can
+read it, save, or check achievements without losing sight of what you were doing.
+Enemies stay live while it is open.
 
 ---
 
@@ -253,14 +282,27 @@ assets/
 ### Checks
 
 ```bash
+npm run check            # worldgen invariants + build stamps
 npm run check:worldgen   # generator invariants across many seeds
 npm run check:build      # every module stamped with the current BUILD
+
+npm run serve            # static server on :8899 (needed by the smoke test)
+npm run check:smoke      # boots the real game in a headless browser
 ```
 
 `tools/worldgen-check.mjs` runs in plain node with no dependencies, because
 worldgen and everything it imports are DOM-free. It asserts spawn safety,
-walkable slopes, biome contiguity, cave density and surface connectivity, wall
-coverage, ore banding, and that no tree is left floating.
+walkable slopes, biome contiguity, wall coverage, ore banding, and that no tree
+is left disconnected from the ground — plus, since 4.1, the cave-shape
+properties the generator is responsible for: no isolated pockets, horizontal
+elongation, surface reachability, an increasing depth profile, and that water is
+never inside rock or unsupported.
+
+`tools/smoke-test.mjs` boots the game in Playwright and drives each system
+through the **actual input path** — the mouse position and the primary button —
+rather than by calling internals. That distinction matters: the bugs 4.1 fixed
+lived in the dispatch between an input and an action, so a test that called the
+action directly would have passed against the broken build.
 
 ---
 

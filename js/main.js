@@ -36,10 +36,12 @@ import { ENEMIES } from './data/enemies.js?v=quality-of-realms-1';
 import { BOSSES } from './data/bosses.js?v=quality-of-realms-1';
 import { item as getItem } from './data/items.js?v=quality-of-realms-1';
 import { HUD } from './ui/hud.js?v=quality-of-realms-1';
+import { Minimap } from './ui/minimap.js?v=quality-of-realms-1';
 import { Menus } from './ui/menus.js?v=quality-of-realms-1';
 import { NpcDialog } from './ui/npcdialog.js?v=quality-of-realms-1';
 import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=quality-of-realms-1';
-import { SaveManager, setSaveIndicator } from './save.js?v=quality-of-realms-1';
+import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=quality-of-realms-1';
+import { Achievements, craftAchievement } from './systems/achievements.js?v=quality-of-realms-1';
 import { CommandConsole } from './commands.js?v=quality-of-realms-1';
 import { Net } from './net/net.js?v=quality-of-realms-1';
 import { MSG } from './net/protocol.js?v=quality-of-realms-1';
@@ -55,6 +57,9 @@ class Game {
     this.input.setCamera(this.camera);
     this.renderer = new Renderer(this.canvas, this.camera);
     this.saves = new SaveManager();
+    this.characters = new CharacterManager();
+    this.character = null;      // the active character record
+    this.achievements = new Achievements(this);
 
     this.state = 'menu';         // menu | playing
     this.paused = false;
@@ -118,7 +123,7 @@ class Game {
     this.camera.setZoom(this.settings.zoom);
     this.smartTarget = null;
 
-    this.ui = { hud: null, menus: null, npcDialog: null };
+    this.ui = { hud: null, menus: null, npcDialog: null, minimap: null };
     this.commands = null;
   }
 
@@ -129,10 +134,16 @@ class Game {
     this.audio.applyVolumes(this.settings);
     this.audio.playMenuMusic();
     this.ui.hud = new HUD(this);
+    this.ui.minimap = new Minimap(this);
     this.ui.menus = new Menus(this);
     this.ui.npcDialog = new NpcDialog(this);
     this.commands = new CommandConsole(this);
     this._wireInputActions();
+    // There is always a character: an existing one, a migrated pre-4.1 player,
+    // or a fresh default. The menu never opens in a state where "play" is
+    // impossible because nobody has made a summoner yet.
+    this.ensureCharacter();
+    this.ui.menus.refreshActiveCharacter();
     this.ui.menus.refreshContinue(); // reflect any existing saves on first paint
     this._resize();
     window.addEventListener('resize', () => this._resize());
@@ -167,6 +178,7 @@ class Game {
     inp.on('interact', () => this.interact());
     inp.on('smartToggle', () => { /* the input layer owns the latch; nothing else to do */ });
     inp.on('zoom', (dir) => this.nudgeZoom(dir));
+    inp.on('minimap', () => { if (this.state === 'playing') this.ui.minimap.cycle(); });
     inp.on('zoomTo', (z) => this.setZoom(z));
   }
 
@@ -210,7 +222,11 @@ class Game {
     if (dt > 0.05) dt = 0.05;
 
     try {
-      if (this.state === 'playing' && !this.paused && !this._simFrozen()) {
+      // 4.1: pausing no longer stops the world. The pause menu is a
+      // translucent side panel you can read while still moving, mining and
+      // talking — so the simulation keeps running behind it, and enemies stay
+      // live. Only the debug console still freezes time (see _simFrozen).
+      if (this.state === 'playing' && !this._simFrozen()) {
         this._acc = (this._acc || 0) + dt;
         let steps = 0;
         while (this._acc >= SIM_DT && steps < 5) { this._step(SIM_DT); this._acc -= SIM_DT; steps++; }
@@ -226,6 +242,8 @@ class Game {
 
       if (this.state === 'playing') {
         this.renderer.draw(this);
+        this.ui.minimap.reveal(dt);
+        this.ui.minimap.draw();
         this.ui.hud.update();
         this._updateTalkButton();
         this.ui.menus.tick(dt);
@@ -259,6 +277,10 @@ class Game {
     const lc = this.localPlayer ? this.localPlayer.center() : { x: 0, y: 0 };
     this.input.resolveAim(lc.x, lc.y, this.canvas.width, this.canvas.height);
 
+    // A placement run only lives as long as the button is held; releasing it
+    // ends the line so the next click starts somewhere fresh.
+    if (!this.input.state.primaryHeld && !this.input.state.placeHeld) this.smartRun = null;
+
     // Resolve the Smart Cursor target once per step so the renderer, the
     // placement preview and the action code all agree on one tile.
     this.smartTarget = this.localPlayer && this.localPlayer.alive
@@ -267,6 +289,7 @@ class Game {
 
     this.time.update(dt);
     this.weather.update(dt);
+    this.achievements.update(dt);
     this.world.liquid.update(dt);
     this.audio.update(this, dt);
 
@@ -345,11 +368,13 @@ class Game {
     this.fallingTrees = this.fallingTrees.filter(t => !t.dead);
   }
 
-  // Can the player move and use items right now? The inventory deliberately
-  // does *not* block this — in Terraria the world keeps running and you keep
-  // playing with your bag open. Blocking dialogs still do.
+  // Can the player move and use items right now? Neither the inventory nor the
+  // pause panel blocks this — in Terraria the world keeps running and you keep
+  // playing with your bag open, and 4.1 extends the same treatment to pause.
+  // Genuinely blocking dialogs (the console, a confirm, the death screen) still
+  // stop play.
   canAct() {
-    return this.state === 'playing' && !this.paused && this.localPlayer && this.localPlayer.alive
+    return this.state === 'playing' && this.localPlayer && this.localPlayer.alive
       && !this.ui.menus.anyBlockingModalOpen() && !this.input.isTyping();
   }
 
@@ -379,6 +404,7 @@ class Game {
   }
 
   startNewWorld(name, seedStr, difficulty = 'normal') {
+    this.ensureCharacter();
     this.seed = this._seedFromString(seedStr);
     this.worldName = name;
     this.difficulty = normalizeDifficulty(difficulty);
@@ -405,6 +431,7 @@ class Game {
   loadWorldSlot(id) {
     const data = this.saves.read(id);
     if (!data) { this.toast('Save not found', 'bad'); return; }
+    this.ensureCharacter();
     this.seed = data.seed;
     this.worldName = data.name;
     this.difficulty = normalizeDifficulty(data.difficulty);
@@ -414,6 +441,7 @@ class Game {
     this.world.applyShapeDiffArray(data.shapeDiffs);
     this.world.applyLiquidDiffArray(data.liquidDiffs);
     this.weather = new Weather(this.seed, data.weather);
+    if (this.ui.minimap) this.ui.minimap.deserialize(data.explored, this.world);
     this.progression = new Progression();
     this.progression.deserialize(data.progression);
     this._resetEntities();
@@ -423,7 +451,10 @@ class Game {
     const pd = data.player;
     if (pd) {
       this.localPlayer.x = pd.x; this.localPlayer.y = pd.y;
-      this.localPlayer.inventory.deserialize(pd.inventory);
+      // The *character* owns the inventory now; the world only remembers where
+      // that character was standing. Restoring the world's stale copy here
+      // would undo anything gathered in another realm since.
+      if (!this.character) this.localPlayer.inventory.deserialize(pd.inventory);
       this.localPlayer.recomputeStats();
       this.localPlayer.hp = pd.hp != null ? pd.hp : this.localPlayer.maxHp;
       this.localPlayer.mana = pd.mana != null ? pd.mana : this.localPlayer.maxMana;
@@ -442,8 +473,18 @@ class Game {
   }
 
   _createLocalPlayer(fresh) {
-    const p = new Player(this.selfId, { name: this.playerName, color: this.playerColor, isLocal: true });
-    if (fresh) { p.inventory = starterInventory(); }
+    // The character owns the name, look and inventory now; the world only says
+    // where to stand. `fresh` no longer means "empty inventory" — it means
+    // "this character has not played anywhere yet".
+    const ch = this.character;
+    const p = new Player(this.selfId, {
+      name: (ch && ch.name) || this.playerName,
+      color: (ch && ch.appearance.shirt) || this.playerColor,
+      isLocal: true,
+    });
+    p.appearance = (ch && ch.appearance) || defaultAppearance(0);
+    if (ch && ch.inventory) p.inventory.deserialize(ch.inventory);
+    else if (fresh || !ch) p.inventory = starterInventory();
     p.recomputeStats();
     p.hp = p.maxHp; p.mana = p.maxMana;
     const tx = Math.floor(this.world.spawnX / TILE);
@@ -495,6 +536,7 @@ class Game {
   }
 
   quitToMenu() {
+    this.saveCharacter();
     if (this.currentSaveId && !this.net) this.saveGame(false);
     if (this.net) this.leaveServer();
     this.state = 'menu';
@@ -548,6 +590,7 @@ class Game {
       shapeDiffs: this.world.getShapeDiffArray(),
       liquidDiffs: this.world.liquid.getDiffArray(),
       weather: this.weather.serialize(),
+      explored: this.ui.minimap ? this.ui.minimap.serialize() : [],
       progression: this.progression.serialize(),
       player: { x: p.x, y: p.y, hp: p.hp, mana: p.mana, inventory: p.inventory.serialize() },
       npc: this.npc ? this.npc.serialize() : null,
@@ -558,6 +601,7 @@ class Game {
     if (!this.world || !this.currentSaveId) return;
     if (this.net && !this.isHost) { if (manual) this.toast('Only the host can save the shared world', 'bad'); return; }
     setSaveIndicator('saving');
+    this.saveCharacter();
     const okSave = this.saves.write(this.currentSaveId, this.buildSaveData());
     this.dirty = false;
     setTimeout(() => setSaveIndicator(okSave ? 'saved' : 'unsaved'), 250);
@@ -733,7 +777,11 @@ class Game {
     else p.inventory.unequip(kind);
     p.recomputeStats(); this.markDirty();
   }
-  craftRecipe(recipe) { craftSys.craft(this, this.localPlayer, recipe); this.localPlayer.recomputeStats(); }
+  craftRecipe(recipe) {
+    craftSys.craft(this, this.localPlayer, recipe);
+    this.localPlayer.recomputeStats();
+    if (recipe && recipe.out) this.onCrafted(recipe.out.item);
+  }
 
   respawnLocal() {
     if (!this.localPlayer) return;
@@ -1026,6 +1074,7 @@ class Game {
     }
     const def = BOSSES[b.key];
     this.progression.defeatBoss(b.key);
+    this.achievements.unlock(b.key);
     for (const drop of def.loot || []) {
       if (Math.random() <= drop.chance) {
         const n = drop.min + ((Math.random() * (drop.max - drop.min + 1)) | 0);
@@ -1056,6 +1105,91 @@ class Game {
   _findAir(tx, startY) {
     for (let y = startY; y < this.world.height - 3; y++) if (!this.world.isSolidAt(tx, y) && !this.world.isSolidAt(tx, y + 1)) return y;
     return startY;
+  }
+
+  // ============ CHARACTERS ============
+  //
+  // A character is loaded before a world and saved alongside it. The world save
+  // still carries a copy of the player's position, so a character resumes where
+  // it left off in *that* world rather than always at spawn.
+
+  /** Make a character active. Returns false if it could not be read. */
+  selectCharacter(id) {
+    const rec = this.characters.read(id);
+    if (!rec) { this.toast('Character not found', 'bad'); return false; }
+    this.character = rec;
+    this.characters.setLastUsed(id);
+    this.playerName = rec.name;
+    this.achievements.load(rec.achievements);
+    // Reflect the choice on any player already in the world.
+    if (this.localPlayer) {
+      this.localPlayer.name = rec.name;
+      this.localPlayer.appearance = rec.appearance;
+      this.localPlayer.color = rec.appearance.shirt;
+    }
+    return true;
+  }
+
+  createCharacter(name, appearance) {
+    const rec = this.characters.create(name, appearance);
+    this.selectCharacter(rec.id);
+    return rec;
+  }
+
+  deleteCharacter(id) {
+    this.characters.remove(id);
+    if (this.character && this.character.id === id) this.character = null;
+    this.toast('Character deleted', 'info');
+  }
+
+  /** Fold the live player back into the character record and persist it. */
+  saveCharacter() {
+    const ch = this.character;
+    if (!ch) return;
+    if (this.localPlayer) ch.inventory = this.localPlayer.inventory.serialize();
+    ch.achievements = this.achievements.serialize();
+    this.characters.write(ch);
+  }
+
+  updateAppearance(patch) {
+    if (!this.character) return;
+    Object.assign(this.character.appearance, patch);
+    this.characters.write(this.character);
+    if (this.localPlayer) {
+      this.localPlayer.appearance = this.character.appearance;
+      this.localPlayer.color = this.character.appearance.shirt;
+    }
+  }
+
+  /** Ensure there is *some* character to play as, migrating pre-4.1 saves. */
+  ensureCharacter() {
+    if (this.character) return this.character;
+    const migrated = this.characters.migrateFromWorlds(this.saves);
+    if (migrated) {
+      this.selectCharacter(migrated.id);
+      this.toast('Your summoner is now a saved character', 'good');
+      return this.character;
+    }
+    const last = this.characters.lastUsed();
+    if (last && this.selectCharacter(last)) return this.character;
+    const list = this.characters.list();
+    if (list.length && this.selectCharacter(list[0].id)) return this.character;
+    return this.createCharacter(this.playerName || 'Summoner');
+  }
+
+  // ============ ACHIEVEMENT HOOKS ============
+  // Called from the systems that know an event happened, so the achievement
+  // code never has to poll for things that are naturally edge-triggered.
+  onTreeFelled() { this.achievements.unlock('firstTree'); }
+  onBugCaught() { this.achievements.unlock('firstBug'); }
+  onCrateOpened() { this.achievements.unlock('firstCrate'); }
+  onFishCaught(itemId) { if (itemId === 'rawFish') this.achievements.unlock('firstFish'); }
+  onBlockPlaced() { this.achievements.bump('placed'); }
+  onBlockShaped() { this.achievements.unlock('sculpt'); }
+  onOreMined() { this.achievements.unlock('firstOre'); }
+  onCrafted(itemId) {
+    const id = craftAchievement(itemId);
+    if (id) this.achievements.unlock(id);
   }
 
   // ============ WILDLIFE ============
@@ -1182,9 +1316,15 @@ class Game {
   }
 
   // ============ MULTIPLAYER ============
-  createServer() {
-    if (this.state !== 'playing') this.startNewWorld('Realm', '');
+  // Host a world. 4.1 lets the host choose the world up front — name, seed and
+  // difficulty — instead of always inheriting whatever happened to be loaded,
+  // which was the only option before and gave co-op no difficulty choice at all.
+  createServer(opts = {}) {
     if (this.net) { this.toast('Already connected', 'bad'); return; }
+    const useCurrent = opts.useCurrent && this.state === 'playing' && this.world;
+    if (!useCurrent) {
+      this.startNewWorld(opts.name || 'Shared Realm', opts.seed || '', opts.difficulty || 'normal');
+    }
     this.net = new Net(this);
     this.isHost = true;
     this.ui.menus.setMpStatus('Starting server…');

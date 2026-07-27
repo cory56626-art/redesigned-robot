@@ -584,3 +584,142 @@ input[type="range"]::-moz-range-thumb {
 .amount-row input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .amount-row .btn.small { min-width: 44px; font-size: 18px; line-height: 1; }
 #amountDialog input[type="range"] { width: 100%; }
+
+/* ---- Minimap ----
+   Three sizes share one element; the class on the wrapper drives the layout so
+   switching size is a class swap rather than a rebuild. */
+.minimap-wrap {
+  position: absolute; z-index: 6;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r2);
+  background: rgba(10, 13, 22, 0.82);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  backdrop-filter: blur(2px);
+  /* The HUD is pointer-transparent so clicks reach the world; the minimap is
+     one of the few HUD elements you actually interact with, so it opts back in.
+     Without this the canvas swallows every click and the map cannot be resized,
+     panned or zoomed at all. */
+  pointer-events: auto;
+  touch-action: none;
+}
+.minimap-wrap canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.minimap-wrap .minimap-bar {
+  position: absolute; top: 3px; right: 3px;
+  display: flex; gap: 2px;
+}
+.minimap-wrap.corner {
+  top: 96px; right: 12px; width: 168px; height: 112px; cursor: pointer;
+}
+/* The corner badge is a glance, not a tool: its buttons would only get in the
+   way, and tapping the badge itself is what enlarges it. */
+.minimap-wrap.corner .minimap-bar { display: none; }
+.minimap-wrap.panel {
+  top: 96px; right: 12px; width: min(420px, 46vw); height: min(300px, 42vh);
+}
+.minimap-wrap.full {
+  top: 6vh; left: 50%; transform: translateX(-50%);
+  width: min(1100px, 92vw); height: 80vh;
+}
+.icon-btn.tiny { padding: 2px 6px; font-size: 12px; line-height: 1.1; }
+
+@media (max-width: 720px) {
+  .minimap-wrap.corner { width: 116px; height: 78px; top: 84px; right: 8px; }
+  .minimap-wrap.panel { width: 78vw; height: 40vh; }
+}
+
+/* ---- Transparent pause ----
+   4.1 makes the pause menu a translucent side panel instead of a full-screen
+   scrim: you can still see your character, and the world keeps running behind
+   it. It sits off to one side so it never covers the player. */
+.overlay.menu.transparent {
+  background: none;
+  pointer-events: none;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+.overlay.menu.transparent .menu-panel {
+  pointer-events: auto;
+  margin: 5vh 0 0 4vw;
+  max-width: 320px;
+  background: rgba(14, 18, 32, 0.80);
+  backdrop-filter: blur(6px);
+  border-color: var(--border-strong);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+}
+.overlay.menu.transparent .menu-panel .hint.small { opacity: 0.85; }
+
+/* ---- Characters ---- */
+.dialog-panel.wide { max-width: 720px; width: min(720px, 94vw); }
+.active-char { font-weight: 700; }
+
+.char-list { display: flex; flex-direction: column; gap: var(--s3); max-height: 46vh; overflow-y: auto; margin: var(--s3) 0; }
+.char-row {
+  display: flex; align-items: center; gap: var(--s3);
+  padding: var(--s3); border: 1px solid var(--border); border-radius: var(--r2);
+  background: rgba(255, 255, 255, 0.03);
+}
+.char-row.active { border-color: var(--teal); background: rgba(126, 224, 192, 0.08); }
+.char-thumb { image-rendering: pixelated; background: rgba(0, 0, 0, 0.22); border-radius: var(--r1); }
+.char-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.char-actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+
+.char-editor { display: flex; gap: var(--s4); align-items: flex-start; margin: var(--s3) 0; }
+.char-preview {
+  display: flex; flex-direction: column; align-items: center; gap: var(--s2);
+  padding: var(--s3); border: 1px solid var(--border); border-radius: var(--r2);
+  background: linear-gradient(180deg, rgba(58, 110, 165, 0.25), rgba(11, 16, 32, 0.5));
+}
+#charPreview { image-rendering: pixelated; }
+.char-options { flex: 1; display: flex; flex-direction: column; gap: var(--s2); min-width: 0; }
+.swatch-row { display: flex; align-items: center; gap: var(--s2); }
+.swatch-row > label { min-width: 68px; font-size: 13px; color: var(--faint); }
+.swatches { display: flex; gap: 4px; flex-wrap: wrap; }
+.swatch {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid transparent; cursor: pointer; padding: 0;
+  background-clip: padding-box;
+}
+.swatch.on { border-color: #fff; box-shadow: 0 0 0 2px var(--teal); }
+.swatches.styles .swatch {
+  width: auto; height: auto; border-radius: var(--r1); padding: 3px 8px;
+  font-size: 12px; text-transform: capitalize;
+  background: rgba(255, 255, 255, 0.06); color: var(--text); border: 1px solid var(--border);
+}
+.swatches.styles .swatch.on { background: var(--teal); color: #06210f; box-shadow: none; }
+
+/* ---- Achievements ---- */
+.achieve-body { max-height: 56vh; overflow-y: auto; margin: var(--s3) 0; }
+.achieve-body h3 { margin: var(--s3) 0 var(--s2); }
+.achieve-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--s2); }
+.achieve-card {
+  display: flex; flex-direction: column; gap: 2px; padding: var(--s2);
+  border: 1px solid var(--border); border-radius: var(--r2);
+  background: rgba(255, 255, 255, 0.02); opacity: 0.55;
+}
+.achieve-card.got { opacity: 1; border-color: var(--gold, #ffcf6b); background: rgba(255, 207, 107, 0.08); }
+.achieve-icon { font-size: 20px; }
+.achieve-name { font-weight: 700; font-size: 13px; }
+
+/* ---- Multiplayer ---- */
+.mp-cards { display: flex; gap: var(--s4); margin: var(--s3) 0; align-items: stretch; }
+.mp-card {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--s2);
+  padding: var(--s3); border: 1px solid var(--border); border-radius: var(--r2);
+  background: rgba(255, 255, 255, 0.03);
+}
+.mp-card h3 { margin: 0 0 var(--s2); }
+.check-row { display: flex; align-items: center; gap: var(--s2); font-size: 13px; cursor: pointer; }
+.check-row.disabled { opacity: 0.45; cursor: default; }
+.mp-you {
+  display: flex; align-items: center; gap: var(--s3); margin-top: auto;
+  padding-top: var(--s3); border-top: 1px solid var(--border);
+}
+#mpCharPreview { image-rendering: pixelated; background: rgba(0, 0, 0, 0.22); border-radius: var(--r1); }
+.mp-you div { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.disabled { opacity: 0.45; }
+
+@media (max-width: 720px) {
+  .char-editor, .mp-cards { flex-direction: column; }
+  .char-row { flex-wrap: wrap; }
+}

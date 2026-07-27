@@ -35,6 +35,16 @@
       <div id="zoomChip" class="chip zoom-chip hidden">⌕ 100%</div>
     </div>
 
+    <!-- Minimap. Three sizes (corner badge / panel / fullscreen); drag to pan
+         and pinch or wheel to zoom in the larger two. -->
+    <div id="minimapWrap" class="minimap-wrap corner">
+      <canvas id="minimap"></canvas>
+      <div class="minimap-bar">
+        <button id="minimapToggle" class="icon-btn tiny" title="Resize map (M)">⤢</button>
+        <button id="minimapClose" class="icon-btn tiny" title="Shrink map">✕</button>
+      </div>
+    </div>
+
     <!-- Boss health bar -->
     <div id="bossBar" class="boss-bar hidden">
       <div class="boss-name" id="bossName">Boss</div>
@@ -66,6 +76,7 @@
       <button class="mbtn small" id="mbInv" data-act="inv">Bag</button>
       <button class="mbtn small" id="mbUseItem" data-act="useitem">Item</button>
       <button class="mbtn small" id="mbSmart" data-act="smart" title="Smart Cursor">◎</button>
+      <button class="mbtn small" id="mbMap" data-act="map" title="Map">🗺</button>
       <button class="mbtn small" id="mbPause" data-act="pause">☰</button>
     </div>
     <button class="mbtn talk hidden" id="mbTalk" data-act="talk">Talk</button>
@@ -80,6 +91,7 @@
       <div class="menu-buttons">
         <button class="btn primary hidden" id="btnContinue">Continue</button>
         <button class="btn primary" id="btnNewWorld">New World</button>
+        <button class="btn" id="btnCharacters">Summoners</button>
         <button class="btn" id="btnLoadWorld">Load World</button>
         <button class="btn" id="btnMultiplayer">Multiplayer</button>
         <button class="btn" id="btnSettings">Settings</button>
@@ -95,11 +107,69 @@
         </div>
       </div>
       <div class="menu-row">
-        <label>Player name</label>
-        <input type="text" id="playerNameInput" maxlength="14" placeholder="Summoner" />
-        <span class="color-swatch" id="playerColorSwatch" title="Your color (click to change)"></span>
+        <label>Playing as</label>
+        <span id="activeCharName" class="active-char">Summoner</span>
+        <button class="btn tiny" id="btnEditCharacter">Customise</button>
       </div>
-      <p class="version">v1.1 · original art &amp; content</p>
+      <p class="version">v4.1 · Quality of Realms</p>
+    </div>
+  </div>
+
+  <!-- ============ CHARACTER SELECT ============
+       4.1 splits characters from worlds: pick who you are, then pick where you
+       are going. A character carries its look, inventory and achievements into
+       any world. -->
+  <div id="charSelect" class="overlay dialog hidden">
+    <div class="dialog-panel wide">
+      <h2>Your Summoners</h2>
+      <p class="hint small">A character keeps its inventory and achievements across every world.</p>
+      <div id="charList" class="char-list"></div>
+      <div class="dialog-buttons">
+        <button class="btn" id="charSelectClose">Back</button>
+        <button class="btn primary" id="charNew">New Summoner</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CHARACTER CUSTOMIZATION ============ -->
+  <div id="charCreate" class="overlay dialog hidden">
+    <div class="dialog-panel wide">
+      <h2 id="charCreateTitle">Create a Summoner</h2>
+      <div class="char-editor">
+        <div class="char-preview">
+          <canvas id="charPreview" width="120" height="200"></canvas>
+          <div class="seg" id="charPoseSeg">
+            <button data-pose="idle" class="seg-btn active">Idle</button>
+            <button data-pose="walk" class="seg-btn">Walk</button>
+            <button data-pose="swing" class="seg-btn">Swing</button>
+          </div>
+        </div>
+        <div class="char-options">
+          <label for="charName">Name</label>
+          <input type="text" id="charName" maxlength="14" placeholder="Summoner" />
+          <div class="swatch-row" data-look="skin"><label>Skin</label><div class="swatches"></div></div>
+          <div class="swatch-row" data-look="hair"><label>Hair</label><div class="swatches"></div></div>
+          <div class="swatch-row" data-look="hairStyle"><label>Style</label><div class="swatches styles"></div></div>
+          <div class="swatch-row" data-look="eyes"><label>Eyes</label><div class="swatches"></div></div>
+          <div class="swatch-row" data-look="shirt"><label>Shirt</label><div class="swatches"></div></div>
+          <div class="swatch-row" data-look="pants"><label>Trousers</label><div class="swatches"></div></div>
+        </div>
+      </div>
+      <div class="dialog-buttons">
+        <button class="btn" id="charCreateCancel">Cancel</button>
+        <button class="btn primary" id="charCreateSave">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ ACHIEVEMENTS ============ -->
+  <div id="achievementsDialog" class="overlay dialog hidden">
+    <div class="dialog-panel wide">
+      <h2>Achievements <span class="hint small" id="achieveCount"></span></h2>
+      <div id="achieveBody" class="achieve-body"></div>
+      <div class="dialog-buttons">
+        <button class="btn primary" id="achieveClose">Close</button>
+      </div>
     </div>
   </div>
 
@@ -166,6 +236,12 @@
 
       <h3>Gameplay</h3>
       <div class="set-row">
+        <label for="setZoom">Zoom</label>
+        <input type="range" id="setZoom" min="60" max="200" step="5" />
+        <output id="setZoomOut">100%</output>
+      </div>
+      <p class="hint small">Also <kbd>+</kbd> / <kbd>&minus;</kbd>, Ctrl + wheel, or pinch. Zoom out to keep a flying boss on screen.</p>
+      <div class="set-row">
         <label>Smart Cursor</label>
         <div class="seg" id="smartCursorSeg">
           <button data-mode="off" class="seg-btn">Off</button>
@@ -197,22 +273,58 @@
 
   <!-- ============ MULTIPLAYER MENU ============ -->
   <div id="mpMenu" class="overlay dialog hidden">
-    <div class="dialog-panel">
+    <div class="dialog-panel wide">
       <h2>Multiplayer</h2>
-      <p class="hint">Online via a shared server. The host runs the world; others join with a room code or invite link. Works PC ↔ mobile.</p>
-      <div class="mp-section">
-        <button class="btn primary" id="btnCreateServer">Create Server (host a world)</button>
-        <p class="hint small">Starts from your currently loaded world, or a new one.</p>
-      </div>
-      <div class="mp-divider">or</div>
-      <div class="mp-section">
-        <label>Join with room code</label>
-        <div class="join-row">
-          <input type="text" id="joinCodeInput" maxlength="12" placeholder="ABCDE" />
-          <button class="btn" id="btnJoinServer">Join</button>
+      <p class="hint">The host runs the world; everyone else joins with a room code or an invite link. Works PC &#8596; mobile.</p>
+
+      <div class="mp-cards">
+        <!-- Hosting. The difficulty slider was missing entirely: a hosted world
+             always inherited whatever the host happened to be playing, with no
+             way to say otherwise before starting. -->
+        <div class="mp-card">
+          <h3>Host a realm</h3>
+          <label>World name</label>
+          <input type="text" id="mpWorldName" maxlength="20" placeholder="Shared Realm" />
+          <label>Seed (optional)</label>
+          <input type="text" id="mpWorldSeed" maxlength="20" placeholder="blank = random" />
+          <label for="mpDifficulty">Difficulty</label>
+          <div class="difficulty-picker">
+            <div class="difficulty-picker-head">
+              <output id="mpDifficultyLabel">Normal</output>
+              <span id="mpDifficultyTier">Buffed baseline</span>
+            </div>
+            <input type="range" id="mpDifficulty" min="0" max="3" step="1" value="0" aria-label="World difficulty" />
+            <div class="difficulty-picker-scale" aria-hidden="true">
+              <span>Normal</span><span>Hard</span><span>Master</span><span>Masochist</span>
+            </div>
+            <p class="hint small" id="mpDifficultyHint"></p>
+          </div>
+          <label class="check-row">
+            <input type="checkbox" id="mpUseCurrent" />
+            <span>Host my current world instead</span>
+          </label>
+          <button class="btn primary" id="btnCreateServer">Start hosting</button>
         </div>
-        <p class="hint small">Or open an invite link someone shared with you.</p>
+
+        <div class="mp-card">
+          <h3>Join a realm</h3>
+          <label>Room code</label>
+          <div class="join-row">
+            <input type="text" id="joinCodeInput" maxlength="12" placeholder="ABCDE" />
+            <button class="btn primary" id="btnJoinServer">Join</button>
+          </div>
+          <p class="hint small">Or open an invite link someone shared with you.</p>
+          <div class="mp-you">
+            <canvas id="mpCharPreview" width="48" height="76"></canvas>
+            <div>
+              <span class="hint small">Joining as</span>
+              <b id="mpCharName">Summoner</b>
+              <button class="btn tiny" id="mpChangeChar">Change</button>
+            </div>
+          </div>
+        </div>
       </div>
+
       <div id="mpStatus" class="mp-status"></div>
       <div class="dialog-buttons">
         <button class="btn" id="mpClose">Back</button>
@@ -227,6 +339,7 @@
       <div class="menu-buttons">
         <button class="btn primary" id="btnResume">Resume</button>
         <button class="btn" id="btnSaveGame">Save Game</button>
+        <button class="btn" id="btnAchievements">Achievements</button>
         <button class="btn" id="btnSettingsPause">Settings</button>
         <button class="btn" id="btnDemoCommands">Demo Commands</button>
         <button class="btn" id="btnClaudeNotesPause">Claude's Notes</button>
@@ -234,6 +347,8 @@
         <button class="btn" id="btnLeaveServer">Leave Server</button>
         <button class="btn danger" id="btnQuitMenu">Quit to Menu</button>
       </div>
+      <p class="hint small">The world keeps running while this is open — you can
+        still move, mine and build.</p>
       <div id="pauseSaveState" class="hint small"></div>
     </div>
   </div>

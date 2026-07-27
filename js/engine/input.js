@@ -472,6 +472,10 @@ export class Input {
     this._tapBtn('mbTalk', () => {
       this.fire('interact');
     });
+
+    this._tapBtn('mbMap', () => {
+      this.fire('minimap');
+    });
   }
 
   _holdBtn(intent) {

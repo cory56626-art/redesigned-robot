@@ -288,7 +288,11 @@ export class AudioManager {
     const biome = world.biomeAt(tx, ty);
     const cave = biome === 'underground' || biome === 'cavern';
     const forest = biome === 'forest' && !cave;
-    const wind = !cave;
+    // Wind ambience follows the actual weather rather than being a constant
+    // above-ground hiss: a calm day is quiet and a gale is loud, so the sound
+    // and the swaying foliage agree with each other.
+    const strength = game.weather ? game.weather.strength() : 0.35;
+    const wind = cave ? 0 : 0.03 + strength * 0.20;
     const now = this.ctx.currentTime;
 
     // A real soundtrack takes the foreground; the ambient beds duck under it
@@ -297,7 +301,7 @@ export class AudioManager {
     const bed = this.sampleAmbient || this.ambient;
     bed.forest.gain.setTargetAtTime(forest ? 0.16 * duck : 0, now, 0.9);
     bed.cave.gain.setTargetAtTime(cave ? 0.18 * duck : 0, now, 0.9);
-    bed.wind.gain.setTargetAtTime(wind ? 0.08 * duck : 0, now, 0.9);
+    bed.wind.gain.setTargetAtTime(wind * duck, now, 0.9);
     if (this.sampleAmbient) {
       this.ambient.forest.gain.setTargetAtTime(0, now, 0.9);
       this.ambient.cave.gain.setTargetAtTime(0, now, 0.9);
