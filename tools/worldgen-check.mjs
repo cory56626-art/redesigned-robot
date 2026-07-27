@@ -12,7 +12,7 @@
 // Exits non-zero on the first failing invariant, printing the seed so the
 // failure can be reproduced with /debugcaves in-game.
 
-import { generateWorld } from '../js/world/worldgen.js';
+import { generateWorld, BEDROCK } from '../js/world/worldgen.js';
 import { T, TILES, isSolid, MAX_TILE_ID } from '../js/world/tiles.js';
 import { W, MAX_WALL_ID, hasWall } from '../js/world/walls.js';
 import { BIOME_ORDER } from '../js/world/biomes.js';
@@ -28,7 +28,109 @@ function check(seed, name, ok, detail) {
 
 // Collect per-world statistics as well as pass/fail, so drift in ore density or
 // cave openness shows up as a number rather than a silent gameplay change.
-const stats = { ore: {}, caveFrac: [], surfaceSpan: [], trees: [], biomeCols: {} };
+const stats = {
+  ore: {}, caveFrac: [], surfaceSpan: [], trees: [], biomeCols: {},
+  pockets: [], elongation: [], reachable: [], water: [],
+  layerOpen: { dirt: [], stone: [], cavern: [] },
+};
+
+// Cave components smaller than this count as sealed pockets rather than caves.
+// Must match MIN_CAVE_ROOM in worldgen.js.
+const MIN_ROOM = 10;
+
+/**
+ * Measure the qualities of a finished cave system.
+ *
+ * Returns:
+ *   pockets     sealed components smaller than MIN_ROOM (should be zero)
+ *   elongation  mean horizontal air run / mean vertical air run
+ *   reachable   fraction of underground air connected to the open sky
+ *   layerOpen   open fraction per depth band
+ */
+function analyseCaves(tiles, width, height, surface) {
+  const at = (x, y) => tiles[y * width + x];
+  // The generator's own floor. Using a different bound here made air in the two
+  // rows just above bedrock look like a sealed pocket when it was really part
+  // of a much larger cave that continued below the cut-off.
+  const bottom = height - BEDROCK;
+
+  // Open fraction per band. The shallow band is measured *relative to the
+  // surface*, matching the generator's own DIRT_BAND: an absolute row boundary
+  // would put most of the stone layer in the "dirt" bucket, since the surface
+  // sits well above UNDERGROUND_Y.
+  const DIRT_BAND = 30;
+  const band = { dirt: [0, 0], stone: [0, 0], cavern: [0, 0] };
+  for (let x = 1; x < width - 1; x++) {
+    const shallowEnd = surface[x] + DIRT_BAND;
+    for (let y = surface[x] + 6; y < bottom; y++) {
+      const key = y < shallowEnd ? 'dirt' : y < CAVERN_Y ? 'stone' : 'cavern';
+      band[key][1]++;
+      if (at(x, y) === T.AIR) band[key][0]++;
+    }
+  }
+  const layerOpen = {
+    dirt: band.dirt[0] / Math.max(1, band.dirt[1]),
+    stone: band.stone[0] / Math.max(1, band.stone[1]),
+    cavern: band.cavern[0] / Math.max(1, band.cavern[1]),
+  };
+
+  // Mean run lengths, sampled on a stride so this stays cheap across 40 seeds.
+  let hSum = 0, hN = 0, vSum = 0, vN = 0;
+  for (let y = UNDERGROUND_Y; y < bottom; y += 3) {
+    let run = 0;
+    for (let x = 1; x < width - 1; x++) {
+      if (at(x, y) === T.AIR) run++;
+      else { if (run) { hSum += run; hN++; } run = 0; }
+    }
+  }
+  for (let x = 1; x < width - 1; x += 3) {
+    let run = 0;
+    for (let y = UNDERGROUND_Y; y < bottom; y++) {
+      if (at(x, y) === T.AIR) run++;
+      else { if (run) { vSum += run; vN++; } run = 0; }
+    }
+  }
+  const elongation = (hSum / Math.max(1, hN)) / Math.max(0.001, vSum / Math.max(1, vN));
+
+  // Flood every underground air component once: count sealed pockets, and
+  // measure how much air is reachable from a component that touches the sky.
+  const seen = new Uint8Array(width * height);
+  const stack = [];
+  let pockets = 0, undergroundAir = 0, reachableAir = 0;
+  for (let y = 0; y < bottom; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const i = y * width + x;
+      // Reachability is about where the player can *go*. Non-solid decor —
+      // stalagmites, vines, tall grass — is walked straight through, so a
+      // passage containing one is still a passage.
+      if (seen[i] || isSolid(at(x, y))) continue;
+      let size = 0, deep = 0, touchesSky = false;
+      stack.push(i); seen[i] = 1;
+      while (stack.length) {
+        const ci = stack.pop();
+        const cx = ci % width, cy = (ci / width) | 0;
+        size++;
+        if (cy >= surface[cx] + 6) deep++;
+        if (cy < surface[cx]) touchesSky = true;
+        for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+          const nx = cx + dx, ny = cy + dy;
+          if (nx < 1 || nx >= width - 1 || ny < 0 || ny >= bottom) continue;
+          const ni = ny * width + nx;
+          if (seen[ni] || isSolid(tiles[ni])) continue;
+          seen[ni] = 1; stack.push(ni);
+        }
+      }
+      undergroundAir += deep;
+      if (touchesSky) reachableAir += deep;
+      // Only components entirely below ground can be "sealed pockets".
+      else if (size < MIN_ROOM && deep === size) pockets++;
+    }
+  }
+  return {
+    pockets, elongation, layerOpen,
+    reachable: undergroundAir > 0 ? reachableAir / undergroundAir : 1,
+  };
+}
 
 for (let s = 0; s < SEEDS; s++) {
   const seed = (s * 2654435761 + 12345) >>> 0;
@@ -135,6 +237,63 @@ for (let s = 0; s < SEEDS; s++) {
   }
   check(seed, 'caves break the surface', entrances > 0, 'no surface entrance found');
 
+  // ---- Cave shape: the qualities the 4.1 rewrite is responsible for ----
+  //
+  // These are the invariants that separate "a cave system" from "noise that
+  // happens to be air". Each one corresponds to a specific failure the old
+  // generator had, so a regression here is a regression in how the game reads.
+  const shape = analyseCaves(tiles, width, height, surface);
+  stats.pockets.push(shape.pockets);
+  stats.elongation.push(shape.elongation);
+  stats.reachable.push(shape.reachable);
+  stats.layerOpen.dirt.push(shape.layerOpen.dirt);
+  stats.layerOpen.stone.push(shape.layerOpen.stone);
+  stats.layerOpen.cavern.push(shape.layerOpen.cavern);
+
+  // 1. No isolated bubbles. A pocket of a few tiles sealed inside solid rock is
+  //    something the player can never reach and never should have been carved.
+  check(seed, 'no isolated cave pockets', shape.pockets === 0,
+    `${shape.pockets} sealed pockets under ${MIN_ROOM} tiles`);
+
+  // 2. Caves run wider than they are tall. This is the single number that
+  //    distinguishes winding passages from a field of round blobs.
+  check(seed, 'caves are horizontally elongated', shape.elongation >= 1.15,
+    `mean air run H/V = ${shape.elongation.toFixed(2)}`);
+
+  // 3. Most of the underground is actually reachable from the surface. A cave
+  //    network you cannot walk into is decoration, not level design.
+  check(seed, 'underground is reachable from the surface', shape.reachable > 0.80,
+    `only ${(shape.reachable * 100).toFixed(1)}% of underground air connects to the surface`);
+
+  // 4. Caves open up with depth: the shallow layer stays tight, the cavern
+  //    layer is airy. A flat profile is what made every depth feel the same.
+  //    Compared shallow-to-deep with a margin rather than as a strict ordering
+  //    of all three bands — the middle band legitimately overlaps its
+  //    neighbours on some seeds, and failing those would be over-fitting.
+  check(seed, 'caves open up with depth',
+    shape.layerOpen.cavern > shape.layerOpen.dirt * 1.15,
+    `dirt ${(shape.layerOpen.dirt * 100).toFixed(1)}% / stone ${(shape.layerOpen.stone * 100).toFixed(1)}% / cavern ${(shape.layerOpen.cavern * 100).toFixed(1)}%`);
+
+  // ---- Water sits where water can sit ----
+  let floatingWater = 0, waterInRock = 0, waterTiles = 0;
+  for (let x = 1; x < width - 1; x++) {
+    for (let y = 1; y < height - 1; y++) {
+      const lv = g.liquid[y * width + x];
+      if (!lv) continue;
+      waterTiles++;
+      // Water may never occupy a solid tile.
+      if (isSolid(at(x, y))) waterInRock++;
+      // Every water tile needs something under it: rock, or more water.
+      const belowSolid = isSolid(at(x, y + 1));
+      const belowWet = g.liquid[(y + 1) * width + x] > 0;
+      if (!belowSolid && !belowWet) floatingWater++;
+    }
+  }
+  stats.water.push(waterTiles);
+  check(seed, 'water is never inside rock', waterInRock === 0, `${waterInRock} water tiles inside solid blocks`);
+  check(seed, 'water is supported', floatingWater === 0, `${floatingWater} water tiles with nothing beneath them`);
+  check(seed, 'water generates', waterTiles > 100, `only ${waterTiles} water tiles`);
+
   // ---- Walls back the terrain, but never the open sky ----
   let skyWalls = 0, deepUnwalled = 0, deepChecked = 0;
   for (let x = 0; x < width; x += 3) {
@@ -212,6 +371,13 @@ const avg = (a) => (a.reduce((x, y) => x + y, 0) / Math.max(1, a.length));
 console.log(`worldgen-check: ${SEEDS} seeds, ${WORLD_W}x${WORLD_H} tiles\n`);
 console.log('  surface relief   ', `${avg(stats.surfaceSpan).toFixed(1)} tiles (min-to-max height)`);
 console.log('  underground open ', `${(avg(stats.caveFrac) * 100).toFixed(1)}%`);
+console.log('  open by layer    ', `dirt ${(avg(stats.layerOpen.dirt) * 100).toFixed(1)}%` +
+  `, stone ${(avg(stats.layerOpen.stone) * 100).toFixed(1)}%` +
+  `, cavern ${(avg(stats.layerOpen.cavern) * 100).toFixed(1)}%`);
+console.log('  cave elongation  ', `${avg(stats.elongation).toFixed(2)}x wider than tall`);
+console.log('  reachable air    ', `${(avg(stats.reachable) * 100).toFixed(1)}% connects to the surface`);
+console.log('  sealed pockets   ', avg(stats.pockets).toFixed(1));
+console.log('  water tiles      ', avg(stats.water).toFixed(0));
 console.log('  trees per world  ', avg(stats.trees).toFixed(0));
 console.log('  biome columns    ', Object.entries(stats.biomeCols)
   .map(([k, v]) => `${k} ${(v / SEEDS).toFixed(0)}`).join(', '));

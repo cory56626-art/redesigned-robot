@@ -1,6 +1,9 @@
 // Summoner Realms — camera. Follows a target, clamps to world, computes zoom.
-import { TILE, WORLD_W, WORLD_H, TARGET_TILES_V } from '../config.js?v=realms-difficulty-22';
-import { clamp, lerp } from '../utils.js?v=realms-difficulty-22';
+import {
+  TILE, WORLD_W, WORLD_H, TARGET_TILES_V,
+  ZOOM_MIN, ZOOM_MAX, ZOOM_DEFAULT, ZOOM_STEP,
+} from '../config.js?v=quality-of-realms-1';
+import { clamp, lerp } from '../utils.js?v=quality-of-realms-1';
 
 export class Camera {
   constructor() {
@@ -9,14 +12,35 @@ export class Camera {
     this.scale = 3; // world px -> screen px
     this.vw = 0; // view width in world px
     this.vh = 0;
+    // Player-controlled zoom on top of the screen-derived base scale. Zooming
+    // out is what makes a boss that flies far away (the Grovekeeper in phase
+    // two) stay on screen instead of leaving the player guessing.
+    this.zoom = ZOOM_DEFAULT;
+    this._screenW = 0;
+    this._screenH = 0;
   }
 
   resize(screenW, screenH) {
-    // Choose a scale so ~TARGET_TILES_V tiles are visible vertically.
-    this.scale = Math.max(1.5, screenH / (TARGET_TILES_V * TILE));
+    this._screenW = screenW; this._screenH = screenH;
+    // Choose a scale so ~TARGET_TILES_V tiles are visible vertically, then
+    // apply the player's zoom multiplier.
+    this.scale = Math.max(1.5, screenH / (TARGET_TILES_V * TILE)) * this.zoom;
     this.vw = screenW / this.scale;
     this.vh = screenH / this.scale;
   }
+
+  setZoom(z) {
+    const next = clamp(z, ZOOM_MIN, ZOOM_MAX);
+    if (Math.abs(next - this.zoom) < 0.0001) return false;
+    this.zoom = next;
+    if (this._screenW) this.resize(this._screenW, this._screenH);
+    return true;
+  }
+  // dir > 0 zooms in, dir < 0 zooms out.
+  nudgeZoom(dir) {
+    return this.setZoom(this.zoom + dir * ZOOM_STEP);
+  }
+  zoomPercent() { return Math.round(this.zoom * 100); }
 
   follow(target, dt, snap = false) {
     const worldPxW = WORLD_W * TILE;

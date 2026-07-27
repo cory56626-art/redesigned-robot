@@ -1,11 +1,11 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=aidan-summon-1';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=aidan-summon-1';
-import { Sprites } from '../art/sprites.js?v=aidan-summon-1';
-import { item as getItem } from '../data/items.js?v=aidan-summon-1';
-import { availableRecipes } from '../systems/crafting.js?v=aidan-summon-1';
-import { claudeNotesHTML } from './claude-notes.js?v=aidan-summon-1';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=quality-of-realms-1';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=quality-of-realms-1';
+import { Sprites } from '../art/sprites.js?v=quality-of-realms-1';
+import { item as getItem } from '../data/items.js?v=quality-of-realms-1';
+import { availableRecipes } from '../systems/crafting.js?v=quality-of-realms-1';
+import { claudeNotesHTML } from './claude-notes.js?v=quality-of-realms-1';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [
@@ -183,8 +183,9 @@ export class Menus {
   // one of them: in Terraria the world keeps running and you keep moving and
   // using items with your bag open, which is what this list encodes.
   anyBlockingModalOpen() {
-    return ['mainMenu', 'pauseMenu', 'newWorldDialog', 'loadWorldDialog', 'mpMenu',
-      'commandPanel', 'howtoDialog', 'claudeNotesDialog', 'confirmDialog', 'deathScreen', 'settingsDialog', 'npcDialog']
+    return ['mainMenu', 'newWorldDialog', 'loadWorldDialog', 'mpMenu',
+      'commandPanel', 'howtoDialog', 'claudeNotesDialog', 'confirmDialog', 'amountDialog',
+      'deathScreen', 'settingsDialog', 'npcDialog']
       .some(id => this.isOpen(id));
   }
 
@@ -193,6 +194,33 @@ export class Menus {
     $('confirmMessage').textContent = msg;
     this.show('confirmDialog');
     $('confirmYes').onclick = () => { this.hide('confirmDialog'); onYes(); };
+  }
+
+  // Ask for a count between 1 and `max`. The slider and the number field stay
+  // in sync so this works with a mouse, a keyboard or a thumb.
+  askAmount(title, max, onConfirm) {
+    const cap = Math.max(1, Math.floor(max) || 1);
+    $('amountTitle').textContent = title;
+    const input = $('amountInput'), range = $('amountRange');
+    input.max = String(cap); range.max = String(cap);
+    const set = (n) => {
+      const v = Math.max(1, Math.min(cap, Math.floor(Number(n) || 1)));
+      input.value = String(v); range.value = String(v);
+    };
+    set(cap);
+    input.oninput = () => { range.value = input.value; };
+    range.oninput = () => { input.value = range.value; };
+    $('amountMinus').onclick = () => set(Number(input.value) - 1);
+    $('amountPlus').onclick = () => set(Number(input.value) + 1);
+    $('amountHalf').onclick = () => set(Math.max(1, Math.floor(cap / 2)));
+    $('amountAll').onclick = () => set(cap);
+    $('amountCancel').onclick = () => this.hide('amountDialog');
+    $('amountOk').onclick = () => {
+      this.hide('amountDialog');
+      onConfirm(Math.max(1, Math.min(cap, Math.floor(Number(input.value) || 1))));
+    };
+    this.show('amountDialog');
+    input.focus();
   }
 
   // ---- Main menu / pause visibility ----
@@ -479,8 +507,13 @@ export class Menus {
       return;
     }
     // Mouse: act immediately (hover already surfaced the tooltip).
+    // Right-click drops one; hold Shift for the whole stack, Ctrl to be asked
+    // for an exact amount.
     if (kind === 'equip') this.game.unequip(index);
-    else { if (e.button === 2) this.game.dropInventoryItem(+index); else this.game.useInventoryItem(+index); }
+    else if (e.button === 2) {
+      if (e.ctrlKey) { this.game.dropInventoryAmount(+index); return; }
+      this.game.dropInventoryItem(+index, e.shiftKey ? Infinity : 1);
+    } else this.game.useInventoryItem(+index);
     this._syncSlots();
     this._renderStats(this.game.localPlayer);
   }
@@ -594,8 +627,13 @@ export class Menus {
       const act = (fn) => { fn(); this.renderInventory(); this.hideTooltip(); };
       const btnUse = tt.querySelector('[data-tt="use"]');
       const btnDrop = tt.querySelector('[data-tt="drop"]');
+      const btnDropAll = tt.querySelector('[data-tt="dropAll"]');
+      const btnDropN = tt.querySelector('[data-tt="dropN"]');
       if (btnUse) btnUse.onclick = () => act(() => { if (kind === 'equip') this.game.unequip(index); else this.game.useInventoryItem(+index); });
-      if (btnDrop) btnDrop.onclick = () => act(() => { if (kind !== 'equip') this.game.dropInventoryItem(+index); });
+      if (btnDrop) btnDrop.onclick = () => act(() => { if (kind !== 'equip') this.game.dropInventoryItem(+index, 1); });
+      if (btnDropAll) btnDropAll.onclick = () => act(() => { if (kind !== 'equip') this.game.dropInventoryItem(+index, Infinity); });
+      // "Drop N" opens its own dialog, so the tooltip closes without acting.
+      if (btnDropN) btnDropN.onclick = () => { this.hideTooltip(); this.game.dropInventoryAmount(+index); };
     }
   }
   _moveTooltip(x, y) { if (this._ttOpen && !$('itemTooltip').classList.contains('touch')) this._placeTooltip(x + 16, y + 16, false); }
@@ -617,8 +655,24 @@ export class Menus {
       : (def.category === 'armor' || def.category === 'accessory') ? 'Equip'
       : def.category === 'potion' ? 'Use'
       : 'Select';
-    const drop = kind === 'equip' ? '' : `<button class="btn small" data-tt="drop">Drop</button>`;
+    let drop = '';
+    if (kind !== 'equip') {
+      const held = this._slotCount(kind, index);
+      drop = `<button class="btn small" data-tt="drop">Drop 1</button>`;
+      // Only offer stack actions when there is actually a stack to split.
+      if (held > 1) {
+        drop += `<button class="btn small" data-tt="dropN">Drop N…</button>`
+          + `<button class="btn small" data-tt="dropAll">Drop all (${held})</button>`;
+      }
+    }
     return `<div class="tt-actions"><button class="btn small primary" data-tt="use">${useLabel}</button>${drop}</div>`;
+  }
+
+  _slotCount(kind, index) {
+    if (kind === 'equip') return 1;
+    const inv = this.game.localPlayer && this.game.localPlayer.inventory;
+    const s = inv && inv.slots[+index];
+    return s ? s.count : 0;
   }
 
   _tooltipHTML(def) {

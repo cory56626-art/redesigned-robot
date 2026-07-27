@@ -5,11 +5,11 @@
 // terrain with restitution and friction. What differs is what happens on
 // contact — explode on a fuse, stick and then explode, or damage and drop as a
 // recoverable pickup.
-import { GRAVITY, TILE } from '../config.js?v=realms-difficulty-22';
-import { aabb } from '../utils.js?v=realms-difficulty-22';
-import { explode } from '../systems/explosions.js?v=realms-difficulty-22';
-import { Sprites } from '../art/sprites.js?v=realms-difficulty-22';
-import { item as getItem } from '../data/items.js?v=realms-difficulty-22';
+import { GRAVITY, TILE } from '../config.js?v=quality-of-realms-1';
+import { aabb } from '../utils.js?v=quality-of-realms-1';
+import { explode } from '../systems/explosions.js?v=quality-of-realms-1';
+import { Sprites } from '../art/sprites.js?v=quality-of-realms-1';
+import { item as getItem } from '../data/items.js?v=quality-of-realms-1';
 
 export class ThrownItem {
   /**

@@ -4,12 +4,18 @@
 // so a felled tree reads as toppling from the point of impact rather than
 // blinking out. Multiplayer note: the animation is client-local; the tile
 // removals themselves replicate to everyone.
-import { TILE } from '../config.js?v=realms-difficulty-22';
+import { TILE } from '../config.js?v=quality-of-realms-1';
 
 export class FallingTree {
-  // cells: [{x,y,id,trunk}] world-tile cells; pivot at the cut point (tx,ty).
+  // cells: [{x,y,id,trunk,mask,variant}] world-tile cells; pivot at the cut
+  // point (tx,ty). `mask`/`variant` are the sprite selectors captured while the
+  // tree was still standing, so the topple animation renders the same shaded
+  // trunk and canopy rather than a flat fallback tile.
   constructor(cells, pivotTx, pivotTy, dir) {
-    this.cells = cells.map(c => ({ id: c.id, dx: c.x - pivotTx, dy: c.y - pivotTy }));
+    this.cells = cells.map(c => ({
+      id: c.id, dx: c.x - pivotTx, dy: c.y - pivotTy,
+      mask: c.mask || 0, variant: c.variant || 0,
+    }));
     this.px = pivotTx * TILE + TILE / 2; // pivot in world px (base of the cut)
     this.py = pivotTy * TILE + TILE;
     this.dir = dir || (Math.random() < 0.5 ? -1 : 1);

@@ -6,6 +6,8 @@ export const MSG = {
   PSTATE: 'pstate',     // client -> host : own player state + minions
   TILE_EDIT: 'tile',    // any -> host -> all : {tx,ty,id}
   WALL_EDIT: 'wall',    // any -> host -> all : {tx,ty,id} background wall change
+  SHAPE_EDIT: 'shape',  // any -> host -> all : {tx,ty,id} hammered block shape
+  LIQUID_EDIT: 'liq',   // any -> host -> all : {tx,ty,level} water placed/removed
   THROW: 'throw',       // any -> all : a thrown item spawned (visual + sim)
   BOOM: 'boom',         // host -> all : {x,y,power,radius} explosion happened
   HIT_ENEMY: 'hitE',    // client -> host : {netId, dmg, kbx, effect, crit}

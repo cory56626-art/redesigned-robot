@@ -1,10 +1,13 @@
 // Summoner Realms — combat & interaction resolution (weapons, mining, placing).
-import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY } from '../config.js?v=realms-difficulty-22';
-import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=realms-difficulty-22';
-import { item as getItem } from '../data/items.js?v=aidan-summon-1';
-import { Projectile } from '../entities/projectile.js?v=realms-difficulty-22';
-import { ThrownItem } from '../entities/thrown.js?v=realms-difficulty-22';
-import { angleTo, aabb, clamp } from '../utils.js?v=realms-difficulty-22';
+import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY } from '../config.js?v=quality-of-realms-1';
+import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=quality-of-realms-1';
+import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=quality-of-realms-1';
+import { SH, nextShape } from '../world/shapes.js?v=quality-of-realms-1';
+import { W } from '../world/walls.js?v=quality-of-realms-1';
+import { item as getItem } from '../data/items.js?v=quality-of-realms-1';
+import { Projectile } from '../entities/projectile.js?v=quality-of-realms-1';
+import { ThrownItem } from '../entities/thrown.js?v=quality-of-realms-1';
+import { angleTo, aabb, clamp } from '../utils.js?v=quality-of-realms-1';
 
 const MINE_RATE = 95;
 const MINE_SOUND_INTERVAL = 0.32;
@@ -32,6 +35,26 @@ function withinReach(player, tx, ty) {
 }
 
 function rollCrit(chance) { return Math.random() < chance; }
+
+// Can a melee swing from `pc` actually land on `tgt`, or is there rock between
+// them? Large targets are sampled at several points across their body, because
+// a boss whose centre is buried in a wall can still legitimately be hit where it
+// leans out into the open — testing the centre alone would make big enemies
+// immune whenever their midpoint clipped terrain.
+function _meleeCanReach(game, pc, tgt) {
+  const world = game.world;
+  const cx = tgt.x + tgt.w / 2, cy = tgt.y + tgt.h / 2;
+  if (world.hasLineOfSight(pc.x, pc.y, cx, cy)) return true;
+  if (tgt.w <= TILE && tgt.h <= TILE) return false;
+  const xs = [tgt.x + 2, cx, tgt.x + tgt.w - 2];
+  const ys = [tgt.y + 2, cy, tgt.y + tgt.h - 2];
+  for (const x of xs) {
+    for (const y of ys) {
+      if (world.hasLineOfSight(pc.x, pc.y, x, y)) return true;
+    }
+  }
+  return false;
+}
 
 export function useWeapon(game, player, item) {
   const s = game.input.state;
@@ -82,9 +105,13 @@ export function useWeapon(game, player, item) {
       const ang = Math.atan2(tcy - pc.y, tcx - pc.x);
       let diff = Math.abs(ang - aimAng);
       while (diff > Math.PI) diff = Math.abs(diff - Math.PI * 2);
-      if (diff <= arc / 2 + 0.3) {
-        game.hurtEnemyOrBoss(tgt, dmg, Math.sign(tcx - pc.x) * item.knockback, player.id, crit, item.effect);
-      }
+      if (diff > arc / 2 + 0.3) continue;
+      // A blade is not a ranged weapon: it cannot reach through rock. Only
+      // weapons that declare `phasing` (arcane blades whose tooltip says so)
+      // ignore terrain, so hitting something on the far side of a wall is a
+      // property of the weapon rather than an oversight in the hit test.
+      if (!item.phasing && !_meleeCanReach(game, pc, tgt)) continue;
+      game.hurtEnemyOrBoss(tgt, dmg, Math.sign(tcx - pc.x) * item.knockback, player.id, crit, item.effect);
     }
     game.spawnSwingFx(player, aimAng, item);
     if (item.fx && item.fx.swing) swingFx(game, player, item, aimAng, dmg, crit);
@@ -385,6 +412,46 @@ export function mineAt(game, player, dt, source) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Hammer — block sculpting
+// ---------------------------------------------------------------------------
+
+// Hammers don't break blocks, they reshape them: each hit walks the aimed tile
+// one step around HAMMER_CYCLE (full -> half -> the four slopes -> half-top ->
+// full). A hammer with no solid tile under the cursor knocks the background
+// wall off instead, which is the other thing Terraria's hammer is for.
+//
+// The cooldown is per-hit rather than continuous, otherwise holding the button
+// would spin a tile through every shape in a fraction of a second.
+export function hammerAt(game, player, dt) {
+  if (player.hammerTimer > 0) return;
+  const { tx, ty } = aimTile(game, player);
+  if (!withinReach(player, tx, ty)) return;
+  const id = game.world.get(tx, ty);
+  const def = tileDef(id);
+
+  if (id !== T.AIR && def.solid) {
+    const shape = nextShape(game.world.getShape(tx, ty));
+    game.world.setShape(tx, ty, shape);
+    game.netEditShape(tx, ty, shape);
+    game.markDirty();
+    player.hammerTimer = 0.22;
+    game.audio?.pickaxeHit();
+    game.addHitParticles(tx * TILE + TILE / 2, ty * TILE + TILE / 2, def.color || '#888', 4);
+    return;
+  }
+
+  // Nothing solid here: take the wall down instead.
+  if (game.world.hasWallAt(tx, ty)) {
+    game.world.setWall(tx, ty, W.NONE);
+    game.netEditWall(tx, ty, W.NONE);
+    game.markDirty();
+    player.hammerTimer = 0.26;
+    game.audio?.pickaxeHit();
+    game.addHitParticles(tx * TILE + TILE / 2, ty * TILE + TILE / 2, '#4a4a55', 5);
+  }
+}
+
 function _giveOrDrop(game, player, tx, ty, itemId, n) {
   const leftover = player.inventory.add(itemId, n);
   if (leftover > 0) game.spawnDrop(tx * TILE + 4, ty * TILE + 4, itemId, leftover);
@@ -399,10 +466,18 @@ function _leafDrop(game, player, tx, ty) {
   game.addHitParticles(tx * TILE + TILE / 2, ty * TILE + TILE / 2, '#3e7a34', 4);
 }
 
+// Widest canopy any biome grows, in tiles either side of the trunk. The leaf
+// flood is capped to this so a fell can never walk across into the next tree.
+const MAX_CANOPY_REACH = 4;
+
 // Fell the tree above a freshly-broken trunk tile at (tx,ty): collapse the trunk
-// column above the cut and every connected leaf, drop wood from the trunk and
-// twigs from the leaves, and kick off a short falling animation. No floating
-// leaves are ever left behind.
+// column above the cut and the leaves that belong to *this* tree, drop wood from
+// the trunk and twigs from the leaves, and kick off a short falling animation.
+//
+// Leaf ownership matters. The old flood took every 8-connected leaf, so two
+// trees whose canopies touched were a single blob and chopping one stripped the
+// other bare. A leaf now has to be within this trunk's canopy reach *and* not be
+// held up by a different trunk that is still standing.
 function collapseTree(game, player, tx, ty) {
   const world = game.world;
   const key = (x, y) => x + ',' + y;
@@ -413,7 +488,14 @@ function collapseTree(game, player, tx, ty) {
     if (isTree(world.get(tx, y))) { seen.add(key(tx, y)); removed.push({ x: tx, y, id: world.get(tx, y), trunk: true }); }
     else break;
   }
-  // 2) Flood connected leaves, seeded from the cut point and each trunk tile.
+  // The felled trunk's own columns, so "is this leaf supported by someone else"
+  // can tell our trunk from a neighbour's.
+  const ownTrunk = new Set(removed.map(c => key(c.x, c.y)));
+  ownTrunk.add(key(tx, ty));
+  const topY = removed.length ? removed[removed.length - 1].y : ty;
+
+  // 2) Flood connected leaves, seeded from the cut point and each trunk tile,
+  //    bounded to this trunk's canopy footprint.
   const q = [{ x: tx, y: ty }, ...removed];
   let guard = 0;
   while (q.length && guard++ < 500) {
@@ -421,10 +503,28 @@ function collapseTree(game, player, tx, ty) {
     for (const [dx, dy] of NEIGHBORS8) {
       const nx = c.x + dx, ny = c.y + dy, k = key(nx, ny);
       if (seen.has(k)) continue;
-      if (isLeaf(world.get(nx, ny))) { seen.add(k); const cell = { x: nx, y: ny, id: world.get(nx, ny), trunk: false }; removed.push(cell); q.push(cell); }
+      if (!isLeaf(world.get(nx, ny))) continue;
+      // Bound the canopy to this trunk: never more than a canopy's width to the
+      // side, and never below the cut.
+      if (Math.abs(nx - tx) > MAX_CANOPY_REACH) continue;
+      if (ny > ty || ny < topY - MAX_CANOPY_REACH - 2) continue;
+      // Held up by somebody else's trunk? Leave it standing with its tree.
+      if (_leafHeldByOtherTrunk(world, nx, ny, ownTrunk, key)) continue;
+      seen.add(k);
+      const cell = { x: nx, y: ny, id: world.get(nx, ny), trunk: false };
+      removed.push(cell); q.push(cell);
     }
   }
   if (!removed.length) return;
+
+  // Capture each cell's rendered appearance *before* the tiles are cleared, so
+  // the topple animation keeps the shaded trunk/canopy sprites the standing tree
+  // had. Reading them afterwards would find air and fall back to the flat tile
+  // sprite, which is what made a felled tree visibly revert to an older model.
+  for (const cell of removed) {
+    cell.mask = cell.trunk ? trunkMask(world, cell.x, cell.y) : leafMask(world, cell.x, cell.y);
+    cell.variant = spriteVariant(cell.x, cell.y);
+  }
 
   let woodCount = 0;
   for (const cell of removed) {
@@ -438,8 +538,20 @@ function collapseTree(game, player, tx, ty) {
     if (leftover > 0) game.spawnDrop(tx * TILE + 4, (ty - 1) * TILE, 'wood', leftover);
     game.floatText(tx * TILE + TILE / 2, (ty - 1) * TILE, '+' + woodCount + ' Wood', '#c9a26a');
   }
+  game.onTreeFelled && game.onTreeFelled(woodCount);
   const dir = player.center().x < tx * TILE ? 1 : -1; // fall away from the chopper
   game.spawnFallingTree(removed, tx, ty, dir);
+}
+
+// Is this leaf orthogonally touching a trunk tile that is not part of the tree
+// being felled? If so it belongs to that tree and must stay up.
+function _leafHeldByOtherTrunk(world, lx, ly, ownTrunk, key) {
+  for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+    const nx = lx + dx, ny = ly + dy;
+    if (!isTree(world.get(nx, ny))) continue;
+    if (!ownTrunk.has(key(nx, ny))) return true;
+  }
+  return false;
 }
 
 // Can the given placeable item be placed at aim tile (tx,ty)? Returns

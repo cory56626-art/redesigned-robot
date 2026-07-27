@@ -11,12 +11,12 @@
 // distance, phase and line of sight. Animation fields (squash, jaw, segment
 // lag, shard spin) are updated here rather than in the renderer, so they are
 // driven by the simulation and stay frame-rate independent.
-import { TILE, normalizeDifficulty } from '../config.js?v=realms-difficulty-22';
-import { BOSSES } from '../data/bosses.js?v=realms-difficulty-22';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-difficulty-22';
-import { aabb, angleTo, randRange, clamp } from '../utils.js?v=realms-difficulty-22';
-import { Projectile } from './projectile.js?v=realms-difficulty-22';
-import * as AI from '../systems/ai.js?v=realms-difficulty-22';
+import { TILE, normalizeDifficulty } from '../config.js?v=quality-of-realms-1';
+import { BOSSES } from '../data/bosses.js?v=quality-of-realms-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=quality-of-realms-1';
+import { aabb, angleTo, randRange, clamp } from '../utils.js?v=quality-of-realms-1';
+import { Projectile } from './projectile.js?v=quality-of-realms-1';
+import * as AI from '../systems/ai.js?v=quality-of-realms-1';
 
 const PROJ_COLOR = { thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff' };
 

@@ -4,13 +4,14 @@ import {
   MANA_REGEN, HP_REGEN, TILE,
   HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN,
   CAST_REGEN_DELAY, CAST_REGEN_MULT, RESPAWN_DELAY, RESPAWN_DELAY_BOSS,
-} from '../config.js?v=aidan-summon-1';
-import { tileDef } from '../world/tiles.js?v=aidan-summon-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=aidan-summon-1';
-import { Inventory } from '../systems/inventory.js?v=aidan-summon-1';
-import { item as getItem } from '../data/items.js?v=aidan-summon-1';
-import * as combat from '../systems/combat.js?v=aidan-summon-1';
-import { clamp } from '../utils.js?v=aidan-summon-1';
+  SWIM_DRAG, SWIM_STROKE, WIND_PLAYER_PUSH,
+} from '../config.js?v=quality-of-realms-1';
+import { tileDef } from '../world/tiles.js?v=quality-of-realms-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=quality-of-realms-1';
+import { Inventory } from '../systems/inventory.js?v=quality-of-realms-1';
+import { item as getItem } from '../data/items.js?v=quality-of-realms-1';
+import * as combat from '../systems/combat.js?v=quality-of-realms-1';
+import { clamp } from '../utils.js?v=quality-of-realms-1';
 
 export class Player {
   constructor(id, opts = {}) {
@@ -29,6 +30,7 @@ export class Player {
     this.maxMana = BASE_MANA; this.mana = BASE_MANA;
     this.useTimer = 0;
     this.placeTimer = 0;
+    this.hammerTimer = 0;
     this.mineSoundTimer = 0;
     this.iframes = 0;
     this.kbTimer = 0;
@@ -95,15 +97,29 @@ export class Player {
     const input = game.input.state;
     const canAct = game.canAct();
 
+    // Water changes how everything below behaves: you sink slowly, move
+    // sluggishly, and jump becomes a swim stroke.
+    this.submerged = game.world.liquid
+      ? game.world.liquid.rectSubmerged(this.x, this.y, this.w, this.h)
+      : false;
+
     // ---- Movement ----
     let speed = MOVE_SPEED * st.speedMul;
     for (const b of this.buffs) if (b.type === 'swift') speed *= (1 + b.speed);
+    if (this.submerged) speed *= SWIM_DRAG;
 
     const moveX = canAct ? input.moveX : 0;
     if (this.kbTimer > 0) {
       this.kbTimer -= dt; // knockback owns velocity briefly
     } else {
       this.vx = moveX * speed;
+      // Wind pushes you along the surface. Deliberately small — enough to feel
+      // the weather, never enough to fight it — and zero underground, where the
+      // wind does not reach and precision matters most.
+      if (!this.submerged && game.weather) {
+        const wind = game.weather.windAt(game.world, this.x + this.w / 2, this.y + this.h / 2);
+        this.vx += wind * MOVE_SPEED * WIND_PLAYER_PUSH;
+      }
     }
     if (moveX < -0.1) this.facing = -1; else if (moveX > 0.1) this.facing = 1;
 
@@ -121,7 +137,13 @@ export class Player {
       if (this.onGround) this.coyoteTimer = 0.1;
       else this.coyoteTimer = Math.max(0, this.coyoteTimer - dt);
 
-      if (canAct && input.jumpPressed) {
+      if (canAct && this.submerged && input.jumpHeld) {
+        // Swimming: holding jump strokes upward repeatedly rather than needing
+        // a fresh press per stroke, which is what makes crossing a pool feel
+        // like swimming instead of like failing to jump.
+        this.vy = Math.min(this.vy, -SWIM_STROKE);
+        game.input.consumeJumpPress();
+      } else if (canAct && input.jumpPressed) {
         if (this.onGround || this.coyoteTimer > 0) {
           this.vy = -JUMP_VELOCITY;
           this.jumpsLeft = extraJumps;
@@ -135,9 +157,9 @@ export class Player {
           game.audio?.jump();
         }
       }
-      // Variable jump height
-      if (!input.jumpHeld && this.vy < -140) this.vy *= 0.55;
-      applyGravity(this, dt);
+      // Variable jump height (out of water only — a swim stroke is not a jump).
+      if (!this.submerged && !input.jumpHeld && this.vy < -140) this.vy *= 0.55;
+      applyGravity(this, dt, this.submerged);
       moveAndCollide(this, game.world, dt);
       clampToWorld(this, game.world);
       if (this.onGround) this.jumpsLeft = extraJumps;
@@ -170,6 +192,7 @@ export class Player {
   _tickTimers(dt) {
     if (this.useTimer > 0) this.useTimer -= dt;
     if (this.placeTimer > 0) this.placeTimer -= dt;
+    if (this.hammerTimer > 0) this.hammerTimer -= dt;
     if (this.iframes > 0) this.iframes -= dt;
     if (this.healCd > 0) this.healCd -= dt;
     if (this.manaCd > 0) this.manaCd -= dt;
@@ -200,7 +223,14 @@ export class Player {
     if (input.mineHeld) combat.mineAt(game, this, dt, { auto: true });
 
     // Dedicated place (mobile Place button).
-    if (input.placeHeld && sel && (sel.category === 'block' || sel.category === 'station')) {
+    //
+    // Placeability is decided by whether the item *has* a tile to place, not by
+    // its category. Dirt, stone, wood, sand and every other raw material carry a
+    // `place` tile while staying category 'material' — gating on the category
+    // made the blocks you actually mine impossible to place, which is the
+    // single most-reported bug in this build. `canPlaceAt` and the Smart Cursor
+    // already key off `place`; this makes all three agree.
+    if (input.placeHeld && sel && sel.place != null) {
       if (this.placeTimer <= 0) { if (combat.placeSelected(game, this)) this.placeTimer = 0.12; }
     }
 
@@ -214,8 +244,9 @@ export class Player {
     const primaryUse = input.primaryHeld || input.primaryPressed || aimUse;
     if (primaryUse && sel) {
       if (sel.category === 'tool') {
-        combat.mineAt(game, this, dt, { tool: sel });
-      } else if (sel.category === 'block' || sel.category === 'station') {
+        if (sel.tool && sel.tool.kind === 'hammer') combat.hammerAt(game, this, dt);
+        else combat.mineAt(game, this, dt, { tool: sel });
+      } else if (sel.place != null) {
         if (this.placeTimer <= 0) { if (combat.placeSelected(game, this)) this.placeTimer = 0.12; }
       } else if (sel.category === 'potion') {
         if (input.primaryPressed) combat.consumeSelected(game, this);

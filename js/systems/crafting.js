@@ -1,8 +1,8 @@
 // Summoner Realms — crafting logic.
-import { TILE } from '../config.js?v=aidan-summon-1';
-import { RECIPES } from '../data/recipes.js?v=aidan-summon-1';
-import { tileDef } from '../world/tiles.js?v=aidan-summon-1';
-import { item as getItem } from '../data/items.js?v=aidan-summon-1';
+import { TILE } from '../config.js?v=quality-of-realms-1';
+import { RECIPES } from '../data/recipes.js?v=quality-of-realms-1';
+import { tileDef } from '../world/tiles.js?v=quality-of-realms-1';
+import { item as getItem } from '../data/items.js?v=quality-of-realms-1';
 
 // Which crafting stations are within reach of the player? (null = by hand)
 export function nearbyStations(game, player) {

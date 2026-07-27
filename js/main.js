@@ -1,45 +1,46 @@
 // Summoner Realms — game orchestrator, main loop, and all cross-system glue.
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
-  HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty,
-} from './config.js?v=aidan-summon-13';
-import { hashString, mulberry32, dist2, uid } from './utils.js?v=aidan-summon-13';
-import { World } from './world/world.js?v=aidan-summon-13';
-import { T } from './world/tiles.js?v=aidan-summon-13';
-import { Sprites } from './art/sprites.js?v=aidan-summon-13';
-import { Camera } from './engine/camera.js?v=aidan-summon-13';
-import { Input } from './engine/input.js?v=aidan-summon-13';
-import { AudioManager } from './engine/audio.js?v=aidan-summon-13';
-import { Renderer } from './engine/renderer.js?v=aidan-summon-13';
-import { Fx } from './engine/fx.js?v=aidan-summon-13';
-import { DayNight } from './systems/daynight.js?v=aidan-summon-13';
-import { Spawner } from './systems/spawner.js?v=aidan-summon-13';
-import { Progression } from './systems/progression.js?v=aidan-summon-13';
-import { starterInventory } from './systems/inventory.js?v=aidan-summon-13';
-import * as craftSys from './systems/crafting.js?v=aidan-summon-13';
-import { applyPotion } from './systems/combat.js?v=aidan-summon-13';
-import { smartTarget } from './systems/smartcursor.js?v=aidan-summon-13';
-import { Player, assignColor } from './entities/player.js?v=aidan-summon-13';
-import { Enemy } from './entities/enemy.js?v=aidan-summon-13';
-import { Boss } from './entities/boss.js?v=aidan-summon-13';
-import { Minion } from './entities/minion.js?v=aidan-summon-15';
-import { Npc } from './entities/npc.js?v=aidan-summon-13';
-import { Projectile } from './entities/projectile.js?v=aidan-summon-13';
-import { DropItem } from './entities/droppeditem.js?v=aidan-summon-13';
-import { FallingTree } from './entities/fallingtree.js?v=aidan-summon-13';
-import { ThrownItem } from './entities/thrown.js?v=aidan-summon-13';
-import { ENEMIES } from './data/enemies.js?v=aidan-summon-13';
-import { BOSSES } from './data/bosses.js?v=aidan-summon-13';
-import { item as getItem } from './data/items.js?v=aidan-summon-13';
-import { HUD } from './ui/hud.js?v=aidan-summon-13';
-import { Menus } from './ui/menus.js?v=aidan-summon-13';
-import { NpcDialog } from './ui/npcdialog.js?v=aidan-summon-13';
-import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=aidan-summon-13';
-import { SaveManager, setSaveIndicator } from './save.js?v=aidan-summon-13';
-import { CommandConsole } from './commands.js?v=aidan-summon-13';
-import { Net } from './net/net.js?v=aidan-summon-13';
-import { MSG } from './net/protocol.js?v=aidan-summon-13';
-import * as sync from './net/sync.js?v=aidan-summon-13';
+  HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty, ZOOM_DEFAULT,
+} from './config.js?v=quality-of-realms-1';
+import { hashString, mulberry32, dist2, uid } from './utils.js?v=quality-of-realms-1';
+import { World } from './world/world.js?v=quality-of-realms-1';
+import { T } from './world/tiles.js?v=quality-of-realms-1';
+import { Sprites } from './art/sprites.js?v=quality-of-realms-1';
+import { Camera } from './engine/camera.js?v=quality-of-realms-1';
+import { Input } from './engine/input.js?v=quality-of-realms-1';
+import { AudioManager } from './engine/audio.js?v=quality-of-realms-1';
+import { Renderer } from './engine/renderer.js?v=quality-of-realms-1';
+import { Fx } from './engine/fx.js?v=quality-of-realms-1';
+import { DayNight } from './systems/daynight.js?v=quality-of-realms-1';
+import { Weather } from './systems/weather.js?v=quality-of-realms-1';
+import { Spawner } from './systems/spawner.js?v=quality-of-realms-1';
+import { Progression } from './systems/progression.js?v=quality-of-realms-1';
+import { starterInventory } from './systems/inventory.js?v=quality-of-realms-1';
+import * as craftSys from './systems/crafting.js?v=quality-of-realms-1';
+import { applyPotion } from './systems/combat.js?v=quality-of-realms-1';
+import { smartTarget } from './systems/smartcursor.js?v=quality-of-realms-1';
+import { Player, assignColor } from './entities/player.js?v=quality-of-realms-1';
+import { Enemy } from './entities/enemy.js?v=quality-of-realms-1';
+import { Boss } from './entities/boss.js?v=quality-of-realms-1';
+import { Minion } from './entities/minion.js?v=quality-of-realms-1';
+import { Npc } from './entities/npc.js?v=quality-of-realms-1';
+import { Projectile } from './entities/projectile.js?v=quality-of-realms-1';
+import { DropItem } from './entities/droppeditem.js?v=quality-of-realms-1';
+import { FallingTree } from './entities/fallingtree.js?v=quality-of-realms-1';
+import { ThrownItem } from './entities/thrown.js?v=quality-of-realms-1';
+import { ENEMIES } from './data/enemies.js?v=quality-of-realms-1';
+import { BOSSES } from './data/bosses.js?v=quality-of-realms-1';
+import { item as getItem } from './data/items.js?v=quality-of-realms-1';
+import { HUD } from './ui/hud.js?v=quality-of-realms-1';
+import { Menus } from './ui/menus.js?v=quality-of-realms-1';
+import { NpcDialog } from './ui/npcdialog.js?v=quality-of-realms-1';
+import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=quality-of-realms-1';
+import { SaveManager, setSaveIndicator } from './save.js?v=quality-of-realms-1';
+import { CommandConsole } from './commands.js?v=quality-of-realms-1';
+import { Net } from './net/net.js?v=quality-of-realms-1';
+import { MSG } from './net/protocol.js?v=quality-of-realms-1';
+import * as sync from './net/sync.js?v=quality-of-realms-1';
 
 class Game {
   constructor() {
@@ -58,6 +59,7 @@ class Game {
 
     this.world = null;
     this.time = new DayNight();
+    this.weather = new Weather(0);
     this.spawner = new Spawner();
     this.progression = new Progression();
 
@@ -107,7 +109,9 @@ class Game {
       masterVolume: s.masterVolume != null ? s.masterVolume : 0.8,
       musicVolume: s.musicVolume != null ? s.musicVolume : 0.55,
       sfxVolume: s.sfxVolume != null ? s.sfxVolume : 0.9,
+      zoom: s.zoom != null ? s.zoom : ZOOM_DEFAULT,
     };
+    this.camera.setZoom(this.settings.zoom);
     this.smartTarget = null;
 
     this.ui = { hud: null, menus: null, npcDialog: null };
@@ -158,6 +162,8 @@ class Game {
     inp.on('hotbarScroll', (d) => { if (this.localPlayer) { let n = (this.localPlayer.inventory.selected + d + HOTBAR_SIZE) % HOTBAR_SIZE; this.selectHotbar(n); } });
     inp.on('interact', () => this.interact());
     inp.on('smartToggle', () => { /* the input layer owns the latch; nothing else to do */ });
+    inp.on('zoom', (dir) => this.nudgeZoom(dir));
+    inp.on('zoomTo', (z) => this.setZoom(z));
   }
 
   // Escape resolves one layer at a time, outermost first, so it never both
@@ -169,6 +175,7 @@ class Game {
     if (m.isOpen('settingsDialog')) { m.hide('settingsDialog'); return; }
     if (m.isOpen('howtoDialog')) { m.hide('howtoDialog'); return; }
     if (m.isOpen('claudeNotesDialog')) { m.hide('claudeNotesDialog'); return; }
+    if (m.isOpen('amountDialog')) { m.hide('amountDialog'); return; }
     if (m.isOpen('confirmDialog')) { m.hide('confirmDialog'); return; }
     if (m.invOpen) { m.closeInventory(); return; }
     if (m.isOpen('newWorldDialog') || m.isOpen('loadWorldDialog') || m.isOpen('mpMenu')) { m.hide('newWorldDialog'); m.hide('loadWorldDialog'); m.hide('mpMenu'); return; }
@@ -255,6 +262,8 @@ class Game {
       : null;
 
     this.time.update(dt);
+    this.weather.update(dt);
+    this.world.liquid.update(dt);
     this.audio.update(this, dt);
 
     // Players
@@ -309,6 +318,12 @@ class Game {
     const pcx = p.x + p.w / 2, pcy = p.y + p.h / 2;
     for (const d of this.drops) {
       if (!d.ghost) continue;
+      // Mirror the host's eligibility rule so a drop you just threw away isn't
+      // dragged straight back to you on the client either.
+      if (d.canBePickedUpBy && !d.canBePickedUpBy(p)) {
+        if (d.ownerImmunity > 0) d.ownerImmunity -= dt;
+        continue;
+      }
       const dcx = d.x + 5, dcy = d.y + 5;
       const dd = dist2(pcx, pcy, dcx, dcy);
       if (dd < 60 * 60) { const a = Math.atan2(pcy - dcy, pcx - dcx); d.x += Math.cos(a) * 200 * dt; d.y += Math.sin(a) * 200 * dt; }
@@ -365,6 +380,7 @@ class Game {
     this.progression = new Progression();
     this._resetEntities();
     this.time = new DayNight();
+    this.weather = new Weather(this.seed);
     this._createLocalPlayer(true);
     this._spawnGuide(null);
     this.currentSaveId = this.saves.newId();
@@ -389,6 +405,9 @@ class Game {
     this.world = new World(this.seed);
     this.world.applyDiffArray(data.diffs);
     this.world.applyWallDiffArray(data.wallDiffs);
+    this.world.applyShapeDiffArray(data.shapeDiffs);
+    this.world.applyLiquidDiffArray(data.liquidDiffs);
+    this.weather = new Weather(this.seed, data.weather);
     this.progression = new Progression();
     this.progression.deserialize(data.progression);
     this._resetEntities();
@@ -427,12 +446,20 @@ class Game {
     this.players.set(p.id, p);
   }
 
-  startClientWorld(seed, name, diffs, time, progression, wallDiffs, day = 1, difficulty = 'normal') {
+  // Joining a hosted world. Takes an options bag rather than a long positional
+  // list — the payload grew a shape layer, a liquid layer and weather in 4.1,
+  // and positional arguments had already become impossible to read.
+  startClientWorld(opts = {}) {
+    const { seed, name, diffs, wallDiffs, shapeDiffs, liquidDiffs, weather,
+      time, day = 1, progression, difficulty = 'normal' } = opts;
     this.seed = seed; this.worldName = name || 'Realm';
     this.difficulty = normalizeDifficulty(difficulty);
     this.world = new World(seed);
     this.world.applyDiffArray(diffs);
     this.world.applyWallDiffArray(wallDiffs);
+    this.world.applyShapeDiffArray(shapeDiffs);
+    this.world.applyLiquidDiffArray(liquidDiffs);
+    this.weather = new Weather(seed, weather);
     this.progression = new Progression();
     this.progression.deserialize(progression);
     this.enemies = []; this.enemyById.clear(); this.minions = []; this.bosses = [];
@@ -482,6 +509,7 @@ class Game {
     this.world = new World(this.seed);
     this._resetEntities();               // clears enemies, bosses, drops, minions, projectiles
     this.time = new DayNight();           // fresh morning, not whatever time it was
+    this.weather = new Weather(this.seed);
     this.localPlayer.inventory = inv;
     this.players.set(this.localPlayer.id, this.localPlayer);
     this._spawnGuide(null);
@@ -511,6 +539,9 @@ class Game {
       width: this.world.width, height: this.world.height,
       diffs: this.world.getDiffArray(),
       wallDiffs: this.world.getWallDiffArray(),
+      shapeDiffs: this.world.getShapeDiffArray(),
+      liquidDiffs: this.world.liquid.getDiffArray(),
+      weather: this.weather.serialize(),
       progression: this.progression.serialize(),
       player: { x: p.x, y: p.y, hp: p.hp, mana: p.mana, inventory: p.inventory.serialize() },
       npc: this.npc ? this.npc.serialize() : null,
@@ -561,6 +592,22 @@ class Game {
   }
   cyclePlayerColor() { this.playerColorIndex = (this.playerColorIndex + 1) % 8; this.playerColor = assignColor(this.playerColorIndex); if (this.localPlayer) this.localPlayer.color = this.playerColor; this.saveSettings(); }
   setControlMode(mode) { applyControlMode(this, mode); this.saveSettings(); }
+
+  // ---- Zoom ----
+  nudgeZoom(dir) {
+    if (!this.camera.nudgeZoom(dir)) return;
+    this._onZoomChanged();
+  }
+  setZoom(z) {
+    if (!this.camera.setZoom(z)) return;
+    this._onZoomChanged();
+  }
+  _onZoomChanged() {
+    this.settings.zoom = this.camera.zoom;
+    this.saveSettings();
+    if (this.localPlayer) this.camera.follow(this.localPlayer, 0, true);
+    this.ui.hud.showZoom(this.camera.zoomPercent());
+  }
 
   // ============ UI GLUE ============
   setPaused(v) {
@@ -652,11 +699,26 @@ class Game {
     this.markDirty();
   }
 
-  dropInventoryItem(index) {
+  // Drop `amount` from a bag slot (default one; Infinity means the whole stack).
+  // The drop is tossed away from the player and refuses to be re-collected by
+  // them for a moment, so throwing something away actually throws it away.
+  dropInventoryItem(index, amount = 1) {
     const p = this.localPlayer; const s = p.inventory.slots[index];
     if (!s) return;
-    const taken = p.inventory.removeAt(index, 1);
-    if (taken) { this.spawnDrop(p.x + p.facing * 10, p.y, taken.id, taken.count); this.markDirty(); }
+    const want = amount === Infinity ? s.count : Math.max(1, Math.min(s.count, Math.floor(amount) || 1));
+    const taken = p.inventory.removeAt(index, want);
+    if (!taken) return;
+    const d = this.spawnDrop(p.x + p.w / 2 + p.facing * 8, p.y + 4, taken.id, taken.count);
+    if (d) d.throwFrom(p, p.facing);
+    this.floatText(p.x + p.w / 2, p.y - 4, '-' + taken.count + ' ' + getItem(taken.id).name.split(' ')[0], '#ffb37d');
+    this.markDirty();
+  }
+  // Prompt for an exact amount. Uses the shared confirm-style dialog rather
+  // than window.prompt so it works in the mobile control mode too.
+  dropInventoryAmount(index) {
+    const p = this.localPlayer; const s = p && p.inventory.slots[index];
+    if (!s) return;
+    this.ui.menus.askAmount('Drop how many?', s.count, (n) => this.dropInventoryItem(index, n));
   }
   unequip(kind) {
     const p = this.localPlayer;
@@ -991,8 +1053,12 @@ class Game {
     const d = new DropItem(this.nextNetId(), itemId, count, x, y);
     if (this.net && !this.isHost) d.localOnly = true;
     this.drops.push(d); this.dropById.set(d.netId, d);
+    return d;
   }
   pickupDrop(drop, player) {
+    // Authoritative eligibility check: a client asking to collect a drop it just
+    // threw away is refused here, not only in the local update loop.
+    if (drop.canBePickedUpBy && player && !drop.canBePickedUpBy(player)) return;
     if (drop.ghost) { if (!drop.requested) { drop.requested = true; this.net.toHost({ t: MSG.PICKUP, netId: drop.netId }); } return; }
     if (this.isHost || !this.net) this.grantDropTo(player.id, drop);
     else { // client local drop
@@ -1017,6 +1083,11 @@ class Game {
   netEditWall(tx, ty, id) {
     if (!this.net || this.net.status !== 'connected') return;
     const msg = { t: MSG.WALL_EDIT, tx, ty, id };
+    if (this.isHost) this.net.broadcast(msg); else this.net.toHost(msg);
+  }
+  netEditShape(tx, ty, id) {
+    if (!this.net || this.net.status !== 'connected') return;
+    const msg = { t: MSG.SHAPE_EDIT, tx, ty, id };
     if (this.isHost) this.net.broadcast(msg); else this.net.toHost(msg);
   }
 

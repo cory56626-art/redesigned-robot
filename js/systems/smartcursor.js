@@ -12,9 +12,9 @@
 // among many — and it fixes a real bug there: with the stick untouched, the aim
 // point sits exactly on the player, so mining used to target the tile you are
 // standing in.
-import { REACH, TILE } from '../config.js?v=realms-difficulty-22';
-import { T, tileDef } from '../world/tiles.js?v=realms-difficulty-22';
-import { canPlaceAt } from './combat.js?v=realms-difficulty-22';
+import { REACH, TILE } from '../config.js?v=quality-of-realms-1';
+import { T, tileDef } from '../world/tiles.js?v=quality-of-realms-1';
+import { canPlaceAt } from './combat.js?v=quality-of-realms-1';
 
 // Search radius around the raw aim point, in tiles.
 const SEARCH = 4;

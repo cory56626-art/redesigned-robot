@@ -1,14 +1,14 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H } from '../config.js?v=aidan-summon-12';
-import { T, isSolid, isTree, isLeaf, tileDef } from '../world/tiles.js?v=aidan-summon-12';
-import { W, hasWall } from '../world/walls.js?v=aidan-summon-12';
-import { BIOMES } from '../world/biomes.js?v=aidan-summon-12';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=aidan-summon-12';
-import { item as getItem } from '../data/items.js?v=aidan-summon-12';
-import { canPlaceAt } from '../systems/combat.js?v=aidan-summon-12';
-import { clamp } from '../utils.js?v=aidan-summon-12';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=aidan-summon-15';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=quality-of-realms-1';
+import { T, isSolid, isTree, isLeaf, tileDef } from '../world/tiles.js?v=quality-of-realms-1';
+import { W, hasWall } from '../world/walls.js?v=quality-of-realms-1';
+import { BIOMES } from '../world/biomes.js?v=quality-of-realms-1';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=quality-of-realms-1';
+import { item as getItem } from '../data/items.js?v=quality-of-realms-1';
+import { canPlaceAt } from '../systems/combat.js?v=quality-of-realms-1';
+import { clamp } from '../utils.js?v=quality-of-realms-1';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=quality-of-realms-1';
 
 const PROJ_GLOW = {
   thorn: '#7ee08a', seed: '#a7e36f', rock: '#8a7a5a', shock: '#d3b985',
@@ -63,6 +63,7 @@ export class Renderer {
 
     this._drawWalls(game, ctx, tx0, ty0, tx1, ty1);
     this._drawTiles(game, ctx, tx0, ty0, tx1, ty1);
+    this._drawLiquid(game, ctx, tx0, ty0, tx1, ty1);
     this._drawFallingTrees(game, ctx);
     this._drawDrops(game, ctx);
     this._drawNpc(game, ctx);
@@ -448,6 +449,55 @@ export class Renderer {
     }
   }
 
+  // Water, drawn over the terrain and under everything that moves.
+  //
+  // Each cell is filled to its level, so a partly-filled tile shows a real
+  // surface rather than a full block of blue. The topmost cell of a body gets a
+  // travelling wave and a brighter rim, which is what makes still water read as
+  // a liquid instead of a flat coloured rectangle.
+  _drawLiquid(game, ctx, tx0, ty0, tx1, ty1) {
+    const liq = game.world.liquid;
+    if (!liq) return;
+    const t = game.time ? game.time.t : 0;
+
+    ctx.save();
+    for (let ty = ty0; ty <= ty1; ty++) {
+      for (let tx = tx0; tx <= tx1; tx++) {
+        const level = liq.get(tx, ty);
+        if (!level) continue;
+        const fill = level / LIQUID_MAX;
+        // Water below more water is full-height: only the top of a body has a
+        // free surface.
+        const covered = liq.get(tx, ty - 1) > 0;
+        const h = covered ? TILE : TILE * fill;
+        const x = tx * TILE, y = ty * TILE + (TILE - h);
+
+        ctx.globalAlpha = 0.72;
+        ctx.fillStyle = '#2f6fbf';
+        ctx.fillRect(x, y, TILE, h);
+
+        if (!covered) {
+          // Surface wave: two out-of-phase sines so it never reads as a single
+          // scrolling sawtooth.
+          const wave = Math.sin(t * 2.2 + tx * 0.55) * 0.8 + Math.sin(t * 1.3 + tx * 0.21) * 0.5;
+          ctx.globalAlpha = 0.9;
+          ctx.fillStyle = '#7ec2f0';
+          ctx.fillRect(x, y + wave - 1, TILE, 1.4);
+          ctx.globalAlpha = 0.35;
+          ctx.fillStyle = '#bfe4ff';
+          ctx.fillRect(x, y + wave, TILE, 0.6);
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // A toppling tree keeps the exact sprites it had while standing — the shaded
+  // trunk and the self-shadowed canopy — because the felling code captured each
+  // cell's neighbour mask and variant before clearing the tiles. Drawing
+  // `Sprites.getTile` here instead is what used to make a felled tree visibly
+  // snap back to a flat, older-looking model halfway through the fall.
   _drawFallingTrees(game, ctx) {
     if (!game.fallingTrees || !game.fallingTrees.length) return;
     for (const ft of game.fallingTrees) {
@@ -456,7 +506,9 @@ export class Renderer {
       ctx.rotate(ft.angle);
       ctx.globalAlpha = Math.max(0, 1 - (ft.t / ft.dur) * 0.55);
       for (const c of ft.cells) {
-        const spr = Sprites.getTile(c.id);
+        const spr = isTree(c.id) ? Sprites.getTrunk(c.id, c.mask || 0, c.variant || 0)
+          : isLeaf(c.id) ? Sprites.getCanopy(c.id, c.mask || 0, c.variant || 0)
+            : Sprites.getTile(c.id);
         if (spr) ctx.drawImage(spr, c.dx * TILE - TILE / 2, c.dy * TILE - TILE, TILE, TILE);
       }
       ctx.globalAlpha = 1;

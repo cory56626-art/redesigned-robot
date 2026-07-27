@@ -2,7 +2,7 @@
 // Produces a platform-agnostic InputState so PC and mobile drive gameplay and
 // networking identically. Keyboard/mouse and touch joysticks both feed the same
 // intents: move, jump, aim, primary-use, mine, place, consume.
-import { REACH, TILE } from '../config.js?v=realms-difficulty-22';
+import { REACH, TILE } from '../config.js?v=quality-of-realms-1';
 
 export class Input {
   constructor(canvas) {
@@ -45,11 +45,18 @@ export class Input {
     this.aimDir = { x: 1, y: 0 };
     this.aimMagnitude = 1;
 
+    // Fractional wheel notches carried between events, so slow trackpad
+    // scrolling still eventually advances a slot instead of being discarded.
+    this._wheelAccum = 0;
+    this._zoomAccum = 0;
+    this._pinchDist = 0;
+
     this.actionHandlers = {};
     this._camera = null;
 
     this._bindKeyboard();
     this._bindMouse();
+    this._bindPinch();
     this._bindJoysticks();
     this._bindMobileButtons();
   }
@@ -140,6 +147,12 @@ export class Input {
         this.fire('interact');
       } else if (k === 'control') {
         this.smartHeld = true;
+      } else if (k === '+' || k === '=') {
+        this.fire('zoom', 1);
+      } else if (k === '-' || k === '_') {
+        this.fire('zoom', -1);
+      } else if (k === 'm') {
+        this.fire('minimap');
       } else if (k >= '1' && k <= '9') {
         this.fire('hotbar', parseInt(k, 10) - 1);
       } else if (k === '0') {
@@ -245,19 +258,84 @@ export class Input {
       }
     });
 
+    // Wheel: hotbar selection, or zoom while Ctrl is held.
+    //
+    // Browsers report wildly different deltaY magnitudes — a trackpad sends a
+    // stream of 1-4px events, a mouse notch sends 100px, and Firefox reports
+    // lines rather than pixels. Collapsing any event to +/-1 the way this used
+    // to made a mouse notch move one slot but a trackpad flick move fifteen,
+    // and made slow trackpad scrolling feel like it was ignoring you. Delta is
+    // now normalised to notches and accumulated against a threshold, so one
+    // physical notch is always exactly one slot at any input device.
     window.addEventListener(
       'wheel',
       (e) => {
         if (this.isTyping()) return;
-        if (document.querySelector('.overlay:not(.hidden)')) return;
+        // Overlays you can keep playing under (the bag, the transparent pause)
+        // are marked `non-blocking` and do not swallow the wheel.
+        if (document.querySelector('.overlay:not(.hidden):not(.non-blocking)')) return;
 
-        this.fire(
-          'hotbarScroll',
-          e.deltaY > 0 ? 1 : -1
-        );
+        const notches = normalizeWheel(e);
+        if (e.ctrlKey) {
+          // Ctrl+wheel is zoom, matching every other canvas app. Plain wheel
+          // stays on the hotbar so the common action needs no modifier.
+          this._zoomAccum += notches;
+          while (Math.abs(this._zoomAccum) >= 1) {
+            const step = Math.sign(this._zoomAccum);
+            this.fire('zoom', -step); // wheel up (negative delta) zooms in
+            this._zoomAccum -= step;
+          }
+          return;
+        }
+
+        this._wheelAccum += notches;
+        while (Math.abs(this._wheelAccum) >= 1) {
+          const step = Math.sign(this._wheelAccum);
+          this.fire('hotbarScroll', step);
+          this._wheelAccum -= step;
+        }
       },
       { passive: true }
     );
+  }
+
+  // ---- Pinch to zoom (touch) ----
+  //
+  // Two fingers anywhere on the canvas that is not a joystick or a button.
+  // Tracked here rather than in the joystick code because a pinch spans the
+  // whole screen and must not be mistaken for two independent sticks.
+  _bindPinch() {
+    const c = this.canvas;
+    const active = new Map();
+
+    const dist = () => {
+      const pts = [...active.values()];
+      if (pts.length < 2) return 0;
+      return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    };
+
+    c.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'touch') return;
+      active.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (active.size === 2) this._pinchDist = dist();
+    });
+    c.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'touch' || !active.has(e.pointerId)) return;
+      active.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (active.size !== 2 || !this._pinchDist) return;
+      const d = dist();
+      const ratio = d / this._pinchDist;
+      // A 12% change is one zoom step, so a pinch scales smoothly rather than
+      // snapping the whole range at once.
+      if (ratio > 1.12) { this.fire('zoom', 1); this._pinchDist = d; }
+      else if (ratio < 0.89) { this.fire('zoom', -1); this._pinchDist = d; }
+    });
+    const end = (e) => {
+      active.delete(e.pointerId);
+      if (active.size < 2) this._pinchDist = 0;
+    };
+    c.addEventListener('pointerup', end);
+    c.addEventListener('pointercancel', end);
   }
 
   // ---- Touch joysticks ----
@@ -546,4 +624,17 @@ export class Input {
 
 function clampAxis(v) {
   return v < -1 ? -1 : v > 1 ? 1 : v;
+}
+
+// Convert a wheel event's delta into "notches", where one notch is one detent
+// of a typical mouse wheel. deltaMode 1 is lines and 2 is pages; pixel mode
+// varies by platform, so it is divided by a nominal notch height and clamped so
+// one violent flick can't skip the whole hotbar.
+const PIXELS_PER_NOTCH = 100;
+function normalizeWheel(e) {
+  let n;
+  if (e.deltaMode === 1) n = e.deltaY / 3;          // lines
+  else if (e.deltaMode === 2) n = e.deltaY;          // pages
+  else n = e.deltaY / PIXELS_PER_NOTCH;              // pixels
+  return Math.max(-3, Math.min(3, n));
 }

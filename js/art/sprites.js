@@ -9,9 +9,9 @@
 // top, a shadowed underside and rimmed sides. That neighbour awareness — plus
 // grass fringing down onto dirt and trunk/canopy shading — is most of what makes
 // terrain read as terrain instead of a grid of coloured squares.
-import { T, TILES, tileMat } from '../world/tiles.js?v=realms-difficulty-22';
-import { W, WALLS } from '../world/walls.js?v=realms-difficulty-22';
-import { mulberry32 } from '../utils.js?v=realms-difficulty-22';
+import { T, TILES, tileMat, isTree, isLeaf } from '../world/tiles.js?v=quality-of-realms-1';
+import { W, WALLS } from '../world/walls.js?v=quality-of-realms-1';
+import { mulberry32 } from '../utils.js?v=quality-of-realms-1';
 
 function makeCanvas(w, h) {
   const c = document.createElement('canvas');
@@ -640,6 +640,37 @@ export function framingMask(world, tx, ty, id) {
   if (same(-1, 1)) m |= SW;
   if (same(-1, -1)) m |= NW;
   return m;
+}
+
+// Stable per-tile hash for picking sprite variants, so a tree looks the same
+// every frame, after a reload, and while it is toppling.
+export function tileHash(x, y) {
+  let h = (Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263)) | 0;
+  h = (h ^ (h >>> 13)) | 0;
+  h = Math.imul(h, 1274126177);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+export function spriteVariant(tx, ty) { return tileHash(tx, ty) & 3; }
+
+// Neighbour masks for the two tree layers. Exported because the felling code
+// needs to capture a cell's appearance *before* clearing the tile, so the
+// topple animation keeps the sprite the standing tree had — reading them after
+// the clear would find air and fall back to the flat tile sprite.
+export function trunkMask(world, tx, ty) {
+  let mask = 0;
+  if (isTree(world.get(tx, ty - 1))) mask |= N;
+  if (isTree(world.get(tx, ty + 1))) mask |= S;
+  return mask;
+}
+
+export function leafMask(world, tx, ty) {
+  let mask = 0;
+  if (isLeaf(world.get(tx, ty - 1))) mask |= N;
+  if (isLeaf(world.get(tx + 1, ty))) mask |= E;
+  if (isLeaf(world.get(tx, ty + 1))) mask |= S;
+  if (isLeaf(world.get(tx - 1, ty))) mask |= WBIT;
+  return mask;
 }
 
 export const Sprites = new SpriteBank();

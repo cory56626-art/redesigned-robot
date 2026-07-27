@@ -16,15 +16,15 @@
 //
 // Deterministic from a numeric seed. `tools/worldgen-check.mjs` asserts the
 // invariants this file is responsible for.
-import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE } from '../config.js?v=realms-difficulty-22';
-import { T } from './tiles.js?v=realms-difficulty-22';
-import { W } from './walls.js?v=realms-difficulty-22';
-import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=realms-difficulty-22';
-import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep } from '../utils.js?v=realms-difficulty-22';
+import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE, LIQUID_MAX } from '../config.js?v=quality-of-realms-1';
+import { T, isSolid } from './tiles.js?v=quality-of-realms-1';
+import { W } from './walls.js?v=quality-of-realms-1';
+import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=quality-of-realms-1';
+import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep, lerp } from '../utils.js?v=quality-of-realms-1';
 
 // Half-width of the guaranteed flat, cave-free plain the player spawns on.
 const SPAWN_PLAIN = 13;
-const BEDROCK = 4; // solid tiles kept at the very bottom of the world
+export const BEDROCK = 4; // solid tiles kept at the very bottom of the world
 // Tiles below the surface line that carry no background wall, so shallow digging
 // stays daylit and only genuine depth reads as underground.
 const SURFACE_WALL_GAP = 3;
@@ -52,11 +52,20 @@ export function generateWorld(seed) {
   decorate(tiles, w, h, surface, biome, rand, spawnTx);
 
   sealSpawn(tiles, walls, w, h, surface, spawnTx, biome);
+  // Decoration and the spawn seal both write tiles into carved space, which can
+  // pinch a passage shut and strand a handful of air behind it. Sealing runs
+  // last, on the finished grid, so the "no unreachable pockets" guarantee holds
+  // for what the player actually gets rather than for the cave mask.
+  sealTinyPockets(tiles, w, h, surface);
   clearSurfaceWalls(walls, w, h, surface);
+
+  // Water goes in last: it settles into whatever shape the finished terrain
+  // left behind, so it can never be buried by a later decoration pass.
+  const liquid = fillWater(tiles, w, h, surface, biome, seed, spawnTx);
 
   const spawnY = (surface[spawnTx] - 3) * TILE;
   return {
-    tiles, walls, width: w, height: h, surface,
+    tiles, walls, liquid, width: w, height: h, surface,
     biomeMap: biome.map, biomeBands: biome.bands,
     spawnTx, spawnX: spawnTx * TILE, spawnY,
   };
@@ -248,95 +257,167 @@ function blob(tiles, walls, w, h, cx, cy, r, id, wallId) {
 // ---------------------------------------------------------------------------
 // Caves
 // ---------------------------------------------------------------------------
+//
+// The previous generator sampled two ridged noise fields at the same frequency
+// on both axes, smoothed the result with a symmetric cellular automaton, and
+// OR-ed in fixed-radius worms. Isotropic noise has no reason to prefer
+// horizontal shapes, so it produced a chaotic field of bubbles; symmetric
+// smoothing then pinched off the narrow links between them; and nothing
+// guaranteed the survivors were connected to anything. The result read as
+// "janky and all over the place" because that is structurally what it was.
+//
+// This generator is built around the qualities that actually make a cave
+// system read as one:
+//
+//   * Caves run *horizontally*. The noise field is stretched along x and warped
+//     by a second low-frequency field, so cavities come out as long bending
+//     ribbons instead of round blobs.
+//   * Caves change character with depth. Three profiles — dirt, stone, cavern —
+//     are interpolated by depth, so the layer just under the grass is tight and
+//     sparse while the deep cavern layer is wide and open, with no visible line
+//     where one becomes the other.
+//   * Smoothing preserves passages. The cellular automaton uses a wide kernel,
+//     so a horizontal corridor survives it and only vertical speckle dissolves.
+//   * Tunnels have momentum. They keep a heading and turn gradually, with a
+//     radius that pinches and swells, instead of jittering a fixed-width tube.
+//   * Everything is connected. A final flood-fill fills in isolated pockets and
+//     digs links between the components that remain, so exploring underground
+//     leads somewhere instead of dead-ending into rock.
 
-// Cave shapes are generated into a separate mask so the different techniques can
-// be composed in the right order: the noisy "swiss cheese" gets cellular-
-// automata smoothing (which would eat one-tile-wide tunnels), and the worms,
-// entrances and halls are OR-ed in afterwards so they survive intact.
+// threshold : the cavity field must exceed this to open rock. The field is a
+//             product of two ridged fbm fields, which concentrates hard near 1,
+//             so useful thresholds all live in a narrow band near the top —
+//             small changes here move the open fraction a lot.
+// xScale/yScale : sampling frequency per axis. x < y stretches caves sideways,
+//             which is the whole reason these read as passages and not bubbles.
+// warp      : how far the domain-warp field displaces the sample point
+const CAVE_PROFILES = {
+  dirt:   { threshold: 0.918, xScale: 0.024, yScale: 0.078, warp: 5.0 },
+  stone:  { threshold: 0.868, xScale: 0.019, yScale: 0.062, warp: 7.0 },
+  cavern: { threshold: 0.808, xScale: 0.015, yScale: 0.050, warp: 9.0 },
+};
+
+// Cave components smaller than this are not caves, they are bubbles. Filling
+// them back in is the single biggest readability win in this pass.
+const MIN_CAVE_ROOM = 10;
+
 function carveCaves(seed, w, h, surface, spawnTx) {
-  const cheeseA = makeFbm2D((seed ^ 0xca7e5a) >>> 0, 3);
-  const cheeseB = makeFbm2D((seed ^ 0x5eed11) >>> 0, 3);
   const bottom = h - BEDROCK - 1;
   let cave = new Uint8Array(w * h);
-  const at = (x, y) => y * w + x;
-
-  // 1) Swiss cheese. The threshold eases in below the surface and opens up with
-  //    depth, so the dirt layer stays mostly solid and the cavern layer is airy.
-  for (let x = 1; x < w - 1; x++) {
-    const s = surface[x];
-    for (let y = s + 5; y <= bottom; y++) {
-      const depth = (y - s) / Math.max(1, bottom - s);
-      const ease = smoothstep(0, 0.10, depth);          // don't undermine the surface
-      const openness = 0.05 + depth * 0.07;             // deeper = more open
-      // Ridged noise: two decorrelated fields, each strongest where it sits near
-      // its midpoint. Their product is high only along the narrow band where
-      // *both* are near the middle, which reads as connected winding ribbons
-      // rather than a field of isolated bubbles.
-      const a = cheeseA(x * 0.055, y * 0.055);
-      const b = cheeseB(x * 0.085 + 40, y * 0.085 + 40);
-      const ridge = (1 - Math.abs(a - 0.5) * 2) * (1 - Math.abs(b - 0.5) * 2);
-      if (ridge > 0.82 - openness * ease) cave[at(x, y)] = 1;
-    }
-  }
-
-  // 2) Smooth it. Blobby organic walls instead of noisy speckle.
-  cave = smoothCave(cave, w, h, surface, bottom, 3);
-
-  // 3) Worm tunnels — long meandering passages that tie the cheese together.
   const rc = mulberry32((seed ^ 0x77c0de) >>> 0);
-  const systems = 6 + Math.floor(w / 55);
-  for (let i = 0; i < systems; i++) {
-    const x = 6 + Math.floor(rc() * (w - 12));
-    const y = UNDERGROUND_Y + Math.floor(rc() * (bottom - UNDERGROUND_Y - 6));
-    worm(cave, w, h, surface, bottom, rc, x, y, rc() * Math.PI * 2, 70 + (rc() * 110) | 0, 1 + (rc() < 0.5 ? 1 : 0), 3);
-  }
 
-  // 4) Surface entrances — shafts that visibly break the surface and reach down
-  //    far enough to meet the cheese layer. Only the first few steps are allowed
-  //    to cut the surface line, so the mouth stays a readable opening instead of
-  //    the tunnel scraping a long trench along the skyline.
-  const entrances = 6 + (rc() * 4 | 0);
-  for (let e = 0; e < entrances; e++) {
-    const x = 8 + Math.floor(rc() * (w - 16));
-    if (Math.abs(x - spawnTx) < SPAWN_PLAIN + 8) continue;
-    // A straight shaft first, so the mouth is an unmistakable hole in the ground
-    // rather than a tunnel that happens to graze the surface, then a meandering
-    // worm from the bottom of it to join the cave network.
-    const shaftLen = 8 + (rc() * 7 | 0);
-    const shaftY = shaft(cave, w, surface, bottom, x, shaftLen);
-    const len = 46 + (rc() * 70) | 0;
-    worm(cave, w, h, surface, bottom, rc, x, shaftY, Math.PI / 2 + (rc() - 0.5) * 0.6, len, 1, 2);
-  }
-
-  // 5) Cavern halls — landmarks and loot rooms down deep.
-  const halls = 4 + Math.floor(w / 150);
-  for (let c = 0; c < halls; c++) {
-    const cx = 10 + Math.floor(rc() * (w - 20));
-    const cy = CAVERN_Y + Math.floor(rc() * Math.max(1, bottom - CAVERN_Y - 8));
-    ellipse(cave, w, h, surface, bottom, cx, Math.min(cy, bottom - 5), 5 + (rc() * 5 | 0), 3 + (rc() * 3 | 0));
-  }
+  noiseCavities(cave, seed, w, h, surface, bottom);
+  cave = smoothCave(cave, w, h, surface, bottom, 2);
+  carveTunnels(cave, w, h, surface, bottom, rc, seed);
+  carveChambers(cave, w, h, surface, bottom, rc);
+  carveEntrances(cave, w, h, surface, bottom, rc, spawnTx);
+  connectCaves(cave, w, h, surface, bottom);
 
   return cave;
 }
 
+// Depth 0 at the surface line, 1 at bedrock. Everything below is expressed in
+// terms of this so profiles blend rather than switching at a threshold.
+function depthAt(y, s, bottom) {
+  return clamp((y - s) / Math.max(1, bottom - s), 0, 1);
+}
+
+// Interpolate a profile field across the three depth bands. The anchors are the
+// *surface line* for dirt and the two layer boundaries for stone and cavern, so
+// the blend is relative to how far below the grass you actually are. Anchoring
+// the dirt end at absolute y=0 instead would put the sky at one end of the
+// interpolation and leave the whole dirt layer already reading as stone.
+// Depth below the surface at which the dirt profile has fully become the stone
+// profile. Roughly the thickness of the dirt-and-transition band, so the tight
+// shallow caves stop where the rock actually starts rather than at an arbitrary
+// absolute row.
+const DIRT_BAND = 30;
+
+function profileAt(y, s, key) {
+  const dirt = CAVE_PROFILES.dirt[key];
+  const stone = CAVE_PROFILES.stone[key];
+  const cavern = CAVE_PROFILES.cavern[key];
+  const stoneStart = s + DIRT_BAND;
+  if (y <= stoneStart) {
+    return lerp(dirt, stone, smoothstep(0, 1, (y - s) / DIRT_BAND));
+  }
+  const t = smoothstep(0, 1, (y - stoneStart) / Math.max(1, CAVERN_Y - stoneStart));
+  return lerp(stone, cavern, t);
+}
+
+// 1) The cavity field.
+//
+// Two things make this read as caves rather than as noise. The sample point is
+// displaced by a low-frequency warp field, which bends otherwise straight
+// features into organic curves; and x is sampled at roughly 2.5x the scale of
+// y, which stretches every feature horizontally. Terraria's caves are wider
+// than they are tall, and so are these.
+function noiseCavities(cave, seed, w, h, surface, bottom) {
+  // Two decorrelated fields. Each ridged term peaks where its field sits near
+  // its own midline; their product is high only along the narrow band where
+  // *both* do, which traces out connected winding ribbons rather than a field
+  // of independent highs. Sampling them at different frequencies keeps the two
+  // bands from ever running parallel for long.
+  const fieldA = makeFbm2D((seed ^ 0xca7e5a) >>> 0, 4);
+  const fieldB = makeFbm2D((seed ^ 0x5eed11) >>> 0, 3);
+  const warpX = makeFbm2D((seed ^ 0xbea751) >>> 0, 2);
+  const warpY = makeFbm2D((seed ^ 0x31f0a2) >>> 0, 2);
+  const at = (x, y) => y * w + x;
+
+  for (let x = 1; x < w - 1; x++) {
+    const s = surface[x];
+    for (let y = s + 5; y <= bottom; y++) {
+      const d = depthAt(y, s, bottom);
+      // Never undermine the surface: the top of the dirt layer eases in.
+      const ease = smoothstep(0, 0.08, d);
+      if (ease <= 0) continue;
+
+      const xScale = profileAt(y, s, 'xScale');
+      const yScale = profileAt(y, s, 'yScale');
+      const warp = profileAt(y, s, 'warp');
+      const threshold = profileAt(y, s, 'threshold');
+
+      // Domain warp: offset the sample point by a slowly-varying vector.
+      const wx = (warpX(x * 0.012, y * 0.012) - 0.5) * 2 * warp;
+      const wy = (warpY(x * 0.014 + 31, y * 0.014 + 31) - 0.5) * 2 * warp;
+
+      const a = fieldA((x + wx) * xScale, (y + wy) * yScale);
+      const b = fieldB((x + wx) * xScale * 1.7 + 40, (y + wy) * yScale * 1.7 + 40);
+      const ridge = (1 - Math.abs(a - 0.5) * 2) * (1 - Math.abs(b - 0.5) * 2);
+      // `ease` keeps the top of the dirt layer solid so caves don't undermine
+      // the surface; it raises the bar rather than gating outright.
+      if (ridge > threshold + (1 - ease) * 0.12) cave[at(x, y)] = 1;
+    }
+  }
+}
+
+// 2) Smoothing with a wide kernel.
+//
+// A symmetric 3x3 automaton treats a one-tile-tall horizontal corridor and a
+// one-tile-wide vertical shaft identically, and dissolves both. Sampling 2
+// tiles either side but only 1 above and below biases survival toward
+// horizontal structure: corridors live, vertical speckle dies, and ceilings
+// round over.
 function smoothCave(cave, w, h, surface, bottom, passes) {
   const at = (x, y) => y * w + x;
   let src = cave;
   for (let p = 0; p < passes; p++) {
     const dst = new Uint8Array(src.length);
-    for (let x = 1; x < w - 1; x++) {
+    for (let x = 2; x < w - 2; x++) {
       const top = surface[x] + 5;
       for (let y = top; y <= bottom; y++) {
         let n = 0;
         for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
+          for (let dx = -2; dx <= 2; dx++) {
             if (dx === 0 && dy === 0) continue;
-            n += src[at(x + dx, y + dy)] ? 1 : 0;
+            const yy = y + dy;
+            if (yy < 0 || yy >= h) continue;
+            n += src[at(x + dx, yy)] ? 1 : 0;
           }
         }
-        // Open tiles need company to survive and closed tiles need a crowd to
-        // open, which rounds cave edges off and dissolves lone speckle.
-        dst[at(x, y)] = src[at(x, y)] ? (n >= 4 ? 1 : 0) : (n >= 6 ? 1 : 0);
+        // 14 neighbours in this kernel, so the thresholds are scaled from the
+        // classic 4-of-8 / 5-of-8 rule.
+        dst[at(x, y)] = src[at(x, y)] ? (n >= 6 ? 1 : 0) : (n >= 10 ? 1 : 0);
       }
     }
     src = dst;
@@ -344,42 +425,310 @@ function smoothCave(cave, w, h, surface, bottom, passes) {
   return src;
 }
 
-// A wandering tunnel with optional branching. `breakSurface` is the number of
-// leading steps allowed to cut the surface line, so an entrance shaft can open a
-// mouth without the rest of the tunnel gouging the skyline.
-function worm(cave, w, h, surface, bottom, rc, x, y, ang, len, radius, depth, breakSurface = 0) {
+// 3) Tunnels with momentum.
+//
+// The old worm added a random angular offset every step, which produced tight
+// squiggles. This one integrates an angular *velocity* with damping and a
+// restoring pull toward horizontal, so a tunnel commits to a direction and
+// sweeps through long curves. Its radius is modulated along the length, so a
+// passage narrows to a squeeze and opens into a chamber the way a real one does.
+function carveTunnels(cave, w, h, surface, bottom, rc, seed) {
+  const count = 3 + Math.floor(w / 140);
+  for (let i = 0; i < count; i++) {
+    const x = 6 + Math.floor(rc() * (w - 12));
+    // Bias starts toward the middle and lower layers, where caves belong.
+    const yMin = UNDERGROUND_Y - 18;
+    const y = yMin + Math.floor(rc() * Math.max(1, bottom - yMin - 6));
+    // Start heading roughly sideways.
+    const ang = (rc() < 0.5 ? 0 : Math.PI) + (rc() - 0.5) * 0.8;
+    const len = 90 + (rc() * 150) | 0;
+    const baseRadius = 1.1 + rc() * 1.1;
+    tunnel(cave, w, h, surface, bottom, rc, x, y, ang, len, baseRadius, 2);
+  }
+}
+
+function tunnel(cave, w, h, surface, bottom, rc, x, y, ang, len, baseRadius, depth, opts = {}) {
+  const breakSurface = opts.breakSurface || 0;
+  // Tunnels are a rock-layer feature. Left free to wander they spend most of
+  // their length in the dirt layer, which hollows out the ground right under
+  // the grass and is a large part of why the old caves felt arbitrary. Only
+  // entrance tunnels are allowed to run shallow.
+  const ceiling = opts.ceiling != null ? opts.ceiling : UNDERGROUND_Y - 8;
+  // Minimum depth below the surface line. The absolute `ceiling` alone is not
+  // enough: where the terrain rides high, an absolute row can sit inside the
+  // shallow band, and tunnels then hollow out the very layer that is meant to
+  // stay tight.
+  const clearance = opts.clearance != null ? opts.clearance : DIRT_BAND;
+  // Descending tunnels need a livelier random walk than horizontal ones, since
+  // the restoring torque barely acts on them.
+  const wander = opts.wander || 1;
+  // Steps over which the tunnel widens from a throat to its full bore. A
+  // sinkhole's neck is narrow and opens into the cave below; without this the
+  // full-width tunnel carves out as much shallow ground as the entire noise
+  // field does, which flattens the depth profile the layers are built on.
+  const growIn = opts.growIn || 0;
+  // An entrance tunnel's job is to get *down* to the cave system. Without a
+  // descent bias it is free to run horizontally just under the surface for its
+  // whole length, hollowing out the shallow band it was supposed to pass
+  // straight through. The bias applies only while it is still shallow.
+  const sink = opts.sink || 0;
+  let angVel = 0;
+  // Each tunnel gets its own radius rhythm so they don't all pulse in step.
+  const radPhase = rc() * Math.PI * 2;
+  const radFreq = 0.05 + rc() * 0.07;
+
   for (let i = 0; i < len; i++) {
+    // Radius grows with depth — the cavern layer is meant to feel open — and
+    // breathes along the length.
+    const depthK = clamp((y - UNDERGROUND_Y) / Math.max(1, bottom - UNDERGROUND_Y), 0, 1);
+    const breathe = 1 + Math.sin(radPhase + i * radFreq) * 0.35;
+    const throat = growIn ? lerp(0.5, 1, Math.min(1, i / growIn)) : 1;
+    const radius = Math.max(1, Math.round(baseRadius * breathe * throat * (1 + depthK * 0.7)));
+
     disc(cave, w, h, surface, bottom, Math.round(x), Math.round(y), radius, i < breakSurface);
-    ang += (rc() - 0.5) * 0.55;
-    x += Math.cos(ang) * 1.5;
-    y += Math.sin(ang) * 1.5;
-    if (x < 3) { x = 3; ang = 0; }
-    if (x > w - 4) { x = w - 4; ang = Math.PI; }
+
+    // Steering: random impulse, damping, and a restoring torque toward the
+    // nearest horizontal heading. The restoring term is what stops a tunnel
+    // from wandering into a vertical drill.
+    angVel += (rc() - 0.5) * 0.13 * wander;
+    angVel *= 0.86;
+    const toHorizontal = Math.sin(ang * 2) * -0.085;
+    ang += angVel + toHorizontal;
+
+    const sx0 = clamp(Math.round(x), 0, w - 1);
+    const stillShallow = y < surface[sx0] + DIRT_BAND;
+    x += Math.cos(ang) * 1.6;
+    y += Math.sin(ang) * 1.6 + (sink && stillShallow ? sink : 0);
+
+    if (x < 3) { x = 3; ang = 0; angVel = 0; }
+    if (x > w - 4) { x = w - 4; ang = Math.PI; angVel = 0; }
     const sx = clamp(Math.round(x), 0, w - 1);
-    // Steer back down whenever we climb toward the surface line.
-    if (y < surface[sx] + 3) { ang = Math.abs(ang) || 0.7; y = Math.max(y, surface[sx] + 1); }
-    if (y > bottom) { y = bottom; ang = -Math.abs(ang); }
-    if (rc() < 0.04) disc(cave, w, h, surface, bottom, Math.round(x), Math.round(y), radius + 2, false);
-    if (depth > 0 && rc() < 0.022 && len - i > 20) {
-      worm(cave, w, h, surface, bottom, rc, x, y, ang + (rc() < 0.5 ? -1 : 1) * (0.8 + rc()), (20 + rc() * 36) | 0, Math.max(1, radius - 1), depth - 1);
+    // Steer back down whenever we climb above this tunnel's ceiling, and never
+    // let one approach the surface line regardless.
+    const limit = Math.max(ceiling, surface[sx] + clearance);
+    if (y < limit) { ang = Math.abs(ang) || 0.7; angVel = 0; y = Math.max(y, limit); }
+    if (y > bottom - 1) { y = bottom - 1; ang = -Math.abs(ang); angVel = 0; }
+
+    // Occasional widening: a small chamber part-way along a passage.
+    if (rc() < 0.03) disc(cave, w, h, surface, bottom, Math.round(x), Math.round(y), radius + 2, false);
+
+    // Branches inherit a share of the parent's size, so a system reads as a
+    // trunk with side passages rather than a tangle of equal tubes.
+    if (depth > 0 && rc() < 0.018 && len - i > 30) {
+      tunnel(cave, w, h, surface, bottom, rc,
+        x, y, ang + (rc() < 0.5 ? -1 : 1) * (0.7 + rc() * 0.7),
+        (30 + rc() * 55) | 0, Math.max(1.1, baseRadius * 0.7), depth - 1, { ceiling, clearance });
     }
   }
 }
 
-// A vertical entrance shaft, two tiles wide at the mouth so it reads clearly
-// from the surface. Returns the y it bottoms out at.
-function shaft(cave, w, surface, bottom, x, len) {
-  const y0 = surface[x];
-  const y1 = Math.min(bottom, y0 + len);
-  for (let y = y0; y <= y1; y++) {
-    for (let dx = 0; dx <= 1; dx++) {
-      const nx = x + dx;
-      if (nx < 1 || nx >= w - 1) continue;
-      if (y < surface[nx]) continue; // never open a hole in a neighbour's sky
-      cave[y * w + nx] = 1;
+// 4) Cavern chambers.
+//
+// Terraria's big rooms are built by walking a short path and stamping
+// overlapping circles along it, which gives a lumpy organic outline instead of
+// the obvious ellipse a single stamp produces. Chambers grow with depth and are
+// concentrated in the cavern layer.
+function carveChambers(cave, w, h, surface, bottom, rc) {
+  const count = 9 + Math.floor(w / 80);
+  for (let c = 0; c < count; c++) {
+    // Two thirds of chambers live below the cavern line. Chosen by index
+    // rather than by dice so the deep layer is reliably the roomiest one.
+    const deep = (c % 3) !== 0;
+    const yMin = deep ? CAVERN_Y : UNDERGROUND_Y;
+    const yMax = deep ? bottom - 6 : CAVERN_Y;
+    if (yMax <= yMin) continue;
+    let x = 12 + Math.floor(rc() * (w - 24));
+    let y = yMin + Math.floor(rc() * (yMax - yMin));
+    const blobs = 4 + (rc() * 6) | 0;
+    const scale = deep ? 1.25 : 0.65;
+    let ang = rc() * Math.PI * 2;
+    for (let b = 0; b < blobs; b++) {
+      const r = Math.round((2.5 + rc() * 3.5) * scale);
+      disc(cave, w, h, surface, bottom, Math.round(x), Math.round(y), r, false);
+      // Chambers spread wider than they are tall, matching the cave language.
+      ang += (rc() - 0.5) * 1.4;
+      x += Math.cos(ang) * (r * 1.15);
+      y += Math.sin(ang) * (r * 0.55);
+      x = clamp(x, 4, w - 5);
+      y = clamp(y, yMin, bottom - 3);
     }
   }
-  return y1;
+}
+
+// 5) Surface entrances.
+//
+// A 2-tile vertical shaft reads as a mineshaft somebody dug, not as a cave.
+// This opens a sinkhole instead: a wide mouth at the surface that narrows as it
+// descends, which is what erosion actually leaves behind, and then hands off to
+// a momentum tunnel that joins the network below.
+function carveEntrances(cave, w, h, surface, bottom, rc, spawnTx) {
+  const count = 5 + (rc() * 4 | 0);
+  for (let e = 0; e < count; e++) {
+    const x = 10 + Math.floor(rc() * (w - 20));
+    if (Math.abs(x - spawnTx) < SPAWN_PLAIN + 10) continue;
+
+    const mouth = 2 + (rc() * 2 | 0);          // widest half-width, just below the lip
+    // Short and bowl-shaped. A deep narrow channel reads as a drilled shaft;
+    // a shallow bell that hands straight off to a diagonal tunnel reads as a
+    // collapsed cave roof, which is what a sinkhole actually is.
+    const depth = 5 + (rc() * 5 | 0);
+    const y0 = surface[x];
+    let bottomY = y0;
+    for (let d = 0; d <= depth; d++) {
+      const y = y0 + d;
+      if (y > bottom) break;
+      // The very top row stays narrow and the hole bells out a tile or two
+      // below it, so a sinkhole is slightly undercut — a wide chamber behind a
+      // modest opening. That keeps the skyline intact while still reading as a
+      // real way in, instead of gouging a trench across the surface.
+      const t = d / depth;
+      const bell = d === 0 ? 1 : Math.min(mouth, 1 + d);
+      const halfW = Math.max(1, Math.round(bell * (1 - t * 0.45)));
+      for (let dx = -halfW; dx <= halfW; dx++) {
+        const nx = x + dx;
+        if (nx < 1 || nx >= w - 1) continue;
+        // Only break the actual surface tile of each column, never punch a hole
+        // into a neighbour's sky.
+        if (y < surface[nx]) continue;
+        cave[y * w + nx] = 1;
+      }
+      bottomY = y;
+    }
+    // From the bottom of the sinkhole, a tunnel down into the system.
+    //
+    // Launched at a real diagonal, never straight down. Vertical is an
+    // *unstable* fixed point of the horizontal restoring torque (sin(2a) is
+    // zero there), so a tunnel started at exactly PI/2 feels no correction and
+    // bores a pin-straight shaft hundreds of tiles deep — which is precisely
+    // the artificial-looking artefact this rewrite is meant to remove.
+    const lean = (rc() < 0.5 ? -1 : 1) * (0.55 + rc() * 0.5);
+    tunnel(cave, w, h, surface, bottom, rc, x, bottomY,
+      Math.PI / 2 + lean, 40 + (rc() * 55) | 0, 1.7, 1,
+      { ceiling: y0 + depth, wander: 1.7, growIn: 26, clearance: 4, sink: 0.75 });
+  }
+}
+
+// 6) Connectivity and de-speckle.
+//
+// Label every connected cave component. Anything smaller than MIN_CAVE_ROOM is
+// filled back in — those are the isolated bubbles that made the underground
+// feel arbitrary. Every surviving component that is not part of the largest one
+// is then linked to its nearest neighbour with a straight bore, so the cave
+// system is genuinely traversable rather than a set of disconnected voids that
+// happen to share a world.
+function connectCaves(cave, w, h, surface, bottom) {
+  const at = (x, y) => y * w + x;
+  const label = new Int32Array(w * h).fill(-1);
+  const components = [];
+  const stack = [];
+
+  for (let y = 0; y <= bottom; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = at(x, y);
+      if (!cave[i] || label[i] !== -1) continue;
+      const id = components.length;
+      const cells = [];
+      let sumX = 0, sumY = 0;
+      stack.push(i); label[i] = id;
+      while (stack.length) {
+        const ci = stack.pop();
+        const cx = ci % w, cy = (ci / w) | 0;
+        cells.push(ci); sumX += cx; sumY += cy;
+        for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+          const nx = cx + dx, ny = cy + dy;
+          if (nx < 1 || nx >= w - 1 || ny < 0 || ny > bottom) continue;
+          const ni = at(nx, ny);
+          if (!cave[ni] || label[ni] !== -1) continue;
+          label[ni] = id;
+          stack.push(ni);
+        }
+      }
+      components.push({ id, cells, cx: sumX / cells.length, cy: sumY / cells.length });
+    }
+  }
+  if (!components.length) return;
+
+  // Fill in the bubbles.
+  const kept = [];
+  for (const c of components) {
+    if (c.cells.length < MIN_CAVE_ROOM) {
+      for (const i of c.cells) cave[i] = 0;
+    } else {
+      kept.push(c);
+    }
+  }
+  if (kept.length <= 1) return;
+
+  // Link every component into the largest one. Working from the biggest
+  // outward keeps the bores short: each component connects to whichever
+  // already-connected component is nearest, so links follow the natural
+  // clustering instead of all radiating from one point.
+  kept.sort((a, b) => b.cells.length - a.cells.length);
+  const connected = [kept[0]];
+  for (let i = 1; i < kept.length; i++) {
+    const c = kept[i];
+    let best = connected[0], bd = Infinity;
+    for (const other of connected) {
+      const d = (other.cx - c.cx) ** 2 + (other.cy - c.cy) ** 2;
+      if (d < bd) { bd = d; best = other; }
+    }
+    bore(cave, w, h, surface, bottom, c, best);
+    connected.push(c);
+  }
+}
+
+// Dig a passage between two components, from the cell of each that is closest
+// to the other. Sampling a subset of cells keeps this linear enough for a
+// 700x260 world while still picking a sensible pair of endpoints.
+function bore(cave, w, h, surface, bottom, a, b) {
+  const pick = (comp, tx, ty) => {
+    let best = comp.cells[0], bd = Infinity;
+    const step = Math.max(1, Math.floor(comp.cells.length / 160));
+    for (let i = 0; i < comp.cells.length; i += step) {
+      const ci = comp.cells[i];
+      const cx = ci % w, cy = (ci / w) | 0;
+      const d = (cx - tx) ** 2 + (cy - ty) ** 2;
+      if (d < bd) { bd = d; best = ci; }
+    }
+    return { x: best % w, y: (best / w) | 0 };
+  };
+  const pa = pick(a, b.cx, b.cy);
+  const pb = pick(b, pa.x, pa.y);
+
+  // Walk from one end to the other with a wandering offset perpendicular to the
+  // straight line. A ruled line between two components is instantly readable as
+  // machine-made — these links have to look like the passages around them, not
+  // like somebody drew them with a straightedge.
+  const dx = pb.x - pa.x, dy = pb.y - pa.y;
+  const span = Math.hypot(dx, dy);
+  const steps = Math.max(2, Math.ceil(span));
+  const nx = -dy / (span || 1), ny = dx / (span || 1); // unit normal
+  // Two out-of-phase waves so the meander does not read as a single arc.
+  const amp = Math.min(6, span * 0.14);
+  const ph1 = rand01(a.id * 31 + b.id) * Math.PI * 2;
+  const ph2 = rand01(a.id * 17 + b.id * 7) * Math.PI * 2;
+
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    // Taper the wander to zero at both ends so the link meets each cave square
+    // on rather than glancing off it.
+    const taper = Math.sin(t * Math.PI);
+    const off = (Math.sin(t * Math.PI * 2 + ph1) * 0.7 + Math.sin(t * Math.PI * 5 + ph2) * 0.3) * amp * taper;
+    const x = Math.round(pa.x + dx * t + nx * off);
+    const y = Math.round(pa.y + dy * t + ny * off);
+    // Passages pinch and swell like the tunnels do.
+    const r = 1 + (Math.sin(t * Math.PI * 3 + ph1) > 0.55 ? 1 : 0);
+    disc(cave, w, h, surface, bottom, x, y, r, false);
+  }
+}
+
+// Deterministic 0..1 from an integer, so bore meanders are stable for a seed
+// without threading another PRNG through the connectivity pass.
+function rand01(n) {
+  let h = Math.imul(n | 0, 2654435761) | 0;
+  h = (h ^ (h >>> 15)) | 0;
+  h = Math.imul(h, 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
 function disc(cave, w, h, surface, bottom, cx, cy, r, fromSurface) {
@@ -388,22 +737,11 @@ function disc(cave, w, h, surface, bottom, cx, cy, r, fromSurface) {
       if (x < 1 || x >= w - 1 || y < 1 || y > bottom) continue;
       const dx = x - cx, dy = y - cy;
       if (dx * dx + dy * dy > r * r + 0.4) continue;
-      // Never punch a hole into open sky — except for entrance shafts, which are
+      // Never punch a hole into open sky — except for entrances, which are
       // allowed to break exactly the surface tile.
       const limit = surface[x] + (fromSurface ? 0 : 3);
       if (y < limit) continue;
       cave[y * w + x] = 1;
-    }
-  }
-}
-
-function ellipse(cave, w, h, surface, bottom, cx, cy, rx, ry) {
-  for (let y = -ry; y <= ry; y++) {
-    for (let x = -rx; x <= rx; x++) {
-      if ((x * x) / (rx * rx) + (y * y) / (ry * ry) > 1) continue;
-      const nx = cx + x, ny = cy + y;
-      if (nx < 2 || nx >= w - 2 || ny < surface[nx] + 4 || ny > bottom) continue;
-      cave[ny * w + nx] = 1;
     }
   }
 }
@@ -585,6 +923,186 @@ function placeTree(tiles, w, h, x, baseY, def, rand) {
         // Slight asymmetry keeps every canopy from being the same stamp.
         const bias = rand() < 0.15 ? 1 : 0;
         if (Math.abs(dx) + Math.abs(dy) <= 4 - bias) put(x + dx, topY + dy);
+      }
+    }
+  }
+}
+
+// Fill in any underground air pocket too small to be a cave. Anything this size
+// sealed inside rock is something the player can never reach and never should
+// have been carved; leaving them is what made the underground read as noise.
+// The fill material is taken from the pocket's own neighbourhood so a sealed
+// bubble in deepstone becomes deepstone, not a block of dirt.
+function sealTinyPockets(tiles, w, h, surface) {
+  const idx = (x, y) => y * w + x;
+  const bottom = h - BEDROCK;
+  const seen = new Uint8Array(w * h);
+  const stack = [];
+
+  for (let y = 0; y < bottom; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = idx(x, y);
+      if (seen[i] || isSolid(tiles[i])) continue;
+      const cells = [];
+      let touchesSky = false;
+      stack.push(i); seen[i] = 1;
+      while (stack.length) {
+        const ci = stack.pop();
+        const cx = ci % w, cy = (ci / w) | 0;
+        cells.push(ci);
+        if (cy < surface[cx]) touchesSky = true;
+        for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+          const nx = cx + dx, ny = cy + dy;
+          if (nx < 1 || nx >= w - 1 || ny < 0 || ny >= bottom) continue;
+          const ni = idx(nx, ny);
+          if (seen[ni] || isSolid(tiles[ni])) continue;
+          seen[ni] = 1; stack.push(ni);
+        }
+      }
+      if (touchesSky || cells.length >= MIN_CAVE_ROOM) continue;
+      for (const ci of cells) {
+        if (tiles[ci] === T.AIR) tiles[ci] = neighbourFill(tiles, w, h, ci % w, (ci / w) | 0);
+      }
+    }
+  }
+}
+
+// The most common solid tile around a position, so a filled pocket matches the
+// rock it sits in.
+function neighbourFill(tiles, w, h, x, y) {
+  const counts = new Map();
+  for (let dy = -2; dy <= 2; dy++) {
+    for (let dx = -2; dx <= 2; dx++) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+      const id = tiles[ny * w + nx];
+      if (id === T.AIR || !isSolid(id)) continue;
+      counts.set(id, (counts.get(id) || 0) + 1);
+    }
+  }
+  let best = T.STONE, bn = 0;
+  for (const [id, n] of counts) if (n > bn) { bn = n; best = id; }
+  return best;
+}
+
+// ---------------------------------------------------------------------------
+// Water
+// ---------------------------------------------------------------------------
+//
+// Pools are found rather than placed: flood-fill each enclosed air basin from
+// its floor upward, and stop at the level where the basin would spill. That is
+// what puts water in the bottom of a cavern the way the reference screenshots
+// show, instead of stamping rectangles of blue into the rock and hoping they
+// land somewhere plausible.
+//
+// The result is handed to LiquidGrid as its starting state, so the flow
+// simulation begins already settled and costs nothing until the player digs
+// into it.
+
+// Fraction of eligible basins that actually hold water. Not every hollow is
+// flooded — a cave system where every low point is a lake stops feeling like a
+// cave system.
+const BASIN_WET_CHANCE = 0.42;
+// Basins larger than this are drained rather than flooded: an ocean filling
+// half the cavern layer is not a pool, it is a bug.
+const MAX_BASIN = 900;
+
+function fillWater(tiles, w, h, surface, biome, seed, spawnTx) {
+  const levels = new Uint8Array(w * h);
+  const rand = mulberry32((seed ^ 0x5ea1a4e) >>> 0);
+  const idx = (x, y) => y * w + x;
+  const bottom = h - BEDROCK - 1;
+  const visited = new Uint8Array(w * h);
+
+  // Scan upward from the bottom so a basin is always discovered from its floor.
+  for (let y = bottom; y >= UNDERGROUND_Y - 24; y--) {
+    for (let x = 2; x < w - 2; x++) {
+      const i = idx(x, y);
+      if (visited[i]) continue;
+      if (tiles[i] !== T.AIR) continue;
+      // A basin floor: air with something solid directly beneath it.
+      if (!isSolid(tiles[idx(x, y + 1)])) continue;
+      // Never flood the column the player spawns on.
+      if (Math.abs(x - spawnTx) <= SPAWN_PLAIN + 2) continue;
+      if (rand() > BASIN_WET_CHANCE) { visited[i] = 1; continue; }
+      floodBasin(tiles, levels, visited, w, h, x, y, surface, bottom, rand);
+    }
+  }
+
+  // Surface ponds: a dip in the terrain that holds water, so the overworld has
+  // somewhere to fish before the player ever finds a cave.
+  surfacePonds(tiles, levels, w, h, surface, biome, rand, spawnTx);
+  return levels;
+}
+
+// Flood one basin from a floor tile. The fill rises a row at a time and stops
+// at the first row that would spill out of the basin, so the resulting surface
+// is genuinely level.
+function floodBasin(tiles, levels, visited, w, h, sx, sy, surface, bottom, rand) {
+  const idx = (x, y) => y * w + x;
+  // How deep this basin is allowed to get. Shallow puddles read better than
+  // uniform full-depth lakes.
+  const maxRise = 2 + (rand() * 5) | 0;
+  const filled = [];
+
+  for (let rise = 0; rise < maxRise; rise++) {
+    const y = sy - rise;
+    if (y <= 2) break;
+    // Collect this row's connected span of air at height y, walking out from
+    // the seed column.
+    const row = [];
+    let spills = false;
+
+    const walk = (dir) => {
+      for (let x = sx; x >= 1 && x < w - 1; x += dir) {
+        const i = idx(x, y);
+        if (tiles[i] !== T.AIR) break;           // wall of the basin: contained
+        if (y >= surface[x]) {
+          // Open to the sky at this column — the basin spills out here.
+          if (y < surface[x] + 1) { spills = true; break; }
+        }
+        // Nothing under this tile and no water yet: the row drains away.
+        if (!isSolid(tiles[idx(x, y + 1)]) && !levels[idx(x, y + 1)]) { spills = true; break; }
+        row.push(i);
+        if (Math.abs(x - sx) > 60) { spills = true; break; } // absurdly wide: not a basin
+        if (dir === 0) break;
+      }
+    };
+    walk(-1); walk(1);
+
+    if (spills || !row.length) break;
+    if (filled.length + row.length > MAX_BASIN) break;
+    for (const i of row) { levels[i] = LIQUID_MAX; visited[i] = 1; filled.push(i); }
+  }
+
+  // A one-tile puddle is noise; drain it again.
+  if (filled.length < 3) for (const i of filled) levels[i] = 0;
+}
+
+// Surface water: find local minima in the height profile that are enclosed on
+// both sides, and fill them to just below the lower rim.
+function surfacePonds(tiles, levels, w, h, surface, biome, rand, spawnTx) {
+  const idx = (x, y) => y * w + x;
+  for (let x = 12; x < w - 12; x++) {
+    if (Math.abs(x - spawnTx) <= SPAWN_PLAIN + 6) continue;
+    if (rand() > 0.02) continue;
+    // Walk out to the rims of the depression this column sits in.
+    const base = surface[x];
+    let left = x, right = x;
+    while (left > 2 && surface[left - 1] >= surface[left] - 0 && base - surface[left - 1] <= 0) left--;
+    while (right < w - 3 && base - surface[right + 1] <= 0) right++;
+    const rim = Math.min(surface[left - 1] ?? base, surface[right + 1] ?? base);
+    const depth = base - rim;
+    if (depth < 2 || depth > 7) continue;         // too flat, or a canyon
+    if (right - left < 4 || right - left > 42) continue;
+
+    // Fill from the floor up to one tile below the lower rim, so it never
+    // overflows the lip.
+    const top = rim + 1;
+    for (let px = left; px <= right; px++) {
+      for (let py = surface[px] - 1; py >= top; py--) {
+        if (tiles[idx(px, py)] !== T.AIR) break;
+        levels[idx(px, py)] = LIQUID_MAX;
       }
     }
   }

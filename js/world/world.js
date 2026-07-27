@@ -1,10 +1,12 @@
 // Summoner Realms — runtime world: tile grid, wall grid, collision, mining,
 // lighting, and the edit diffs that get saved.
-import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=realms-difficulty-22';
-import { T, tileDef, isSolid, tileLight } from './tiles.js?v=realms-difficulty-22';
-import { W, hasWall, wallBlastResist } from './walls.js?v=realms-difficulty-22';
-import { BIOME_ORDER } from './biomes.js?v=realms-difficulty-22';
-import { generateWorld } from './worldgen.js?v=realms-difficulty-22';
+import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=quality-of-realms-1';
+import { T, tileDef, isSolid, tileLight } from './tiles.js?v=quality-of-realms-1';
+import { W, hasWall, wallBlastResist } from './walls.js?v=quality-of-realms-1';
+import { SH, shapeContains, surfaceOffset, fillsTop } from './shapes.js?v=quality-of-realms-1';
+import { LiquidGrid } from './liquid.js?v=quality-of-realms-1';
+import { BIOME_ORDER } from './biomes.js?v=quality-of-realms-1';
+import { generateWorld } from './worldgen.js?v=quality-of-realms-1';
 
 export class World {
   constructor(seed) {
@@ -14,6 +16,9 @@ export class World {
     this.height = g.height;
     this.tiles = g.tiles;
     this.walls = g.walls;
+    // Per-tile block shape (the hammer layer). Natural terrain is all FULL, so
+    // a fresh world's shape buffer is entirely zero.
+    this.shapes = new Uint8Array(this.width * this.height);
     this.surface = g.surface;
     this.biomeMap = g.biomeMap;
     this.biomeBands = g.biomeBands;
@@ -23,9 +28,14 @@ export class World {
     // Player edits, keyed by flat index so repeated edits to one tile collapse.
     this.diffs = new Map();      // index -> tileId
     this.wallDiffs = new Map();  // index -> wallId
+    this.shapeDiffs = new Map(); // index -> shapeId
     this.mineProgress = new Map(); // index -> accumulated mining amount
     this.topSolid = new Int32Array(this.width);
     this._recomputeAllTopSolid();
+    // Water. Created after the grids exist because it reads them, and seeded
+    // with the pools worldgen carved so natural lakes don't count as edits.
+    this.liquid = new LiquidGrid(this);
+    this.liquid.seedFrom(g.liquid);
     // Reusable light buffer.
     this._lightBuf = new Float32Array(1);
   }
@@ -46,7 +56,53 @@ export class World {
     this.tiles[i] = id;
     if (record) this.diffs.set(i, id);
     this.mineProgress.delete(i);
+    // A tile losing its identity loses its shape with it, otherwise mining a
+    // sloped block and placing a new one there would inherit the old slope.
+    if (this.shapes[i] !== SH.FULL) {
+      this.shapes[i] = SH.FULL;
+      if (record) this.shapeDiffs.set(i, SH.FULL);
+    }
     this._recomputeTopSolidColumn(tx);
+    if (this.liquid) this.liquid.onTileChanged(tx, ty);
+  }
+
+  // ---- Block shapes (hammer) ----
+  getShape(tx, ty) {
+    if (!this.inBounds(tx, ty)) return SH.FULL;
+    return this.shapes[this.index(tx, ty)];
+  }
+  setShape(tx, ty, shape, record = true) {
+    if (!this.inBounds(tx, ty)) return;
+    const i = this.index(tx, ty);
+    if (this.shapes[i] === shape) return;
+    this.shapes[i] = shape;
+    if (record) this.shapeDiffs.set(i, shape);
+    this._recomputeTopSolidColumn(tx);
+    if (this.liquid) this.liquid.onTileChanged(tx, ty);
+  }
+
+  // True when a point given in world pixels is inside solid material, shape
+  // included. This is the primitive the collision resolver is built on.
+  pointInSolid(wx, wy) {
+    const tx = Math.floor(wx / TILE), ty = Math.floor(wy / TILE);
+    if (!this.isSolidAt(tx, ty)) return false;
+    const shape = this.getShape(tx, ty);
+    if (shape === SH.FULL) return true;
+    return shapeContains(shape, (wx / TILE) - tx, (wy / TILE) - ty);
+  }
+
+  // Y in world pixels of the walkable surface of the tile at (tx,ty), for an
+  // entity whose feet are at world-x `wx`. Returns null when there is nothing
+  // to stand on there. Slopes return a height part-way up the tile, which is
+  // what lets the player walk up a ramp instead of stepping onto it.
+  surfaceYAt(tx, ty, wx) {
+    if (!this.isSolidAt(tx, ty)) return null;
+    const shape = this.getShape(tx, ty);
+    if (!fillsTop(shape) && shape !== SH.HALF_BOTTOM) return null;
+    const fx = clamp01((wx / TILE) - tx);
+    const off = surfaceOffset(shape, fx);
+    if (off >= 1) return null;
+    return (ty + off) * TILE;
   }
 
   // ---- Background walls ----
@@ -73,26 +129,61 @@ export class World {
 
   isSolidAt(tx, ty) { return isSolid(this.get(tx, ty)); }
 
+  // Solid *and* shaped full, i.e. a tile that blocks its whole cell. Used where
+  // a cheap conservative answer is wanted (navigation, spawning).
+  isFullSolidAt(tx, ty) {
+    return this.isSolidAt(tx, ty) && this.getShape(tx, ty) === SH.FULL;
+  }
+
   // True if a straight line between two world-pixel points crosses no solid
-  // tile. Used by minions/AI so they don't target through walls.
+  // tile. Used by minions/AI so they don't target through walls, and by melee
+  // so a sword can't reach through rock.
   hasLineOfSight(x1, y1, x2, y2) {
     const dx = x2 - x1, dy = y2 - y1;
     const d = Math.hypot(dx, dy);
     const steps = Math.max(1, Math.ceil(d / (TILE * 0.5)));
     for (let i = 1; i < steps; i++) {
       const t = i / steps;
-      if (this.isSolidAt(Math.floor((x1 + dx * t) / TILE), Math.floor((y1 + dy * t) / TILE))) return false;
+      if (this.pointInSolid(x1 + dx * t, y1 + dy * t)) return false;
     }
     return true;
   }
 
-  // Rectangle (world px) vs solid tiles.
+  // Rectangle (world px) vs solid tiles. Shape-aware: a rectangle overlapping
+  // only the empty half of a half-block or the open side of a slope does not
+  // collide, which is what makes sculpted terrain walkable.
   rectHitsSolid(x, y, w, h) {
     const x0 = Math.floor(x / TILE), x1 = Math.floor((x + w - 0.001) / TILE);
     const y0 = Math.floor(y / TILE), y1 = Math.floor((y + h - 0.001) / TILE);
-    for (let ty = y0; ty <= y1; ty++)
-      for (let tx = x0; tx <= x1; tx++)
-        if (this.isSolidAt(tx, ty)) return true;
+    for (let ty = y0; ty <= y1; ty++) {
+      for (let tx = x0; tx <= x1; tx++) {
+        if (!this.isSolidAt(tx, ty)) continue;
+        const shape = this.getShape(tx, ty);
+        if (shape === SH.FULL) return true;
+        if (this._shapeOverlapsRect(shape, tx, ty, x, y, w, h)) return true;
+      }
+    }
+    return false;
+  }
+
+  // Sample the shaped part of one tile against a rectangle. A handful of
+  // samples across the overlap is plenty at tile scale and avoids a per-shape
+  // polygon clip.
+  _shapeOverlapsRect(shape, tx, ty, x, y, w, h) {
+    const tileX = tx * TILE, tileY = ty * TILE;
+    const ox0 = Math.max(x, tileX), ox1 = Math.min(x + w, tileX + TILE);
+    const oy0 = Math.max(y, tileY), oy1 = Math.min(y + h, tileY + TILE);
+    if (ox1 <= ox0 || oy1 <= oy0) return false;
+    const SAMPLES = 4;
+    for (let i = 0; i <= SAMPLES; i++) {
+      const sx = ox0 + ((ox1 - ox0) * i) / SAMPLES;
+      const fx = clamp01((sx - tileX) / TILE);
+      for (let j = 0; j <= SAMPLES; j++) {
+        const sy = oy0 + ((oy1 - oy0) * j) / SAMPLES;
+        const fy = clamp01((sy - tileY) / TILE);
+        if (shapeContains(shape, fx, fy)) return true;
+      }
+    }
     return false;
   }
 
@@ -257,6 +348,11 @@ export class World {
     for (const [i, id] of this.wallDiffs) out.push(i % this.width, (i / this.width) | 0, id);
     return out;
   }
+  getShapeDiffArray() {
+    const out = [];
+    for (const [i, id] of this.shapeDiffs) out.push(i % this.width, (i / this.width) | 0, id);
+    return out;
+  }
 
   applyDiffArray(arr) {
     if (!arr) return;
@@ -280,4 +376,20 @@ export class World {
       this.wallDiffs.set(i, id);
     }
   }
+
+  applyLiquidDiffArray(arr) { this.liquid.applyDiffArray(arr); }
+
+  applyShapeDiffArray(arr) {
+    if (!arr) return;
+    for (let k = 0; k + 2 < arr.length; k += 3) {
+      const tx = arr[k], ty = arr[k + 1], id = arr[k + 2];
+      if (!this.inBounds(tx, ty)) continue;
+      const i = this.index(tx, ty);
+      this.shapes[i] = id;
+      this.shapeDiffs.set(i, id);
+    }
+    this._recomputeAllTopSolid();
+  }
 }
+
+function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }

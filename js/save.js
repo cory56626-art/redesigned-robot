@@ -1,5 +1,5 @@
 // Summoner Realms — localStorage save/load with named slots + save indicator.
-import { SAVE_PREFIX, SAVE_INDEX_KEY, SETTINGS_KEY, SAVE_VERSION, LEGACY_WORLD_W } from './config.js?v=realms-difficulty-22';
+import { SAVE_PREFIX, SAVE_INDEX_KEY, SETTINGS_KEY, SAVE_VERSION, LEGACY_WORLD_W } from './config.js?v=quality-of-realms-1';
 
 // Upgrade a save to the current format.
 //
@@ -8,20 +8,34 @@ import { SAVE_PREFIX, SAVE_INDEX_KEY, SETTINGS_KEY, SAVE_VERSION, LEGACY_WORLD_W
 // completely different. v2 stores (x, y, id) triples instead, and legacy saves
 // are converted using the old width so anything you built keeps its coordinates.
 // Natural terrain around it regenerates with the new generator either way.
+//
+// v4 (4.1) adds the block-shape and liquid layers. Older saves simply have
+// neither, which is exactly what an empty diff array means — so the upgrade is
+// additive and a v3 world loads with every block full and every pool as
+// worldgen placed it.
 export function migrateSave(data) {
   if (!data || typeof data !== 'object') return null;
   const version = data.version || 1;
-  if (version >= SAVE_VERSION) return Object.assign({}, data, { difficulty: data.difficulty || 'normal' });
+  const out = Object.assign({}, data, { difficulty: data.difficulty || 'normal' });
+  if (version < SAVE_VERSION) { out.version = SAVE_VERSION; out.migratedFrom = version; }
 
-  const out = Object.assign({}, data, { version: SAVE_VERSION, migratedFrom: version, difficulty: data.difficulty || 'normal' });
-  const legacy = data.diffs || [];
-  const triples = [];
-  for (let k = 0; k + 1 < legacy.length; k += 2) {
-    const i = legacy[k], id = legacy[k + 1];
-    triples.push(i % LEGACY_WORLD_W, Math.floor(i / LEGACY_WORLD_W), id);
+  // v1 -> v2: flat indices become (x, y, id) triples against the old width.
+  if (version < 2) {
+    const legacy = data.diffs || [];
+    const triples = [];
+    for (let k = 0; k + 1 < legacy.length; k += 2) {
+      const i = legacy[k], id = legacy[k + 1];
+      triples.push(i % LEGACY_WORLD_W, Math.floor(i / LEGACY_WORLD_W), id);
+    }
+    out.diffs = triples;
+    out.wallDiffs = [];
   }
-  out.diffs = triples;
-  out.wallDiffs = [];
+
+  // v3 -> v4: the shape and liquid layers did not exist.
+  if (!Array.isArray(out.shapeDiffs)) out.shapeDiffs = [];
+  if (!Array.isArray(out.liquidDiffs)) out.liquidDiffs = [];
+  if (out.weather == null) out.weather = null;
+  if (!Array.isArray(out.explored)) out.explored = [];
   return out;
 }
 

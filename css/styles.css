@@ -573,3 +573,14 @@ input[type="range"]::-moz-range-thumb {
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--teal); }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* ---- Amount prompt (drop N, and anywhere else a count is needed) ---- */
+.amount-row { display: flex; align-items: center; gap: var(--s3); margin: var(--s4) 0 var(--s3); }
+.amount-row input[type="number"] {
+  flex: 1; text-align: center; font-size: 20px; font-weight: 700;
+  -moz-appearance: textfield;
+}
+.amount-row input[type="number"]::-webkit-outer-spin-button,
+.amount-row input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.amount-row .btn.small { min-width: 44px; font-size: 18px; line-height: 1; }
+#amountDialog input[type="range"] { width: 100%; }

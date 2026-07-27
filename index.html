@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1020" />
   <title>Summoner Realms</title>
-  <link rel="stylesheet" href="css/styles.css?v=aidan-summon-10" />
+  <link rel="stylesheet" href="css/styles.css?v=quality-of-realms-1" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230b1020'/%3E%3Crect x='5' y='2' width='6' height='6' fill='%237ee0c0'/%3E%3Crect x='6' y='9' width='4' height='5' fill='%23c58bff'/%3E%3C/svg%3E" />
 </head>
 <body>
@@ -31,6 +31,8 @@
       <div id="netStatus" class="chip net-status hidden">Offline</div>
       <div id="minionCount" class="chip minion-count hidden">Minions 0/1</div>
       <div id="smartCursorChip" class="chip smart-chip hidden">Smart Cursor</div>
+      <div id="windChip" class="chip wind-chip hidden">Calm</div>
+      <div id="zoomChip" class="chip zoom-chip hidden">⌕ 100%</div>
     </div>
 
     <!-- Boss health bar -->
@@ -219,7 +221,7 @@
   </div>
 
   <!-- ============ PAUSE MENU ============ -->
-  <div id="pauseMenu" class="overlay menu hidden">
+  <div id="pauseMenu" class="overlay menu non-blocking hidden">
     <div class="menu-panel">
       <h2>Paused</h2>
       <div class="menu-buttons">
@@ -240,7 +242,7 @@
        Anchored to a corner rather than covering the screen, and the backdrop
        does not take pointer events, so the world stays visible and playable
        while the bag is open. -->
-  <div id="inventoryScreen" class="overlay inv hidden">
+  <div id="inventoryScreen" class="overlay inv non-blocking hidden">
     <div class="inv-wrap">
       <section class="panel inv-main">
         <div class="panel-head">
@@ -362,6 +364,27 @@
     </div>
   </div>
 
+  <!-- ============ AMOUNT PROMPT ============ -->
+  <!-- Used for "drop how many?" and anywhere else a count is needed. A real
+       dialog rather than window.prompt so it works in the mobile control mode. -->
+  <div id="amountDialog" class="overlay dialog hidden">
+    <div class="dialog-panel narrow">
+      <h2 id="amountTitle">How many?</h2>
+      <div class="amount-row">
+        <button class="btn small" id="amountMinus">−</button>
+        <input type="number" id="amountInput" min="1" value="1" />
+        <button class="btn small" id="amountPlus">+</button>
+      </div>
+      <input type="range" id="amountRange" min="1" max="99" step="1" value="1" aria-label="Amount" />
+      <div class="dialog-buttons">
+        <button class="btn" id="amountHalf">Half</button>
+        <button class="btn" id="amountAll">All</button>
+        <button class="btn" id="amountCancel">Cancel</button>
+        <button class="btn primary" id="amountOk">Confirm</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ DEATH SCREEN ============ -->
   <div id="deathScreen" class="overlay death hidden">
     <div class="death-panel">
@@ -392,6 +415,6 @@
   <!-- The ?v= stamp is applied to every module by tools/stamp-build.mjs, driven
        by the BUILD constant in js/config.js, so a release can never ship a
        half-updated module graph out of the browser cache. -->
-  <script type="module" src="js/main.js?v=aidan-summon-15"></script>
+  <script type="module" src="js/main.js?v=quality-of-realms-1"></script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 // Summoner Realms — item catalogue. All original names/designs.
 // Categories: weapon (melee/ranged/mage/summon), tool, armor, accessory,
 // potion, ammo, material, block, station, summonitem.
-import { T } from '../world/tiles.js?v=realms-difficulty-22';
+import { T } from '../world/tiles.js?v=quality-of-realms-1';
 
 export const ITEMS = {};
 
@@ -23,6 +23,14 @@ def({ id: 'woodAxe', name: 'Oaken Hatchet', category: 'tool', tool: { power: 1, 
 def({ id: 'cupriteAxe', name: 'Cuprite Axe', category: 'tool', tool: { power: 2, kind: 'axe' }, color: '#c47b4a', tier: 1, desc: 'Chops trees faster (power 2).' });
 def({ id: 'ironveinAxe', name: 'Ironvein Axe', category: 'tool', tool: { power: 3, kind: 'axe' }, color: '#a9b0bd', tier: 2, desc: 'Chops trees swiftly (power 3).' });
 
+// ---------- Tools: hammers (sculpt blocks, strip walls) ----------
+// A hammer never breaks a block. Each hit walks the tile one step around the
+// shape cycle — full, half, the four slopes — and a hammer swung at open air
+// with a background wall behind it takes the wall down instead.
+def({ id: 'woodHammer', name: 'Oaken Mallet', category: 'tool', tool: { power: 1, kind: 'hammer' }, color: '#9a6a3a', color2: '#6b4a24', desc: 'Sculpts blocks into halves and slopes. Strips background walls.' });
+def({ id: 'cupriteHammer', name: 'Cuprite Hammer', category: 'tool', tool: { power: 2, kind: 'hammer' }, color: '#c47b4a', tier: 1, desc: 'Shapes blocks and strips walls faster (power 2).' });
+def({ id: 'ironveinHammer', name: 'Ironvein Sledge', category: 'tool', tool: { power: 3, kind: 'hammer' }, color: '#a9b0bd', tier: 2, desc: 'Shapes blocks and strips walls swiftly (power 3).' });
+
 // ---------- Melee weapons (8) ----------
 const melee = (id, name, color, dmg, useTime, tier, extra = {}) =>
   def(Object.assign({ id, name, category: 'weapon', weaponClass: 'melee', color, damage: dmg, useTime, tier, knockback: 4, crit: 0.06, reach: 30, arc: 1.6, meleeKind: 'sword', desc: `${name} — ${dmg} melee damage.` }, extra));
@@ -32,8 +40,11 @@ melee('cupriteSword', 'Cuprite Sword', '#c47b4a', 13, 0.34, 1);
 melee('thornspikeSpear', 'Thornspike Spear', '#5a7a3a', 15, 0.42, 1, { meleeKind: 'spear', reach: 46, arc: 0.6, knockback: 6, desc: 'Long thrust with extended reach.' });
 melee('ironveinSaber', 'Ironvein Saber', '#a9b0bd', 19, 0.30, 2, { crit: 0.10 });
 melee('emberaxe', 'Emberaxe', '#ff7a3b', 24, 0.55, 2, { meleeKind: 'heavy', reach: 34, arc: 2.0, knockback: 8, effect: { burn: 3 }, fx: { swing: 'flame' }, desc: 'Heavy swing that sets foes ablaze.' });
-melee('glimmerGlaive', 'Glimmer Glaive', '#ffe08a', 28, 0.34, 3, { meleeKind: 'spear', reach: 44, crit: 0.10, fx: { swing: 'gleam' } });
-melee('aetheredgeGreatblade', 'Aetheredge Greatblade', '#8ad9ff', 40, 0.5, 4, { meleeKind: 'heavy', reach: 40, arc: 2.2, knockback: 10, crit: 0.12, fx: { swing: 'arcwave' }, desc: 'Massive arc of arcane steel.' });
+melee('glimmerGlaive', 'Glimmer Glaive', '#ffe08a', 28, 0.34, 3, { meleeKind: 'spear', reach: 44, crit: 0.10, phasing: true, fx: { swing: 'gleam' }, desc: 'Glimmer Glaive — 28 melee damage. Its light passes through thin stone.' });
+// `phasing` weapons are the only melee that reaches through terrain — every
+// other blade is stopped by rock (see systems/combat._meleeCanReach). It is a
+// deliberate top-tier perk, and the tooltip says so.
+melee('aetheredgeGreatblade', 'Aetheredge Greatblade', '#8ad9ff', 40, 0.5, 4, { meleeKind: 'heavy', reach: 40, arc: 2.2, knockback: 10, crit: 0.12, phasing: true, fx: { swing: 'arcwave' }, desc: 'Massive arc of arcane steel. Its edge cuts straight through stone.' });
 
 // ---------- Ranged weapons (8) ----------
 const ranged = (id, name, color, dmg, useTime, tier, extra = {}) =>

@@ -1,12 +1,12 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
-import { MSG } from './protocol.js?v=realms-difficulty-22';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=realms-difficulty-22';
-import { Player, assignColor } from '../entities/player.js?v=realms-difficulty-22';
-import { Projectile } from '../entities/projectile.js?v=realms-difficulty-22';
-import { ThrownItem } from '../entities/thrown.js?v=realms-difficulty-22';
-import { ITEMS } from '../data/items.js?v=realms-difficulty-22';
-import { ENEMIES } from '../data/enemies.js?v=realms-difficulty-22';
-import { BOSSES } from '../data/bosses.js?v=realms-difficulty-22';
+import { MSG } from './protocol.js?v=quality-of-realms-1';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=quality-of-realms-1';
+import { Player, assignColor } from '../entities/player.js?v=quality-of-realms-1';
+import { Projectile } from '../entities/projectile.js?v=quality-of-realms-1';
+import { ThrownItem } from '../entities/thrown.js?v=quality-of-realms-1';
+import { ITEMS } from '../data/items.js?v=quality-of-realms-1';
+import { ENEMIES } from '../data/enemies.js?v=quality-of-realms-1';
+import { BOSSES } from '../data/bosses.js?v=quality-of-realms-1';
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 
@@ -21,6 +21,9 @@ export function buildWelcome(game, forId) {
     difficulty: game.difficulty,
     diffs: game.world.getDiffArray(),
     wallDiffs: game.world.getWallDiffArray(),
+    shapeDiffs: game.world.getShapeDiffArray(),
+    liquidDiffs: game.world.liquid ? game.world.liquid.getDiffArray() : [],
+    weather: game.weather ? game.weather.serialize() : null,
     time: game.time.t,
     day: game.time.day,
     progression: game.progression.serialize(),
@@ -35,10 +38,19 @@ export function applyWelcome(game, msg) {
   if (!msg || typeof msg !== 'object') return;
   game.selfId = msg.id;
   game.net.hostId = msg.hostId;
-  game.startClientWorld(
-    msg.seed, msg.name, asArray(msg.diffs), msg.time, msg.progression || {},
-    asArray(msg.wallDiffs), msg.day || 1, msg.difficulty
-  );
+  game.startClientWorld({
+    seed: msg.seed,
+    name: msg.name,
+    diffs: asArray(msg.diffs),
+    wallDiffs: asArray(msg.wallDiffs),
+    shapeDiffs: asArray(msg.shapeDiffs),
+    liquidDiffs: asArray(msg.liquidDiffs),
+    weather: msg.weather || null,
+    time: msg.time,
+    day: msg.day || 1,
+    progression: msg.progression || {},
+    difficulty: msg.difficulty,
+  });
   // Remote players (everyone except us).
   const players = asArray(msg.players);
   for (const ps of players) {
@@ -293,6 +305,18 @@ export function handleMessage(game, fromId, msg, conn) {
     }
     case MSG.WALL_EDIT: {
       game.world.setWall(msg.tx, msg.ty, msg.id, true);
+      game.markDirty();
+      if (net.isHost) net.broadcast(msg, fromId);
+      break;
+    }
+    case MSG.SHAPE_EDIT: {
+      game.world.setShape(msg.tx, msg.ty, msg.id, true);
+      game.markDirty();
+      if (net.isHost) net.broadcast(msg, fromId);
+      break;
+    }
+    case MSG.LIQUID_EDIT: {
+      if (game.world.liquid) game.world.liquid.set(msg.tx, msg.ty, msg.level, true);
       game.markDirty();
       if (net.isHost) net.broadcast(msg, fromId);
       break;

@@ -4,7 +4,11 @@
 // Single build stamp for every cache-busted module import. Bump this once per
 // release instead of editing per-module `?build=` strings (which drifted out of
 // sync and could ship a half-updated module graph).
-export const BUILD = 'aidan-summon-12';
+export const BUILD = 'quality-of-realms-1';
+
+// Release identity, surfaced on the main menu and in Claude's Notes.
+export const VERSION = '4.1';
+export const VERSION_TITLE = 'Quality of Realms';
 
 export const WORLD_DIFFICULTIES = Object.freeze([
   { key: 'normal', label: 'Normal', tier: 'Buffed baseline', hint: 'Enemies and bosses are tougher than the old baseline, but attacks stay readable.' },
@@ -122,9 +126,56 @@ export const SAVE_PREFIX = 'summonerRealms.save.';
 export const SAVE_INDEX_KEY = 'summonerRealms.saves';
 export const SETTINGS_KEY = 'summonerRealms.settings';
 export const AUTOSAVE_INTERVAL = 30; // seconds
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 // Width of the v1 world, needed to decode legacy flat-index tile diffs.
 export const LEGACY_WORLD_W = 420;
 
+// ---- Characters (4.1) ----
+// Characters are saved separately from worlds, Terraria-style: a character
+// carries its own appearance, inventory, equipment and achievements, and can be
+// taken into any world. World saves keep only world state.
+export const CHAR_PREFIX = 'summonerRealms.char.';
+export const CHAR_INDEX_KEY = 'summonerRealms.characters';
+export const CHAR_VERSION = 1;
+export const LAST_CHAR_KEY = 'summonerRealms.lastCharacter';
+
 // Rendering: target number of tiles visible vertically (drives zoom).
 export const TARGET_TILES_V = 22;
+// Player-adjustable zoom multiplier on top of that (Terraria-style).
+// Larger zoom = fewer tiles on screen = closer in.
+export const ZOOM_MIN = 0.6;
+export const ZOOM_MAX = 2.0;
+export const ZOOM_DEFAULT = 1.0;
+export const ZOOM_STEP = 0.1;
+
+// ---- Wind / weather (4.1) ----
+// Wind blows from one side only and is re-rolled on a slow cadence. It sways
+// foliage and applies a deliberately mild drag to surface movement; it never
+// reaches underground.
+export const WIND_MIN_INTERVAL = 22;   // seconds before the wind may change again
+export const WIND_MAX_INTERVAL = 70;
+export const WIND_SHIFT_TIME = 6;      // seconds to ease from one state to the next
+export const WIND_GUST_RATE = 0.23;    // gust oscillation speed
+export const WIND_GUST_AMOUNT = 0.22;  // how much of the strength a gust can add
+// Fraction of MOVE_SPEED a full gale can push the player by. Kept small on
+// purpose: strong enough to feel, never strong enough to fight.
+export const WIND_PLAYER_PUSH = 0.12;
+// Tiles below the surface line at which wind has fully died away.
+export const WIND_DEPTH_FADE = 6;
+
+// ---- Liquids (4.1) ----
+// Water is stored as a per-tile level 0..LIQUID_MAX and simulated with an
+// active set, so a settled world costs nothing per frame.
+export const LIQUID_MAX = 8;
+export const LIQUID_TICK = 1 / 12;     // seconds between flow updates
+export const LIQUID_BUDGET = 3000;     // max cells processed per flow update
+export const SWIM_GRAVITY = 0.28;      // gravity multiplier while submerged
+export const SWIM_MAX_FALL = 110;      // terminal velocity in water
+export const SWIM_DRAG = 0.62;         // horizontal speed multiplier in water
+export const SWIM_STROKE = 150;        // upward impulse from jumping in water
+
+// ---- Fishing (4.1) ----
+export const FISH_MIN_WAIT = 3.0;      // seconds before the earliest possible bite
+export const FISH_MAX_WAIT = 16.0;
+export const FISH_HOOK_WINDOW = 0.9;   // seconds to react once the bobber dips
+export const FISH_MIN_POOL = 12;       // water tiles needed around the bobber

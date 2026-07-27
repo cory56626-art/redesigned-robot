@@ -1,7 +1,7 @@
 // Summoner Realms — in-game HUD (bars, hotbar, boss bar, clock, indicators).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN } from '../config.js?v=aidan-summon-1';
-import { Sprites } from '../art/sprites.js?v=aidan-summon-1';
-import { item as getItem } from '../data/items.js?v=aidan-summon-1';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN } from '../config.js?v=quality-of-realms-1';
+import { Sprites } from '../art/sprites.js?v=quality-of-realms-1';
+import { item as getItem } from '../data/items.js?v=quality-of-realms-1';
 
 const BUFF_ICON = { regen: '♥', ironskin: '🛡', swift: '»' };
 
@@ -27,8 +27,21 @@ export class HUD {
       smartChip: document.getElementById('smartCursorChip'),
       toasts: document.getElementById('toasts'),
       ammo: document.getElementById('ammoIndicator'),
+      wind: document.getElementById('windChip'),
+      zoom: document.getElementById('zoomChip'),
     };
     this._buildHotbar();
+  }
+
+  // Brief zoom readout, so changing zoom gives feedback without a toast that
+  // would pile up while the player holds +/- or pinches.
+  showZoom(percent) {
+    const el = this.el.zoom;
+    if (!el) return;
+    el.textContent = '⌕ ' + percent + '%';
+    el.classList.remove('hidden');
+    clearTimeout(this._zoomT);
+    this._zoomT = setTimeout(() => el.classList.add('hidden'), 1200);
   }
 
   show() { this.el.hud.classList.remove('hidden'); }
