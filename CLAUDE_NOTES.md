@@ -382,6 +382,8 @@ Commands (open with `/` in-game, or the Demo Commands panel):
 - Cheats/util: `/godmode`, `/fly`, `/heal`, `/mana`, `/time day|night`, `/save`
 - Debug overlays: `/debugcaves`, `/debugcollision`, `/debugai`, `/debugspawn`,
   `/debugbiome`
+- 4.1: `/spawnfauna <animal> [n]`, `/water [r]`, `/dryup [r]`, `/wind [-1..1]`,
+  `/achievements`, `/unlockall`
 
 Content ids:
 
@@ -390,3 +392,6 @@ Content ids:
   pig→boar, ghost/caster→blightshade)
 - Bosses: `grovekeeper` (Forest), `gravemaw` (Underground),
   `blightSovereign` (Corrupted Lands)
+- Wildlife: `cow`, `pig`, `sheep`, `rabbit`, `chicken`, `frog`
+- Bugs (fishing bait): `worm`, `grub`, `cricket`, `beetle`, `firefly`,
+  `glowmoth`

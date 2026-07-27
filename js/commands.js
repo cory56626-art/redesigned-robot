@@ -3,6 +3,9 @@ import { ITEMS, DEMO_GIVE_ALL } from './data/items.js?v=quality-of-realms-1';
 import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=quality-of-realms-1';
 import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=quality-of-realms-1';
 import { TRACKS } from './engine/music.js?v=quality-of-realms-1';
+import { FAUNA } from './data/fauna.js?v=quality-of-realms-1';
+import { ACHIEVEMENTS } from './systems/achievements.js?v=quality-of-realms-1';
+import { TILE, LIQUID_MAX } from './config.js?v=quality-of-realms-1';
 
 const $ = (id) => document.getElementById(id);
 
@@ -33,6 +36,12 @@ export class CommandConsole {
       give: { args: '[item] [amount]', desc: 'Give an item', run: (a) => this._give(a) },
       giveall: { args: '', desc: 'Give all demo items', run: () => this._giveAll() },
       spawn: { args: '[enemy]', desc: 'Spawn an enemy nearby', run: (a) => this._spawn(a) },
+      spawnfauna: { args: '[animal]', desc: 'Spawn wildlife nearby (cow, rabbit, firefly, …)', run: (a) => this._spawnFauna(a) },
+      water: { args: '[radius]', desc: 'Pour water around you (tests the flow sim)', run: (a) => this._water(a) },
+      dryup: { args: '[radius]', desc: 'Remove water around you', run: (a) => this._dryUp(a) },
+      wind: { args: '[-1..1]', desc: 'Force the wind (blank = re-roll)', run: (a) => this._wind(a) },
+      achievements: { args: '', desc: 'Show achievement progress', run: () => this._achievements() },
+      unlockall: { args: '', desc: 'Unlock every achievement (testing)', run: () => this._unlockAll() },
       spawnboss: { args: '[boss]', desc: 'Spawn a boss', run: (a) => this._spawnBoss(a) },
       summonitem: { args: '[boss]', desc: 'Give a boss-summoning item', run: (a) => this._summonItem(a) },
       aidansigil: { args: '', desc: 'Give the debug-only Aidan Sigil', run: () => this._give(['aidanSigil', '1']) },
@@ -73,6 +82,96 @@ export class CommandConsole {
     }
     m.play(arg);
     return ok('Requested "' + arg + '". ' + m.statusText());
+  }
+
+  // ---- 4.1 testing helpers ----
+
+  _spawnFauna(a) {
+    const g = this.game;
+    const key = this._resolveFauna(a[0]);
+    if (!key) return err('Unknown animal. Try: ' + Object.keys(FAUNA).join(', '));
+    const n = Math.max(1, Math.min(10, parseInt(a[1], 10) || 1));
+    const p = g.localPlayer;
+    let made = 0;
+    for (let i = 0; i < n; i++) {
+      const side = Math.random() < 0.5 ? -1 : 1;
+      if (g.spawnCritter(key, p.x + side * (40 + Math.random() * 60), p.y - 24)) made++;
+    }
+    return made ? ok(`Spawned ${made} × ${FAUNA[key].name}.`) : err('No room to spawn.');
+  }
+
+  // Same forgiving matching /give and /spawn use: case and punctuation are
+  // ignored, so "fire fly" and "firefly" both work.
+  _resolveFauna(name) {
+    if (!name) return null;
+    const want = String(name).toLowerCase().replace(/[^a-z0-9]/g, '');
+    for (const key of Object.keys(FAUNA)) {
+      if (key.toLowerCase() === want) return key;
+      if (FAUNA[key].name.toLowerCase().replace(/[^a-z0-9]/g, '') === want) return key;
+    }
+    return null;
+  }
+
+  _water(a) {
+    const g = this.game;
+    const r = Math.max(1, Math.min(14, parseInt(a[0], 10) || 4));
+    const p = g.localPlayer;
+    const cx = Math.floor((p.x + p.w / 2) / TILE), cy = Math.floor((p.y + p.h / 2) / TILE) - r - 1;
+    let n = 0;
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (dx * dx + dy * dy > r * r) continue;
+        const tx = cx + dx, ty = cy + dy;
+        if (g.world.get(tx, ty) !== 0) continue;
+        g.world.liquid.set(tx, ty, LIQUID_MAX, true);
+        n++;
+      }
+    }
+    g.markDirty();
+    return ok(`Poured ${n} tiles of water above you. Watch it settle.`);
+  }
+
+  _dryUp(a) {
+    const g = this.game;
+    const r = Math.max(1, Math.min(40, parseInt(a[0], 10) || 12));
+    const p = g.localPlayer;
+    const cx = Math.floor((p.x + p.w / 2) / TILE), cy = Math.floor((p.y + p.h / 2) / TILE);
+    let n = 0;
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const tx = cx + dx, ty = cy + dy;
+        if (g.world.liquid.get(tx, ty) > 0) { g.world.liquid.set(tx, ty, 0, true); n++; }
+      }
+    }
+    g.markDirty();
+    return ok(`Removed water from ${n} tiles.`);
+  }
+
+  _wind(a) {
+    const g = this.game;
+    if (!a.length) { g.weather._roll(); return ok('Wind re-rolled: ' + g.weather.label()); }
+    const v = Math.max(-1, Math.min(1, parseFloat(a[0])));
+    if (Number.isNaN(v)) return err('Give a number between -1 (left) and 1 (right).');
+    g.weather.wind = v; g.weather.to = v; g.weather.from = v;
+    g.weather.shift = 0; g.weather.shiftT = 0; g.weather.timer = 600;
+    return ok('Wind set to ' + v.toFixed(2) + ' — ' + g.weather.label());
+  }
+
+  _achievements() {
+    const a = this.game.achievements;
+    const got = ACHIEVEMENTS.filter(d => a.has(d.id)).map(d => d.name);
+    const left = ACHIEVEMENTS.filter(d => !a.has(d.id)).map(d => d.name);
+    this.print(`Unlocked ${a.count()}/${a.total()}`, 'ok');
+    if (got.length) this.print('  ✓ ' + got.join(', '));
+    if (left.length) this.print('  · ' + left.join(', '), 'dim');
+    return null;
+  }
+
+  _unlockAll() {
+    const a = this.game.achievements;
+    let n = 0;
+    for (const d of ACHIEVEMENTS) if (a.unlock(d.id)) n++;
+    return ok(`Unlocked ${n} achievement(s).`);
   }
 
   _toggleDebug(key) {

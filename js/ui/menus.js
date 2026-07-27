@@ -994,8 +994,22 @@ export class Menus {
       if (def.summonMinion) stat('Summons', def.summonMinion);
       if (def.effect) stat('Effect', Object.keys(def.effect).join(', '), 'tt-good');
     } else if (def.category === 'tool') {
-      stat('Type', def.tool.kind === 'axe' ? 'Axe (chops trees)' : 'Pickaxe (mines stone/ore)');
+      const kinds = {
+        axe: 'Axe (chops trees)',
+        pickaxe: 'Pickaxe (mines stone/ore)',
+        hammer: 'Hammer (shapes blocks, strips walls)',
+      };
+      stat('Type', kinds[def.tool.kind] || def.tool.kind);
       stat('Power', def.tool.power);
+    } else if (def.category === 'fishingrod') {
+      stat('Fishing power', def.rod.power);
+      stat('Needs', 'Bait — catch a bug');
+    } else if (def.category === 'bait') {
+      stat('Bait quality', ['', 'Basic', 'Good', 'Excellent'][def.bait] || def.bait, 'tt-good');
+    } else if (def.category === 'crate') {
+      stat('Use', 'Click to open', 'tt-good');
+    } else if (def.category === 'bucket') {
+      stat('Use', def.bucket === 'water' ? 'Pour a tile of water' : 'Scoop a tile of water');
     } else if (def.category === 'armor') {
       stat('Slot', def.slot);
       stat('Defense', def.defense, 'tt-good');
@@ -1034,10 +1048,14 @@ export class Menus {
       if (def.effect) stat('Effect', Object.keys(def.effect).join(', '), 'tt-good');
     }
 
+    const TAGS = {
+      summonitem: 'Boss summon', throwable: 'Throwable', fishingrod: 'Fishing rod',
+      bait: 'Bait', crate: 'Crate', bucket: 'Pail',
+    };
     const tag = def.category === 'weapon' ? (CLASS_LABEL[def.weaponClass] + ' weapon')
-      : def.category === 'summonitem' ? 'Boss summon'
-      : def.category === 'throwable' ? 'Throwable'
-      : def.category.charAt(0).toUpperCase() + def.category.slice(1);
+      : def.food ? 'Food'
+      : TAGS[def.category]
+      || def.category.charAt(0).toUpperCase() + def.category.slice(1);
     return `<div class="tt-name" style="color:${rar.color}">${def.name}</div>`
       + `<div class="tt-tag" style="color:${rar.color}">${rar.name} · ${tag}</div>`
       + rows.join('')

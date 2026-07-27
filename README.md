@@ -204,6 +204,14 @@ they make testing fast:
 /time day|night       set time of day      /teleport [biome]  forest|underground|corrupt
 /clearinventory       clear inventory      /save      manually save
 /resetdemo            reset the demo world
+
+# 4.1
+/spawnfauna [animal]  spawn wildlife (cow, rabbit, firefly, glowmoth, …)
+/water [radius]       pour water above you (exercises the flow simulation)
+/dryup [radius]       remove water around you
+/wind [-1..1]         force the wind, or blank to re-roll it
+/achievements         show achievement progress
+/unlockall            unlock every achievement
 ```
 
 Item and enemy names are matched loosely — `/give plantfiber`, `/give plant fiber`
