@@ -38,6 +38,19 @@ export const ENEMIES = {
     projectile: { kind: 'crystal', damage: 9, speed: 210, color: '#bfe9ff' },
     drops: [{ item: 'ice', chance: 0.6, min: 1, max: 2 }, { item: 'aetherShard', chance: 0.05, min: 1, max: 1 }],
   },
+  borealLynx: {
+    key: 'borealLynx', name: 'Boreal Lynx', hp: 48, damage: 15, speed: 66, behavior: 'charger',
+    biomes: ['snowyTaiga'], time: 'any', color: '#dcecf0', color2: '#6e95a8', w: 22, h: 16, kbResist: 0.35,
+    aggroRange: 19, loseRange: 34, memory: 5, telegraph: 0.42,
+    drops: [{ item: 'rawGame', chance: 0.65, min: 1, max: 2 }, { item: 'glacieriteOre', chance: 0.12, min: 1, max: 2 }],
+  },
+  auroraWisp: {
+    key: 'auroraWisp', name: 'Aurora Wisp', hp: 34, damage: 12, speed: 78, behavior: 'caster',
+    biomes: ['snowyTaiga'], time: 'any', color: '#a6f6d9', color2: '#3b99a5', w: 14, h: 18, kbResist: 0.1,
+    aggroRange: 21, loseRange: 35, memory: 5, telegraph: 0.5, fireRate: 2.15,
+    projectile: { kind: 'aurora', damage: 10, speed: 225, color: '#b9ffe8' },
+    drops: [{ item: 'ice', chance: 0.65, min: 1, max: 2 }, { item: 'aetherShard', chance: 0.08, min: 1, max: 1 }],
+  },
   bat: {
     key: 'bat', name: 'Cave Flitter', hp: 16, damage: 8, speed: 78, behavior: 'flyer',
     biomes: ['underground', 'cavern'], time: 'any', color: '#6a5a7a', color2: '#463a5a', w: 16, h: 10, kbResist: 0.1,

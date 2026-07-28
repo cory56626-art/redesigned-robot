@@ -4,9 +4,9 @@
 // world read as "two halves" rather than a landscape. They are now laid out as
 // seeded bands along the world with blended seams, and every band carries its
 // own terrain shaping, tile palette, wall palette, decor table and sky colours.
-import { T } from './tiles.js?v=quality-of-realms-1';
-import { W } from './walls.js?v=quality-of-realms-1';
-import { mulberry32 } from '../utils.js?v=quality-of-realms-1';
+import { T } from './tiles.js?v=snowy-taiga-underground-1';
+import { W } from './walls.js?v=snowy-taiga-underground-1';
+import { mulberry32 } from '../utils.js?v=snowy-taiga-underground-1';
 
 // groundCover : the undergrowth mix for this band — a chance plus a weighted
 //               list of plants. Each biome grows something different, so
@@ -57,6 +57,22 @@ export const BIOMES = {
     iceChance: 0.16,
     skyDay: ['#5b81ad', '#cfe2f2'], skyNight: ['#0b1224', '#232c46'],
   },
+  snowyTaiga: {
+    key: 'snowyTaiga', label: 'Snowy Taiga',
+    surface: T.SNOW, sub: T.SNOW, subDepth: [8, 13], stone: T.STONE,
+    wall: W.SNOW, subWall: W.SNOW, stoneWall: W.STONE,
+    // Frostpine is steep and wind-battered; the Taiga is a calmer, broader
+    // snowfield with shorter, more widely spaced conifers.
+    amp: 6.5, rough: 0.32, lift: -1,
+    treeChance: 0.17, cactusChance: 0, vineChance: 0,
+    groundCover: { chance: 0.30, plants: [
+      { tile: T.FROSTBRACKEN, weight: 9 },
+      { tile: T.SHORTGRASS, weight: 1 },
+    ] },
+    treeTile: T.FROSTWOOD, leafTile: T.FROSTLEAVES, treeHeight: [6, 10], canopy: 'conifer',
+    iceChance: 0.27,
+    skyDay: ['#7197bf', '#edf8ff'], skyNight: ['#0d1830', '#2d4165'],
+  },
   corrupt: {
     key: 'corrupt', label: 'Corrupted Lands',
     surface: T.BLIGHTGRASS, sub: T.DIRT, subDepth: [4, 8], stone: T.BLIGHTSTONE,
@@ -75,7 +91,8 @@ export const BIOMES = {
   },
 };
 
-export const BIOME_ORDER = ['dunes', 'forest', 'frostpine', 'corrupt'];
+// Append-only ordering keeps saved biome-map indices stable across updates.
+export const BIOME_ORDER = ['dunes', 'forest', 'frostpine', 'corrupt', 'snowyTaiga'];
 export const SURFACE_BIOMES = new Set(BIOME_ORDER);
 
 // Width of the cross-fade at every band seam, in tiles. Terrain properties are
@@ -95,6 +112,7 @@ export function buildBiomeMap(seed, width) {
   const rc = mulberry32((seed ^ 0xb10e5) >>> 0);
   const duneW = Math.max(24, Math.round(width * 0.06));
   const frostW = Math.max(48, Math.round(width * (0.11 + rc() * 0.05)));
+  const taigaW = Math.max(54, Math.round(width * (0.08 + rc() * 0.03)));
   const corruptW = Math.max(56, Math.round(width * (0.13 + rc() * 0.06)));
 
   // Frostpine sits left of centre, corruption right of centre, both clear of
@@ -103,13 +121,21 @@ export function buildBiomeMap(seed, width) {
   const frostMax = Math.max(frostMin + 1, Math.floor(width * 0.40) - frostW);
   const frostStart = Math.round(frostMin + rc() * (frostMax - frostMin));
 
-  const corruptMin = Math.max(frostStart + frostW + 60, Math.floor(width * 0.55));
+  // The Taiga is a compact snow country between Frostpine and corruption. It
+  // has enough forest buffer on either side to read as its own place rather
+  // than a one-screen recolour.
+  const taigaMin = Math.max(frostStart + frostW + 42, Math.floor(width * 0.46));
+  const taigaMax = Math.max(taigaMin + 1, Math.floor(width * 0.66) - taigaW);
+  const taigaStart = Math.round(taigaMin + rc() * (taigaMax - taigaMin));
+
+  const corruptMin = Math.max(taigaStart + taigaW + 44, Math.floor(width * 0.66));
   const corruptMax = Math.max(corruptMin + 1, width - duneW - corruptW - 30);
   const corruptStart = Math.round(corruptMin + rc() * (corruptMax - corruptMin));
 
   const bands = [
     { biome: 'dunes', x0: 0, x1: duneW },
     { biome: 'frostpine', x0: frostStart, x1: frostStart + frostW },
+    { biome: 'snowyTaiga', x0: taigaStart, x1: taigaStart + taigaW },
     { biome: 'corrupt', x0: corruptStart, x1: corruptStart + corruptW },
     { biome: 'dunes', x0: width - duneW, x1: width },
   ];

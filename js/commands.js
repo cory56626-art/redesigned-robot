@@ -1,11 +1,11 @@
 // Summoner Realms — Demo Commands console (testing only).
-import { ITEMS, DEMO_GIVE_ALL } from './data/items.js?v=quality-of-realms-1';
-import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=quality-of-realms-1';
-import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=quality-of-realms-1';
-import { TRACKS } from './engine/music.js?v=quality-of-realms-1';
-import { FAUNA } from './data/fauna.js?v=quality-of-realms-1';
-import { ACHIEVEMENTS } from './systems/achievements.js?v=quality-of-realms-1';
-import { TILE, LIQUID_MAX } from './config.js?v=quality-of-realms-1';
+import { ITEMS, DEMO_GIVE_ALL } from './data/items.js?v=snowy-taiga-underground-1';
+import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=snowy-taiga-underground-1';
+import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=snowy-taiga-underground-1';
+import { TRACKS } from './engine/music.js?v=snowy-taiga-underground-1';
+import { FAUNA } from './data/fauna.js?v=snowy-taiga-underground-1';
+import { ACHIEVEMENTS } from './systems/achievements.js?v=snowy-taiga-underground-1';
+import { TILE, LIQUID_MAX } from './config.js?v=snowy-taiga-underground-1';
 
 const $ = (id) => document.getElementById(id);
 
@@ -54,7 +54,7 @@ export class CommandConsole {
       fly: { args: '', desc: 'Toggle flight', run: () => { g.localPlayer.cheats.fly = !g.localPlayer.cheats.fly; return ok('Fly ' + (g.localPlayer.cheats.fly ? 'ON' : 'OFF')); } },
       godmode: { args: '', desc: 'Toggle invincibility', run: () => { g.localPlayer.cheats.godmode = !g.localPlayer.cheats.godmode; return ok('God mode ' + (g.localPlayer.cheats.godmode ? 'ON' : 'OFF')); } },
       time: { args: '[day|night]', desc: 'Set time of day', run: (a) => this._time(a) },
-      teleport: { args: '[forest|dunes|frostpine|corrupt|underground|cavern]', desc: 'Teleport to a biome', run: (a) => this._teleport(a) },
+      teleport: { args: '[forest|dunes|frostpine|snowytaiga|corrupt|underground|cavern]', desc: 'Teleport to a biome', run: (a) => this._teleport(a) },
       clearinventory: { args: '', desc: 'Clear the inventory', run: () => { g.localPlayer.inventory.clear(); g.localPlayer.recomputeStats(); return ok('Inventory cleared.'); } },
       resetcooldowns: { args: '', desc: 'Clear attack/mana/heal cooldowns', run: () => this._resetCooldowns() },
       save: { args: '', desc: 'Manually save the game', run: () => { g.saveGame(true); return ok('Game saved.'); } },
@@ -260,7 +260,7 @@ export class CommandConsole {
       else if (name === 'spawn') pool = ENEMY_KEYS;
       else if (name === 'spawnboss' || name === 'summonitem') pool = BOSS_KEYS;
       else if (name === 'time') pool = ['day', 'night'];
-      else if (name === 'teleport') pool = ['forest', 'underground', 'corrupt', 'cavern'];
+      else if (name === 'teleport') pool = ['forest', 'dunes', 'frostpine', 'snowytaiga', 'corrupt', 'underground', 'cavern'];
       const prefix = parts.slice(0, parts.length - 1).join(' ') + ' ';
       items = pool.filter(k => k.toLowerCase().startsWith(q) || (ITEMS[k] && ITEMS[k].name.toLowerCase().includes(q)))
         .slice(0, 40).map(k => ({ text: prefix + k, desc: (ITEMS[k] && ITEMS[k].name) || (ENEMIES[k] && ENEMIES[k].name) || (BOSSES[k] && BOSSES[k].name) || '' }));
@@ -404,9 +404,9 @@ export class CommandConsole {
 
   _teleport(a) {
     const b = (a[0] || '').toLowerCase();
-    const places = ['forest', 'dunes', 'frostpine', 'corrupt', 'underground', 'cavern'];
+    const places = ['forest', 'dunes', 'frostpine', 'snowytaiga', 'corrupt', 'underground', 'cavern'];
     if (!places.includes(b)) return err('Usage: /teleport ' + places.join('|'));
-    this.game.teleportBiome(b);
+    this.game.teleportBiome(b === 'snowytaiga' ? 'snowyTaiga' : b);
     return ok('Teleported to ' + b + '.');
   }
 }

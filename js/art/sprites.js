@@ -9,9 +9,9 @@
 // top, a shadowed underside and rimmed sides. That neighbour awareness — plus
 // grass fringing down onto dirt and trunk/canopy shading — is most of what makes
 // terrain read as terrain instead of a grid of coloured squares.
-import { T, TILES, tileMat, isTree, isLeaf } from '../world/tiles.js?v=quality-of-realms-1';
-import { W, WALLS } from '../world/walls.js?v=quality-of-realms-1';
-import { mulberry32 } from '../utils.js?v=quality-of-realms-1';
+import { T, TILES, tileMat, isTree, isLeaf } from '../world/tiles.js?v=snowy-taiga-underground-1';
+import { W, WALLS } from '../world/walls.js?v=snowy-taiga-underground-1';
+import { mulberry32 } from '../utils.js?v=snowy-taiga-underground-1';
 
 function makeCanvas(w, h) {
   const c = document.createElement('canvas');
@@ -365,6 +365,32 @@ class SpriteBank {
     if (id === T.DEEPSTONE) {
       ctx.fillStyle = shade(base, -0.3);
       ctx.fillRect(3, 3, 4, 3); ctx.fillRect(9, 8, 5, 4); ctx.fillRect(2, 10, 3, 3);
+    }
+    if (id === T.LOOT_CHEST) {
+      ctx.clearRect(0, 0, TS, TS);
+      // A compact, warmly lit chest that reads at tile scale without looking
+      // like another brown block in a cave wall.
+      ctx.fillStyle = '#3f2414'; ctx.fillRect(2, 8, 12, 6);
+      ctx.fillStyle = '#875022'; ctx.fillRect(3, 7, 10, 7);
+      ctx.fillStyle = '#be7833'; ctx.fillRect(3, 6, 10, 3);
+      ctx.fillStyle = '#e8b45b'; ctx.fillRect(4, 6, 8, 1);
+      ctx.fillStyle = '#5b3319'; ctx.fillRect(3, 10, 10, 1); ctx.fillRect(5, 8, 1, 6); ctx.fillRect(10, 8, 1, 6);
+      ctx.fillStyle = '#ffdc79'; ctx.fillRect(7, 9, 2, 3); ctx.fillStyle = '#fff4bf'; ctx.fillRect(7, 9, 1, 1);
+      ctx.fillStyle = '#2d1b12'; ctx.fillRect(3, 14, 2, 1); ctx.fillRect(11, 14, 2, 1);
+    }
+    if (id === T.POISON_DART_TRAP_LEFT || id === T.POISON_DART_TRAP_RIGHT) {
+      ctx.clearRect(0, 0, TS, TS);
+      const right = id === T.POISON_DART_TRAP_RIGHT;
+      ctx.fillStyle = '#2f3b3a'; ctx.fillRect(4, 2, 8, 12);
+      ctx.fillStyle = '#71816b'; ctx.fillRect(5, 3, 6, 10);
+      ctx.fillStyle = '#a4b69d'; ctx.fillRect(6, 4, 4, 1);
+      ctx.fillStyle = '#30472e'; ctx.fillRect(6, 8, 4, 4);
+      ctx.fillStyle = '#90d65d'; ctx.fillRect(7, 8, 2, 2);
+      const nozzleX = right ? 10 : 2;
+      ctx.fillStyle = '#4d584d'; ctx.fillRect(nozzleX, 6, 4, 4);
+      ctx.fillStyle = '#d7e1d3'; ctx.fillRect(right ? 12 : 0, 7, 3, 2);
+      ctx.fillStyle = '#6da64b'; ctx.fillRect(right ? 14 : 0, 8, 1, 1);
+      ctx.fillStyle = '#1d2927'; ctx.fillRect(4, 14, 8, 1);
     }
     // torch
     if (id === T.TORCH) {
@@ -1003,6 +1029,7 @@ class SpriteBank {
     if (id === 'cupriteOre') { ctx.beginPath(); ctx.moveTo(3, 13); ctx.lineTo(7, 5); ctx.lineTo(15, 6); ctx.lineTo(17, 13); ctx.lineTo(11, 17); ctx.lineTo(5, 16); ctx.closePath(); ctx.fill(); [[7,8],[11,7],[12,12],[6,13]].forEach(([x,y])=>{ctx.fillStyle='#de8550';ctx.fillRect(x,y,3,3);ctx.fillStyle='#ffd090';ctx.fillRect(x,y,1,1);}); }
     else if (id === 'ironveinOre') { ctx.beginPath(); ctx.moveTo(4, 15); ctx.lineTo(5, 7); ctx.lineTo(11, 4); ctx.lineTo(16, 8); ctx.lineTo(15, 15); ctx.lineTo(9, 17); ctx.closePath(); ctx.fill(); [[7,8],[11,7],[9,12],[13,13]].forEach(([x,y])=>{ctx.fillStyle='#c8d0dc';ctx.fillRect(x,y,3,2);ctx.fillStyle='#f1f5fb';ctx.fillRect(x,y,1,1);}); }
     else if (id === 'glimmerOre') { ctx.beginPath(); ctx.moveTo(3, 12); ctx.lineTo(8, 4); ctx.lineTo(16, 7); ctx.lineTo(17, 14); ctx.lineTo(9, 17); ctx.closePath(); ctx.fill(); [[8,7],[12,8],[7,12],[13,13]].forEach(([x,y])=>{ctx.fillStyle='#ffe27b';ctx.fillRect(x,y,3,3);ctx.fillStyle='#fff9c8';ctx.fillRect(x,y,1,1);}); }
+    else if (id === 'glacieriteOre') { ctx.beginPath();ctx.moveTo(3,13);ctx.lineTo(6,6);ctx.lineTo(12,4);ctx.lineTo(17,9);ctx.lineTo(15,15);ctx.lineTo(8,17);ctx.closePath();ctx.fill();ctx.fillStyle='#6ecce8';ctx.beginPath();ctx.moveTo(7,7);ctx.lineTo(11,5);ctx.lineTo(10,12);ctx.lineTo(6,13);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(13,9);ctx.lineTo(16,10);ctx.lineTo(13,15);ctx.lineTo(11,13);ctx.closePath();ctx.fill();ctx.fillStyle='#e8ffff';ctx.fillRect(8,7,2,3);ctx.fillRect(13,10,1,3); }
     else if (id === 'aetheriteOre') { ctx.beginPath(); ctx.moveTo(3, 12); ctx.lineTo(8, 4); ctx.lineTo(15, 6); ctx.lineTo(17, 14); ctx.lineTo(9, 17); ctx.closePath(); ctx.fill(); ctx.fillStyle='#91e5ff';ctx.beginPath();ctx.moveTo(9,5);ctx.lineTo(12,9);ctx.lineTo(10,14);ctx.lineTo(6,12);ctx.closePath();ctx.fill();ctx.fillStyle='#e4feff';ctx.fillRect(9,7,2,4);ctx.fillRect(13,11,2,2); }
     else { ctx.beginPath(); ctx.moveTo(3, 12); ctx.lineTo(8, 4); ctx.lineTo(16, 7); ctx.lineTo(17, 14); ctx.lineTo(9, 17); ctx.closePath(); ctx.fill(); ctx.fillStyle='#c889f4';ctx.beginPath();ctx.moveTo(9,6);ctx.lineTo(14,9);ctx.lineTo(12,14);ctx.lineTo(7,12);ctx.closePath();ctx.fill();ctx.fillStyle='#f0c4ff';ctx.fillRect(9,8,2,2);ctx.fillRect(12,11,2,2); }
   }
@@ -1010,6 +1037,7 @@ class SpriteBank {
     if (id === 'cupriteBar') { ctx.fillStyle='#9c4d31';ctx.beginPath();ctx.moveTo(3,12);ctx.lineTo(6,8);ctx.lineTo(16,8);ctx.lineTo(18,13);ctx.lineTo(15,15);ctx.lineTo(5,15);ctx.closePath();ctx.fill();ctx.fillStyle='#e89a66';ctx.fillRect(6,9,10,3);ctx.fillStyle='#ffd39d';ctx.fillRect(7,9,7,1); }
     else if (id === 'ironveinBar') { ctx.fillStyle='#69717d';ctx.beginPath();ctx.moveTo(3,13);ctx.lineTo(6,8);ctx.lineTo(16,8);ctx.lineTo(18,13);ctx.lineTo(15,15);ctx.lineTo(5,15);ctx.closePath();ctx.fill();ctx.fillStyle='#cdd5e1';ctx.fillRect(6,9,10,3);ctx.fillStyle='#f3f6fb';ctx.fillRect(7,9,7,1);ctx.fillStyle='#929aa8';ctx.fillRect(8,12,6,1); }
     else if (id === 'glimmerBar') { ctx.fillStyle='#a88338';ctx.beginPath();ctx.moveTo(3,13);ctx.lineTo(7,8);ctx.lineTo(15,8);ctx.lineTo(18,13);ctx.lineTo(15,15);ctx.lineTo(5,15);ctx.closePath();ctx.fill();ctx.fillStyle='#ffe79b';ctx.fillRect(7,9,8,3);ctx.fillStyle='#fff8d0';ctx.fillRect(8,9,5,1);ctx.fillStyle='#d2a946';ctx.fillRect(6,12,10,1); }
+    else if (id === 'glacieriteBar') { ctx.fillStyle='#477c91';ctx.beginPath();ctx.moveTo(3,13);ctx.lineTo(7,8);ctx.lineTo(15,8);ctx.lineTo(18,13);ctx.lineTo(15,15);ctx.lineTo(5,15);ctx.closePath();ctx.fill();ctx.fillStyle='#9eeaff';ctx.fillRect(7,9,8,3);ctx.fillStyle='#e9ffff';ctx.fillRect(8,9,5,1);ctx.fillStyle='#62bad7';ctx.fillRect(6,12,10,1);ctx.fillStyle='#d8fbff';ctx.fillRect(13,10,1,1); }
     else if (id === 'aetheriteBar') { ctx.fillStyle='#4e829c';ctx.beginPath();ctx.moveTo(3,13);ctx.lineTo(7,8);ctx.lineTo(15,8);ctx.lineTo(18,13);ctx.lineTo(15,15);ctx.lineTo(5,15);ctx.closePath();ctx.fill();ctx.fillStyle='#a9edff';ctx.fillRect(7,9,8,3);ctx.fillStyle='#e6fcff';ctx.fillRect(8,9,5,1);ctx.fillStyle='#66b8db';ctx.fillRect(10,12,2,1); }
     else { ctx.fillStyle='#5d3673';ctx.beginPath();ctx.moveTo(3,13);ctx.lineTo(7,8);ctx.lineTo(15,8);ctx.lineTo(18,13);ctx.lineTo(15,15);ctx.lineTo(5,15);ctx.closePath();ctx.fill();ctx.fillStyle='#b87be8';ctx.fillRect(7,9,8,3);ctx.fillStyle='#f1c9ff';ctx.fillRect(8,9,5,1);ctx.fillStyle='#7e4aa3';ctx.fillRect(9,12,4,1); }
   }
@@ -1027,6 +1055,7 @@ const ORE_GEM = {
   [T.GLIMMER]: '#ffe86b',
   [T.AETHERITE]: '#8ad9ff',
   [T.BLIGHTORE]: '#c58bff',
+  [T.GLACIERITE]: '#72d4ee',
 };
 
 // Neighbour mask for framing. Two tiles merge when they share a `mat` group, so

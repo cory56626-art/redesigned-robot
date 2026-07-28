@@ -71,6 +71,7 @@ export const RECIPES = [
   { out: { item: 'ironveinBar', count: 1 }, in: [{ item: 'ironveinOre', count: 4 }], station: 'smeltery' },
   { out: { item: 'glimmerBar', count: 1 }, in: [{ item: 'glimmerOre', count: 5 }], station: 'smeltery' },
   { out: { item: 'aetheriteBar', count: 1 }, in: [{ item: 'aetheriteOre', count: 5 }], station: 'smeltery' },
+  { out: { item: 'glacieriteBar', count: 1 }, in: [{ item: 'glacieriteOre', count: 4 }], station: 'smeltery' },
   { out: { item: 'blightBar', count: 1 }, in: [{ item: 'blightoreOre', count: 6 }, { item: 'blightstone', count: 2 }], station: 'smeltery', requiresBoss: 'gravemaw' },
   { out: { item: 'forge', count: 1 }, in: [{ item: 'stone', count: 10 }, { item: 'cupriteBar', count: 4 }], station: 'smeltery' },
 

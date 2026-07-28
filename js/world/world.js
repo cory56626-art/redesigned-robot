@@ -1,12 +1,12 @@
 // Summoner Realms — runtime world: tile grid, wall grid, collision, mining,
 // lighting, and the edit diffs that get saved.
-import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=quality-of-realms-1';
-import { T, tileDef, isSolid, tileLight } from './tiles.js?v=quality-of-realms-1';
-import { W, hasWall, wallBlastResist } from './walls.js?v=quality-of-realms-1';
-import { SH, shapeContains, surfaceOffset, fillsTop } from './shapes.js?v=quality-of-realms-1';
-import { LiquidGrid } from './liquid.js?v=quality-of-realms-1';
-import { BIOME_ORDER } from './biomes.js?v=quality-of-realms-1';
-import { generateWorld } from './worldgen.js?v=quality-of-realms-1';
+import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=snowy-taiga-underground-1';
+import { T, tileDef, isSolid, tileLight } from './tiles.js?v=snowy-taiga-underground-1';
+import { W, hasWall, wallBlastResist } from './walls.js?v=snowy-taiga-underground-1';
+import { SH, shapeContains, surfaceOffset, fillsTop } from './shapes.js?v=snowy-taiga-underground-1';
+import { LiquidGrid } from './liquid.js?v=snowy-taiga-underground-1';
+import { BIOME_ORDER } from './biomes.js?v=snowy-taiga-underground-1';
+import { generateWorld } from './worldgen.js?v=snowy-taiga-underground-1';
 
 export class World {
   constructor(seed) {
@@ -30,6 +30,11 @@ export class World {
     this.wallDiffs = new Map();  // index -> wallId
     this.shapeDiffs = new Map(); // index -> shapeId
     this.mineProgress = new Map(); // index -> accumulated mining amount
+    // Runtime state for wall-mounted dart traps. The trap itself remains a
+    // normal tile, so breaking it/opening a save stays compatible with world
+    // diffs; only its short cooldown/telegraph is transient.
+    this.dartTraps = new Map();
+    this._rebuildDartTraps();
     this.topSolid = new Int32Array(this.width);
     this._recomputeAllTopSolid();
     // Water. Created after the grids exist because it reads them, and seeded
@@ -52,8 +57,10 @@ export class World {
   set(tx, ty, id, record = true) {
     if (!this.inBounds(tx, ty)) return;
     const i = this.index(tx, ty);
-    if (this.tiles[i] === id) return;
+    const previous = this.tiles[i];
+    if (previous === id) return;
     this.tiles[i] = id;
+    this._syncDartTrap(i, tx, ty, previous, id);
     if (record) this.diffs.set(i, id);
     this.mineProgress.delete(i);
     // A tile losing its identity loses its shape with it, otherwise mining a
@@ -64,6 +71,23 @@ export class World {
     }
     this._recomputeTopSolidColumn(tx);
     if (this.liquid) this.liquid.onTileChanged(tx, ty);
+  }
+
+  _rebuildDartTraps() {
+    this.dartTraps.clear();
+    for (let i = 0; i < this.tiles.length; i++) {
+      const id = this.tiles[i];
+      if (!tileDef(id).dartTrap) continue;
+      this._syncDartTrap(i, i % this.width, (i / this.width) | 0, T.AIR, id);
+    }
+  }
+
+  _syncDartTrap(index, tx, ty, previous, next) {
+    if (!this.dartTraps) return;
+    if (tileDef(previous).dartTrap) this.dartTraps.delete(index);
+    const dir = tileDef(next).dartTrap;
+    if (!dir) return;
+    this.dartTraps.set(index, { tx, ty, dir, cooldown: 0.65, charge: 0 });
   }
 
   // ---- Block shapes (hammer) ----

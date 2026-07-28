@@ -2,50 +2,50 @@
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty, ZOOM_DEFAULT, REACH,
-} from './config.js?v=quality-of-realms-1';
-import { hashString, mulberry32, dist2, uid } from './utils.js?v=quality-of-realms-1';
-import { World } from './world/world.js?v=quality-of-realms-1';
-import { T } from './world/tiles.js?v=quality-of-realms-1';
-import { Sprites } from './art/sprites.js?v=quality-of-realms-1';
-import { Camera } from './engine/camera.js?v=quality-of-realms-1';
-import { Input } from './engine/input.js?v=quality-of-realms-1';
-import { AudioManager } from './engine/audio.js?v=quality-of-realms-1';
-import { Renderer } from './engine/renderer.js?v=quality-of-realms-1';
-import { Fx } from './engine/fx.js?v=quality-of-realms-1';
-import { DayNight } from './systems/daynight.js?v=quality-of-realms-1';
-import { Weather } from './systems/weather.js?v=quality-of-realms-1';
-import { Spawner } from './systems/spawner.js?v=quality-of-realms-1';
-import { Progression } from './systems/progression.js?v=quality-of-realms-1';
-import { starterInventory } from './systems/inventory.js?v=quality-of-realms-1';
-import * as craftSys from './systems/crafting.js?v=quality-of-realms-1';
-import { applyPotion } from './systems/combat.js?v=quality-of-realms-1';
-import * as fishing from './systems/fishing.js?v=quality-of-realms-1';
-import { Critter } from './entities/critter.js?v=quality-of-realms-1';
-import { FAUNA } from './data/fauna.js?v=quality-of-realms-1';
-import { smartTarget } from './systems/smartcursor.js?v=quality-of-realms-1';
-import { Player, assignColor } from './entities/player.js?v=quality-of-realms-1';
-import { Enemy } from './entities/enemy.js?v=quality-of-realms-1';
-import { Boss } from './entities/boss.js?v=quality-of-realms-1';
-import { Minion } from './entities/minion.js?v=quality-of-realms-1';
-import { Npc } from './entities/npc.js?v=quality-of-realms-1';
-import { Projectile } from './entities/projectile.js?v=quality-of-realms-1';
-import { DropItem } from './entities/droppeditem.js?v=quality-of-realms-1';
-import { FallingTree } from './entities/fallingtree.js?v=quality-of-realms-1';
-import { ThrownItem } from './entities/thrown.js?v=quality-of-realms-1';
-import { ENEMIES } from './data/enemies.js?v=quality-of-realms-1';
-import { BOSSES } from './data/bosses.js?v=quality-of-realms-1';
-import { item as getItem } from './data/items.js?v=quality-of-realms-1';
-import { HUD } from './ui/hud.js?v=quality-of-realms-1';
-import { Minimap } from './ui/minimap.js?v=quality-of-realms-1';
-import { Menus } from './ui/menus.js?v=quality-of-realms-1';
-import { NpcDialog } from './ui/npcdialog.js?v=quality-of-realms-1';
-import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=quality-of-realms-1';
-import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=quality-of-realms-1';
-import { Achievements, craftAchievement } from './systems/achievements.js?v=quality-of-realms-1';
-import { CommandConsole } from './commands.js?v=quality-of-realms-1';
-import { Net } from './net/net.js?v=quality-of-realms-1';
-import { MSG } from './net/protocol.js?v=quality-of-realms-1';
-import * as sync from './net/sync.js?v=quality-of-realms-1';
+} from './config.js?v=snowy-taiga-underground-1';
+import { hashString, mulberry32, dist2, uid } from './utils.js?v=snowy-taiga-underground-1';
+import { World } from './world/world.js?v=snowy-taiga-underground-1';
+import { T, tileDef } from './world/tiles.js?v=snowy-taiga-underground-1';
+import { Sprites } from './art/sprites.js?v=snowy-taiga-underground-1';
+import { Camera } from './engine/camera.js?v=snowy-taiga-underground-1';
+import { Input } from './engine/input.js?v=snowy-taiga-underground-1';
+import { AudioManager } from './engine/audio.js?v=snowy-taiga-underground-1';
+import { Renderer } from './engine/renderer.js?v=snowy-taiga-underground-1';
+import { Fx } from './engine/fx.js?v=snowy-taiga-underground-1';
+import { DayNight } from './systems/daynight.js?v=snowy-taiga-underground-1';
+import { Weather } from './systems/weather.js?v=snowy-taiga-underground-1';
+import { Spawner } from './systems/spawner.js?v=snowy-taiga-underground-1';
+import { Progression } from './systems/progression.js?v=snowy-taiga-underground-1';
+import { starterInventory } from './systems/inventory.js?v=snowy-taiga-underground-1';
+import * as craftSys from './systems/crafting.js?v=snowy-taiga-underground-1';
+import { applyPotion } from './systems/combat.js?v=snowy-taiga-underground-1';
+import * as fishing from './systems/fishing.js?v=snowy-taiga-underground-1';
+import { Critter } from './entities/critter.js?v=snowy-taiga-underground-1';
+import { FAUNA } from './data/fauna.js?v=snowy-taiga-underground-1';
+import { smartTarget } from './systems/smartcursor.js?v=snowy-taiga-underground-1';
+import { Player, assignColor } from './entities/player.js?v=snowy-taiga-underground-1';
+import { Enemy } from './entities/enemy.js?v=snowy-taiga-underground-1';
+import { Boss } from './entities/boss.js?v=snowy-taiga-underground-1';
+import { Minion } from './entities/minion.js?v=snowy-taiga-underground-1';
+import { Npc } from './entities/npc.js?v=snowy-taiga-underground-1';
+import { Projectile } from './entities/projectile.js?v=snowy-taiga-underground-1';
+import { DropItem } from './entities/droppeditem.js?v=snowy-taiga-underground-1';
+import { FallingTree } from './entities/fallingtree.js?v=snowy-taiga-underground-1';
+import { ThrownItem } from './entities/thrown.js?v=snowy-taiga-underground-1';
+import { ENEMIES } from './data/enemies.js?v=snowy-taiga-underground-1';
+import { BOSSES } from './data/bosses.js?v=snowy-taiga-underground-1';
+import { item as getItem } from './data/items.js?v=snowy-taiga-underground-1';
+import { HUD } from './ui/hud.js?v=snowy-taiga-underground-1';
+import { Minimap } from './ui/minimap.js?v=snowy-taiga-underground-1';
+import { Menus } from './ui/menus.js?v=snowy-taiga-underground-1';
+import { NpcDialog } from './ui/npcdialog.js?v=snowy-taiga-underground-1';
+import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=snowy-taiga-underground-1';
+import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=snowy-taiga-underground-1';
+import { Achievements, craftAchievement } from './systems/achievements.js?v=snowy-taiga-underground-1';
+import { CommandConsole } from './commands.js?v=snowy-taiga-underground-1';
+import { Net } from './net/net.js?v=snowy-taiga-underground-1';
+import { MSG } from './net/protocol.js?v=snowy-taiga-underground-1';
+import * as sync from './net/sync.js?v=snowy-taiga-underground-1';
 
 class Game {
   constructor() {
@@ -297,6 +297,7 @@ class Game {
     for (const p of [...this.players.values()]) p.update(dt, this);
 
     if (this.isHost) {
+      this._updateDartTraps(dt);
       this.spawner.update(dt, this);
       for (const e of this.enemies.slice()) { if (!e.ghost) { e.update(dt, this); e.tickEffects && e.tickEffects(dt, this); } }
       for (const b of this.bosses.slice()) if (!b.ghost) b.update(dt, this);
@@ -680,9 +681,93 @@ class Game {
   // Context action: talk to the Guide if we're standing next to them.
   interact() {
     if (this.state !== 'playing' || !this.localPlayer || !this.localPlayer.alive) return;
+    const chest = this._nearestLootChest(this.localPlayer);
+    if (chest) { this.openLootChest(chest.tx, chest.ty, this.localPlayer); return; }
     if (this.npc && this.npc.canTalkTo(this.localPlayer) && this.ui.npcDialog) {
       this.ui.npcDialog.toggle(this.npc);
     }
+  }
+
+  _nearestLootChest(player) {
+    if (!this.world || !player) return null;
+    const pc = player.center();
+    const tx0 = Math.floor(pc.x / TILE) - 2, tx1 = tx0 + 4;
+    const ty0 = Math.floor(pc.y / TILE) - 2, ty1 = ty0 + 4;
+    let best = null, bestDist = (2.6 * TILE) ** 2;
+    for (let ty = ty0; ty <= ty1; ty++) {
+      for (let tx = tx0; tx <= tx1; tx++) {
+        if (this.world.get(tx, ty) !== T.LOOT_CHEST) continue;
+        const d = dist2(pc.x, pc.y, (tx + 0.5) * TILE, (ty + 0.5) * TILE);
+        if (d < bestDist) { bestDist = d; best = { tx, ty }; }
+      }
+    }
+    return best;
+  }
+
+  // Chests use normal tile diffs for their opened state, which keeps save and
+  // multiplayer behavior simple: once the chest becomes air, every peer sees
+  // it as opened just like a mined block.
+  openLootChest(tx, ty, player = this.localPlayer) {
+    if (!this.world || !Number.isInteger(tx) || !Number.isInteger(ty) || this.world.get(tx, ty) !== T.LOOT_CHEST) return false;
+    if (!this.isHost) {
+      const key = tx + ',' + ty;
+      if (this._pendingChestOpen !== key && this.net) {
+        this._pendingChestOpen = key;
+        this.net.toHost({ t: MSG.CMD, cmd: 'openChest', args: { tx, ty } });
+      }
+      return true;
+    }
+    if (!player || !player.alive) return false;
+    const pc = player.center();
+    if (dist2(pc.x, pc.y, (tx + 0.5) * TILE, (ty + 0.5) * TILE) > (REACH * TILE) ** 2) return false;
+
+    this.world.set(tx, ty, T.AIR);
+    this.netEditTile(tx, ty, T.AIR);
+    const loot = this._rollChestLoot(tx, ty);
+    const cx = (tx + 0.5) * TILE, cy = (ty + 0.5) * TILE;
+    for (let i = 0; i < loot.length; i++) {
+      const spread = (i - (loot.length - 1) / 2) * 7;
+      this.spawnDrop(cx + spread, cy - 3, loot[i].item, loot[i].count);
+    }
+    this.audio?.coin?.();
+    this.fx.burst(cx, cy, '#ffcf6b', 12, { speed: 90, life: 0.42, glow: true });
+    this.floatText(cx, cy - 8, 'CHEST!', '#ffe08a');
+    this.toast('Cave chest opened', 'good');
+    this.markDirty();
+    return true;
+  }
+
+  _rollChestLoot(tx, ty) {
+    const seed = (this.seed ^ Math.imul(tx + 17, 0x9e3779b1) ^ Math.imul(ty + 31, 0x85ebca6b)) >>> 0;
+    const rand = mulberry32(seed);
+    const taiga = this.world.surfaceBiomeAt(tx) === 'snowyTaiga';
+    const deep = ty >= CAVERN_Y;
+    const table = [
+      { item: 'torch', min: 5, max: 10, weight: 10 },
+      { item: 'healLesser', min: 1, max: 2, weight: 18 },
+      { item: 'flintArrow', min: 15, max: 30, weight: 18 },
+      { item: 'bomb', min: 1, max: 2, weight: 14 },
+      { item: 'cupriteOre', min: 3, max: 7, weight: 16 },
+      { item: 'ironveinOre', min: 2, max: 5, weight: deep ? 17 : 8 },
+      { item: 'aetherShard', min: 1, max: 1, weight: deep ? 8 : 3 },
+      { item: 'vigorBrew', min: 1, max: 1, weight: 7 },
+      ...(taiga ? [{ item: 'glacieriteOre', min: 2, max: 4, weight: 18 }] : []),
+    ];
+    const loot = [];
+    const pulls = 2 + (rand() < 0.55 ? 1 : 0);
+    for (let roll = 0; roll < pulls; roll++) {
+      const total = table.reduce((sum, entry) => sum + entry.weight, 0);
+      let pick = rand() * total;
+      let chosen = table[0];
+      for (const entry of table) { pick -= entry.weight; if (pick <= 0) { chosen = entry; break; } }
+      loot.push({ item: chosen.item, count: chosen.min + ((rand() * (chosen.max - chosen.min + 1)) | 0) });
+    }
+    // Taiga chests always visibly reinforce their region, even if random rolls
+    // otherwise happened to choose only supplies.
+    if (taiga && !loot.some(entry => entry.item === 'glacieriteOre')) {
+      loot.push({ item: 'glacieriteOre', count: 2 + ((rand() * 3) | 0) });
+    }
+    return loot;
   }
   // Shared by the Esc key and the always-visible HUD ☰ button, so PC players have
   // a visible pause affordance (the review flagged that Esc was the only way).
@@ -963,9 +1048,55 @@ class Game {
     else if (target instanceof Critter) target.takeDamage(dmg, kb, -1, this);
     else this.hurtEnemy(target, dmg, kb, -1, effect, ownerId, crit);
   }
-  applyEnemyDamageToPlayer(player, dmg, kbx) {
-    if (player.isLocal) player.takeDamage(dmg, kbx, this);
-    else if (this.isHost && this.net) this.net.toPeer(player.id, { t: MSG.HURT, dmg, kbx });
+  applyEnemyDamageToPlayer(player, dmg, kbx, effect = null) {
+    if (player.isLocal) {
+      player.takeDamage(dmg, kbx, this);
+      player.applyStatusEffect?.(effect, this);
+    } else if (this.isHost && this.net) this.net.toPeer(player.id, { t: MSG.HURT, dmg, kbx, effect });
+  }
+
+  _updateDartTraps(dt) {
+    const traps = this.world && this.world.dartTraps;
+    if (!traps || !traps.size) return;
+    for (const trap of traps.values()) {
+      const def = tileDef(this.world.get(trap.tx, trap.ty));
+      if (!def.dartTrap) continue;
+      trap.dir = def.dartTrap;
+      if (trap.charge > 0) {
+        trap.charge -= dt;
+        if (trap.charge <= 0) this._fireDartTrap(trap);
+        continue;
+      }
+      if (trap.cooldown > 0) { trap.cooldown -= dt; continue; }
+      if (this._dartTrapTarget(trap)) trap.charge = 0.42;
+    }
+  }
+
+  _dartTrapTarget(trap) {
+    const cx = (trap.tx + 0.5) * TILE, cy = (trap.ty + 0.5) * TILE;
+    let best = null, bestDist = Infinity;
+    for (const p of this.players.values()) {
+      if (!p.alive) continue;
+      const pc = p.center();
+      const dx = pc.x - cx, dy = pc.y - cy;
+      if (trap.dir * dx < 16 || trap.dir * dx > TILE * 9 || Math.abs(dy) > TILE * 1.15) continue;
+      const d = dx * dx + dy * dy;
+      if (d < bestDist && this.world.hasLineOfSight(cx + trap.dir * 4, cy, pc.x, pc.y)) { best = p; bestDist = d; }
+    }
+    return best;
+  }
+
+  _fireDartTrap(trap) {
+    const cx = (trap.tx + 0.5) * TILE, cy = (trap.ty + 0.5) * TILE;
+    const x = cx + trap.dir * 7;
+    this.addProjectile(new Projectile({
+      x: x - 4, y: cy - 2, vx: trap.dir * 355, vy: 0,
+      w: 8, h: 4, damage: 10, ownerType: 'enemy', kind: 'poisonDart', color: '#9be871',
+      effect: { poison: 4 }, knockback: 5, life: 1.35, trail: '#79c95a',
+    }), true);
+    this.fx.streak(cx, cy, trap.dir > 0 ? 0 : Math.PI, '#9be871', 4, { speed: 80, life: 0.18, glow: true });
+    trap.cooldown = 3.2 + Math.random() * 0.8;
+    trap.charge = 0;
   }
 
   // ============ MINIONS ============
@@ -1307,7 +1438,11 @@ class Game {
   }
   execHostCommand(cmd, args, fromId) {
     if (!this.isHost) return;
-    if (cmd === 'spawn') {
+    if (cmd === 'openChest') {
+      const tx = Number(args && args.tx), ty = Number(args && args.ty);
+      const p = this.players.get(fromId) || this.localPlayer;
+      if (Number.isInteger(tx) && Number.isInteger(ty)) this.openLootChest(tx, ty, p);
+    } else if (cmd === 'spawn') {
       const p = this.players.get(fromId) || this.localPlayer;
       for (let i = 0; i < (args.count || 1); i++) this.spawnEnemy(args.key, p.x + (Math.random() < 0.5 ? -180 : 180), p.y - 40);
     } else if (cmd === 'spawnboss') { this.spawnBossByKey(args.key); }

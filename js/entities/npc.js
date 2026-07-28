@@ -3,9 +3,9 @@
 // Vesper Thane keeps a camp on the spawn plain from the moment a world is
 // created. He wanders a short leash, faces whoever is nearest, and can be spoken
 // to for advice or to have an item explained (see ui/npcdialog.js).
-import { TILE, GRAVITY } from '../config.js?v=quality-of-realms-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=quality-of-realms-1';
-import { Projectile } from './projectile.js?v=quality-of-realms-1';
+import { TILE, GRAVITY } from '../config.js?v=snowy-taiga-underground-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=snowy-taiga-underground-1';
+import { Projectile } from './projectile.js?v=snowy-taiga-underground-1';
 
 const NPC_W = 12, NPC_H = 26;
 // How far the Guide will stray from his camp, in world pixels.

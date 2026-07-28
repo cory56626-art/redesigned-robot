@@ -8,10 +8,10 @@
 //
 // Bugs are the same entity with `kind: 'bug'`: smaller, flightier, and caught by
 // clicking them rather than by killing them.
-import { TILE, GRAVITY } from '../config.js?v=quality-of-realms-1';
-import { FAUNA } from '../data/fauna.js?v=quality-of-realms-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=quality-of-realms-1';
-import { dist2 } from '../utils.js?v=quality-of-realms-1';
+import { TILE, GRAVITY } from '../config.js?v=snowy-taiga-underground-1';
+import { FAUNA } from '../data/fauna.js?v=snowy-taiga-underground-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=snowy-taiga-underground-1';
+import { dist2 } from '../utils.js?v=snowy-taiga-underground-1';
 
 export class Critter {
   constructor(key, x, y, netId) {

@@ -1,6 +1,6 @@
 // Summoner Realms — inventory, hotbar, equipment, and derived stats.
-import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=quality-of-realms-1';
-import { ITEMS, item as getItem } from '../data/items.js?v=quality-of-realms-1';
+import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=snowy-taiga-underground-1';
+import { ITEMS, item as getItem } from '../data/items.js?v=snowy-taiga-underground-1';
 
 export const INV_SIZE = HOTBAR_SIZE + INV_ROWS * INV_COLS;
 

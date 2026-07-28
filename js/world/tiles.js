@@ -51,6 +51,11 @@ export const T = {
   DUNESHRUB: 40,
   FROSTBRACKEN: 41,
   BLIGHTBLOOM: 42,
+  // --- Snowy Taiga + underground exploration ---
+  GLACIERITE: 43,
+  LOOT_CHEST: 44,
+  POISON_DART_TRAP_LEFT: 45,
+  POISON_DART_TRAP_RIGHT: 46,
 };
 
 // Each entry: name, solid, color (fallback), hardness, minPower, drop item id,
@@ -120,6 +125,14 @@ export const TILES = {
   [T.DUNESHRUB]:    { name: 'Dune Shrub', solid: false, color: '#9a9a58', hardness: 6, minPower: 0, drop: 'fiber', dropChance: 0.6, decor: true, sway: 0.55, flora: true, blastResist: 0 },
   [T.FROSTBRACKEN]: { name: 'Frost Bracken', solid: false, color: '#8fb4a8', hardness: 5, minPower: 0, drop: 'fiber', dropChance: 0.5, decor: true, sway: 0.7, flora: true, blastResist: 0 },
   [T.BLIGHTBLOOM]:  { name: 'Blightbloom', solid: false, color: '#8a52ab', hardness: 5, minPower: 0, drop: 'fiber', dropChance: 0.5, decor: true, sway: 0.9, flora: true, light: 0.12, blastResist: 0 },
+
+  // Exploration content. Chests and traps are non-solid decor, so they read as
+  // world objects without blocking a cave corridor. `chest` and `dartTrap`
+  // are consumed by the interaction and hazard systems rather than by physics.
+  [T.GLACIERITE]: { name: 'Glacierite Ore', solid: true, color: '#66839a', hardness: 92, minPower: 2, drop: 'glacieriteOre', light: 0.06, toolType: 'pickaxe', mat: 'stone', blastResist: 2 },
+  [T.LOOT_CHEST]: { name: 'Cave Chest', solid: false, color: '#a36a32', hardness: 1, minPower: 0, decor: true, chest: true, blastResist: 3 },
+  [T.POISON_DART_TRAP_LEFT]: { name: 'Poison Dart Trap', solid: false, color: '#52674f', hardness: 20, minPower: 1, drop: 'stone', dropChance: 0.4, toolType: 'pickaxe', decor: true, dartTrap: -1, blastResist: 0 },
+  [T.POISON_DART_TRAP_RIGHT]: { name: 'Poison Dart Trap', solid: false, color: '#52674f', hardness: 20, minPower: 1, drop: 'stone', dropChance: 0.4, toolType: 'pickaxe', decor: true, dartTrap: 1, blastResist: 0 },
 };
 
 export function tileDef(id) { return TILES[id] || TILES[T.AIR]; }

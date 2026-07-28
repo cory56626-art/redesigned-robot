@@ -1,7 +1,7 @@
 // Summoner Realms — item catalogue. All original names/designs.
 // Categories: weapon (melee/ranged/mage/summon), tool, armor, accessory,
 // potion, ammo, material, block, station, summonitem.
-import { T } from '../world/tiles.js?v=quality-of-realms-1';
+import { T } from '../world/tiles.js?v=snowy-taiga-underground-1';
 
 export const ITEMS = {};
 
@@ -217,11 +217,13 @@ mat('cupriteOre', 'Cuprite Ore', '#c47b4a', 'ore', 1);
 mat('ironveinOre', 'Ironvein Ore', '#a9b0bd', 'ore', 2);
 mat('glimmerOre', 'Glimmer Ore', '#ffe08a', 'ore', 3);
 mat('aetheriteOre', 'Aetherite Ore', '#8ad9ff', 'ore', 3);
+mat('glacieriteOre', 'Glacierite Ore', '#78c7e6', 'ore', 2, 'Cold blue ore found beneath the Snowy Taiga.');
 mat('blightoreOre', 'Blightore', '#8a4fb0', 'ore', 4);
 mat('cupriteBar', 'Cuprite Bar', '#e08a5a', 'bar', 1);
 mat('ironveinBar', 'Ironvein Bar', '#c0c6d2', 'bar', 2);
 mat('glimmerBar', 'Glimmer Bar', '#ffe8a0', 'bar', 3);
 mat('aetheriteBar', 'Aetherite Bar', '#a0e4ff', 'bar', 3);
+mat('glacieriteBar', 'Glacierite Bar', '#b5f1ff', 'bar', 2, 'A clear, cold ingot smelted from Taiga ore.');
 mat('blightBar', 'Blight Bar', '#a06bd0', 'bar', 4);
 mat('groveHeart', 'Grove Heart', '#7ee08a', 'drop', 1, 'Beats with forest life. Dropped by the Grovekeeper.');
 mat('marrow', 'Ancient Marrow', '#e9e2c8', 'drop', 2, 'Dropped by the Gravemaw.');

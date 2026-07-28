@@ -204,13 +204,33 @@ for (let s = 0; s < SEEDS; s++) {
       cur = biomeMap[x]; start = x;
     }
   }
-  for (const key of ['forest', 'frostpine', 'corrupt', 'dunes']) {
+  for (const key of ['forest', 'frostpine', 'snowyTaiga', 'corrupt', 'dunes']) {
     check(seed, `biome ${key} exists`, runs[key] > 0, 'missing from the world');
   }
   // Dunes appear twice (one shore each end); everything else should be a single
   // band, otherwise the layout has fragmented.
   check(seed, 'frostpine is one band', runs.frostpine === 1, `${runs.frostpine} runs`);
+  check(seed, 'snowy taiga is one band', runs.snowyTaiga === 1, `${runs.snowyTaiga} runs`);
   check(seed, 'corruption is one band', runs.corrupt === 1, `${runs.corrupt} runs`);
+
+  // ---- New underground exploration content ----
+  let chests = 0, dartTraps = 0, glacierite = 0, glacieriteOutsideTaiga = 0;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const id = at(x, y);
+      if (id === T.LOOT_CHEST) chests++;
+      if (id === T.POISON_DART_TRAP_LEFT || id === T.POISON_DART_TRAP_RIGHT) dartTraps++;
+      if (id === T.GLACIERITE) {
+        glacierite++;
+        if (BIOME_ORDER[biomeMap[x]] !== 'snowyTaiga') glacieriteOutsideTaiga++;
+      }
+    }
+  }
+  check(seed, 'cave chests generate', chests >= 8, `${chests} chests`);
+  check(seed, 'poison dart traps generate', dartTraps >= 10, `${dartTraps} traps`);
+  check(seed, 'glacierite generates', glacierite > 0, 'no glacierite');
+  check(seed, 'glacierite stays under the taiga', glacieriteOutsideTaiga === 0,
+    `${glacieriteOutsideTaiga} glacierite tiles outside taiga`);
 
   // ---- Caves exist, and some of them reach the surface ----
   let caveTiles = 0, undergroundTiles = 0;

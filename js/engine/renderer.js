@@ -1,15 +1,15 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=quality-of-realms-1';
-import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=quality-of-realms-1';
-import { SH } from '../world/shapes.js?v=quality-of-realms-1';
-import { W, hasWall } from '../world/walls.js?v=quality-of-realms-1';
-import { BIOMES } from '../world/biomes.js?v=quality-of-realms-1';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=quality-of-realms-1';
-import { item as getItem } from '../data/items.js?v=quality-of-realms-1';
-import { canPlaceAt } from '../systems/combat.js?v=quality-of-realms-1';
-import { clamp } from '../utils.js?v=quality-of-realms-1';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=quality-of-realms-1';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=snowy-taiga-underground-1';
+import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=snowy-taiga-underground-1';
+import { SH } from '../world/shapes.js?v=snowy-taiga-underground-1';
+import { W, hasWall } from '../world/walls.js?v=snowy-taiga-underground-1';
+import { BIOMES } from '../world/biomes.js?v=snowy-taiga-underground-1';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=snowy-taiga-underground-1';
+import { item as getItem } from '../data/items.js?v=snowy-taiga-underground-1';
+import { canPlaceAt } from '../systems/combat.js?v=snowy-taiga-underground-1';
+import { clamp } from '../utils.js?v=snowy-taiga-underground-1';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=snowy-taiga-underground-1';
 
 // Fallback appearance for players without a character record (remote players
 // on an older client, or a world loaded before characters existed).
@@ -22,6 +22,7 @@ const PROJ_GLOW = {
   thorn: '#7ee08a', seed: '#a7e36f', rock: '#8a7a5a', shock: '#d3b985',
   blight: '#c58bff', crystal: '#df8cff', voidorb: '#b06bff',
   spark: '#9ec3ff', wispbolt: '#9ec3ff', emberball: '#ff8c3b',
+  poisonDart: '#9be871', aurora: '#b9ffe8',
   arcwave: '#bfe9ff', diamondSpear: '#dffcff', miniDiamondSpear: '#8be9ff', aidanPulse: '#8feaff', aidanFreeze: '#61eaff',
 };
 
@@ -71,6 +72,7 @@ export class Renderer {
 
     this._drawWalls(game, ctx, tx0, ty0, tx1, ty1);
     this._drawTiles(game, ctx, tx0, ty0, tx1, ty1);
+    this._drawDartTrapTelegraphs(game, ctx, tx0, ty0, tx1, ty1);
     this._drawLiquid(game, ctx, tx0, ty0, tx1, ty1);
     this._drawFallingTrees(game, ctx);
     this._drawDrops(game, ctx);
@@ -389,6 +391,27 @@ export class Renderer {
           for (let i = 0; i < n; i++) ctx.fillRect(tx * TILE + 2 + i * 4, ty * TILE + 3 + (i % 2) * 6, 2, 6);
         }
       }
+    }
+  }
+
+  _drawDartTrapTelegraphs(game, ctx, tx0, ty0, tx1, ty1) {
+    const traps = game.world && game.world.dartTraps;
+    if (!traps || !traps.size) return;
+    for (const trap of traps.values()) {
+      if (!(trap.charge > 0) || trap.tx < tx0 || trap.tx > tx1 || trap.ty < ty0 || trap.ty > ty1) continue;
+      const k = 1 - trap.charge / 0.42;
+      const cx = (trap.tx + 0.5) * TILE, cy = (trap.ty + 0.5) * TILE;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.32 + k * 0.5;
+      ctx.strokeStyle = '#b8f482'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx + trap.dir * 5, cy);
+      ctx.lineTo(cx + trap.dir * (12 + k * 18), cy);
+      ctx.stroke();
+      ctx.fillStyle = '#d8ffb0';
+      ctx.beginPath(); ctx.arc(cx + trap.dir * 5, cy, 1.5 + k * 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
     }
   }
 
@@ -767,6 +790,31 @@ export class Renderer {
         continue;
       }
 
+      if (pr.kind === 'poisonDart') {
+        ctx.globalAlpha = 0.24;
+        ctx.fillStyle = '#8be06f'; ctx.fillRect(-7, -3, 14, 6);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#d9ead0'; ctx.fillRect(-5, -1, 9, 2);
+        ctx.fillStyle = '#799d4a'; ctx.fillRect(-5, -3, 2, 6);
+        ctx.fillStyle = '#cde97d';
+        ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(2, -3); ctx.lineTo(2, 3); ctx.closePath(); ctx.fill();
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'aurora') {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.28;
+        ctx.fillStyle = '#8dffe0'; ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#58c9b4';
+        ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(0, -5); ctx.lineTo(6, 0); ctx.lineTo(0, 5); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#ebfff8'; ctx.fillRect(-1, -2, 3, 3);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        continue;
+      }
+
       if (pr.kind === 'diamondSpear' || pr.kind === 'miniDiamondSpear') {
         const mini = pr.kind === 'miniDiamondSpear';
         const len = mini ? 8 : 25;
@@ -872,6 +920,8 @@ export class Renderer {
         case 'husk': this._drawHusk(ctx, e); break;
         case 'duneStalker': this._drawDuneStalker(ctx, e); break;
         case 'rimeWisp': this._drawRimeWisp(ctx, e); break;
+        case 'borealLynx': this._drawBorealLynx(ctx, e); break;
+        case 'auroraWisp': this._drawAuroraWisp(ctx, e); break;
         case 'bat': this._drawBat(ctx, e); break;
         case 'crawler': this._drawCrawler(ctx, e); break;
         case 'bonepicker': this._drawBonepicker(ctx, e); break;
@@ -920,7 +970,7 @@ export class Renderer {
   }
 
   _enemyShadow(ctx, e, scale = 1) {
-    if (e.behavior === 'flyer' || e.key === 'rimeWisp' || e.key === 'blightshade') return;
+    if (e.behavior === 'flyer' || e.key === 'rimeWisp' || e.key === 'auroraWisp' || e.key === 'blightshade') return;
     const air = Math.min(1, Math.abs(e.vy || 0) / 360);
     ctx.save();
     ctx.globalAlpha = 0.22 * (1 - air);
@@ -1171,6 +1221,72 @@ export class Renderer {
       ctx.beginPath(); ctx.arc(0, 0, 11 + f.charge * 5, 0, Math.PI * 2); ctx.stroke();
     }
     this._enemyFlashLocal(ctx, e, 14, 16, 6);
+    ctx.restore();
+  }
+
+  _drawBorealLynx(ctx, e) {
+    const f = this._enemyFrame(e, 1.2);
+    this._enemyShadow(ctx, e, 0.95);
+    this._enemyPose(ctx, e, () => {
+      const gait = f.step * 1.7;
+      ctx.strokeStyle = '#5f7480'; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-6, 4); ctx.lineTo(-7, 9 + gait);
+      ctx.moveTo(-1, 5); ctx.lineTo(0, 9 - gait);
+      ctx.moveTo(5, 4); ctx.lineTo(6, 9 + gait);
+      ctx.stroke();
+      // Long curled tail makes the silhouette immediately different from the
+      // squat boar and dune stalker.
+      ctx.strokeStyle = '#7698a8'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(-8, 1); ctx.quadraticCurveTo(-14, -3 - gait, -12, -8); ctx.stroke();
+      ctx.strokeStyle = '#e6f4f5'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-9, 1); ctx.quadraticCurveTo(-13, -3 - gait, -12, -7); ctx.stroke();
+      ctx.fillStyle = e.color;
+      ctx.beginPath(); ctx.ellipse(-1, 1, 9, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#f5fdff'; ctx.beginPath(); ctx.ellipse(-1, 3, 6.5, 2.8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = e.color2;
+      ctx.beginPath(); ctx.moveTo(4, -3); ctx.lineTo(8, -9); ctx.lineTo(10, -2); ctx.lineTo(8, 3); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(0, -3); ctx.lineTo(3, -9); ctx.lineTo(5, -2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#b7d5dd'; ctx.fillRect(7, -5, 1, 2); ctx.fillRect(2, -5, 1, 2);
+      ctx.fillStyle = '#203e44'; ctx.fillRect(8, -1, 2, 2);
+      ctx.fillStyle = '#9be871'; ctx.fillRect(9, -1, 1, 1);
+      ctx.strokeStyle = '#6e95a8'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-5, -1); ctx.lineTo(-2, -3); ctx.moveTo(-6, 1); ctx.lineTo(-2, 0); ctx.stroke();
+      if (f.charge > 0) {
+        ctx.strokeStyle = '#d9fbff'; ctx.globalAlpha = 0.72;
+        ctx.beginPath(); ctx.arc(0, 0, 12 + f.charge * 4, 0, Math.PI * 2); ctx.stroke();
+      }
+      this._enemyFlashLocal(ctx, e, 22, 16, 6);
+    });
+  }
+
+  _drawAuroraWisp(ctx, e) {
+    const f = this._enemyFrame(e, 1);
+    const cx = e.x + e.w / 2, cy = e.y + e.h / 2 + f.bob;
+    this._enemyGlow(ctx, cx, cy, 15, '#9dffe0', 0.16);
+    ctx.save();
+    ctx.translate(cx, cy);
+    const sway = Math.sin(f.t * 2.2) * 1.4;
+    ctx.strokeStyle = '#55c6b4'; ctx.lineWidth = 1.7; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-3, 4); ctx.quadraticCurveTo(-10, 8 + sway, -7, 15);
+    ctx.moveTo(3, 4); ctx.quadraticCurveTo(10, 8 - sway, 7, 15);
+    ctx.stroke();
+    ctx.fillStyle = e.color2;
+    ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(8, -1); ctx.lineTo(4, 9); ctx.lineTo(-4, 9); ctx.lineTo(-8, -1); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = e.color;
+    ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(5, -1); ctx.lineTo(2, 6); ctx.lineTo(-3, 6); ctx.lineTo(-5, -1); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#edfff8'; ctx.fillRect(1, -2, 2, 2);
+    ctx.strokeStyle = '#c6ffec'; ctx.lineWidth = 1;
+    for (let i = 0; i < 3; i++) {
+      const a = f.t * 1.8 + i * Math.PI * 2 / 3;
+      ctx.beginPath(); ctx.moveTo(Math.cos(a) * 8, Math.sin(a) * 8); ctx.lineTo(Math.cos(a) * 12, Math.sin(a) * 12); ctx.stroke();
+    }
+    if (f.charge > 0) {
+      ctx.strokeStyle = '#e7fff6'; ctx.globalAlpha = 0.78;
+      ctx.beginPath(); ctx.arc(0, 0, 12 + f.charge * 5, 0, Math.PI * 2); ctx.stroke();
+    }
+    this._enemyFlashLocal(ctx, e, 14, 18, 6);
     ctx.restore();
   }
 

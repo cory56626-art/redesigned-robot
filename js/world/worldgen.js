@@ -4,7 +4,7 @@
 //
 //   sky        · nothing, daylight reaches down to the first solid tile
 //   surface    · biome bands (Dunes / Verdant Reach / Frostpine Hollow /
-//                Corrupted Lands) with blended seams, each with its own
+//                Snowy Taiga / Corrupted Lands) with blended seams, each with its own
 //                height profile, tile palette and decor
 //   subsurface · dirt / snow / sand, 4-13 tiles thick with a noisy underside
 //   stone      · with a speckled dirt-and-stone transition band above it
@@ -16,11 +16,11 @@
 //
 // Deterministic from a numeric seed. `tools/worldgen-check.mjs` asserts the
 // invariants this file is responsible for.
-import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE, LIQUID_MAX } from '../config.js?v=quality-of-realms-1';
-import { T, isSolid, isFlora } from './tiles.js?v=quality-of-realms-1';
-import { W } from './walls.js?v=quality-of-realms-1';
-import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=quality-of-realms-1';
-import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep, lerp } from '../utils.js?v=quality-of-realms-1';
+import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE, LIQUID_MAX } from '../config.js?v=snowy-taiga-underground-1';
+import { T, isSolid, isFlora } from './tiles.js?v=snowy-taiga-underground-1';
+import { W } from './walls.js?v=snowy-taiga-underground-1';
+import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=snowy-taiga-underground-1';
+import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep, lerp } from '../utils.js?v=snowy-taiga-underground-1';
 
 // Half-width of the guaranteed flat, cave-free plain the player spawns on.
 const SPAWN_PLAIN = 13;
@@ -48,7 +48,7 @@ export function generateWorld(seed) {
   const cave = carveCaves(seed, w, h, surface, spawnTx);
   applyCaves(tiles, cave, w, h, surface, spawnTx);
 
-  seedOres(tiles, w, h, surface, rand);
+  seedOres(tiles, w, h, surface, biome.map, rand);
   decorate(tiles, w, h, surface, biome, rand, spawnTx);
 
   sealSpawn(tiles, walls, w, h, surface, spawnTx, biome);
@@ -62,6 +62,9 @@ export function generateWorld(seed) {
   // Water goes in last: it settles into whatever shape the finished terrain
   // left behind, so it can never be buried by a later decoration pass.
   const liquid = fillWater(tiles, w, h, surface, biome, seed, spawnTx);
+  // Chests and wall-mounted dart traps are placed after water has settled, so
+  // neither object can split a basin or spawn submerged.
+  placeUndergroundFeatures(tiles, liquid, w, h, surface, rand, spawnTx);
 
   const spawnY = (surface[spawnTx] - 3) * TILE;
   return {
@@ -773,12 +776,16 @@ const ORE_BANDS = [
   { id: T.GLIMMER,   density: 0.0050, from: UNDERGROUND_Y + 6, to: WORLD_H, size: [2, 5] },
   { id: T.AETHERITE, density: 0.0040, from: CAVERN_Y - 14, to: WORLD_H, size: [2, 5] },
   { id: T.BLIGHTORE, density: 0.0220, from: UNDERGROUND_Y, to: WORLD_H, size: [2, 5], hostMat: 'blightstone' },
+  // Glacierite is Taiga-only: a useful, visible reason to make the trip
+  // instead of treating the new snowy band as a purely cosmetic palette swap.
+  { id: T.GLACIERITE, density: 0.0120, from: 12, to: CAVERN_Y + 38, size: [3, 6], fromSurface: true, biome: 'snowyTaiga' },
 ];
 
-function seedOres(tiles, w, h, surface, rand) {
+function seedOres(tiles, w, h, surface, biomeMap, rand) {
   const idx = (x, y) => y * w + x;
   for (const band of ORE_BANDS) {
     for (let x = 0; x < w; x++) {
+      if (band.biome && BIOME_ORDER[biomeMap[x]] !== band.biome) continue;
       const minY = band.fromSurface ? surface[x] + band.from : band.from;
       const maxY = Math.min(band.to, h - BEDROCK - 1);
       for (let y = Math.max(0, minY); y < maxY; y++) {
@@ -787,7 +794,8 @@ function seedOres(tiles, w, h, surface, rand) {
         // resource instead of appearing under the forest.
         if (band.hostMat && tiles[idx(x, y)] !== T.BLIGHTSTONE) continue;
         const n = band.size[0] + Math.floor(rand() * (band.size[1] - band.size[0] + 1));
-        vein(tiles, w, h, x, y, n, band.id, rand, minY);
+        const inBand = band.biome ? (vx) => BIOME_ORDER[biomeMap[vx]] === band.biome : null;
+        vein(tiles, w, h, x, y, n, band.id, rand, minY, inBand);
       }
     }
   }
@@ -796,12 +804,12 @@ function seedOres(tiles, w, h, surface, rand) {
 // A vein wanders as it grows, so it is clamped to the band it belongs to —
 // otherwise a vein seeded on the boundary walks a tile or two out of its depth
 // range and, say, blightore shows up above the underground line.
-function vein(tiles, w, h, cx, cy, n, id, rand, minY) {
+function vein(tiles, w, h, cx, cy, n, id, rand, minY, allowColumn = null) {
   const idx = (x, y) => y * w + x;
   let x = cx, y = cy;
   for (let i = 0; i < n; i++) {
     if (y < minY) y = minY;
-    if (x > 0 && x < w && y > 0 && y < h - BEDROCK) {
+    if (x > 0 && x < w && y > 0 && y < h - BEDROCK && (!allowColumn || allowColumn(x))) {
       const t = tiles[idx(x, y)];
       if (t === T.STONE || t === T.BLIGHTSTONE || t === T.DEEPSTONE || t === T.DIRT || t === T.SANDSTONE) {
         tiles[idx(x, y)] = id;
@@ -918,6 +926,59 @@ function blobTilesOnly(tiles, w, h, cx, cy, r, id, replaceable) {
       if (dx * dx + dy * dy > r * r) continue;
       if (replaceable.includes(tiles[idx(x, y)])) tiles[idx(x, y)] = id;
     }
+  }
+}
+
+// A restrained underground-content pass: enough chests to reward cave routes
+// and enough traps to make players read a chamber, without turning every tunnel
+// into a dungeon. These are tiles, so opened/broken state already persists in
+// the existing world diff and multiplayer tile-sync paths.
+function placeUndergroundFeatures(tiles, liquid, w, h, surface, rand, spawnTx) {
+  const idx = (x, y) => y * w + x;
+  const bottom = h - BEDROCK - 2;
+  const dryAir = (x, y) => x > 1 && x < w - 2 && y > 1 && y < bottom &&
+    tiles[idx(x, y)] === T.AIR && !(liquid && liquid[idx(x, y)]);
+  const clearChestSpot = (x, y) => dryAir(x, y) && dryAir(x - 1, y) && dryAir(x + 1, y) &&
+    dryAir(x, y - 1) && isSolid(tiles[idx(x, y + 1)]);
+  const farEnough = (x, y, placed, minTiles) => placed.every(p => {
+    const dx = p.x - x, dy = p.y - y;
+    return dx * dx + dy * dy >= minTiles * minTiles;
+  });
+
+  const chestCandidates = [];
+  for (let x = 4; x < w - 4; x++) {
+    const top = Math.max(surface[x] + 9, UNDERGROUND_Y - 22);
+    for (let y = top; y < bottom; y++) {
+      if (Math.abs(x - spawnTx) < 34 || !clearChestSpot(x, y)) continue;
+      chestCandidates.push({ x, y });
+    }
+  }
+  const placed = [];
+  for (let attempt = 0; attempt < 180 && placed.length < 12 && chestCandidates.length; attempt++) {
+    const p = chestCandidates[(rand() * chestCandidates.length) | 0];
+    if (!farEnough(p.x, p.y, placed, 24)) continue;
+    tiles[idx(p.x, p.y)] = T.LOOT_CHEST;
+    placed.push(p);
+  }
+
+  const trapCandidates = [];
+  for (let x = 5; x < w - 5; x++) {
+    const top = Math.max(surface[x] + 11, UNDERGROUND_Y - 18);
+    for (let y = top; y < bottom; y++) {
+      if (!dryAir(x, y)) continue;
+      if (isSolid(tiles[idx(x - 1, y)]) && dryAir(x + 1, y) && dryAir(x + 2, y)) {
+        trapCandidates.push({ x, y, id: T.POISON_DART_TRAP_RIGHT });
+      } else if (isSolid(tiles[idx(x + 1, y)]) && dryAir(x - 1, y) && dryAir(x - 2, y)) {
+        trapCandidates.push({ x, y, id: T.POISON_DART_TRAP_LEFT });
+      }
+    }
+  }
+  const trapPlaced = [];
+  for (let attempt = 0; attempt < 260 && trapPlaced.length < 16 && trapCandidates.length; attempt++) {
+    const p = trapCandidates[(rand() * trapCandidates.length) | 0];
+    if (!farEnough(p.x, p.y, placed.concat(trapPlaced), 9)) continue;
+    tiles[idx(p.x, p.y)] = p.id;
+    trapPlaced.push(p);
   }
 }
 

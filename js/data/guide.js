@@ -13,11 +13,11 @@
 //                the recipe list and boss loot tables, so a new item is
 //                explained correctly the day it's added without anyone writing
 //                a paragraph for it.
-import { ITEMS, item as getItem } from './items.js?v=quality-of-realms-1';
-import { RECIPES } from './recipes.js?v=quality-of-realms-1';
-import { BOSSES } from './bosses.js?v=quality-of-realms-1';
-import { ENEMIES } from './enemies.js?v=quality-of-realms-1';
-import { TILE } from '../config.js?v=quality-of-realms-1';
+import { ITEMS, item as getItem } from './items.js?v=snowy-taiga-underground-1';
+import { RECIPES } from './recipes.js?v=snowy-taiga-underground-1';
+import { BOSSES } from './bosses.js?v=snowy-taiga-underground-1';
+import { ENEMIES } from './enemies.js?v=snowy-taiga-underground-1';
+import { TILE } from '../config.js?v=snowy-taiga-underground-1';
 
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
 

@@ -5,14 +5,14 @@ import {
   HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN,
   CAST_REGEN_DELAY, CAST_REGEN_MULT, RESPAWN_DELAY, RESPAWN_DELAY_BOSS,
   SWIM_DRAG, SWIM_STROKE, WIND_PLAYER_PUSH,
-} from '../config.js?v=quality-of-realms-1';
-import { tileDef } from '../world/tiles.js?v=quality-of-realms-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=quality-of-realms-1';
-import { Inventory } from '../systems/inventory.js?v=quality-of-realms-1';
-import { item as getItem } from '../data/items.js?v=quality-of-realms-1';
-import * as combat from '../systems/combat.js?v=quality-of-realms-1';
-import * as fishing from '../systems/fishing.js?v=quality-of-realms-1';
-import { clamp } from '../utils.js?v=quality-of-realms-1';
+} from '../config.js?v=snowy-taiga-underground-1';
+import { tileDef } from '../world/tiles.js?v=snowy-taiga-underground-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=snowy-taiga-underground-1';
+import { Inventory } from '../systems/inventory.js?v=snowy-taiga-underground-1';
+import { item as getItem } from '../data/items.js?v=snowy-taiga-underground-1';
+import * as combat from '../systems/combat.js?v=snowy-taiga-underground-1';
+import * as fishing from '../systems/fishing.js?v=snowy-taiga-underground-1';
+import { clamp } from '../utils.js?v=snowy-taiga-underground-1';
 
 export class Player {
   constructor(id, opts = {}) {
@@ -42,6 +42,7 @@ export class Player {
     this.buffCd = 0;
     this.castTimer = 0;   // throttles mana regen right after a cast
     this.hazardTimer = 0; // gates contact damage from hazard tiles (thornvine)
+    this.poison = null;   // { time, tick, dps } from poison dart traps
     this.buffs = [];
     this.alive = true;
     this.respawnTimer = 0;
@@ -84,12 +85,12 @@ export class Player {
       this.x = nx; this.y = ny;
     }
     if (Math.abs(this.vx) > 5 || (this.netTarget && Math.abs(this.netTarget.x - this.x) > 1)) this.walkAnim += dt * 10;
-    this._tickTimers(dt);
+    this._tickTimers(dt, game);
     if (this.swing) { this.swing.time += dt; if (this.swing.time >= this.swing.dur) this.swing = null; }
   }
 
   _localUpdate(dt, game) {
-    this._tickTimers(dt);
+    this._tickTimers(dt, game);
 
     if (!this.alive) {
       if (this.respawnTimer > 0) this.respawnTimer = Math.max(0, this.respawnTimer - dt);
@@ -195,7 +196,7 @@ export class Player {
     if (this.y > game.world.height * TILE + 200) this.takeDamage(9999, 0, game);
   }
 
-  _tickTimers(dt) {
+  _tickTimers(dt, game) {
     if (this.useTimer > 0) this.useTimer -= dt;
     if (this.placeTimer > 0) this.placeTimer -= dt;
     if (this.hammerTimer > 0) this.hammerTimer -= dt;
@@ -208,6 +209,39 @@ export class Player {
     for (let i = this.buffs.length - 1; i >= 0; i--) {
       this.buffs[i].time -= dt;
       if (this.buffs[i].time <= 0) this.buffs.splice(i, 1);
+    }
+    if (this.poison) {
+      this.poison.time -= dt;
+      this.poison.tick -= dt;
+      if (this.poison.time <= 0) {
+        this.poison = null;
+      } else if (this.isLocal && this.alive && !this.cheats.godmode && this.poison.tick <= 0) {
+        // Poison is a small, steady follow-up rather than another knockback
+        // hit. It intentionally ignores the normal contact iframe so a dart
+        // still matters after the initial strike.
+        this.poison.tick += 1;
+        const dmg = this.poison.dps;
+        this.hp -= dmg;
+        this.combatTimer = 4;
+        game?.addHitParticles(this.x + this.w / 2, this.y + this.h / 2, '#8be06f', 3);
+        game?.floatText(this.x + this.w / 2, this.y, '-' + dmg, '#8be06f');
+        if (this.hp <= 0) { this.hp = 0; this.die(game, 'poison'); }
+      }
+    }
+  }
+
+  applyStatusEffect(effect, game) {
+    if (!effect || !effect.poison || !this.alive) return;
+    const duration = Math.max(1, Number(effect.poison) || 0);
+    const current = this.poison;
+    this.poison = {
+      time: Math.max(duration, current ? current.time : 0),
+      tick: Math.min(current ? current.tick : 0.9, 0.9),
+      dps: 2,
+    };
+    if (this.isLocal) {
+      game?.floatText(this.x + this.w / 2, this.y - 7, 'POISONED', '#9be871');
+      game?.fx?.ring(this.x + this.w / 2, this.y + this.h / 2, '#8be06f', 22, { life: 0.3, width: 1.5 });
     }
   }
 
@@ -339,6 +373,7 @@ export class Player {
     this.hp = this.maxHp;
     this.mana = this.maxMana;
     this.iframes = 2;
+    this.poison = null;
     const sx = game.world.spawnX, sy = game.world.spawnPixelY(Math.floor(game.world.spawnX / TILE), this.h);
     this.x = sx; this.y = sy;
     this.vx = 0; this.vy = 0;

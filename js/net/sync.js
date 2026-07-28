@@ -1,12 +1,12 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
-import { MSG } from './protocol.js?v=quality-of-realms-1';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=quality-of-realms-1';
-import { Player, assignColor } from '../entities/player.js?v=quality-of-realms-1';
-import { Projectile } from '../entities/projectile.js?v=quality-of-realms-1';
-import { ThrownItem } from '../entities/thrown.js?v=quality-of-realms-1';
-import { ITEMS } from '../data/items.js?v=quality-of-realms-1';
-import { ENEMIES } from '../data/enemies.js?v=quality-of-realms-1';
-import { BOSSES } from '../data/bosses.js?v=quality-of-realms-1';
+import { MSG } from './protocol.js?v=snowy-taiga-underground-1';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=snowy-taiga-underground-1';
+import { Player, assignColor } from '../entities/player.js?v=snowy-taiga-underground-1';
+import { Projectile } from '../entities/projectile.js?v=snowy-taiga-underground-1';
+import { ThrownItem } from '../entities/thrown.js?v=snowy-taiga-underground-1';
+import { ITEMS } from '../data/items.js?v=snowy-taiga-underground-1';
+import { ENEMIES } from '../data/enemies.js?v=snowy-taiga-underground-1';
+import { BOSSES } from '../data/bosses.js?v=snowy-taiga-underground-1';
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 
@@ -334,7 +334,10 @@ export function handleMessage(game, fromId, msg, conn) {
       break;
     }
     case MSG.HURT: { // client's player takes damage
-      if (game.localPlayer) game.localPlayer.takeDamage(msg.dmg, msg.kbx, game);
+      if (game.localPlayer) {
+        game.localPlayer.takeDamage(msg.dmg, msg.kbx, game);
+        game.localPlayer.applyStatusEffect?.(msg.effect, game);
+      }
       break;
     }
     case MSG.GRANT: {

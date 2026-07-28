@@ -1,6 +1,6 @@
 // Summoner Realms — projectiles for ranged/mage weapons, minions, enemies, bosses.
-import { GRAVITY, TILE } from '../config.js?v=quality-of-realms-1';
-import { aabb, dist2 } from '../utils.js?v=quality-of-realms-1';
+import { GRAVITY, TILE } from '../config.js?v=snowy-taiga-underground-1';
+import { aabb, dist2 } from '../utils.js?v=snowy-taiga-underground-1';
 
 export class Projectile {
   constructor(opts) {
@@ -264,7 +264,7 @@ export class Projectile {
           return;
         }
         if (p === game.npc || p.isMinion) p.takeDamage(this.damage, knockback, game, 'enemy');
-        else game.applyEnemyDamageToPlayer(p, this.damage, knockback);
+        else game.applyEnemyDamageToPlayer(p, this.damage, knockback, this.effect);
         this.dead = true;
         return;
       }
