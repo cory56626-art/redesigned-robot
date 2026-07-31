@@ -12,7 +12,7 @@
 //     over the local tile window when the direct route is blocked
 //   · steering  — separation, so a pack spreads out instead of overlapping
 //   · aiming    — lead the target rather than firing at where it used to be
-import { TILE } from '../config.js?v=snowy-taiga-npc-2';
+import { TILE } from '../config.js?v=snowy-taiga-combat-aidan-1';
 
 // The BFS only ever looks at a window this size around the enemy. Big enough to
 // route around ordinary terrain, small enough to run many times a second.
@@ -41,12 +41,15 @@ export function perceive(e, game, dt, opts = {}) {
   const memory = opts.memory || 4;
 
   const cx = e.x + e.w / 2, cy = e.y + e.h / 2;
-  // Enemies can aggro a player, the Guide, or the living Diamond Heart. Pick
+  // Enemies can aggro a player, any living world NPC, or the living Diamond Heart. Pick
   // the nearest living target so a hostile that reaches either ally actually
   // turns on it instead of remaining locked to the player.
   const candidates = [];
+  const npcs = game.npcs || (game.npc ? [game.npc] : []);
   for (const p of game.players.values()) if (p.alive) candidates.push(p);
-  if (game.npc && game.npc.alive !== false) candidates.push(game.npc);
+  for (const npc of npcs) {
+    if (npc && npc.alive !== false && !npc.dead) candidates.push(npc);
+  }
   for (const m of (game.minions || [])) {
     if (m.alive !== false && !m.dead && m.maxHp != null) candidates.push(m);
   }
@@ -54,8 +57,18 @@ export function perceive(e, game, dt, opts = {}) {
   let p = null, nearest = Infinity;
   const playerPriorityRadius = 240;
   let nearestPlayer = null, nearestPlayerDist2 = Infinity;
+  let nearestNpc = null, nearestNpcDist2 = Infinity;
   for (const candidate of candidates) {
-    if (!candidate.isMinion && candidate !== game.npc) {
+    if (npcs.includes(candidate)) {
+      const cc = candidate.center ? candidate.center() : {
+        x: candidate.x + candidate.w / 2, y: candidate.y + candidate.h / 2,
+      };
+      const d2 = (cc.x - cx) * (cc.x - cx) + (cc.y - cy) * (cc.y - cy);
+      if (d2 < nearestNpcDist2) {
+        nearestNpcDist2 = d2;
+        nearestNpc = candidate;
+      }
+    } else if (!candidate.isMinion) {
       const cc = candidate.center ? candidate.center() : {
         x: candidate.x + candidate.w / 2, y: candidate.y + candidate.h / 2,
       };
@@ -67,10 +80,17 @@ export function perceive(e, game, dt, opts = {}) {
     }
   }
 
-  // Keep the player as the priority target when they are close enough to be
-  // an immediate threat. The Heart only becomes the preferred target when the
-  // player is outside that close-threat radius.
-  if (nearestPlayer && nearestPlayerDist2 <= playerPriorityRadius * playerPriorityRadius) {
+  // Keep the player as the priority target when they are close enough to be an
+  // immediate threat, unless a living NPC is even closer. That makes Nivara
+  // genuinely targetable while preserving the normal player-first feel.
+  const npcTargetRange = e.aware ? lose : aggro;
+  const npcIsCloser = nearestNpc && nearestNpcDist2 < nearestPlayerDist2 &&
+    nearestNpcDist2 <= npcTargetRange * npcTargetRange &&
+    game.world.hasLineOfSight(cx, cy, nearestNpc.x + nearestNpc.w / 2, nearestNpc.y + nearestNpc.h / 2);
+  if (npcIsCloser) {
+    p = nearestNpc;
+    nearest = nearestNpcDist2;
+  } else if (nearestPlayer && nearestPlayerDist2 <= playerPriorityRadius * playerPriorityRadius) {
     p = nearestPlayer;
     nearest = nearestPlayerDist2;
   } else {

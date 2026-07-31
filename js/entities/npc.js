@@ -3,10 +3,11 @@
 // Vesper Thane keeps a camp on the spawn plain from the moment a world is
 // created. He wanders a short leash, faces whoever is nearest, and can be spoken
 // to for advice or to have an item explained (see ui/npcdialog.js). Nivara
-// Frostbell uses the same safe, saveable entity with a snow-biome home.
-import { TILE, GRAVITY } from '../config.js?v=snowy-taiga-npc-2';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=snowy-taiga-npc-2';
-import { Projectile } from './projectile.js?v=snowy-taiga-npc-2';
+// Frostbell uses the same saveable entity with a snow-biome home, but is also a
+// real combatant who can be targeted, hurt, and eventually defeated.
+import { TILE, GRAVITY } from '../config.js?v=snowy-taiga-combat-aidan-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=snowy-taiga-combat-aidan-1';
+import { Projectile } from './projectile.js?v=snowy-taiga-combat-aidan-1';
 
 const NPC_PRESETS = {
   guide: {
@@ -17,13 +18,17 @@ const NPC_PRESETS = {
   },
   snowkeeper: {
     name: 'Nivara Frostbell', title: 'the Hearthkeeper', w: 18, h: 32,
-    leash: 6 * TILE, talkRange: 3.5 * TILE, maxHp: 80,
-    // Nivara is a peaceful landmark rather than another combat target. Keeping
-    // her protected also prevents snow-biome enemies from pulling combat away
-    // from the player just because she lives far from spawn.
-    canFight: false, invulnerable: true,
+    leash: 8 * TILE, talkRange: 3.5 * TILE, maxHp: 110,
+    // Nivara is useful because she helps the player, not because she is
+    // untouchable. Snow-biome enemies can attack her and she answers with
+    // readable frost bolts while trying to keep a little distance.
+    canFight: true, invulnerable: false,
     homeBiome: 'snowyTaiga', permanent: true, requiresHousing: false,
     auraRadius: 5 * TILE,
+    shootRange: 18 * TILE, shootDamage: 8, shootCooldown: 1.45,
+    shootWindup: 0.46, arrowSpeed: 460, shootKind: 'frostbolt',
+    shootColor: '#9cecff', shootKnockback: 2.5, wanderSpeed: 42,
+    dangerRange: 4 * TILE, safeRange: 9 * TILE, respawnChance: 0.18,
   },
 };
 
@@ -71,24 +76,30 @@ export class Npc {
     this.hearthPulse = this.kind === 'snowkeeper' ? 0.4 : 0;
     this.lastHearthDay = opts.lastHearthDay != null ? opts.lastHearthDay : null;
 
-    // The Guide has a deliberately weak, infinite-ammo bow so he can defend
-    // the camp without becoming a replacement for the player's combat build.
-    this.shootRange = this.canFight ? 15 * TILE : 0;
-    this.shootDamage = 3;
+    // Friendly NPCs use readable, infinite-ammo weapons. The Guide is weak;
+    // Nivara's frost bolts are stronger but still operate on a clear wind-up
+    // and cooldown so she supports a fight rather than deleting it.
+    this.shootRange = this.canFight ? (opts.shootRange != null ? opts.shootRange : (preset.shootRange || 15 * TILE)) : 0;
+    this.shootDamage = opts.shootDamage != null ? opts.shootDamage : (preset.shootDamage || 3);
     this.shootCooldown = 0;
     this.shootWindup = 0;
-    this.shootWindupMax = 0.38;
+    this.shootCooldownMax = opts.shootCooldown != null ? opts.shootCooldown : (preset.shootCooldown || 1.05);
+    this.shootWindupMax = opts.shootWindup != null ? opts.shootWindup : (preset.shootWindup || 0.38);
     this.shootAngle = 0;
     this._shootTarget = null;
     this._shotAimError = 0;
     this._shotLeadFactor = 0.62;
+    this.shootKind = opts.shootKind || preset.shootKind || 'arrow';
+    this.shootColor = opts.shootColor || preset.shootColor || '#e9e2c8';
+    this.shootKnockback = opts.shootKnockback != null ? opts.shootKnockback : (preset.shootKnockback || 1);
 
     // Keep enough space to react to melee enemies, but don't let the Guide
     // flee forever because the danger and safe ranges are intentionally different.
-    this.dangerRange = 3.5 * TILE;
-    this.safeRange = 7 * TILE;
+    this.dangerRange = opts.dangerRange != null ? opts.dangerRange : (preset.dangerRange || 3.5 * TILE);
+    this.safeRange = opts.safeRange != null ? opts.safeRange : (preset.safeRange || 7 * TILE);
+    this.wanderSpeed = opts.wanderSpeed != null ? opts.wanderSpeed : (preset.wanderSpeed || 34);
     this.retreating = false;
-    this.arrowSpeed = 420;
+    this.arrowSpeed = opts.arrowSpeed != null ? opts.arrowSpeed : (preset.arrowSpeed || 420);
 
     // The Guide is a real, killable NPC now. A death schedules three daily
     // respawn checks: two low-probability rolls, then a guaranteed return.
@@ -101,7 +112,7 @@ export class Npc {
     this.combatTimer = 0;
     this.respawnDay = opts.respawnDay != null ? opts.respawnDay : null;
     this.respawnAttemptDay = opts.respawnAttemptDay != null ? opts.respawnAttemptDay : null;
-    this.respawnChance = 0.22;
+    this.respawnChance = opts.respawnChance != null ? opts.respawnChance : (preset.respawnChance != null ? preset.respawnChance : 0.22);
   }
 
   // Build an NPC for a world, restoring saved state when there is any. Always
@@ -185,7 +196,7 @@ export class Npc {
       threat = this.retreating && stillClose && !stillClose.dead ? stillClose : null;
     }
 
-    const candidateTarget = this.canFight && !talking && !this.retreating
+    const candidateTarget = this.canFight && !talking
       ? game.nearestReachableEnemyOrBoss(nc.x, nc.y, this.shootRange)
       : null;
     const enemyTarget = candidateTarget && !candidateTarget.dead ? candidateTarget : null;
@@ -276,7 +287,7 @@ export class Npc {
     this._shootTarget = null;
     game.fx?.ring(this.x + this.w / 2, this.y + this.h / 2, '#7ee0c0', 38, { life: 0.35, width: 2 });
     game.fx?.burst(this.x + this.w / 2, this.y + this.h / 2, '#7ee0c0', 16, { speed: 100, life: 0.55, glow: true });
-    game.toast?.('The Guide has returned.', 'good');
+    game.toast?.(this.kind === 'snowkeeper' ? 'Nivara has returned to her lantern.' : 'The Guide has returned.', 'good');
     game.markDirty?.();
   }
 
@@ -297,12 +308,10 @@ export class Npc {
   _updateCombat(dt, game, target, retreating = false) {
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
 
-    if (retreating) {
-      this.shootWindup = 0;
-      this._shootTarget = null;
-      this._shotAimError = 0;
-      return;
-    }
+    // A ranged NPC should not become helpless the moment a melee enemy gets
+    // close. Keep firing while retreating; the movement and the wind-up are
+    // both visible counterplay instead of a silent retreat.
+    if (retreating && !target && !(this._shootTarget && !this._shootTarget.dead)) return;
 
     if (this.shootWindup > 0) {
       this.shootWindup -= dt;
@@ -358,15 +367,16 @@ export class Npc {
       damage: this.shootDamage,
       ownerType: 'npc',
       ownerId: this.key,
-      kind: 'arrow',
-      color: '#e9e2c8',
-      gravity: true,
-      knockback: 1,
+      kind: this.shootKind,
+      color: this.shootColor,
+      gravity: this.shootKind === 'arrow',
+      knockback: this.shootKnockback,
       life: 2.5,
+      trail: this.shootColor,
     }), true);
     game.audio?.bowShot();
-    game.fx?.streak(nc.x, nc.y, this.shootAngle, '#e9e2c8', 3, { speed: 55, life: 0.14, size: 2 });
-    this.shootCooldown = 1.05;
+    game.fx?.streak(nc.x, nc.y, this.shootAngle, this.shootColor, 3, { speed: 55, life: 0.14, size: 2, glow: this.shootKind !== 'arrow' });
+    this.shootCooldown = this.shootCooldownMax;
     this._shootTarget = null;
   }
 
@@ -382,7 +392,7 @@ export class Npc {
     if (offset < -this.leash) this._dir = 1;
     else if (offset > this.leash) this._dir = -1;
 
-    this.vx = this._dir * 34;
+    this.vx = this._dir * this.wanderSpeed;
     this.facing = this._dir;
     if (this._pause < 0) {
       this._pause += dt * 2;
@@ -399,7 +409,7 @@ export class Npc {
     this.combatTimer = 4;
     this.vx = knockbackX || 0;
     this.vy = -120;
-    game?.audio?.playerHurt?.();
+    game?.audio?.enemyHurt?.();
     game?.addHitParticles(this.x + this.w / 2, this.y + this.h / 2, '#ff6b7d', 6);
     game?.floatText(this.x + this.w / 2, this.y, '-' + dmg, '#ff6b7d');
 
@@ -413,7 +423,10 @@ export class Npc {
       this._shootTarget = null;
       this.retreating = false;
       game?.fx?.burst(this.x + this.w / 2, this.y + this.h / 2, '#ff6b7d', 18, { speed: 150, life: 0.7, glow: true });
-      game?.toast?.('The Guide has fallen. He may return within three days.', 'bad');
+      const fallen = this.kind === 'snowkeeper'
+        ? 'Nivara has fallen. Her lantern may call her back within three days.'
+        : 'The Guide has fallen. He may return within three days.';
+      game?.toast?.(fallen, 'bad');
       game?.markDirty?.();
     }
   }

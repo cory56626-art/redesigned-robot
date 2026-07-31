@@ -1,12 +1,12 @@
 // Summoner Realms — minion entity. Owned by a player; the owner's client
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
-import { minionDef } from '../data/minions.js?v=snowy-taiga-npc-2';
-import { initAidanState, updateAidanState } from './aidan.js?v=snowy-taiga-npc-2';
-import { dist2, aabb, angleTo } from '../utils.js?v=snowy-taiga-npc-2';
-import { TILE } from '../config.js?v=snowy-taiga-npc-2';
-import { Projectile } from './projectile.js?v=snowy-taiga-npc-2';
-import * as AI from '../systems/ai.js?v=snowy-taiga-npc-2';
+import { minionDef } from '../data/minions.js?v=snowy-taiga-combat-aidan-1';
+import { initAidanState, updateAidanState } from './aidan.js?v=snowy-taiga-combat-aidan-1';
+import { dist2, aabb, angleTo } from '../utils.js?v=snowy-taiga-combat-aidan-1';
+import { TILE } from '../config.js?v=snowy-taiga-combat-aidan-1';
+import { Projectile } from './projectile.js?v=snowy-taiga-combat-aidan-1';
+import * as AI from '../systems/ai.js?v=snowy-taiga-combat-aidan-1';
 
 let MINION_SEQ = 1;
 

@@ -45,16 +45,20 @@ export const MINIONS = {
   },
   aidan: {
     key: 'aidan', name: 'Aidan', behavior: 'aidan',
-    damage: 26, speed: 180, range: 1800, color: '#c88b2e', color2: '#5a341d',
+    damage: 30, speed: 180, range: 1800, color: '#c88b2e', color2: '#5a341d',
     w: 12, h: 26, maxHp: 1400, flying: false,
-    basicDamage: 26, basicRate: 1.05, basicSpeed: 720, basicRange: 352,
+    basicDamage: 30, basicRate: 1.05, basicSpeed: 720, basicRange: 352,
     portalTrigger: 360, portalSourceDistance: 64, portalExitDistance: 80, portalCooldown: 2.2,
     railgunDamage: 75, railgunCharge: 5, railgunCooldown: 14, railgunRange: 1800, railgunMinRange: 192,
     radioDamage: 5, radioTick: 0.5, radioDuration: 20,
     freezeDamage: 0, freezeCharge: 0.7, freezeDuration: 5, freezeSpeed: 520, freezeCooldown: 8.0, freezeRange: 900,
     freezeTriggerHits: 3, freezeTriggerDamage: 24, freezeTriggerWindow: 2.5,
+    novaDamage: 12, novaCount: 8, novaSpeed: 380, novaLife: 0.85, novaRadius: 96,
+    novaTriggerRange: 126, novaCharge: 0.42, novaCooldown: 6.5,
+    phaseDashDamage: 30, phaseDashSpeed: 520, phaseDashDuration: 0.28,
+    phaseDashRange: 250, phaseDashMinRange: 72, phaseDashCharge: 0.20, phaseDashCooldown: 5.5,
     jetpackDuration: 1.55, jetpackCooldown: 4.0,
-    desc: 'Aidan, the player-sized grounded nanotech summon: articulated walk cycle, Portal Pursuit, nanobot pulses, a five-second purple railgun charge, defensive freeze gun, and jetpack recovery.',
+    desc: 'Aidan, the player-sized grounded nanotech summon: Portal Pursuit, Purple Railgun, defensive Freeze Gun, Nanite Nova, Phase Dash, stronger pulse fire, and jetpack recovery.',
   },
 };
 

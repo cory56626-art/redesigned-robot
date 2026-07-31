@@ -3,12 +3,12 @@
 // Each enemy runs the same loop: perceive (do I know where the player is?),
 // decide (idle / approach / attack / retreat), then act. Perception, pathing and
 // steering live in systems/ai.js so every creature reasons the same way.
-import { TILE, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=snowy-taiga-npc-2';
-import { ENEMIES } from '../data/enemies.js?v=snowy-taiga-npc-2';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=snowy-taiga-npc-2';
-import { aabb } from '../utils.js?v=snowy-taiga-npc-2';
-import { Projectile } from './projectile.js?v=snowy-taiga-npc-2';
-import * as AI from '../systems/ai.js?v=snowy-taiga-npc-2';
+import { TILE, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=snowy-taiga-combat-aidan-1';
+import { ENEMIES } from '../data/enemies.js?v=snowy-taiga-combat-aidan-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=snowy-taiga-combat-aidan-1';
+import { aabb } from '../utils.js?v=snowy-taiga-combat-aidan-1';
+import { Projectile } from './projectile.js?v=snowy-taiga-combat-aidan-1';
+import * as AI from '../systems/ai.js?v=snowy-taiga-combat-aidan-1';
 
 export class Enemy {
   constructor(key, x, y, netId, difficulty = 'normal') {
@@ -282,7 +282,9 @@ export class Enemy {
   _contactDamage(game) {
     if (this.attackCd > 0) return;
     const targets = [...game.players.values()];
-    if (game.npc && game.npc.alive) targets.push(game.npc);
+    for (const npc of (game.npcs || (game.npc ? [game.npc] : []))) {
+      if (npc && npc.alive) targets.push(npc);
+    }
     for (const m of (game.minions || [])) {
       if (m.alive !== false && !m.dead && m.maxHp != null) targets.push(m);
     }
@@ -290,7 +292,7 @@ export class Enemy {
       if (p.alive !== false && !p.dead && aabb(this, p)) {
         const knockback = Math.sign(p.x - this.x) * 4 + this.facing * 2;
         const dodged = p.isMinion && p.tryDodgeContact?.(game, this);
-        if (!dodged && (p === game.npc || p.isMinion)) p.takeDamage(this.damage, knockback, game, this.name);
+        if (!dodged && (p.kind || p.isMinion)) p.takeDamage(this.damage, knockback, game, this.name);
         else if (!dodged) game.applyEnemyDamageToPlayer(p, this.damage, knockback);
         this.attackCd = this.contactCooldown;
         break;

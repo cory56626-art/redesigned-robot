@@ -1,10 +1,11 @@
 // Summoner Realms — Aidan summon controller and pixel-tech presentation.
 // Aidan is intentionally kept in its own module: his multi-stage portal and
 // railgun states are too specific to safely squeeze into the generic minion AI.
-import { TILE } from '../config.js?v=snowy-taiga-npc-2';
-import { Projectile } from './projectile.js?v=snowy-taiga-npc-2';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=snowy-taiga-npc-2';
-import * as AI from '../systems/ai.js?v=snowy-taiga-npc-2';
+import { TILE } from '../config.js?v=snowy-taiga-combat-aidan-1';
+import { Projectile } from './projectile.js?v=snowy-taiga-combat-aidan-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=snowy-taiga-combat-aidan-1';
+import * as AI from '../systems/ai.js?v=snowy-taiga-combat-aidan-1';
+import { aabb } from '../utils.js?v=snowy-taiga-combat-aidan-1';
 
 const TAU = Math.PI * 2;
 const PORTAL_BLUE = '#2e9cff';
@@ -63,7 +64,8 @@ function syncGroundPose(m) {
   const speed = Math.max(1, m.def.speed || 180);
   m.moveAmount = clamp(Math.abs(m.vx) / speed, 0, 1);
   if (!m.poseTimer && !m.portalState && !m.freezeWindup && !m.freezeActive &&
-      !m.jetpackTime && m.pose !== 'railgunCharge' && m.pose !== 'railgunFire') {
+      !m.jetpackTime && !m.novaWindup && !m.phaseDashWindup && !m.phaseDashTime &&
+      m.pose !== 'railgunCharge' && m.pose !== 'railgunFire') {
     m.pose = m.moveAmount > 0.05 ? 'move' : 'idle';
   }
 }
@@ -578,6 +580,188 @@ function fireBasicPulse(m, game, owner, target) {
     angle, PORTAL_CYAN, 8, { speed: 240, spread: 0.32, life: 0.16, size: 2, glow: true });
 }
 
+function beginNaniteNova(m, game, target) {
+  const c = centerOf(m);
+  const tc = centerOf(target);
+  m.novaTarget = target;
+  m.novaAngle = Math.atan2(tc.y - c.y, tc.x - c.x);
+  m.novaWindup = m.def.novaCharge || 0.42;
+  m.novaProgress = 0;
+  m.vx = 0;
+  m.vy = 0;
+  m.moveAmount = 0;
+  m.pose = 'novaCharge';
+  m.poseTimer = m.novaWindup;
+  game.fx?.ring(c.x, c.y, '#a86bff', 32, { life: m.novaWindup, from: 44, width: 2 });
+  game.fx?.burst(c.x, c.y, ['#d8a7ff', PORTAL_CYAN, PORTAL_GOLD], 10, {
+    speed: 72, life: 0.45, gravity: -18, glow: true, size: 2,
+  });
+}
+
+function fireNaniteNova(m, game, owner) {
+  const c = centerOf(m);
+  const damage = (m.def.novaDamage || 12) * ((owner.stats && owner.stats.summonMul) || 1);
+  const radius = m.def.novaRadius || 96;
+  const hitClose = (target) => {
+    if (!aliveTarget(target)) return;
+    const tc = centerOf(target);
+    if (Math.hypot(tc.x - c.x, tc.y - c.y) > radius) return;
+    game.hurtEnemyOrBoss(target, damage, Math.sign(tc.x - c.x) * 3, m.ownerId, false);
+    game.addHitParticles(tc.x, tc.y, '#d8a7ff', 6);
+  };
+  for (const e of game.enemies || []) hitClose(e);
+  for (const b of game.bosses || []) hitClose(b);
+
+  const count = Math.max(5, Math.floor(m.def.novaCount || 8));
+  const phase = (m.novaAngle || 0) + Math.random() * Math.PI * 2 / count;
+  for (let i = 0; i < count; i++) {
+    const angle = phase + i * Math.PI * 2 / count;
+    game.addProjectile(new Projectile({
+      x: c.x - 4, y: c.y - 4,
+      vx: Math.cos(angle) * (m.def.novaSpeed || 380),
+      vy: Math.sin(angle) * (m.def.novaSpeed || 380),
+      w: 8, h: 8,
+      damage: damage * 0.72,
+      ownerType: 'minion', ownerId: m.ownerId,
+      kind: 'aidanNova', color: '#d8a7ff', life: m.def.novaLife || 0.85,
+      knockback: 2, trail: '#a86bff',
+    }), true);
+  }
+  m.novaWindup = 0;
+  m.novaProgress = 1;
+  m.novaTarget = null;
+  m.novaCooldown = m.def.novaCooldown || 6.5;
+  m.pose = 'novaFire';
+  m.poseTimer = 0.36;
+  m.recoil = 1;
+  game.fx?.flash(c.x, c.y, 0.7, 0.18);
+  game.fx?.ring(c.x, c.y, '#d8a7ff', radius * 0.82, { life: 0.35, width: 3 });
+  game.fx?.burst(c.x, c.y, ['#f2ddff', '#b879ff', PORTAL_CYAN], 24, {
+    speed: 190, life: 0.55, glow: true, size: 2.5,
+  });
+  game.fx?.shake(1.8, 0.16);
+}
+
+function updateNaniteNova(m, game, owner, dt) {
+  const target = aliveTarget(m.novaTarget) ? m.novaTarget : null;
+  const c = centerOf(m);
+  if (target) {
+    const tc = centerOf(target);
+    m.novaAngle = approachAngle(m.novaAngle || Math.atan2(tc.y - c.y, tc.x - c.x),
+      Math.atan2(tc.y - c.y, tc.x - c.x), dt * 5.5);
+    m.facing = Math.cos(m.novaAngle) < 0 ? -1 : 1;
+  }
+  m.novaWindup = Math.max(0, m.novaWindup - dt);
+  m.novaProgress = 1 - clamp(m.novaWindup / (m.def.novaCharge || 0.42), 0, 1);
+  settleAidan(m, game, dt);
+  m.moveAmount = 0;
+  m.pose = 'novaCharge';
+  if (m.novaWindup <= 0) fireNaniteNova(m, game, owner);
+}
+
+function beginPhaseDash(m, game, target) {
+  const c = centerOf(m);
+  const tc = centerOf(target);
+  m.phaseDashTarget = target;
+  m.phaseDashAngle = Math.atan2(tc.y - c.y, tc.x - c.x);
+  m.phaseDashWindup = m.def.phaseDashCharge || 0.20;
+  m.phaseDashProgress = 0;
+  m.phaseDashTime = 0;
+  m.phaseDashHits = new Set();
+  m.vx = 0;
+  m.vy = 0;
+  m.moveAmount = 0;
+  m.pose = 'phaseDashCharge';
+  m.poseTimer = m.phaseDashWindup;
+  game.fx?.ring(c.x, c.y, PORTAL_CYAN, 25, { life: m.phaseDashWindup, from: 38, width: 2 });
+  game.fx?.streak(c.x, c.y, m.phaseDashAngle, PORTAL_GOLD, 7, {
+    speed: 80, spread: 0.22, life: 0.25, glow: true,
+  });
+}
+
+function firePhaseDash(m, game) {
+  const c = centerOf(m);
+  m.phaseDashWindup = 0;
+  m.phaseDashTime = m.def.phaseDashDuration || 0.28;
+  m.phaseDashCooldown = m.def.phaseDashCooldown || 5.5;
+  m.phaseDashHits = new Set();
+  m.pose = 'phaseDash';
+  m.poseTimer = m.phaseDashTime;
+  m.recoil = 1;
+  m.moveAmount = 1;
+  game.fx?.flash(c.x, c.y, 0.55, 0.12);
+  game.fx?.ring(c.x, c.y, PORTAL_CYAN, 24, { life: 0.22, width: 2 });
+  game.fx?.streak(c.x, c.y, m.phaseDashAngle, '#ffffff', 12, {
+    speed: 260, spread: 0.15, life: 0.24, size: 2.5, glow: true,
+  });
+}
+
+function updatePhaseDash(m, game, dt) {
+  const target = aliveTarget(m.phaseDashTarget) ? m.phaseDashTarget : null;
+  const c = centerOf(m);
+  if (m.phaseDashWindup > 0) {
+    if (target) {
+      const tc = centerOf(target);
+      m.phaseDashAngle = approachAngle(m.phaseDashAngle || 0,
+        Math.atan2(tc.y - c.y, tc.x - c.x), dt * 6);
+      m.facing = Math.cos(m.phaseDashAngle) < 0 ? -1 : 1;
+    }
+    m.phaseDashWindup = Math.max(0, m.phaseDashWindup - dt);
+    m.phaseDashProgress = 1 - clamp(m.phaseDashWindup / (m.def.phaseDashCharge || 0.20), 0, 1);
+    settleAidan(m, game, dt);
+    m.moveAmount = 0;
+    m.pose = 'phaseDashCharge';
+    if (m.phaseDashWindup <= 0) firePhaseDash(m, game);
+    return;
+  }
+
+  if (m.phaseDashTime <= 0) return;
+  const old = { x: m.x, y: m.y };
+  const speed = m.def.phaseDashSpeed || 520;
+  m.vx = Math.cos(m.phaseDashAngle) * speed;
+  m.vy = Math.sin(m.phaseDashAngle) * speed * 0.42;
+  applyGravity(m, dt);
+  moveAndCollide(m, game.world, dt);
+  clampToWorld(m, game.world);
+  m.onGround = false;
+  m.moveAmount = 1;
+
+  const sweep = {
+    x: Math.min(old.x, m.x) - 6,
+    y: Math.min(old.y, m.y) - 6,
+    w: Math.abs(m.x - old.x) + m.w + 12,
+    h: Math.abs(m.y - old.y) + m.h + 12,
+  };
+  const damage = (m.def.phaseDashDamage || 30) * ((game.players.get(m.ownerId)?.stats?.summonMul) || 1);
+  const hit = (entity) => {
+    if (!aliveTarget(entity) || m.phaseDashHits.has(entity) || !aabb(sweep, entity)) return;
+    m.phaseDashHits.add(entity);
+    game.hurtEnemyOrBoss(entity, damage, Math.sign(m.vx) * 6, m.ownerId, false);
+    const ec = centerOf(entity);
+    game.addHitParticles(ec.x, ec.y, PORTAL_CYAN, 10);
+    game.fx?.ring(ec.x, ec.y, PORTAL_GOLD, 24, { life: 0.18, width: 2 });
+  };
+  for (const e of game.enemies || []) hit(e);
+  for (const b of game.bosses || []) hit(b);
+  if ((m.phaseDashTrailTimer || 0) <= 0) {
+    m.phaseDashTrailTimer = 0.035;
+    game.fx?.trail(c.x, c.y, PORTAL_CYAN, { size: 4, life: 0.25 });
+  }
+  m.phaseDashTrailTimer -= dt;
+  m.phaseDashTime -= dt;
+  if (m.phaseDashTime <= 0) {
+    m.phaseDashTime = 0;
+    m.phaseDashTarget = null;
+    m.pose = 'phaseDash';
+    m.poseTimer = 0.24;
+    m.vx *= 0.22;
+    m.vy *= 0.22;
+    game.fx?.burst(m.x + m.w / 2, m.y + m.h / 2, [PORTAL_CYAN, PORTAL_GOLD], 14, {
+      speed: 110, life: 0.38, glow: true,
+    });
+  }
+}
+
 function updateAidan(m, game, owner, ownerCenter, dt) {
   const d = m.def;
   m.portalCooldown = Math.max(0, (m.portalCooldown || 0) - dt);
@@ -589,12 +773,15 @@ function updateAidan(m, game, owner, ownerCenter, dt) {
     m.freezeDefenseDamage = 0;
   }
   m.jetpackCooldown = Math.max(0, (m.jetpackCooldown || 0) - dt);
+  m.novaCooldown = Math.max(0, (m.novaCooldown || 0) - dt);
+  m.phaseDashCooldown = Math.max(0, (m.phaseDashCooldown || 0) - dt);
   m.poseTimer = Math.max(0, (m.poseTimer || 0) - dt);
   m.recoil = Math.max(0, (m.recoil || 0) - dt * 7);
   m.freezeActive = Math.max(0, (m.freezeActive || 0) - dt);
   if (m.poseTimer <= 0 && (
       m.pose === 'pulse' || m.pose === 'railgunFire' ||
-      m.pose === 'freezeFire' || m.pose === 'portalExit'
+      m.pose === 'freezeFire' || m.pose === 'portalExit' ||
+      m.pose === 'novaFire' || m.pose === 'phaseDash'
     )) m.pose = 'idle';
   m.railgunCooldown = Math.max(0, (m.railgunCooldown || 0) - dt);
   m.basicCooldown = Math.max(0, (m.basicCooldown || 0) - dt);
@@ -623,6 +810,8 @@ function updateAidan(m, game, owner, ownerCenter, dt) {
     m.pose = 'railgunFire';
     return;
   }
+  if (m.novaWindup > 0) { updateNaniteNova(m, game, owner, dt); return; }
+  if (m.phaseDashWindup > 0 || m.phaseDashTime > 0) { updatePhaseDash(m, game, dt); return; }
   if (m.jetpackTime > 0) { updateJetpack(m, game, ownerCenter, dt); return; }
 
   // Finish a short attack/recoil pose before considering queued defense.
@@ -686,6 +875,22 @@ function updateAidan(m, game, owner, ownerCenter, dt) {
     return;
   }
 
+  // Phase Dash is a controlled close-range finisher. It only fires through a
+  // clear lane, has a long cooldown, and can hit each enemy once per dash.
+  if (m.phaseDashCooldown <= 0 && distance >= (d.phaseDashMinRange || 72) &&
+      distance <= (d.phaseDashRange || 250) && los) {
+    beginPhaseDash(m, game, target);
+    return;
+  }
+
+  // Nanite Nova is Aidan's anti-swarm tool. It is deliberately slower than the
+  // basic pulse and its radial bolts are modest, but the readable charge gives
+  // the move a satisfying power spike when enemies crowd him.
+  if (m.novaCooldown <= 0 && distance <= (d.novaTriggerRange || 126) && los) {
+    beginNaniteNova(m, game, target);
+    return;
+  }
+
   walkAidanToRange(m, game, target, Math.max(128, Math.min(176, (d.basicRange || 352) * 0.5)), dt);
   if (los && distance <= (d.basicRange || TILE * 22) && m.basicCooldown <= 0) {
     fireBasicPulse(m, game, owner, target);
@@ -721,6 +926,19 @@ export function initAidanState(m) {
   m.jetpackTime = 0;
   m.jetpackTarget = null;
   m.jetpackFxTimer = 0;
+  m.novaCooldown = 1.8;
+  m.novaWindup = 0;
+  m.novaProgress = 0;
+  m.novaTarget = null;
+  m.novaAngle = 0;
+  m.phaseDashCooldown = 1.1;
+  m.phaseDashWindup = 0;
+  m.phaseDashProgress = 0;
+  m.phaseDashTime = 0;
+  m.phaseDashTarget = null;
+  m.phaseDashAngle = 0;
+  m.phaseDashHits = new Set();
+  m.phaseDashTrailTimer = 0;
   m.stuckTimer = 0;
   m.basicCooldown = 0.35;
   m.pose = 'idle';
@@ -990,11 +1208,14 @@ export function drawAidan(ctx, m) {
   const grounded = m.onGround !== false;
   const freezePose = pose === 'freezeCharge' || pose === 'freezeFire' ||
     m.freezeWindup > 0 || m.freezeActive > 0;
+  const novaPose = pose === 'novaCharge' || pose === 'novaFire' || m.novaWindup > 0;
+  const phaseDashPose = pose === 'phaseDashCharge' || pose === 'phaseDash' ||
+    m.phaseDashWindup > 0 || m.phaseDashTime > 0;
   const jetpackPose = pose === 'jetpack' || m.jetpackTime > 0;
   const railPose = pose === 'railgunCharge' || pose === 'railgunFire' ||
     m.railgunWindup > 0 || m.railgunActive > 0;
   const moving = grounded && (m.moveAmount || 0) > 0.06 &&
-    !railPose && !freezePose && !jetpackPose;
+    !railPose && !freezePose && !novaPose && !phaseDashPose && !jetpackPose;
   const walkPhase = m.walkCycle != null ? m.walkCycle : t * 2.35;
   const gait = Math.sin(walkPhase);
   const stride = moving ? gait * 3.8 : Math.sin(t * 1.8) * 0.16;
@@ -1006,11 +1227,15 @@ export function drawAidan(ctx, m) {
   const breathing = Math.sin(t * 2.25) * 0.22;
   const chargeCrouch = pose === 'railgunCharge'
     ? 0.9 + Math.sin(t * 13) * 0.18
-    : freezePose ? 0.35 + Math.sin(t * 16) * 0.08 : 0;
-  const fireKick = pose === 'railgunFire' || pose === 'freezeFire' ? -0.75 : 0;
+    : freezePose ? 0.35 + Math.sin(t * 16) * 0.08
+    : pose === 'novaCharge' ? 0.22 + Math.sin(t * 18) * 0.08
+    : pose === 'phaseDashCharge' ? 0.46 + Math.sin(t * 20) * 0.08 : 0;
+  const fireKick = pose === 'railgunFire' || pose === 'freezeFire' || pose === 'novaFire' ? -0.75
+    : pose === 'phaseDash' ? -0.55 : 0;
   const jetBob = jetpackPose ? Math.sin(t * 18) * 0.65 - 0.8 : 0;
   const bodyY = breathing + walkBob + chargeCrouch + fireKick + jetBob;
-  const bodyLean = jetpackPose ? -0.14 : moving ? gait * 0.035 : 0;
+  const bodyLean = jetpackPose ? -0.14 : phaseDashPose ? Math.cos(m.phaseDashAngle || 0) * 0.16
+    : moving ? gait * 0.035 : 0;
   const recoil = Math.max(0, Math.min(1, m.recoil || 0));
   const portalPose = pose === 'portalAim' || pose === 'portalStep' ||
     pose === 'portalExit' || !!m.portalState;
@@ -1018,6 +1243,8 @@ export function drawAidan(ctx, m) {
   const worldAim = freezePose ? (m.freezeAngle || 0)
     : railPose ? (m.railgunAngle || 0)
     : portalPose ? (m.portalGunAngle || 0)
+    : novaPose ? (m.novaAngle || 0)
+    : phaseDashPose ? (m.phaseDashAngle || 0)
     : (m.pulseAngle || (m.facing < 0 ? Math.PI : 0));
   const aim = localAimAngle(face, worldAim);
   const aimArm = aim - Math.PI / 2;
@@ -1039,9 +1266,13 @@ export function drawAidan(ctx, m) {
   ctx.globalCompositeOperation = 'lighter';
   ctx.globalAlpha = railPose ? 0.14 + (m.railgunProgress || 0) * 0.12
     : freezePose ? 0.16 + (m.freezeProgress || 0) * 0.12
+    : novaPose ? 0.18 + (m.novaProgress || 0) * 0.18
+    : phaseDashPose ? 0.18 + (m.phaseDashProgress || 0) * 0.16
     : jetpackPose ? 0.18 : 0.07;
   ctx.fillStyle = railPose ? RAIL_PURPLE
     : freezePose ? FREEZE_BLUE
+    : novaPose ? '#a86bff'
+    : phaseDashPose ? PORTAL_CYAN
     : jetpackPose ? FREEZE_CYAN
     : PORTAL_CYAN;
   ctx.beginPath();
@@ -1178,6 +1409,41 @@ export function drawAidan(ctx, m) {
     ctx.restore();
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
+  } else if (novaPose) {
+    // Nanite Nova uses both gauntlets as a compact reactor: the ring grows
+    // during the charge and breaks outward when the radial bolts release.
+    drawAidanArm(ctx, 4.5, -4, aimArm + 0.42, 0.92);
+    drawAidanArm(ctx, -4, -3, aimArm - 0.42, 0.92);
+    ctx.save();
+    ctx.translate(0, -2);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = pose === 'novaFire' ? 0.95 : 0.42 + (m.novaProgress || 0) * 0.36;
+    ctx.strokeStyle = '#d8a7ff';
+    ctx.lineWidth = pose === 'novaFire' ? 2 : 1.2;
+    ctx.beginPath();
+    ctx.arc(0, 0, 4 + (m.novaProgress || 0) * 7, 0, TAU);
+    ctx.stroke();
+    for (let i = 0; i < 4; i++) {
+      const a = (m.novaAngle || 0) + i * Math.PI / 2 + t * 2.4;
+      const r = 6 + (m.novaProgress || 0) * 5;
+      ctx.fillStyle = i % 2 ? PORTAL_CYAN : '#f2ddff';
+      ctx.fillRect(Math.cos(a) * r - 1, Math.sin(a) * r - 1, 2, 2);
+    }
+    ctx.restore();
+  } else if (phaseDashPose) {
+    // Phase Dash folds the armored silhouette forward and leaves a gold/cyan
+    // afterimage so the movement reads as a deliberate ability, not a teleport.
+    drawAidanArm(ctx, 4.5, -4, aimArm + 0.28, 0.92);
+    drawAidanArm(ctx, -4, -3, aimArm - 0.24, 0.84);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = pose === 'phaseDashCharge' ? 0.48 : 0.82;
+    ctx.strokeStyle = pose === 'phaseDashCharge' ? PORTAL_GOLD : PORTAL_CYAN;
+    ctx.lineWidth = pose === 'phaseDashCharge' ? 1.2 : 1.8;
+    ctx.beginPath();
+    ctx.moveTo(-8, 8); ctx.lineTo(-13, 12); ctx.moveTo(-5, 10); ctx.lineTo(-8, 15);
+    ctx.stroke();
+    ctx.restore();
   } else if (jetpackPose) {
     // Jetpack recovery keeps the armor angled with the arms braced against
     // the thrust, while the exhaust is rendered behind the body.

@@ -1,15 +1,15 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=snowy-taiga-npc-2';
-import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=snowy-taiga-npc-2';
-import { SH } from '../world/shapes.js?v=snowy-taiga-npc-2';
-import { W, hasWall } from '../world/walls.js?v=snowy-taiga-npc-2';
-import { BIOMES } from '../world/biomes.js?v=snowy-taiga-npc-2';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=snowy-taiga-npc-2';
-import { item as getItem } from '../data/items.js?v=snowy-taiga-npc-2';
-import { canPlaceAt } from '../systems/combat.js?v=snowy-taiga-npc-2';
-import { clamp } from '../utils.js?v=snowy-taiga-npc-2';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=snowy-taiga-npc-2';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=snowy-taiga-combat-aidan-1';
+import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=snowy-taiga-combat-aidan-1';
+import { SH } from '../world/shapes.js?v=snowy-taiga-combat-aidan-1';
+import { W, hasWall } from '../world/walls.js?v=snowy-taiga-combat-aidan-1';
+import { BIOMES } from '../world/biomes.js?v=snowy-taiga-combat-aidan-1';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=snowy-taiga-combat-aidan-1';
+import { item as getItem } from '../data/items.js?v=snowy-taiga-combat-aidan-1';
+import { canPlaceAt } from '../systems/combat.js?v=snowy-taiga-combat-aidan-1';
+import { clamp } from '../utils.js?v=snowy-taiga-combat-aidan-1';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=snowy-taiga-combat-aidan-1';
 
 // Fallback appearance for players without a character record (remote players
 // on an older client, or a world loaded before characters existed).
@@ -23,7 +23,7 @@ const PROJ_GLOW = {
   blight: '#c58bff', crystal: '#df8cff', voidorb: '#b06bff',
   spark: '#9ec3ff', wispbolt: '#9ec3ff', emberball: '#ff8c3b',
   poisonDart: '#9be871', aurora: '#b9ffe8',
-  arcwave: '#bfe9ff', diamondSpear: '#dffcff', miniDiamondSpear: '#8be9ff', aidanPulse: '#8feaff', aidanFreeze: '#61eaff',
+  arcwave: '#bfe9ff', frostbolt: '#9cecff', diamondSpear: '#dffcff', miniDiamondSpear: '#8be9ff', aidanPulse: '#8feaff', aidanNova: '#d8a7ff', aidanFreeze: '#61eaff',
 };
 
 // Background colour anchors by depth, in tile rows. `colorAtDepth` interpolates
@@ -748,6 +748,42 @@ export class Renderer {
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(pr.rot);
+
+      if (pr.kind === 'frostbolt') {
+        const pulse = 1 + Math.sin((pr.x + pr.y) * 0.025 + performance.now() * 0.012) * 0.12;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.22 * pulse;
+        ctx.fillStyle = '#71ddff';
+        ctx.beginPath(); ctx.arc(0, 0, 10 * pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#dffcff';
+        ctx.beginPath();
+        ctx.moveTo(9, 0); ctx.lineTo(2, -4); ctx.lineTo(-7, -2);
+        ctx.lineTo(-3, 0); ctx.lineTo(-7, 2); ctx.lineTo(2, 4); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#63d9ff';
+        ctx.fillRect(-3, -1, 8, 2);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'aidanNova') {
+        const pulse = 1 + Math.sin((pr.x + pr.y) * 0.018 + performance.now() * 0.014) * 0.16;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.22 * pulse;
+        ctx.fillStyle = '#a86bff';
+        ctx.beginPath(); ctx.arc(0, 0, 12 * pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#f2ddff';
+        ctx.beginPath();
+        ctx.moveTo(8, 0); ctx.lineTo(2, -2); ctx.lineTo(0, -8);
+        ctx.lineTo(-2, -2); ctx.lineTo(-8, 0); ctx.lineTo(-2, 2);
+        ctx.lineTo(0, 8); ctx.lineTo(2, 2); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#b879ff'; ctx.fillRect(-2, -2, 4, 4);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        continue;
+      }
 
       if (pr.kind === 'aidanPulse') {
         ctx.globalCompositeOperation = 'lighter';
@@ -1967,6 +2003,30 @@ export class Renderer {
       ctx.fillRect(mx - 1, my - 1, 2, 2);
     }
     ctx.restore();
+
+    // When Nivara answers a threat, the lantern unfolds into a small frost
+    // focus. Showing the wind-up makes it obvious that she is defending herself
+    // rather than silently dealing damage from an invisible source.
+    if (n.shootWindup > 0) {
+      const progress = 1 - n.shootWindup / Math.max(0.01, n.shootWindupMax);
+      const focusX = cx + Math.cos(n.shootAngle) * 5;
+      const focusY = y + 18 + Math.sin(n.shootAngle) * 5;
+      ctx.save();
+      ctx.translate(focusX, focusY);
+      ctx.rotate(n.shootAngle);
+      ctx.strokeStyle = '#b9f4ff'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(-3, -7); ctx.lineTo(-3, 7); ctx.stroke();
+      ctx.fillStyle = '#2d6680'; ctx.fillRect(-5, 3, 4, 5);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.45 + progress * 0.35;
+      ctx.fillStyle = '#dffcff';
+      ctx.beginPath(); ctx.arc(1, 0, 3 + progress * 3, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#76dced'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(1, 0, 5 + progress * 4, -0.8, 0.8); ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.restore();
+    }
 
     if (n.hp < n.maxHp) this._miniHp(ctx, n, n.hp / n.maxHp, '#ff6b7d');
     if (n.hurtFlash > 0) {

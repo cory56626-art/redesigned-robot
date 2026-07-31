@@ -1,6 +1,6 @@
 // Summoner Realms — projectiles for ranged/mage weapons, minions, enemies, bosses.
-import { GRAVITY, TILE } from '../config.js?v=snowy-taiga-npc-2';
-import { aabb, dist2 } from '../utils.js?v=snowy-taiga-npc-2';
+import { GRAVITY, TILE } from '../config.js?v=snowy-taiga-combat-aidan-1';
+import { aabb, dist2 } from '../utils.js?v=snowy-taiga-combat-aidan-1';
 
 export class Projectile {
   constructor(opts) {
@@ -140,7 +140,9 @@ export class Projectile {
       for (const b of game.bosses) { const d = dist2(cx, cy, b.x + b.w / 2, b.y + b.h / 2); if (d < best) { best = d; target = b; } }
     } else {
       const targets = [...game.players.values()];
-      if (game.npc && game.npc.alive) targets.push(game.npc);
+      for (const npc of (game.npcs || (game.npc ? [game.npc] : []))) {
+        if (npc && npc.alive) targets.push(npc);
+      }
       for (const m of (game.minions || [])) if (m.alive !== false && !m.dead) targets.push(m);
       for (const p of targets) {
         const d = dist2(cx, cy, p.x + p.w / 2, p.y + p.h / 2);
@@ -247,7 +249,9 @@ export class Projectile {
   _hitPlayers(game) {
     const box = { x: this.x, y: this.y, w: this.w, h: this.h };
     const targets = [...game.players.values()];
-    if (game.npc && game.npc.alive) targets.push(game.npc);
+    for (const npc of (game.npcs || (game.npc ? [game.npc] : []))) {
+      if (npc && npc.alive) targets.push(npc);
+    }
     for (const m of (game.minions || [])) {
       if (m.alive !== false && !m.dead && m.maxHp != null) targets.push(m);
     }
@@ -263,7 +267,7 @@ export class Projectile {
           this.dead = true;
           return;
         }
-        if (p === game.npc || p.isMinion) p.takeDamage(this.damage, knockback, game, 'enemy');
+        if (p.kind || p.isMinion) p.takeDamage(this.damage, knockback, game, 'enemy');
         else game.applyEnemyDamageToPlayer(p, this.damage, knockback, this.effect);
         this.dead = true;
         return;

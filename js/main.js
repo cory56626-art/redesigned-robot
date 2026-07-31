@@ -2,50 +2,50 @@
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty, ZOOM_DEFAULT, REACH,
-} from './config.js?v=snowy-taiga-npc-2';
-import { hashString, mulberry32, dist2, uid } from './utils.js?v=snowy-taiga-npc-2';
-import { World } from './world/world.js?v=snowy-taiga-npc-2';
-import { T, tileDef } from './world/tiles.js?v=snowy-taiga-npc-2';
-import { Sprites } from './art/sprites.js?v=snowy-taiga-npc-2';
-import { Camera } from './engine/camera.js?v=snowy-taiga-npc-2';
-import { Input } from './engine/input.js?v=snowy-taiga-npc-2';
-import { AudioManager } from './engine/audio.js?v=snowy-taiga-npc-2';
-import { Renderer } from './engine/renderer.js?v=snowy-taiga-npc-2';
-import { Fx } from './engine/fx.js?v=snowy-taiga-npc-2';
-import { DayNight } from './systems/daynight.js?v=snowy-taiga-npc-2';
-import { Weather } from './systems/weather.js?v=snowy-taiga-npc-2';
-import { Spawner } from './systems/spawner.js?v=snowy-taiga-npc-2';
-import { Progression } from './systems/progression.js?v=snowy-taiga-npc-2';
-import { starterInventory } from './systems/inventory.js?v=snowy-taiga-npc-2';
-import * as craftSys from './systems/crafting.js?v=snowy-taiga-npc-2';
-import { applyPotion } from './systems/combat.js?v=snowy-taiga-npc-2';
-import * as fishing from './systems/fishing.js?v=snowy-taiga-npc-2';
-import { Critter } from './entities/critter.js?v=snowy-taiga-npc-2';
-import { FAUNA } from './data/fauna.js?v=snowy-taiga-npc-2';
-import { smartTarget } from './systems/smartcursor.js?v=snowy-taiga-npc-2';
-import { Player, assignColor } from './entities/player.js?v=snowy-taiga-npc-2';
-import { Enemy } from './entities/enemy.js?v=snowy-taiga-npc-2';
-import { Boss } from './entities/boss.js?v=snowy-taiga-npc-2';
-import { Minion } from './entities/minion.js?v=snowy-taiga-npc-2';
-import { Npc } from './entities/npc.js?v=snowy-taiga-npc-2';
-import { Projectile } from './entities/projectile.js?v=snowy-taiga-npc-2';
-import { DropItem } from './entities/droppeditem.js?v=snowy-taiga-npc-2';
-import { FallingTree } from './entities/fallingtree.js?v=snowy-taiga-npc-2';
-import { ThrownItem } from './entities/thrown.js?v=snowy-taiga-npc-2';
-import { ENEMIES } from './data/enemies.js?v=snowy-taiga-npc-2';
-import { BOSSES } from './data/bosses.js?v=snowy-taiga-npc-2';
-import { item as getItem } from './data/items.js?v=snowy-taiga-npc-2';
-import { HUD } from './ui/hud.js?v=snowy-taiga-npc-2';
-import { Minimap } from './ui/minimap.js?v=snowy-taiga-npc-2';
-import { Menus } from './ui/menus.js?v=snowy-taiga-npc-2';
-import { NpcDialog } from './ui/npcdialog.js?v=snowy-taiga-npc-2';
-import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=snowy-taiga-npc-2';
-import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=snowy-taiga-npc-2';
-import { Achievements, craftAchievement } from './systems/achievements.js?v=snowy-taiga-npc-2';
-import { CommandConsole } from './commands.js?v=snowy-taiga-npc-2';
-import { Net } from './net/net.js?v=snowy-taiga-npc-2';
-import { MSG } from './net/protocol.js?v=snowy-taiga-npc-2';
-import * as sync from './net/sync.js?v=snowy-taiga-npc-2';
+} from './config.js?v=snowy-taiga-combat-aidan-1';
+import { hashString, mulberry32, dist2, uid } from './utils.js?v=snowy-taiga-combat-aidan-1';
+import { World } from './world/world.js?v=snowy-taiga-combat-aidan-1';
+import { T, tileDef } from './world/tiles.js?v=snowy-taiga-combat-aidan-1';
+import { Sprites } from './art/sprites.js?v=snowy-taiga-combat-aidan-1';
+import { Camera } from './engine/camera.js?v=snowy-taiga-combat-aidan-1';
+import { Input } from './engine/input.js?v=snowy-taiga-combat-aidan-1';
+import { AudioManager } from './engine/audio.js?v=snowy-taiga-combat-aidan-1';
+import { Renderer } from './engine/renderer.js?v=snowy-taiga-combat-aidan-1';
+import { Fx } from './engine/fx.js?v=snowy-taiga-combat-aidan-1';
+import { DayNight } from './systems/daynight.js?v=snowy-taiga-combat-aidan-1';
+import { Weather } from './systems/weather.js?v=snowy-taiga-combat-aidan-1';
+import { Spawner } from './systems/spawner.js?v=snowy-taiga-combat-aidan-1';
+import { Progression } from './systems/progression.js?v=snowy-taiga-combat-aidan-1';
+import { starterInventory } from './systems/inventory.js?v=snowy-taiga-combat-aidan-1';
+import * as craftSys from './systems/crafting.js?v=snowy-taiga-combat-aidan-1';
+import { applyPotion } from './systems/combat.js?v=snowy-taiga-combat-aidan-1';
+import * as fishing from './systems/fishing.js?v=snowy-taiga-combat-aidan-1';
+import { Critter } from './entities/critter.js?v=snowy-taiga-combat-aidan-1';
+import { FAUNA } from './data/fauna.js?v=snowy-taiga-combat-aidan-1';
+import { smartTarget } from './systems/smartcursor.js?v=snowy-taiga-combat-aidan-1';
+import { Player, assignColor } from './entities/player.js?v=snowy-taiga-combat-aidan-1';
+import { Enemy } from './entities/enemy.js?v=snowy-taiga-combat-aidan-1';
+import { Boss } from './entities/boss.js?v=snowy-taiga-combat-aidan-1';
+import { Minion } from './entities/minion.js?v=snowy-taiga-combat-aidan-1';
+import { Npc } from './entities/npc.js?v=snowy-taiga-combat-aidan-1';
+import { Projectile } from './entities/projectile.js?v=snowy-taiga-combat-aidan-1';
+import { DropItem } from './entities/droppeditem.js?v=snowy-taiga-combat-aidan-1';
+import { FallingTree } from './entities/fallingtree.js?v=snowy-taiga-combat-aidan-1';
+import { ThrownItem } from './entities/thrown.js?v=snowy-taiga-combat-aidan-1';
+import { ENEMIES } from './data/enemies.js?v=snowy-taiga-combat-aidan-1';
+import { BOSSES } from './data/bosses.js?v=snowy-taiga-combat-aidan-1';
+import { item as getItem } from './data/items.js?v=snowy-taiga-combat-aidan-1';
+import { HUD } from './ui/hud.js?v=snowy-taiga-combat-aidan-1';
+import { Minimap } from './ui/minimap.js?v=snowy-taiga-combat-aidan-1';
+import { Menus } from './ui/menus.js?v=snowy-taiga-combat-aidan-1';
+import { NpcDialog } from './ui/npcdialog.js?v=snowy-taiga-combat-aidan-1';
+import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=snowy-taiga-combat-aidan-1';
+import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=snowy-taiga-combat-aidan-1';
+import { Achievements, craftAchievement } from './systems/achievements.js?v=snowy-taiga-combat-aidan-1';
+import { CommandConsole } from './commands.js?v=snowy-taiga-combat-aidan-1';
+import { Net } from './net/net.js?v=snowy-taiga-combat-aidan-1';
+import { MSG } from './net/protocol.js?v=snowy-taiga-combat-aidan-1';
+import * as sync from './net/sync.js?v=snowy-taiga-combat-aidan-1';
 
 class Game {
   constructor() {
@@ -713,11 +713,9 @@ class Game {
     if (npc && this.ui.npcDialog) this.ui.npcDialog.toggle(npc);
   }
 
-  // Nivara is intentionally a non-combat NPC, but she still has a meaningful
-  // gameplay role. Her passive lantern aura helps nearby players recover, and
-  // her dialogue offers one stronger blessing per world day plus a free map
-  // waymark. Services are local-player actions, so no multiplayer combat or
-  // entity protocol needs to change.
+  // Nivara's lantern still provides recovery and her dialogue still offers the
+  // daily blessing and map waymark, but she is now a real ally in the world:
+  // enemies can attack her, and her frost bolts can help defend the Taiga.
   useNpcService(npc, service) {
     const p = this.localPlayer;
     if (!npc || npc.kind !== 'snowkeeper' || !p || !p.alive) {
@@ -1078,7 +1076,7 @@ class Game {
       if (d < bd) { bd = d; best = t; }
     };
     for (const p of this.players.values()) consider(p);
-    if (this.npc) consider(this.npc);
+    for (const npc of (this.npcs || (this.npc ? [this.npc] : []))) consider(npc);
     for (const m of this.minions) if (m.maxHp != null) consider(m);
     return best;
   }

@@ -11,12 +11,12 @@
 // distance, phase and line of sight. Animation fields (squash, jaw, segment
 // lag, shard spin) are updated here rather than in the renderer, so they are
 // driven by the simulation and stay frame-rate independent.
-import { TILE, normalizeDifficulty } from '../config.js?v=snowy-taiga-npc-2';
-import { BOSSES } from '../data/bosses.js?v=snowy-taiga-npc-2';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=snowy-taiga-npc-2';
-import { aabb, angleTo, randRange, clamp } from '../utils.js?v=snowy-taiga-npc-2';
-import { Projectile } from './projectile.js?v=snowy-taiga-npc-2';
-import * as AI from '../systems/ai.js?v=snowy-taiga-npc-2';
+import { TILE, normalizeDifficulty } from '../config.js?v=snowy-taiga-combat-aidan-1';
+import { BOSSES } from '../data/bosses.js?v=snowy-taiga-combat-aidan-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=snowy-taiga-combat-aidan-1';
+import { aabb, angleTo, randRange, clamp } from '../utils.js?v=snowy-taiga-combat-aidan-1';
+import { Projectile } from './projectile.js?v=snowy-taiga-combat-aidan-1';
+import * as AI from '../systems/ai.js?v=snowy-taiga-combat-aidan-1';
 
 const PROJ_COLOR = { thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff' };
 
@@ -487,6 +487,9 @@ export class Boss {
   _contactDamage(game, ph) {
     if (this.hidden) return; // can't be hit by something that isn't there
     const targets = [...game.players.values()];
+    for (const npc of (game.npcs || (game.npc ? [game.npc] : []))) {
+      if (npc && npc.alive) targets.push(npc);
+    }
     for (const m of (game.minions || [])) {
       if (m.alive !== false && !m.dead && m.maxHp != null) targets.push(m);
     }
@@ -494,7 +497,7 @@ export class Boss {
       if (p.alive !== false && !p.dead && aabb(this, p)) {
         const knockback = Math.sign(p.x - this.x) * 6;
         const dodged = p.isMinion && p.tryDodgeContact?.(game, this);
-        if (!dodged && p.isMinion) p.takeDamage(ph.contact, knockback, game, this.name);
+        if (!dodged && (p.kind || p.isMinion)) p.takeDamage(ph.contact, knockback, game, this.name);
         else if (!dodged) game.applyEnemyDamageToPlayer(p, ph.contact, knockback);
       }
     }
