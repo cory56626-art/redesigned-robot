@@ -2,50 +2,50 @@
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty, ZOOM_DEFAULT, REACH,
-} from './config.js?v=snowy-taiga-npc-1';
-import { hashString, mulberry32, dist2, uid } from './utils.js?v=snowy-taiga-npc-1';
-import { World } from './world/world.js?v=snowy-taiga-npc-1';
-import { T, tileDef } from './world/tiles.js?v=snowy-taiga-npc-1';
-import { Sprites } from './art/sprites.js?v=snowy-taiga-npc-1';
-import { Camera } from './engine/camera.js?v=snowy-taiga-npc-1';
-import { Input } from './engine/input.js?v=snowy-taiga-npc-1';
-import { AudioManager } from './engine/audio.js?v=snowy-taiga-npc-1';
-import { Renderer } from './engine/renderer.js?v=snowy-taiga-npc-1';
-import { Fx } from './engine/fx.js?v=snowy-taiga-npc-1';
-import { DayNight } from './systems/daynight.js?v=snowy-taiga-npc-1';
-import { Weather } from './systems/weather.js?v=snowy-taiga-npc-1';
-import { Spawner } from './systems/spawner.js?v=snowy-taiga-npc-1';
-import { Progression } from './systems/progression.js?v=snowy-taiga-npc-1';
-import { starterInventory } from './systems/inventory.js?v=snowy-taiga-npc-1';
-import * as craftSys from './systems/crafting.js?v=snowy-taiga-npc-1';
-import { applyPotion } from './systems/combat.js?v=snowy-taiga-npc-1';
-import * as fishing from './systems/fishing.js?v=snowy-taiga-npc-1';
-import { Critter } from './entities/critter.js?v=snowy-taiga-npc-1';
-import { FAUNA } from './data/fauna.js?v=snowy-taiga-npc-1';
-import { smartTarget } from './systems/smartcursor.js?v=snowy-taiga-npc-1';
-import { Player, assignColor } from './entities/player.js?v=snowy-taiga-npc-1';
-import { Enemy } from './entities/enemy.js?v=snowy-taiga-npc-1';
-import { Boss } from './entities/boss.js?v=snowy-taiga-npc-1';
-import { Minion } from './entities/minion.js?v=snowy-taiga-npc-1';
-import { Npc } from './entities/npc.js?v=snowy-taiga-npc-1';
-import { Projectile } from './entities/projectile.js?v=snowy-taiga-npc-1';
-import { DropItem } from './entities/droppeditem.js?v=snowy-taiga-npc-1';
-import { FallingTree } from './entities/fallingtree.js?v=snowy-taiga-npc-1';
-import { ThrownItem } from './entities/thrown.js?v=snowy-taiga-npc-1';
-import { ENEMIES } from './data/enemies.js?v=snowy-taiga-npc-1';
-import { BOSSES } from './data/bosses.js?v=snowy-taiga-npc-1';
-import { item as getItem } from './data/items.js?v=snowy-taiga-npc-1';
-import { HUD } from './ui/hud.js?v=snowy-taiga-npc-1';
-import { Minimap } from './ui/minimap.js?v=snowy-taiga-npc-1';
-import { Menus } from './ui/menus.js?v=snowy-taiga-npc-1';
-import { NpcDialog } from './ui/npcdialog.js?v=snowy-taiga-npc-1';
-import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=snowy-taiga-npc-1';
-import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=snowy-taiga-npc-1';
-import { Achievements, craftAchievement } from './systems/achievements.js?v=snowy-taiga-npc-1';
-import { CommandConsole } from './commands.js?v=snowy-taiga-npc-1';
-import { Net } from './net/net.js?v=snowy-taiga-npc-1';
-import { MSG } from './net/protocol.js?v=snowy-taiga-npc-1';
-import * as sync from './net/sync.js?v=snowy-taiga-npc-1';
+} from './config.js?v=snowy-taiga-npc-2';
+import { hashString, mulberry32, dist2, uid } from './utils.js?v=snowy-taiga-npc-2';
+import { World } from './world/world.js?v=snowy-taiga-npc-2';
+import { T, tileDef } from './world/tiles.js?v=snowy-taiga-npc-2';
+import { Sprites } from './art/sprites.js?v=snowy-taiga-npc-2';
+import { Camera } from './engine/camera.js?v=snowy-taiga-npc-2';
+import { Input } from './engine/input.js?v=snowy-taiga-npc-2';
+import { AudioManager } from './engine/audio.js?v=snowy-taiga-npc-2';
+import { Renderer } from './engine/renderer.js?v=snowy-taiga-npc-2';
+import { Fx } from './engine/fx.js?v=snowy-taiga-npc-2';
+import { DayNight } from './systems/daynight.js?v=snowy-taiga-npc-2';
+import { Weather } from './systems/weather.js?v=snowy-taiga-npc-2';
+import { Spawner } from './systems/spawner.js?v=snowy-taiga-npc-2';
+import { Progression } from './systems/progression.js?v=snowy-taiga-npc-2';
+import { starterInventory } from './systems/inventory.js?v=snowy-taiga-npc-2';
+import * as craftSys from './systems/crafting.js?v=snowy-taiga-npc-2';
+import { applyPotion } from './systems/combat.js?v=snowy-taiga-npc-2';
+import * as fishing from './systems/fishing.js?v=snowy-taiga-npc-2';
+import { Critter } from './entities/critter.js?v=snowy-taiga-npc-2';
+import { FAUNA } from './data/fauna.js?v=snowy-taiga-npc-2';
+import { smartTarget } from './systems/smartcursor.js?v=snowy-taiga-npc-2';
+import { Player, assignColor } from './entities/player.js?v=snowy-taiga-npc-2';
+import { Enemy } from './entities/enemy.js?v=snowy-taiga-npc-2';
+import { Boss } from './entities/boss.js?v=snowy-taiga-npc-2';
+import { Minion } from './entities/minion.js?v=snowy-taiga-npc-2';
+import { Npc } from './entities/npc.js?v=snowy-taiga-npc-2';
+import { Projectile } from './entities/projectile.js?v=snowy-taiga-npc-2';
+import { DropItem } from './entities/droppeditem.js?v=snowy-taiga-npc-2';
+import { FallingTree } from './entities/fallingtree.js?v=snowy-taiga-npc-2';
+import { ThrownItem } from './entities/thrown.js?v=snowy-taiga-npc-2';
+import { ENEMIES } from './data/enemies.js?v=snowy-taiga-npc-2';
+import { BOSSES } from './data/bosses.js?v=snowy-taiga-npc-2';
+import { item as getItem } from './data/items.js?v=snowy-taiga-npc-2';
+import { HUD } from './ui/hud.js?v=snowy-taiga-npc-2';
+import { Minimap } from './ui/minimap.js?v=snowy-taiga-npc-2';
+import { Menus } from './ui/menus.js?v=snowy-taiga-npc-2';
+import { NpcDialog } from './ui/npcdialog.js?v=snowy-taiga-npc-2';
+import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=snowy-taiga-npc-2';
+import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=snowy-taiga-npc-2';
+import { Achievements, craftAchievement } from './systems/achievements.js?v=snowy-taiga-npc-2';
+import { CommandConsole } from './commands.js?v=snowy-taiga-npc-2';
+import { Net } from './net/net.js?v=snowy-taiga-npc-2';
+import { MSG } from './net/protocol.js?v=snowy-taiga-npc-2';
+import * as sync from './net/sync.js?v=snowy-taiga-npc-2';
 
 class Game {
   constructor() {
@@ -711,6 +711,55 @@ class Game {
     if (chest) { this.openLootChest(chest.tx, chest.ty, this.localPlayer); return; }
     const npc = this.nearestTalkableNpc();
     if (npc && this.ui.npcDialog) this.ui.npcDialog.toggle(npc);
+  }
+
+  // Nivara is intentionally a non-combat NPC, but she still has a meaningful
+  // gameplay role. Her passive lantern aura helps nearby players recover, and
+  // her dialogue offers one stronger blessing per world day plus a free map
+  // waymark. Services are local-player actions, so no multiplayer combat or
+  // entity protocol needs to change.
+  useNpcService(npc, service) {
+    const p = this.localPlayer;
+    if (!npc || npc.kind !== 'snowkeeper' || !p || !p.alive) {
+      return { ok: false, message: 'That resident has no service available.' };
+    }
+    if (!npc.canTalkTo(p)) {
+      return { ok: false, message: 'Step closer to Nivara\'s lantern first.' };
+    }
+
+    if (service === 'hearth') {
+      const day = Math.max(1, Math.floor(this.time?.day || 1));
+      if (npc.lastHearthDay === day) {
+        return { ok: false, message: `The Hearth Blessing returns at the start of day <b>${day + 1}</b>. Her lantern is still giving its smaller Hearthlight aura nearby.` };
+      }
+      npc.lastHearthDay = day;
+      p.hp = p.maxHp;
+      p.mana = p.maxMana;
+      // Replace only Nivara's own temporary effects so revisiting her never
+      // stacks an unlimited pile of identical buffs on top of player brews.
+      p.buffs = p.buffs.filter(b => b.source !== 'nivara');
+      p.buffs.push({ type: 'regen', time: 45, duration: 45, hpRegen: 4, source: 'nivara' });
+      p.buffs.push({ type: 'ironskin', time: 45, duration: 45, defense: 3, source: 'nivara' });
+      p.iframes = Math.max(p.iframes, 0.8);
+      p.combatTimer = 0;
+      const pc = p.center();
+      this.fx.ring(pc.x, pc.y, '#b9f4ff', 34, { life: 0.55, width: 2 });
+      this.fx.burst(pc.x, pc.y, '#b9f4ff', 18, { speed: 105, life: 0.65, glow: true });
+      this.floatText(pc.x, p.y - 8, 'HEARTH BLESSING', '#e8ffff');
+      this.toast('Nivara restored you and granted Hearthward for 45s.', 'good');
+      this.markDirty();
+      return { ok: true, message: `<b>The Hearth answers.</b> Your health and Aether are full. <b>Hearthward</b> now grants regeneration and +3 defense for 45 seconds.` };
+    }
+
+    if (service === 'waymark') {
+      const tx = Math.round(npc.homeX / TILE);
+      const ty = Math.max(2, this.world.surfaceY(tx) - 2);
+      this.ui.minimap?.revealAround(tx, ty, 34);
+      this.toast('Nivara marked the nearby Taiga on your map.', 'good');
+      return { ok: true, message: `The blue lantern paints a route across the map. The surrounding Snowy Taiga is now revealed, including nearby paths and caves.` };
+    }
+
+    return { ok: false, message: 'Nivara does not know that rite.' };
   }
 
   _nearestLootChest(player) {

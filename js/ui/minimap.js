@@ -11,9 +11,9 @@
 //
 // Everything is pointer-event driven rather than mouse-specific, so drag, pan
 // and pinch all work under touch without a second code path.
-import { TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=snowy-taiga-npc-1';
-import { T, isSolid, tileDef } from '../world/tiles.js?v=snowy-taiga-npc-1';
-import { hasWall } from '../world/walls.js?v=snowy-taiga-npc-1';
+import { TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=snowy-taiga-npc-2';
+import { T, isSolid, tileDef } from '../world/tiles.js?v=snowy-taiga-npc-2';
+import { hasWall } from '../world/walls.js?v=snowy-taiga-npc-2';
 
 // Radius around the player, in tiles, that counts as explored.
 const REVEAL_RADIUS = 26;
@@ -158,14 +158,29 @@ export class Minimap {
 
     const p = g.localPlayer;
     const cx = Math.floor((p.x + p.w / 2) / TILE), cy = Math.floor((p.y + p.h / 2) / TILE);
-    const r = REVEAL_RADIUS, r2 = r * r;
+    this.revealAround(cx, cy, REVEAL_RADIUS);
+  }
+
+  // Reveal a landmark-sized circle without moving the player. NPCs and other
+  // future waymarks can call this to make exploration tools feel useful while
+  // keeping the normal player-radius reveal unchanged.
+  revealAround(cx, cy, radius = REVEAL_RADIUS) {
+    const g = this.game;
+    if (!g.world) return;
+    if (this.world !== g.world || !this.explored || this.explored.length !== g.world.width * g.world.height) {
+      this.world = g.world;
+      this.explored = new Uint8Array(g.world.width * g.world.height);
+    }
+    const centerX = Math.floor(Number(cx) || 0), centerY = Math.floor(Number(cy) || 0);
+    const r = Math.max(1, Math.floor(Number(radius) || REVEAL_RADIUS));
+    const r2 = r * r;
     const W = g.world.width, H = g.world.height;
     for (let dy = -r; dy <= r; dy++) {
-      const ty = cy + dy;
+      const ty = centerY + dy;
       if (ty < 0 || ty >= H) continue;
       for (let dx = -r; dx <= r; dx++) {
         if (dx * dx + dy * dy > r2) continue;
-        const tx = cx + dx;
+        const tx = centerX + dx;
         if (tx < 0 || tx >= W) continue;
         this.explored[ty * W + tx] = 1;
       }

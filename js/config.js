@@ -4,7 +4,7 @@
 // Single build stamp for every cache-busted module import. Bump this once per
 // release instead of editing per-module `?build=` strings (which drifted out of
 // sync and could ship a half-updated module graph).
-export const BUILD = 'snowy-taiga-npc-1';
+export const BUILD = 'snowy-taiga-npc-2';
 
 // Release identity, surfaced on the main menu and in Claude's Notes.
 export const VERSION = '4.1';

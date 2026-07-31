@@ -12,7 +12,7 @@
 //     over the local tile window when the direct route is blocked
 //   · steering  — separation, so a pack spreads out instead of overlapping
 //   · aiming    — lead the target rather than firing at where it used to be
-import { TILE } from '../config.js?v=snowy-taiga-npc-1';
+import { TILE } from '../config.js?v=snowy-taiga-npc-2';
 
 // The BFS only ever looks at a window this size around the enemy. Big enough to
 // route around ordinary terrain, small enough to run many times a second.

@@ -3,12 +3,12 @@
 // Each enemy runs the same loop: perceive (do I know where the player is?),
 // decide (idle / approach / attack / retreat), then act. Perception, pathing and
 // steering live in systems/ai.js so every creature reasons the same way.
-import { TILE, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=snowy-taiga-npc-1';
-import { ENEMIES } from '../data/enemies.js?v=snowy-taiga-npc-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=snowy-taiga-npc-1';
-import { aabb } from '../utils.js?v=snowy-taiga-npc-1';
-import { Projectile } from './projectile.js?v=snowy-taiga-npc-1';
-import * as AI from '../systems/ai.js?v=snowy-taiga-npc-1';
+import { TILE, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=snowy-taiga-npc-2';
+import { ENEMIES } from '../data/enemies.js?v=snowy-taiga-npc-2';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=snowy-taiga-npc-2';
+import { aabb } from '../utils.js?v=snowy-taiga-npc-2';
+import { Projectile } from './projectile.js?v=snowy-taiga-npc-2';
+import * as AI from '../systems/ai.js?v=snowy-taiga-npc-2';
 
 export class Enemy {
   constructor(key, x, y, netId, difficulty = 'normal') {

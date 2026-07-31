@@ -16,11 +16,11 @@
 //
 // Deterministic from a numeric seed. `tools/worldgen-check.mjs` asserts the
 // invariants this file is responsible for.
-import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE, LIQUID_MAX } from '../config.js?v=snowy-taiga-npc-1';
-import { T, isSolid, isFlora } from './tiles.js?v=snowy-taiga-npc-1';
-import { W } from './walls.js?v=snowy-taiga-npc-1';
-import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=snowy-taiga-npc-1';
-import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep, lerp } from '../utils.js?v=snowy-taiga-npc-1';
+import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE, LIQUID_MAX } from '../config.js?v=snowy-taiga-npc-2';
+import { T, isSolid, isFlora } from './tiles.js?v=snowy-taiga-npc-2';
+import { W } from './walls.js?v=snowy-taiga-npc-2';
+import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=snowy-taiga-npc-2';
+import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep, lerp } from '../utils.js?v=snowy-taiga-npc-2';
 
 // Half-width of the guaranteed flat, cave-free plain the player spawns on.
 const SPAWN_PLAIN = 13;

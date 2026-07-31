@@ -1,14 +1,14 @@
 // Summoner Realms — the NPC dialogue window.
 //
-// Two modes: a list of topics he can talk about, and an item-inspection mode
+// Two modes: a list of topics she can talk about, and an item-inspection mode
 // where you hand him something from your bag and he explains it. The content
 // itself lives in data/guide.js; this file is only presentation.
-import { INV_SIZE } from '../systems/inventory.js?v=snowy-taiga-npc-1';
-import { Sprites } from '../art/sprites.js?v=snowy-taiga-npc-1';
-import { item as getItem } from '../data/items.js?v=snowy-taiga-npc-1';
+import { INV_SIZE } from '../systems/inventory.js?v=snowy-taiga-npc-2';
+import { Sprites } from '../art/sprites.js?v=snowy-taiga-npc-2';
+import { item as getItem } from '../data/items.js?v=snowy-taiga-npc-2';
 import {
   TOPICS, SNOWKEEPER_TOPICS, describeItem, greeting, snowkeeperGreeting,
-} from '../data/guide.js?v=snowy-taiga-npc-1';
+} from '../data/guide.js?v=snowy-taiga-npc-2';
 
 const $ = (id) => document.getElementById(id);
 
@@ -36,6 +36,7 @@ export class NpcDialog {
     this.npc = npc || this.game.npc;
     if (!this.npc) return;
     this.npc.met = true;
+    $('npcDialog').classList.toggle('snowkeeper', this._isSnowkeeper());
     $('npcName').textContent = this.npc.name;
     $('npcTitle').textContent = this.npc.title;
     this._drawPortrait();
@@ -48,6 +49,7 @@ export class NpcDialog {
 
   close() {
     $('npcDialog').classList.add('hidden');
+    $('npcDialog').classList.remove('snowkeeper');
     this.mode = 'topics';
   }
 
@@ -68,16 +70,27 @@ export class NpcDialog {
     ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = '#1b2140'; ctx.fillRect(0, 0, 48, 48);
     if (this._isSnowkeeper()) {
-      // Nivara's frost-blue hood and lantern make the portrait distinct from
-      // Vesper even though both use the same lightweight canvas dialogue.
-      ctx.fillStyle = '#243c59'; ctx.fillRect(7, 5, 34, 15);
-      ctx.fillRect(5, 13, 8, 28); ctx.fillRect(35, 13, 8, 28);
-      ctx.fillStyle = '#ead5bd'; ctx.fillRect(13, 14, 22, 20);
-      ctx.fillStyle = '#253044'; ctx.fillRect(18, 21, 4, 4); ctx.fillRect(28, 21, 4, 4);
-      ctx.fillStyle = '#5d8bad'; ctx.fillRect(9, 37, 30, 11);
-      ctx.fillStyle = '#b9f4ff'; ctx.fillRect(12, 36, 24, 3);
-      ctx.fillStyle = '#9cecff'; ctx.fillRect(38, 30, 5, 8);
-      ctx.fillStyle = '#e8ffff'; ctx.fillRect(39, 31, 3, 5);
+      // Match the upgraded world silhouette: deep hood, fur, face, layered
+      // coat, frost-star brooch and the lantern that powers her services.
+      ctx.fillStyle = '#273c61'; ctx.fillRect(4, 5, 40, 36);
+      ctx.fillStyle = '#395b80'; ctx.fillRect(7, 8, 34, 29);
+      ctx.fillStyle = '#9cecff';
+      ctx.fillRect(9, 11, 2, 2); ctx.fillRect(37, 8, 2, 2); ctx.fillRect(6, 28, 2, 2);
+      ctx.fillStyle = '#172a43';
+      ctx.fillRect(10, 7, 28, 22); ctx.fillRect(7, 15, 5, 23); ctx.fillRect(36, 15, 5, 23);
+      ctx.fillStyle = '#315d79'; ctx.fillRect(12, 10, 24, 20);
+      ctx.fillStyle = '#ead5bd'; ctx.fillRect(15, 15, 18, 15);
+      ctx.fillStyle = '#5d4758'; ctx.fillRect(15, 15, 4, 8);
+      ctx.fillStyle = '#253044'; ctx.fillRect(27, 21, 4, 2); ctx.fillRect(18, 20, 3, 1);
+      ctx.fillStyle = '#d28b98'; ctx.fillRect(29, 25, 2, 1);
+      ctx.fillStyle = '#d8f8ff'; ctx.fillRect(12, 28, 24, 4); ctx.fillRect(9, 31, 5, 3); ctx.fillRect(34, 31, 5, 3);
+      ctx.fillStyle = '#21445f'; ctx.fillRect(9, 33, 30, 12);
+      ctx.fillStyle = '#416f8e'; ctx.fillRect(11, 34, 12, 11); ctx.fillRect(25, 34, 12, 11);
+      ctx.fillStyle = '#b9e9f2'; ctx.fillRect(10, 42, 28, 3);
+      ctx.fillStyle = '#f1d37d'; ctx.fillRect(22, 35, 4, 4);
+      ctx.fillStyle = '#e8ffff'; ctx.fillRect(23, 36, 2, 7); ctx.fillRect(20, 38, 8, 2);
+      ctx.fillStyle = '#6ca7c4'; ctx.fillRect(38, 29, 6, 10);
+      ctx.fillStyle = '#e8ffff'; ctx.fillRect(40, 31, 2, 5);
       return;
     }
     // hood
@@ -101,6 +114,42 @@ export class NpcDialog {
   _renderTopics() {
     const wrap = $('npcTopics');
     wrap.innerHTML = '';
+
+    if (this._isSnowkeeper()) {
+      const label = document.createElement('div');
+      label.className = 'npc-section-label';
+      label.textContent = 'Hearth services';
+      wrap.appendChild(label);
+
+      const blessing = document.createElement('button');
+      blessing.className = 'btn small primary';
+      const day = Math.max(1, Math.floor(this.game.time?.day || 1));
+      blessing.textContent = this.npc.lastHearthDay === day
+        ? 'Hearth Blessing · tomorrow'
+        : 'Take Hearth Blessing';
+      blessing.onclick = () => {
+        const result = this.game.useNpcService(this.npc, 'hearth');
+        this._say([`<p>${result.message}</p>`]);
+        this._renderTopics();
+      };
+      wrap.appendChild(blessing);
+
+      const waymark = document.createElement('button');
+      waymark.className = 'btn small';
+      waymark.textContent = 'Mark nearby paths';
+      waymark.onclick = () => {
+        const result = this.game.useNpcService(this.npc, 'waymark');
+        this._say([`<p>${result.message}</p>`]);
+        this._renderTopics();
+      };
+      wrap.appendChild(waymark);
+
+      const topicLabel = document.createElement('div');
+      topicLabel.className = 'npc-section-label';
+      topicLabel.textContent = 'Ask Nivara';
+      wrap.appendChild(topicLabel);
+    }
+
     for (const t of this._topics()) {
       const b = document.createElement('button');
       b.className = 'btn small';

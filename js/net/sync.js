@@ -1,12 +1,12 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
-import { MSG } from './protocol.js?v=snowy-taiga-npc-1';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=snowy-taiga-npc-1';
-import { Player, assignColor } from '../entities/player.js?v=snowy-taiga-npc-1';
-import { Projectile } from '../entities/projectile.js?v=snowy-taiga-npc-1';
-import { ThrownItem } from '../entities/thrown.js?v=snowy-taiga-npc-1';
-import { ITEMS } from '../data/items.js?v=snowy-taiga-npc-1';
-import { ENEMIES } from '../data/enemies.js?v=snowy-taiga-npc-1';
-import { BOSSES } from '../data/bosses.js?v=snowy-taiga-npc-1';
+import { MSG } from './protocol.js?v=snowy-taiga-npc-2';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=snowy-taiga-npc-2';
+import { Player, assignColor } from '../entities/player.js?v=snowy-taiga-npc-2';
+import { Projectile } from '../entities/projectile.js?v=snowy-taiga-npc-2';
+import { ThrownItem } from '../entities/thrown.js?v=snowy-taiga-npc-2';
+import { ITEMS } from '../data/items.js?v=snowy-taiga-npc-2';
+import { ENEMIES } from '../data/enemies.js?v=snowy-taiga-npc-2';
+import { BOSSES } from '../data/bosses.js?v=snowy-taiga-npc-2';
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 

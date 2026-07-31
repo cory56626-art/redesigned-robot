@@ -455,6 +455,8 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: var(--shadow);
   padding: var(--s3) var(--s4) var(--s4);
 }
+.overlay.npc.snowkeeper .npc-panel { border-color: rgba(185, 244, 255, 0.42); box-shadow: 0 0 34px rgba(129, 234, 255, 0.14), var(--shadow); }
+.overlay.npc.snowkeeper .npc-name { color: #b9f4ff; }
 .npc-head { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s2); }
 .npc-portrait { width: 44px; height: 44px; image-rendering: pixelated; border-radius: var(--radius-sm); background: var(--bg2); border: 1px solid var(--border); }
 .npc-name { font-weight: 800; color: var(--violet); font-size: 15px; }
@@ -465,6 +467,8 @@ input[type="range"]::-moz-range-thumb {
 .npc-body .npc-stat { color: var(--muted); }
 .npc-topics { display: flex; flex-wrap: wrap; gap: var(--s1); margin-top: var(--s3); }
 .npc-topics .btn { padding: 7px 12px; min-height: 36px; font-size: 13px; }
+.npc-section-label { flex: 0 0 100%; color: var(--faint); font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-top: 3px; }
+.npc-section-label + .btn { margin-top: -2px; }
 /* Takes a full row of the flex container so it wraps into a real grid instead
    of collapsing to one column beside the Back button. */
 .npc-items { flex: 0 0 100%; display: grid; grid-template-columns: repeat(auto-fill, var(--slot)); gap: var(--s1); margin-bottom: var(--s2); max-height: 24vh; overflow-y: auto; }

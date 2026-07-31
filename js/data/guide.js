@@ -13,11 +13,11 @@
 //                the recipe list and boss loot tables, so a new item is
 //                explained correctly the day it's added without anyone writing
 //                a paragraph for it.
-import { ITEMS, item as getItem } from './items.js?v=snowy-taiga-npc-1';
-import { RECIPES } from './recipes.js?v=snowy-taiga-npc-1';
-import { BOSSES } from './bosses.js?v=snowy-taiga-npc-1';
-import { ENEMIES } from './enemies.js?v=snowy-taiga-npc-1';
-import { TILE } from '../config.js?v=snowy-taiga-npc-1';
+import { ITEMS, item as getItem } from './items.js?v=snowy-taiga-npc-2';
+import { RECIPES } from './recipes.js?v=snowy-taiga-npc-2';
+import { BOSSES } from './bosses.js?v=snowy-taiga-npc-2';
+import { ENEMIES } from './enemies.js?v=snowy-taiga-npc-2';
+import { TILE } from '../config.js?v=snowy-taiga-npc-2';
 
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
 
@@ -175,8 +175,17 @@ export const SNOWKEEPER_TOPICS = [
     id: 'hearth', label: 'Tell me about your lantern',
     text() {
       return [
-        `It is a <b>hearth-lantern</b>. It does not burn wood or Ember Dust; it burns a promise that someone will find their way back. That is why it stays blue instead of warm.`,
+        `It is a <b>hearth-lantern</b>. It does not burn wood or Ember Dust; it burns a promise that someone will find their way back. That is why it stays blue instead of warm. Stand close and its <b>Hearthlight</b> will slowly restore health and Aether.`,
         `I tend the paths between the Snowy Taiga and the rest of the realm. If you see the frost fade into green grass, you are heading toward home — if it turns violet, turn around.`,
+      ];
+    },
+  },
+  {
+    id: 'home', label: 'Do you need housing?',
+    text() {
+      return [
+        `No house is required. I am bound to this Snowy Taiga hearth, not to a bed, wall, or furniture checklist. I will be here when a new world begins and I will return to this snow country if a save ever tries to move me elsewhere.`,
+        `My service is simple: keep the lantern lit, mend travelers who reach it, and mark the paths that disappear under the snow.`,
       ];
     },
   },
@@ -186,7 +195,7 @@ export function snowkeeperGreeting(g, p) {
   const tx = Math.floor((p.x + p.w / 2) / TILE);
   const biome = g.world && g.world.biomeAt(tx, Math.floor((p.y + p.h / 2) / TILE));
   if (biome === 'snowyTaiga') {
-    return `You made it to the white country. I am <b>Nivara Frostbell</b>, keeper of this little light. Stay near the pines and the Taiga will show you what it is hiding.`;
+    return `You made it to the white country. I am <b>Nivara Frostbell</b>, keeper of this little light. Stay near the pines and the Taiga will show you what it is hiding — the lantern will mend you while you listen.`;
   }
   return `The snow remembers footsteps better than people do. I am <b>Nivara Frostbell</b>, the Hearthkeeper. Come back to my lantern when the caves start looking alike.`;
 }

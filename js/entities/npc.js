@@ -4,23 +4,26 @@
 // created. He wanders a short leash, faces whoever is nearest, and can be spoken
 // to for advice or to have an item explained (see ui/npcdialog.js). Nivara
 // Frostbell uses the same safe, saveable entity with a snow-biome home.
-import { TILE, GRAVITY } from '../config.js?v=snowy-taiga-npc-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=snowy-taiga-npc-1';
-import { Projectile } from './projectile.js?v=snowy-taiga-npc-1';
+import { TILE, GRAVITY } from '../config.js?v=snowy-taiga-npc-2';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=snowy-taiga-npc-2';
+import { Projectile } from './projectile.js?v=snowy-taiga-npc-2';
 
 const NPC_PRESETS = {
   guide: {
     name: 'Vesper Thane', title: 'the Guide', w: 12, h: 26,
     leash: 9 * TILE, talkRange: 3.2 * TILE, maxHp: 60,
     canFight: true, invulnerable: false,
+    permanent: false, requiresHousing: false,
   },
   snowkeeper: {
-    name: 'Nivara Frostbell', title: 'the Hearthkeeper', w: 14, h: 28,
+    name: 'Nivara Frostbell', title: 'the Hearthkeeper', w: 18, h: 32,
     leash: 6 * TILE, talkRange: 3.5 * TILE, maxHp: 80,
     // Nivara is a peaceful landmark rather than another combat target. Keeping
     // her protected also prevents snow-biome enemies from pulling combat away
     // from the player just because she lives far from spawn.
     canFight: false, invulnerable: true,
+    homeBiome: 'snowyTaiga', permanent: true, requiresHousing: false,
+    auraRadius: 5 * TILE,
   },
 };
 
@@ -42,6 +45,10 @@ export class Npc {
     this.talkRange = opts.talkRange != null ? opts.talkRange : preset.talkRange;
     this.canFight = opts.canFight != null ? opts.canFight : preset.canFight;
     this.invulnerable = opts.invulnerable != null ? opts.invulnerable : preset.invulnerable;
+    this.homeBiome = opts.homeBiome || preset.homeBiome || null;
+    this.permanent = opts.permanent != null ? opts.permanent : !!preset.permanent;
+    this.requiresHousing = opts.requiresHousing != null ? opts.requiresHousing : !!preset.requiresHousing;
+    this.auraRadius = opts.auraRadius != null ? opts.auraRadius : (preset.auraRadius || 0);
     this.vx = 0; this.vy = 0;
     this.facing = 1;
     this.onGround = false;
@@ -54,6 +61,15 @@ export class Npc {
     // Wander state: alternates between pausing and strolling.
     this._pause = 1 + Math.random() * 2;
     this._dir = 0;
+
+    // Nivara's lantern is a gameplay object, not just decoration. It gives a
+    // small local recovery pulse and exposes a stronger once-per-day blessing
+    // through the dialogue window. These values are local to the NPC instance
+    // so they are safe in single-player and in each multiplayer client.
+    this.auraActive = false;
+    this.auraPulse = Math.random() * Math.PI * 2;
+    this.hearthPulse = this.kind === 'snowkeeper' ? 0.4 : 0;
+    this.lastHearthDay = opts.lastHearthDay != null ? opts.lastHearthDay : null;
 
     // The Guide has a deliberately weak, infinite-ammo bow so he can defend
     // the camp without becoming a replacement for the player's combat build.
@@ -104,7 +120,13 @@ export class Npc {
     const spawnTx = world.spawnTx != null ? world.spawnTx : Math.floor(world.spawnX / TILE);
     const defaultTx = kind === 'snowkeeper' ? world.findBiomeColumn('snowyTaiga') : spawnTx + 4;
     let homeTx = defaultTx;
-    if (saved && saved.homeTx != null) homeTx = saved.homeTx;
+    if (saved && saved.homeTx != null) {
+      const savedHome = Math.max(2, Math.min(world.width - 3, saved.homeTx));
+      // A saved Nivara can never be moved into another biome by stale data or
+      // by a generator change. She is a permanent Snowy Taiga resident and
+      // does not use the game's player-housing rules.
+      if (kind !== 'snowkeeper' || world.surfaceBiomeAt(savedHome) === 'snowyTaiga') homeTx = savedHome;
+    }
     homeTx = Math.max(2, Math.min(world.width - 3, homeTx));
 
     const npc = new Npc(game, {
@@ -116,10 +138,14 @@ export class Npc {
       hp: saved ? saved.hp : null,
       respawnDay: saved ? saved.respawnDay : null,
       respawnAttemptDay: saved ? saved.respawnAttemptDay : null,
+      lastHearthDay: saved ? saved.lastHearthDay : null,
     });
-    const startTx = saved && saved.tx != null
+    const savedTx = saved && saved.tx != null
       ? Math.max(2, Math.min(world.width - 3, saved.tx))
       : homeTx;
+    const startTx = kind === 'snowkeeper' && world.surfaceBiomeAt(savedTx) !== 'snowyTaiga'
+      ? homeTx
+      : savedTx;
     npc.x = startTx * TILE;
     npc.y = world.spawnPixelY(startTx, npc.h);
     return npc;
@@ -145,6 +171,7 @@ export class Npc {
     const target = game.nearestPlayer(nc.x, nc.y);
     const talking = game.ui && game.ui.npcDialog && game.ui.npcDialog.isOpen();
     const near = target && Math.abs(target.x - this.x) < this.talkRange * 1.6;
+    this._updateHearthlight(dt, game);
 
     // Threat detection ignores line of sight on purpose: a melee enemy that is
     // already inside the danger radius must make the Guide retreat immediately.
@@ -191,6 +218,33 @@ export class Npc {
       this.x = this.homeX;
       this.y = game.world.spawnPixelY(tx, this.h);
       this.vx = 0; this.vy = 0;
+    }
+  }
+
+  _updateHearthlight(dt, game) {
+    if (this.kind !== 'snowkeeper' || !game || !game.localPlayer) return;
+    const p = game.localPlayer;
+    const pc = p.center();
+    const nc = this.center();
+    const inRange = !!p.alive && Math.hypot(pc.x - nc.x, pc.y - nc.y) <= this.auraRadius;
+    this.auraActive = inRange;
+    this.auraPulse = (this.auraPulse + dt * (inRange ? 2.6 : 1.1)) % (Math.PI * 2);
+    if (!inRange) {
+      this.hearthPulse = 0.4;
+      return;
+    }
+
+    this.hearthPulse -= dt;
+    if (this.hearthPulse > 0) return;
+    this.hearthPulse = 2.5;
+    const hpBefore = p.hp;
+    const manaBefore = p.mana;
+    p.heal(1.25);
+    p.restoreMana(1);
+    if (p.hp !== hpBefore || p.mana !== manaBefore) {
+      game.floatText?.(p.x + p.w / 2, p.y - 7, 'Hearthlight', '#b9f4ff');
+      game.fx?.ring(p.x + p.w / 2, p.y + p.h / 2, '#b9f4ff', 18, { life: 0.28, width: 1.2 });
+      game.markDirty?.();
     }
   }
 
@@ -382,6 +436,7 @@ export class Npc {
       hp: this.hp,
       respawnDay: this.respawnDay,
       respawnAttemptDay: this.respawnAttemptDay,
+      lastHearthDay: this.lastHearthDay,
     };
   }
 }

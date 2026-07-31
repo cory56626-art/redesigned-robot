@@ -1,15 +1,15 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=snowy-taiga-npc-1';
-import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=snowy-taiga-npc-1';
-import { SH } from '../world/shapes.js?v=snowy-taiga-npc-1';
-import { W, hasWall } from '../world/walls.js?v=snowy-taiga-npc-1';
-import { BIOMES } from '../world/biomes.js?v=snowy-taiga-npc-1';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=snowy-taiga-npc-1';
-import { item as getItem } from '../data/items.js?v=snowy-taiga-npc-1';
-import { canPlaceAt } from '../systems/combat.js?v=snowy-taiga-npc-1';
-import { clamp } from '../utils.js?v=snowy-taiga-npc-1';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=snowy-taiga-npc-1';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=snowy-taiga-npc-2';
+import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=snowy-taiga-npc-2';
+import { SH } from '../world/shapes.js?v=snowy-taiga-npc-2';
+import { W, hasWall } from '../world/walls.js?v=snowy-taiga-npc-2';
+import { BIOMES } from '../world/biomes.js?v=snowy-taiga-npc-2';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=snowy-taiga-npc-2';
+import { item as getItem } from '../data/items.js?v=snowy-taiga-npc-2';
+import { canPlaceAt } from '../systems/combat.js?v=snowy-taiga-npc-2';
+import { clamp } from '../utils.js?v=snowy-taiga-npc-2';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=snowy-taiga-npc-2';
 
 // Fallback appearance for players without a character record (remote players
 // on an older client, or a world loaded before characters existed).
@@ -1825,50 +1825,160 @@ export class Renderer {
 
   _drawSnowkeeper(game, ctx, n) {
     const x = n.x, y = n.y + Math.sin(n.bob) * 0.65, w = n.w, h = n.h;
-    const legSwing = Math.sin(n.walkAnim) * 2.5;
+    const dir = n.facing < 0 ? -1 : 1;
+    const cx = x + w / 2;
+    const legSwing = Math.sin(n.walkAnim) * 2.6;
+    const pulse = Math.sin(n.auraPulse || 0);
+
+    // The old sprite was a few flat rectangles. Nivara now has a readable
+    // silhouette: hood, fur trim, layered coat, scarf, satchel, gloves and a
+    // lantern with a moving cold-light core. It stays pixel-crisp at native
+    // world resolution, just like the rest of the game.
+    ctx.save();
+    ctx.globalAlpha = 0.24;
+    ctx.fillStyle = '#102238';
+    ctx.beginPath(); ctx.ellipse(cx, y + h + 1, 10, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    // A small pulse around her feet tells the player exactly when the passive
+    // Hearthlight aura is active, without turning the whole biome into a ring.
+    if (n.auraActive) {
+      ctx.save();
+      ctx.globalAlpha = 0.22 + pulse * 0.04;
+      ctx.strokeStyle = '#b9f4ff'; ctx.lineWidth = 1;
+      ctx.setLineDash([2, 3]);
+      ctx.beginPath(); ctx.ellipse(cx, y + h - 1, 11 + pulse * 1.2, 3, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
 
     // A small pool of cold light makes the Hearthkeeper readable against white
     // snow without turning her into a full light source for the cave system.
+    const lanternX = dir > 0 ? x + w + 4 : x - 4;
+    const lanternY = y + 18;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = 0.16 + Math.sin(n.bob * 1.7) * 0.035;
+    ctx.globalAlpha = 0.13 + pulse * 0.025;
     ctx.fillStyle = '#81eaff';
-    ctx.beginPath(); ctx.arc(x + w + 3, y + h * 0.55, 12, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(lanternX, lanternY + 1, 15 + pulse * 1.5, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
 
-    // Boots and short winter coat.
-    ctx.fillStyle = '#1c2b40';
-    ctx.fillRect(x + 1, y + h - 8 + Math.max(0, legSwing), 5, 8 - Math.max(0, legSwing));
-    ctx.fillRect(x + w - 6, y + h - 8 + Math.max(0, -legSwing), 5, 8 - Math.max(0, -legSwing));
-    ctx.fillStyle = '#416b8a';
-    this._roundRect(ctx, x - 1, y + 8, w + 2, h - 13, 3); ctx.fill();
-    ctx.fillStyle = '#b9f4ff';
-    ctx.fillRect(x, y + 10, w, 2);
-    ctx.fillRect(x + 2, y + 16, 2, h - 22);
+    // Back satchel and scarf tail give the profile a second layer when she
+    // turns, so she does not read as a recoloured player placeholder.
+    const packX = dir > 0 ? x - 2 : x + w - 4;
+    ctx.fillStyle = '#183149';
+    this._roundRect(ctx, packX, y + 13, 6, 12, 2); ctx.fill();
+    ctx.fillStyle = '#6f9db5'; ctx.fillRect(packX + 1, y + 15, 4, 2);
+    ctx.fillStyle = '#d8f8ff';
+    const scarfTailX = dir > 0 ? x - 2 : x + w - 2;
+    ctx.beginPath();
+    ctx.moveTo(scarfTailX, y + 11);
+    ctx.lineTo(scarfTailX + (dir > 0 ? -4 : 4), y + 18 + pulse * 1.1);
+    ctx.lineTo(scarfTailX + (dir > 0 ? 1 : -1), y + 21);
+    ctx.lineTo(scarfTailX + (dir > 0 ? 2 : -2), y + 12);
+    ctx.closePath(); ctx.fill();
 
-    // Hood, face, and scarf.
-    ctx.fillStyle = '#ead5bd'; ctx.fillRect(x + 2, y + 2, w - 4, 9);
-    ctx.fillStyle = '#243c59';
-    ctx.fillRect(x, y - 1, w, 5);
-    ctx.fillRect(n.facing > 0 ? x : x + w - 3, y, 3, 9);
-    ctx.fillStyle = '#253044';
-    ctx.fillRect(n.facing > 0 ? x + w - 5 : x + 3, y + 5, 2, 2);
-    ctx.fillStyle = '#d8f8ff'; ctx.fillRect(x - 1, y + 10, w + 2, 3);
+    // Boots and articulated legs.
+    ctx.fillStyle = '#142337';
+    ctx.fillRect(x + 3, y + h - 9 + Math.max(0, legSwing), 5, 8 - Math.max(0, legSwing));
+    ctx.fillRect(x + w - 8, y + h - 9 + Math.max(0, -legSwing), 5, 8 - Math.max(0, -legSwing));
+    ctx.fillStyle = '#314e68';
+    ctx.fillRect(x + 2, y + h - 3, 7, 3);
+    ctx.fillRect(x + w - 9, y + h - 3, 7, 3);
 
-    // The signature hearth-lantern, held just ahead of her body.
-    const lx = n.facing > 0 ? x + w + 2 : x - 5;
-    const ly = y + 15;
+    // Dark coat silhouette followed by two blue panels and a pale fur hem.
+    ctx.fillStyle = '#172a43';
+    ctx.beginPath();
+    ctx.moveTo(x + 3, y + 12); ctx.lineTo(x + w - 3, y + 12);
+    ctx.lineTo(x + w + 1, y + h - 8); ctx.lineTo(x + w - 2, y + h - 5);
+    ctx.lineTo(x + 2, y + h - 5); ctx.lineTo(x - 1, y + h - 8); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#315e7f';
+    ctx.beginPath();
+    ctx.moveTo(x + 4, y + 13); ctx.lineTo(cx, y + 15); ctx.lineTo(cx - 1, y + h - 7);
+    ctx.lineTo(x + 2, y + h - 7); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#3f7898';
+    ctx.beginPath();
+    ctx.moveTo(cx, y + 15); ctx.lineTo(x + w - 4, y + 13); ctx.lineTo(x + w + 0, y + h - 8);
+    ctx.lineTo(cx + 1, y + h - 7); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#b9e9f2';
+    ctx.beginPath();
+    ctx.moveTo(x + 1, y + h - 8); ctx.lineTo(x + w - 1, y + h - 8);
+    ctx.lineTo(x + w - 3, y + h - 5); ctx.lineTo(x + 2, y + h - 5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#1b3853'; ctx.fillRect(cx - 1, y + 16, 2, h - 23);
+    ctx.fillStyle = '#d8f8ff'; ctx.fillRect(x + 4, y + 20, w - 8, 1);
+
+    // Belt, buckle and the two mittened arms.
+    ctx.fillStyle = '#8fb6c4'; ctx.fillRect(x + 2, y + 23, w - 4, 2);
+    ctx.fillStyle = '#f1d37d'; ctx.fillRect(cx - 2, y + 22, 4, 4);
+    ctx.fillStyle = '#21445f';
+    this._roundRect(ctx, x - 3, y + 14, 5, 10, 2); ctx.fill();
+    this._roundRect(ctx, x + w - 2, y + 14, 5, 10, 2); ctx.fill();
+    ctx.fillStyle = '#d8f8ff';
+    ctx.fillRect(dir > 0 ? x + w - 1 : x - 2, y + 22, 4, 3);
+
+    // Face framed by a deep hood and a thick, irregular fur trim.
+    ctx.fillStyle = '#1c334e';
+    this._roundRect(ctx, x + 1, y - 1, w - 2, 16, 5); ctx.fill();
+    ctx.fillStyle = '#315d79';
+    this._roundRect(ctx, x + 3, y + 1, w - 6, 12, 4); ctx.fill();
+    ctx.fillStyle = '#ead5bd';
+    this._roundRect(ctx, x + 5, y + 4, w - 10, 10, 3); ctx.fill();
+    ctx.fillStyle = '#7e9db0';
+    ctx.fillRect(x + 3, y + 10, w - 6, 3);
+    ctx.fillStyle = '#edfaff';
+    ctx.fillRect(x + 2, y + 11, 4, 2); ctx.fillRect(x + w - 6, y + 11, 4, 2);
+    // Hair, brow, eye and a tiny nose point toward the player's side.
+    ctx.fillStyle = '#5d4758';
+    ctx.fillRect(dir > 0 ? x + 5 : x + w - 8, y + 4, 3, 5);
+    ctx.fillStyle = '#344259';
+    const eyeX = dir > 0 ? x + w - 8 : x + 6;
+    ctx.fillRect(eyeX, y + 7, 3, 1);
+    if (n.blink > 0) { ctx.fillStyle = '#18253a'; ctx.fillRect(eyeX + (dir > 0 ? 1 : 0), y + 8, 2, 2); }
+    ctx.fillStyle = '#d09d88'; ctx.fillRect(dir > 0 ? x + w - 5 : x + 3, y + 9, 2, 2);
+    ctx.fillStyle = '#d28b98'; ctx.fillRect(dir > 0 ? x + w - 8 : x + 5, y + 11, 2, 1);
+
+    // Frost-star brooch and crystal trim make her role legible even when the
+    // player is not close enough to read her name.
+    ctx.fillStyle = '#e8ffff';
+    ctx.fillRect(cx - 1, y + 17, 2, 7); ctx.fillRect(cx - 3, y + 19, 6, 2);
+    ctx.fillStyle = '#76dced'; ctx.fillRect(cx - 1, y + 19, 2, 2);
+
+    // The signature hearth-lantern: handle, metal frame, four bright panes and
+    // an animated core that matches the aura.
     ctx.strokeStyle = '#b9f4ff'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(lx + 2.5, ly - 2, 2.5, Math.PI, 0); ctx.stroke();
-    ctx.fillStyle = '#79ddf2'; ctx.fillRect(lx, ly, 6, 8);
-    ctx.fillStyle = '#e8ffff'; ctx.fillRect(lx + 1.5, ly + 1.5, 3, 4);
-    ctx.fillStyle = '#6ca7c4'; ctx.fillRect(lx - 1, ly + 7, 8, 2);
+    ctx.beginPath(); ctx.arc(lanternX, lanternY - 4, 4, Math.PI, 0); ctx.stroke();
+    ctx.fillStyle = '#2d6680';
+    this._roundRect(ctx, lanternX - 4, lanternY - 1, 8, 10, 2); ctx.fill();
+    ctx.fillStyle = '#79ddf2'; ctx.fillRect(lanternX - 3, lanternY, 6, 7);
+    ctx.fillStyle = '#efffff'; ctx.fillRect(lanternX - 1, lanternY + 1, 2, 5);
+    ctx.fillStyle = '#9cecff'; ctx.fillRect(lanternX - 4, lanternY + 7, 8, 2);
+    ctx.fillStyle = '#173149'; ctx.fillRect(lanternX - 1, lanternY - 3, 2, 2);
+
+    // Three tiny motes orbit the lantern. They are deterministic, cheap, and
+    // give the sprite life even while she is standing still.
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 3; i++) {
+      const a = (n.auraPulse || 0) + i * 2.1;
+      const mx = lanternX + Math.cos(a) * (7 + i * 1.5);
+      const my = lanternY + Math.sin(a) * (5 + i);
+      ctx.globalAlpha = 0.38 + i * 0.12;
+      ctx.fillStyle = i === 1 ? '#ffffff' : '#9cecff';
+      ctx.fillRect(mx - 1, my - 1, 2, 2);
+    }
+    ctx.restore();
+
+    if (n.hp < n.maxHp) this._miniHp(ctx, n, n.hp / n.maxHp, '#ff6b7d');
+    if (n.hurtFlash > 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.65)';
+      this._roundRect(ctx, x, y, w, h, 4); ctx.fill();
+    }
 
     const p = game.localPlayer;
     if (p && n.canTalkTo(p) && !(game.ui.npcDialog && game.ui.npcDialog.isOpen())) {
       const t = Math.sin(n.bob * 2) * 1.2;
-      ctx.fillStyle = 'rgba(10,14,28,0.82)';
-      this._roundRect(ctx, x + w / 2 - 17, y - 18 + t, 34, 11, 3); ctx.fill();
+      ctx.fillStyle = 'rgba(10,14,28,0.86)';
+      this._roundRect(ctx, x + w / 2 - 20, y - 18 + t, 40, 11, 3); ctx.fill();
       ctx.strokeStyle = '#b9f4ff'; ctx.lineWidth = 0.6; ctx.stroke();
       ctx.fillStyle = '#b9f4ff';
       ctx.font = 'bold 7px Trebuchet MS, sans-serif';
