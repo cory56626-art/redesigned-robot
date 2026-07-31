@@ -1,12 +1,14 @@
-// Summoner Realms — the Guide's dialogue window.
+// Summoner Realms — the NPC dialogue window.
 //
 // Two modes: a list of topics he can talk about, and an item-inspection mode
 // where you hand him something from your bag and he explains it. The content
 // itself lives in data/guide.js; this file is only presentation.
-import { INV_SIZE } from '../systems/inventory.js?v=snowy-taiga-underground-1';
-import { Sprites } from '../art/sprites.js?v=snowy-taiga-underground-1';
-import { item as getItem } from '../data/items.js?v=snowy-taiga-underground-1';
-import { TOPICS, describeItem, greeting } from '../data/guide.js?v=snowy-taiga-underground-1';
+import { INV_SIZE } from '../systems/inventory.js?v=snowy-taiga-npc-1';
+import { Sprites } from '../art/sprites.js?v=snowy-taiga-npc-1';
+import { item as getItem } from '../data/items.js?v=snowy-taiga-npc-1';
+import {
+  TOPICS, SNOWKEEPER_TOPICS, describeItem, greeting, snowkeeperGreeting,
+} from '../data/guide.js?v=snowy-taiga-npc-1';
 
 const $ = (id) => document.getElementById(id);
 
@@ -33,12 +35,12 @@ export class NpcDialog {
   open(npc) {
     this.npc = npc || this.game.npc;
     if (!this.npc) return;
-    npc.met = true;
+    this.npc.met = true;
     $('npcName').textContent = this.npc.name;
     $('npcTitle').textContent = this.npc.title;
     this._drawPortrait();
     this.mode = 'topics';
-    this._say([`<p>${greeting(this.game, this.game.localPlayer)}</p>`]);
+    this._say([`<p>${this._greeting()}</p>`]);
     this._renderTopics();
     $('npcDialog').classList.remove('hidden');
     this.game.onMenuOpened();
@@ -49,6 +51,14 @@ export class NpcDialog {
     this.mode = 'topics';
   }
 
+  _isSnowkeeper() { return this.npc && this.npc.kind === 'snowkeeper'; }
+  _topics() { return this._isSnowkeeper() ? SNOWKEEPER_TOPICS : TOPICS; }
+  _greeting() {
+    return this._isSnowkeeper()
+      ? snowkeeperGreeting(this.game, this.game.localPlayer)
+      : greeting(this.game, this.game.localPlayer);
+  }
+
   // A little portrait drawn from the same shapes the world sprite uses, so the
   // face in the window is recognisably the person standing in front of you.
   _drawPortrait() {
@@ -57,6 +67,19 @@ export class NpcDialog {
     ctx.clearRect(0, 0, 48, 48);
     ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = '#1b2140'; ctx.fillRect(0, 0, 48, 48);
+    if (this._isSnowkeeper()) {
+      // Nivara's frost-blue hood and lantern make the portrait distinct from
+      // Vesper even though both use the same lightweight canvas dialogue.
+      ctx.fillStyle = '#243c59'; ctx.fillRect(7, 5, 34, 15);
+      ctx.fillRect(5, 13, 8, 28); ctx.fillRect(35, 13, 8, 28);
+      ctx.fillStyle = '#ead5bd'; ctx.fillRect(13, 14, 22, 20);
+      ctx.fillStyle = '#253044'; ctx.fillRect(18, 21, 4, 4); ctx.fillRect(28, 21, 4, 4);
+      ctx.fillStyle = '#5d8bad'; ctx.fillRect(9, 37, 30, 11);
+      ctx.fillStyle = '#b9f4ff'; ctx.fillRect(12, 36, 24, 3);
+      ctx.fillStyle = '#9cecff'; ctx.fillRect(38, 30, 5, 8);
+      ctx.fillStyle = '#e8ffff'; ctx.fillRect(39, 31, 3, 5);
+      return;
+    }
     // hood
     ctx.fillStyle = '#463a63'; ctx.fillRect(8, 6, 32, 12);
     ctx.fillRect(6, 12, 6, 26); ctx.fillRect(36, 12, 6, 26);
@@ -78,7 +101,7 @@ export class NpcDialog {
   _renderTopics() {
     const wrap = $('npcTopics');
     wrap.innerHTML = '';
-    for (const t of TOPICS) {
+    for (const t of this._topics()) {
       const b = document.createElement('button');
       b.className = 'btn small';
       b.textContent = t.label;
@@ -157,7 +180,7 @@ export class NpcDialog {
     back.className = 'btn small';
     back.textContent = '← Back';
     back.onclick = () => {
-      this._say([`<p>${greeting(this.game, this.game.localPlayer)}</p>`]);
+    this._say([`<p>${this._greeting()}</p>`]);
       this._renderTopics();
     };
     wrap.appendChild(back);

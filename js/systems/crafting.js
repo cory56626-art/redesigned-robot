@@ -1,8 +1,8 @@
 // Summoner Realms — crafting logic.
-import { TILE } from '../config.js?v=snowy-taiga-underground-1';
-import { RECIPES } from '../data/recipes.js?v=snowy-taiga-underground-1';
-import { tileDef } from '../world/tiles.js?v=snowy-taiga-underground-1';
-import { item as getItem } from '../data/items.js?v=snowy-taiga-underground-1';
+import { TILE } from '../config.js?v=snowy-taiga-npc-1';
+import { RECIPES } from '../data/recipes.js?v=snowy-taiga-npc-1';
+import { tileDef } from '../world/tiles.js?v=snowy-taiga-npc-1';
+import { item as getItem } from '../data/items.js?v=snowy-taiga-npc-1';
 
 // Which crafting stations are within reach of the player? (null = by hand)
 export function nearbyStations(game, player) {

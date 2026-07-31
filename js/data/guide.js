@@ -13,11 +13,11 @@
 //                the recipe list and boss loot tables, so a new item is
 //                explained correctly the day it's added without anyone writing
 //                a paragraph for it.
-import { ITEMS, item as getItem } from './items.js?v=snowy-taiga-underground-1';
-import { RECIPES } from './recipes.js?v=snowy-taiga-underground-1';
-import { BOSSES } from './bosses.js?v=snowy-taiga-underground-1';
-import { ENEMIES } from './enemies.js?v=snowy-taiga-underground-1';
-import { TILE } from '../config.js?v=snowy-taiga-underground-1';
+import { ITEMS, item as getItem } from './items.js?v=snowy-taiga-npc-1';
+import { RECIPES } from './recipes.js?v=snowy-taiga-npc-1';
+import { BOSSES } from './bosses.js?v=snowy-taiga-npc-1';
+import { ENEMIES } from './enemies.js?v=snowy-taiga-npc-1';
+import { TILE } from '../config.js?v=snowy-taiga-npc-1';
 
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
 
@@ -134,6 +134,62 @@ export const TOPICS = [
     },
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Nivara Frostbell, the Hearthkeeper
+// ---------------------------------------------------------------------------
+
+// The Hearthkeeper has her own short conversation instead of duplicating the
+// Guide's general-purpose handbook. Item inspection is still shared because the
+// generated item descriptions are useful no matter which NPC you ask.
+export const SNOWKEEPER_TOPICS = [
+  {
+    id: 'taiga', label: 'What is this place?',
+    text() {
+      return [
+        `This is the <b>Snowy Taiga</b> — a broad white country where the wind goes quiet between the pines. The blue seams in the stone are <b>Glacierite</b>; bring it home and smelt it into gear when your Forge is ready.`,
+        `The old ice under the snow is called <b>Rimeglass</b>. A weak pick will chip at it, but a proper metal pick makes the work much less miserable.`,
+      ];
+    },
+  },
+  {
+    id: 'wildlife', label: 'What lives here?',
+    text() {
+      return [
+        `Keep an eye on the tree line. <b>Boreal Lynxes</b> charge when they commit, while <b>Aurora Wisps</b> keep their distance and throw bright shots. Both give you a warning before the dangerous part.`,
+        `The little glowmoths are harmless. If the snow suddenly looks green, that is usually a Wisp — not a friendly lantern like mine.`,
+      ];
+    },
+  },
+  {
+    id: 'shelter', label: 'How do I survive the cold?',
+    text(g, p) {
+      const torches = p.inventory.count('torch');
+      return [
+        `Snow is not what kills wanderers. Getting turned around in a cave does. Leave <b>Emberlight</b> behind you as you descend — you have <b>${torches}</b> torch${torches === 1 ? '' : 'es'} right now.`,
+        `If you need a safe pause, build a small shelter against a pine and put your workbench inside. I keep this lantern lit, but it cannot light a whole cavern for you.`,
+      ];
+    },
+  },
+  {
+    id: 'hearth', label: 'Tell me about your lantern',
+    text() {
+      return [
+        `It is a <b>hearth-lantern</b>. It does not burn wood or Ember Dust; it burns a promise that someone will find their way back. That is why it stays blue instead of warm.`,
+        `I tend the paths between the Snowy Taiga and the rest of the realm. If you see the frost fade into green grass, you are heading toward home — if it turns violet, turn around.`,
+      ];
+    },
+  },
+];
+
+export function snowkeeperGreeting(g, p) {
+  const tx = Math.floor((p.x + p.w / 2) / TILE);
+  const biome = g.world && g.world.biomeAt(tx, Math.floor((p.y + p.h / 2) / TILE));
+  if (biome === 'snowyTaiga') {
+    return `You made it to the white country. I am <b>Nivara Frostbell</b>, keeper of this little light. Stay near the pines and the Taiga will show you what it is hiding.`;
+  }
+  return `The snow remembers footsteps better than people do. I am <b>Nivara Frostbell</b>, the Hearthkeeper. Come back to my lantern when the caves start looking alike.`;
+}
 
 // ---------------------------------------------------------------------------
 // Item explanations

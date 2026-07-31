@@ -5,11 +5,11 @@
 // terrain with restitution and friction. What differs is what happens on
 // contact — explode on a fuse, stick and then explode, or damage and drop as a
 // recoverable pickup.
-import { GRAVITY, TILE } from '../config.js?v=snowy-taiga-underground-1';
-import { aabb } from '../utils.js?v=snowy-taiga-underground-1';
-import { explode } from '../systems/explosions.js?v=snowy-taiga-underground-1';
-import { Sprites } from '../art/sprites.js?v=snowy-taiga-underground-1';
-import { item as getItem } from '../data/items.js?v=snowy-taiga-underground-1';
+import { GRAVITY, TILE } from '../config.js?v=snowy-taiga-npc-1';
+import { aabb } from '../utils.js?v=snowy-taiga-npc-1';
+import { explode } from '../systems/explosions.js?v=snowy-taiga-npc-1';
+import { Sprites } from '../art/sprites.js?v=snowy-taiga-npc-1';
+import { item as getItem } from '../data/items.js?v=snowy-taiga-npc-1';
 
 export class ThrownItem {
   /**

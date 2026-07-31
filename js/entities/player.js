@@ -5,14 +5,14 @@ import {
   HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN,
   CAST_REGEN_DELAY, CAST_REGEN_MULT, RESPAWN_DELAY, RESPAWN_DELAY_BOSS,
   SWIM_DRAG, SWIM_STROKE, WIND_PLAYER_PUSH,
-} from '../config.js?v=snowy-taiga-underground-1';
-import { tileDef } from '../world/tiles.js?v=snowy-taiga-underground-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=snowy-taiga-underground-1';
-import { Inventory } from '../systems/inventory.js?v=snowy-taiga-underground-1';
-import { item as getItem } from '../data/items.js?v=snowy-taiga-underground-1';
-import * as combat from '../systems/combat.js?v=snowy-taiga-underground-1';
-import * as fishing from '../systems/fishing.js?v=snowy-taiga-underground-1';
-import { clamp } from '../utils.js?v=snowy-taiga-underground-1';
+} from '../config.js?v=snowy-taiga-npc-1';
+import { tileDef } from '../world/tiles.js?v=snowy-taiga-npc-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=snowy-taiga-npc-1';
+import { Inventory } from '../systems/inventory.js?v=snowy-taiga-npc-1';
+import { item as getItem } from '../data/items.js?v=snowy-taiga-npc-1';
+import * as combat from '../systems/combat.js?v=snowy-taiga-npc-1';
+import * as fishing from '../systems/fishing.js?v=snowy-taiga-npc-1';
+import { clamp } from '../utils.js?v=snowy-taiga-npc-1';
 
 export class Player {
   constructor(id, opts = {}) {

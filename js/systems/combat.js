@@ -1,13 +1,13 @@
 // Summoner Realms — combat & interaction resolution (weapons, mining, placing).
-import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=snowy-taiga-underground-1';
-import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=snowy-taiga-underground-1';
-import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=snowy-taiga-underground-1';
-import { SH, nextShape } from '../world/shapes.js?v=snowy-taiga-underground-1';
-import { W } from '../world/walls.js?v=snowy-taiga-underground-1';
-import { item as getItem } from '../data/items.js?v=snowy-taiga-underground-1';
-import { Projectile } from '../entities/projectile.js?v=snowy-taiga-underground-1';
-import { ThrownItem } from '../entities/thrown.js?v=snowy-taiga-underground-1';
-import { angleTo, aabb, clamp } from '../utils.js?v=snowy-taiga-underground-1';
+import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=snowy-taiga-npc-1';
+import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=snowy-taiga-npc-1';
+import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=snowy-taiga-npc-1';
+import { SH, nextShape } from '../world/shapes.js?v=snowy-taiga-npc-1';
+import { W } from '../world/walls.js?v=snowy-taiga-npc-1';
+import { item as getItem } from '../data/items.js?v=snowy-taiga-npc-1';
+import { Projectile } from '../entities/projectile.js?v=snowy-taiga-npc-1';
+import { ThrownItem } from '../entities/thrown.js?v=snowy-taiga-npc-1';
+import { angleTo, aabb, clamp } from '../utils.js?v=snowy-taiga-npc-1';
 
 const MINE_RATE = 95;
 const MINE_SOUND_INTERVAL = 0.32;

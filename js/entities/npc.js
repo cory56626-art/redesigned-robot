@@ -1,27 +1,47 @@
-// Summoner Realms — the Guide NPC.
+// Summoner Realms — friendly world NPCs.
 //
 // Vesper Thane keeps a camp on the spawn plain from the moment a world is
 // created. He wanders a short leash, faces whoever is nearest, and can be spoken
-// to for advice or to have an item explained (see ui/npcdialog.js).
-import { TILE, GRAVITY } from '../config.js?v=snowy-taiga-underground-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=snowy-taiga-underground-1';
-import { Projectile } from './projectile.js?v=snowy-taiga-underground-1';
+// to for advice or to have an item explained (see ui/npcdialog.js). Nivara
+// Frostbell uses the same safe, saveable entity with a snow-biome home.
+import { TILE, GRAVITY } from '../config.js?v=snowy-taiga-npc-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=snowy-taiga-npc-1';
+import { Projectile } from './projectile.js?v=snowy-taiga-npc-1';
 
-const NPC_W = 12, NPC_H = 26;
-// How far the Guide will stray from his camp, in world pixels.
-const LEASH = 9 * TILE;
-// The player must be within this range for the Talk prompt to appear.
-export const TALK_RANGE = 3.2 * TILE;
+const NPC_PRESETS = {
+  guide: {
+    name: 'Vesper Thane', title: 'the Guide', w: 12, h: 26,
+    leash: 9 * TILE, talkRange: 3.2 * TILE, maxHp: 60,
+    canFight: true, invulnerable: false,
+  },
+  snowkeeper: {
+    name: 'Nivara Frostbell', title: 'the Hearthkeeper', w: 14, h: 28,
+    leash: 6 * TILE, talkRange: 3.5 * TILE, maxHp: 80,
+    // Nivara is a peaceful landmark rather than another combat target. Keeping
+    // her protected also prevents snow-biome enemies from pulling combat away
+    // from the player just because she lives far from spawn.
+    canFight: false, invulnerable: true,
+  },
+};
+
+// The player must be within this range for the Guide's Talk prompt to appear.
+export const TALK_RANGE = NPC_PRESETS.guide.talkRange;
 
 export class Npc {
   constructor(game, opts = {}) {
-    this.key = 'guide';
-    this.name = 'Vesper Thane';
-    this.title = 'the Guide';
-    this.w = NPC_W; this.h = NPC_H;
+    const preset = NPC_PRESETS[opts.kind || 'guide'] || NPC_PRESETS.guide;
+    this.kind = opts.kind || 'guide';
+    this.key = this.kind === 'snowkeeper' ? 'snowkeeper' : 'guide';
+    this.name = opts.name || preset.name;
+    this.title = opts.title || preset.title;
+    this.w = opts.w || preset.w; this.h = opts.h || preset.h;
     this.x = opts.x != null ? opts.x : 0;
     this.y = opts.y != null ? opts.y : 0;
     this.homeX = opts.homeX != null ? opts.homeX : this.x;
+    this.leash = opts.leash != null ? opts.leash : preset.leash;
+    this.talkRange = opts.talkRange != null ? opts.talkRange : preset.talkRange;
+    this.canFight = opts.canFight != null ? opts.canFight : preset.canFight;
+    this.invulnerable = opts.invulnerable != null ? opts.invulnerable : preset.invulnerable;
     this.vx = 0; this.vy = 0;
     this.facing = 1;
     this.onGround = false;
@@ -37,7 +57,7 @@ export class Npc {
 
     // The Guide has a deliberately weak, infinite-ammo bow so he can defend
     // the camp without becoming a replacement for the player's combat build.
-    this.shootRange = 15 * TILE;
+    this.shootRange = this.canFight ? 15 * TILE : 0;
     this.shootDamage = 3;
     this.shootCooldown = 0;
     this.shootWindup = 0;
@@ -58,7 +78,7 @@ export class Npc {
     // respawn checks: two low-probability rolls, then a guaranteed return.
     this.alive = opts.alive !== false;
     this.dead = !this.alive;
-    this.maxHp = 60;
+    this.maxHp = opts.maxHp != null ? opts.maxHp : preset.maxHp;
     this.hp = this.alive ? Math.max(0, Math.min(this.maxHp, opts.hp != null ? opts.hp : this.maxHp)) : 0;
     this.iframes = 0;
     this.hurtFlash = 0;
@@ -68,17 +88,27 @@ export class Npc {
     this.respawnChance = 0.22;
   }
 
-  // Build the Guide for a world, restoring saved state when there is any.
-  // Always re-seats him on solid ground so a changed generator can never leave
-  // him embedded in rock or hovering over a cave.
+  // Build an NPC for a world, restoring saved state when there is any. Always
+  // re-seats them on solid ground so a changed generator can never leave them
+  // embedded in rock or hovering over a cave.
   static create(game, saved) {
+    return Npc._createAt(game, saved, 'guide');
+  }
+
+  static createSnowkeeper(game, saved) {
+    return Npc._createAt(game, saved, 'snowkeeper');
+  }
+
+  static _createAt(game, saved, kind) {
     const world = game.world;
-    const tx = world.spawnTx != null ? world.spawnTx : Math.floor(world.spawnX / TILE);
-    let homeTx = tx + 4;
+    const spawnTx = world.spawnTx != null ? world.spawnTx : Math.floor(world.spawnX / TILE);
+    const defaultTx = kind === 'snowkeeper' ? world.findBiomeColumn('snowyTaiga') : spawnTx + 4;
+    let homeTx = defaultTx;
     if (saved && saved.homeTx != null) homeTx = saved.homeTx;
     homeTx = Math.max(2, Math.min(world.width - 3, homeTx));
 
     const npc = new Npc(game, {
+      kind,
       homeX: homeTx * TILE,
       met: saved ? saved.met : false,
       topicsSeen: saved ? saved.topicsSeen : [],
@@ -114,11 +144,11 @@ export class Npc {
     const nc = this.center();
     const target = game.nearestPlayer(nc.x, nc.y);
     const talking = game.ui && game.ui.npcDialog && game.ui.npcDialog.isOpen();
-    const near = target && Math.abs(target.x - this.x) < TALK_RANGE * 1.6;
+    const near = target && Math.abs(target.x - this.x) < this.talkRange * 1.6;
 
     // Threat detection ignores line of sight on purpose: a melee enemy that is
     // already inside the danger radius must make the Guide retreat immediately.
-    let threat = !talking ? game.nearestEnemyOrBoss(nc.x, nc.y, this.dangerRange) : null;
+    let threat = !talking && !this.invulnerable ? game.nearestEnemyOrBoss(nc.x, nc.y, this.dangerRange) : null;
     if (threat && threat.dead) threat = null;
     if (threat) {
       this.retreating = true;
@@ -128,7 +158,7 @@ export class Npc {
       threat = this.retreating && stillClose && !stillClose.dead ? stillClose : null;
     }
 
-    const candidateTarget = !talking && !this.retreating
+    const candidateTarget = this.canFight && !talking && !this.retreating
       ? game.nearestReachableEnemyOrBoss(nc.x, nc.y, this.shootRange)
       : null;
     const enemyTarget = candidateTarget && !candidateTarget.dead ? candidateTarget : null;
@@ -295,8 +325,8 @@ export class Npc {
     }
     // Turn around at the leash edge rather than drifting away from camp.
     const offset = this.x - this.homeX;
-    if (offset < -LEASH) this._dir = 1;
-    else if (offset > LEASH) this._dir = -1;
+    if (offset < -this.leash) this._dir = 1;
+    else if (offset > this.leash) this._dir = -1;
 
     this.vx = this._dir * 34;
     this.facing = this._dir;
@@ -307,7 +337,7 @@ export class Npc {
   }
 
   takeDamage(amount, knockbackX, game, srcName) {
-    if (!this.alive || this.iframes > 0) return;
+    if (!this.alive || this.iframes > 0 || this.invulnerable) return;
     const dmg = Math.max(1, Math.round(amount));
     this.hp = Math.max(0, this.hp - dmg);
     this.iframes = 0.45;
@@ -338,11 +368,12 @@ export class Npc {
     if (!this.alive || !player || !player.alive) return false;
     const dx = (player.x + player.w / 2) - (this.x + this.w / 2);
     const dy = (player.y + player.h / 2) - (this.y + this.h / 2);
-    return Math.hypot(dx, dy) <= TALK_RANGE;
+    return Math.hypot(dx, dy) <= this.talkRange;
   }
 
   serialize() {
     return {
+      kind: this.kind,
       tx: Math.round(this.x / TILE),
       homeTx: Math.round(this.homeX / TILE),
       met: this.met,

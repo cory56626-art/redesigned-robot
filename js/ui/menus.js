@@ -1,14 +1,14 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=snowy-taiga-underground-1';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=snowy-taiga-underground-1';
-import { Sprites } from '../art/sprites.js?v=snowy-taiga-underground-1';
-import { item as getItem } from '../data/items.js?v=snowy-taiga-underground-1';
-import { availableRecipes } from '../systems/crafting.js?v=snowy-taiga-underground-1';
-import { claudeNotesHTML } from './claude-notes.js?v=snowy-taiga-underground-1';
-import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=snowy-taiga-underground-1';
-import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=snowy-taiga-underground-1';
-import { drawCharacterPreview } from '../art/charpreview.js?v=snowy-taiga-underground-1';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=snowy-taiga-npc-1';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=snowy-taiga-npc-1';
+import { Sprites } from '../art/sprites.js?v=snowy-taiga-npc-1';
+import { item as getItem } from '../data/items.js?v=snowy-taiga-npc-1';
+import { availableRecipes } from '../systems/crafting.js?v=snowy-taiga-npc-1';
+import { claudeNotesHTML } from './claude-notes.js?v=snowy-taiga-npc-1';
+import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=snowy-taiga-npc-1';
+import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=snowy-taiga-npc-1';
+import { drawCharacterPreview } from '../art/charpreview.js?v=snowy-taiga-npc-1';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [
@@ -568,7 +568,7 @@ export class Menus {
         <li><b>Left-click</b> — use item (attack / cast / summon / throw / place / mine or chop with the held tool)</li>
         <li><b>Right-click</b> — dig/chop the targeted tile with the best tool for it (pickaxe for stone, axe for trees)</li>
         <li><kbd>1</kbd>–<kbd>0</kbd> / scroll — select hotbar · <kbd>E</kbd> — inventory &amp; crafting · <kbd>Q</kbd> — use potion</li>
-        <li><kbd>F</kbd> — talk to the Guide · <kbd>Ctrl</kbd> — hold for <b>Smart Cursor</b> (or set it to Always in Settings)</li>
+        <li><kbd>F</kbd> — talk to the nearest NPC · <kbd>Ctrl</kbd> — hold for <b>Smart Cursor</b> (or set it to Always in Settings)</li>
         <li><kbd>+</kbd>/<kbd>&minus;</kbd> or <kbd>Ctrl</kbd>+scroll — <b>zoom</b> · <kbd>M</kbd> — resize the <b>map</b></li>
         <li>Right-click a bag slot to <b>drop one</b>; <kbd>Shift</kbd>+right-click drops the stack, <kbd>Ctrl</kbd>+right-click asks how many</li>
         <li><kbd>Esc</kbd> — pause · <kbd>Enter</kbd> — chat (multiplayer)</li>
@@ -612,7 +612,7 @@ export class Menus {
         <li>Bows need <b>arrows</b>, magic drains <b>Aether</b>, and healing has a <b>cooldown</b> — watch the hotbar timers.</li>
         <li>Craft a <b>Verdant Effigy</b> and use it in the Forest to summon the first boss. Bosses <b>telegraph</b> every attack — watch for the charge-up.</li>
         <li>Dying during a boss fight ends the encounter and costs a longer respawn, so the boss has to be summoned again.</li>
-        <li>Lost? Talk to <b>Vesper Thane</b>, the Guide who lives at your spawn. He'll explain any item you're carrying.</li>
+        <li>Lost? Talk to <b>Vesper Thane</b>, the Guide at your spawn, or find <b>Nivara Frostbell</b> in the Snowy Taiga. Either can explain items you are carrying.</li>
         <li>Stuck? Open the pause menu → <b>Demo Commands</b> for testing tools like <code>/giveall</code> or <code>/debugai</code>.</li>
       </ul>`;
     this.show('howtoDialog');

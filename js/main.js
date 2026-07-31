@@ -2,50 +2,50 @@
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty, ZOOM_DEFAULT, REACH,
-} from './config.js?v=snowy-taiga-underground-1';
-import { hashString, mulberry32, dist2, uid } from './utils.js?v=snowy-taiga-underground-1';
-import { World } from './world/world.js?v=snowy-taiga-underground-1';
-import { T, tileDef } from './world/tiles.js?v=snowy-taiga-underground-1';
-import { Sprites } from './art/sprites.js?v=snowy-taiga-underground-1';
-import { Camera } from './engine/camera.js?v=snowy-taiga-underground-1';
-import { Input } from './engine/input.js?v=snowy-taiga-underground-1';
-import { AudioManager } from './engine/audio.js?v=snowy-taiga-underground-1';
-import { Renderer } from './engine/renderer.js?v=snowy-taiga-underground-1';
-import { Fx } from './engine/fx.js?v=snowy-taiga-underground-1';
-import { DayNight } from './systems/daynight.js?v=snowy-taiga-underground-1';
-import { Weather } from './systems/weather.js?v=snowy-taiga-underground-1';
-import { Spawner } from './systems/spawner.js?v=snowy-taiga-underground-1';
-import { Progression } from './systems/progression.js?v=snowy-taiga-underground-1';
-import { starterInventory } from './systems/inventory.js?v=snowy-taiga-underground-1';
-import * as craftSys from './systems/crafting.js?v=snowy-taiga-underground-1';
-import { applyPotion } from './systems/combat.js?v=snowy-taiga-underground-1';
-import * as fishing from './systems/fishing.js?v=snowy-taiga-underground-1';
-import { Critter } from './entities/critter.js?v=snowy-taiga-underground-1';
-import { FAUNA } from './data/fauna.js?v=snowy-taiga-underground-1';
-import { smartTarget } from './systems/smartcursor.js?v=snowy-taiga-underground-1';
-import { Player, assignColor } from './entities/player.js?v=snowy-taiga-underground-1';
-import { Enemy } from './entities/enemy.js?v=snowy-taiga-underground-1';
-import { Boss } from './entities/boss.js?v=snowy-taiga-underground-1';
-import { Minion } from './entities/minion.js?v=snowy-taiga-underground-1';
-import { Npc } from './entities/npc.js?v=snowy-taiga-underground-1';
-import { Projectile } from './entities/projectile.js?v=snowy-taiga-underground-1';
-import { DropItem } from './entities/droppeditem.js?v=snowy-taiga-underground-1';
-import { FallingTree } from './entities/fallingtree.js?v=snowy-taiga-underground-1';
-import { ThrownItem } from './entities/thrown.js?v=snowy-taiga-underground-1';
-import { ENEMIES } from './data/enemies.js?v=snowy-taiga-underground-1';
-import { BOSSES } from './data/bosses.js?v=snowy-taiga-underground-1';
-import { item as getItem } from './data/items.js?v=snowy-taiga-underground-1';
-import { HUD } from './ui/hud.js?v=snowy-taiga-underground-1';
-import { Minimap } from './ui/minimap.js?v=snowy-taiga-underground-1';
-import { Menus } from './ui/menus.js?v=snowy-taiga-underground-1';
-import { NpcDialog } from './ui/npcdialog.js?v=snowy-taiga-underground-1';
-import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=snowy-taiga-underground-1';
-import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=snowy-taiga-underground-1';
-import { Achievements, craftAchievement } from './systems/achievements.js?v=snowy-taiga-underground-1';
-import { CommandConsole } from './commands.js?v=snowy-taiga-underground-1';
-import { Net } from './net/net.js?v=snowy-taiga-underground-1';
-import { MSG } from './net/protocol.js?v=snowy-taiga-underground-1';
-import * as sync from './net/sync.js?v=snowy-taiga-underground-1';
+} from './config.js?v=snowy-taiga-npc-1';
+import { hashString, mulberry32, dist2, uid } from './utils.js?v=snowy-taiga-npc-1';
+import { World } from './world/world.js?v=snowy-taiga-npc-1';
+import { T, tileDef } from './world/tiles.js?v=snowy-taiga-npc-1';
+import { Sprites } from './art/sprites.js?v=snowy-taiga-npc-1';
+import { Camera } from './engine/camera.js?v=snowy-taiga-npc-1';
+import { Input } from './engine/input.js?v=snowy-taiga-npc-1';
+import { AudioManager } from './engine/audio.js?v=snowy-taiga-npc-1';
+import { Renderer } from './engine/renderer.js?v=snowy-taiga-npc-1';
+import { Fx } from './engine/fx.js?v=snowy-taiga-npc-1';
+import { DayNight } from './systems/daynight.js?v=snowy-taiga-npc-1';
+import { Weather } from './systems/weather.js?v=snowy-taiga-npc-1';
+import { Spawner } from './systems/spawner.js?v=snowy-taiga-npc-1';
+import { Progression } from './systems/progression.js?v=snowy-taiga-npc-1';
+import { starterInventory } from './systems/inventory.js?v=snowy-taiga-npc-1';
+import * as craftSys from './systems/crafting.js?v=snowy-taiga-npc-1';
+import { applyPotion } from './systems/combat.js?v=snowy-taiga-npc-1';
+import * as fishing from './systems/fishing.js?v=snowy-taiga-npc-1';
+import { Critter } from './entities/critter.js?v=snowy-taiga-npc-1';
+import { FAUNA } from './data/fauna.js?v=snowy-taiga-npc-1';
+import { smartTarget } from './systems/smartcursor.js?v=snowy-taiga-npc-1';
+import { Player, assignColor } from './entities/player.js?v=snowy-taiga-npc-1';
+import { Enemy } from './entities/enemy.js?v=snowy-taiga-npc-1';
+import { Boss } from './entities/boss.js?v=snowy-taiga-npc-1';
+import { Minion } from './entities/minion.js?v=snowy-taiga-npc-1';
+import { Npc } from './entities/npc.js?v=snowy-taiga-npc-1';
+import { Projectile } from './entities/projectile.js?v=snowy-taiga-npc-1';
+import { DropItem } from './entities/droppeditem.js?v=snowy-taiga-npc-1';
+import { FallingTree } from './entities/fallingtree.js?v=snowy-taiga-npc-1';
+import { ThrownItem } from './entities/thrown.js?v=snowy-taiga-npc-1';
+import { ENEMIES } from './data/enemies.js?v=snowy-taiga-npc-1';
+import { BOSSES } from './data/bosses.js?v=snowy-taiga-npc-1';
+import { item as getItem } from './data/items.js?v=snowy-taiga-npc-1';
+import { HUD } from './ui/hud.js?v=snowy-taiga-npc-1';
+import { Minimap } from './ui/minimap.js?v=snowy-taiga-npc-1';
+import { Menus } from './ui/menus.js?v=snowy-taiga-npc-1';
+import { NpcDialog } from './ui/npcdialog.js?v=snowy-taiga-npc-1';
+import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=snowy-taiga-npc-1';
+import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=snowy-taiga-npc-1';
+import { Achievements, craftAchievement } from './systems/achievements.js?v=snowy-taiga-npc-1';
+import { CommandConsole } from './commands.js?v=snowy-taiga-npc-1';
+import { Net } from './net/net.js?v=snowy-taiga-npc-1';
+import { MSG } from './net/protocol.js?v=snowy-taiga-npc-1';
+import * as sync from './net/sync.js?v=snowy-taiga-npc-1';
 
 class Game {
   constructor() {
@@ -88,7 +88,9 @@ class Game {
     this.floatTexts = [];
     this.fallingTrees = [];  // cosmetic tree-topple animations
     this.thrown = [];        // bombs, dynamite, shurikens in flight
-    this.npc = null;         // the Guide
+    this.npc = null;         // Vesper Thane, the Guide
+    this.snowNpc = null;     // Nivara Frostbell, the Hearthkeeper
+    this.npcs = [];
     this.fx = new Fx(this);
 
     // Debug overlays toggled from the demo command console.
@@ -199,14 +201,28 @@ class Game {
   }
 
   // Mobile has no keyboard, so the Talk prompt is a real button that appears
-  // only while the Guide is actually within range.
+  // only while the nearest NPC is actually within range.
   _updateTalkButton() {
     const el = document.getElementById('mbTalk');
     if (!el) return;
-    const show = this.controlMode === 'mobile' && this.npc && this.localPlayer &&
-      this.npc.canTalkTo(this.localPlayer) &&
+    const npc = this.nearestTalkableNpc();
+    const show = this.controlMode === 'mobile' && npc && this.localPlayer &&
+      npc.canTalkTo(this.localPlayer) &&
       !(this.ui.npcDialog && this.ui.npcDialog.isOpen());
     el.classList.toggle('hidden', !show);
+  }
+
+  nearestTalkableNpc(player = this.localPlayer) {
+    if (!player || !player.alive) return null;
+    const pc = player.center();
+    let best = null, bestD = Infinity;
+    for (const npc of this.npcs || []) {
+      if (!npc || !npc.alive || !npc.canTalkTo(player)) continue;
+      const c = npc.center();
+      const d = dist2(pc.x, pc.y, c.x, c.y);
+      if (d < bestD) { bestD = d; best = npc; }
+    }
+    return best;
   }
 
   _resize() {
@@ -309,8 +325,8 @@ class Game {
       for (const d of this.drops.slice()) if (d.localOnly) d.update(dt, this);
     }
 
-    // Guide NPC
-    if (this.npc) this.npc.update(dt, this);
+    // Friendly NPCs are local world landmarks, just like the existing Guide.
+    for (const npc of this.npcs || []) if (npc) npc.update(dt, this);
 
     // Minions (local only)
     for (const m of this.minions.slice()) m.update(dt, this);
@@ -396,6 +412,8 @@ class Game {
     this.bosses = []; this.projectiles = []; this.drops = []; this.dropById.clear();
     this.particles = []; this.rings = []; this.flashes = []; this.floatTexts = []; this.fallingTrees = []; this.thrown = [];
     this.npc = null;
+    this.snowNpc = null;
+    this.npcs = [];
   }
 
   _seedFromString(str) {
@@ -415,7 +433,7 @@ class Game {
     this.time = new DayNight();
     this.weather = new Weather(this.seed);
     this._createLocalPlayer(true);
-    this._spawnGuide(null);
+    this._spawnNpcs(null, null);
     this.currentSaveId = this.saves.newId();
     this._enterPlaying();
     this.saveGame(false);
@@ -448,7 +466,7 @@ class Game {
     this._resetEntities();
     this.time = new DayNight(data.time || 0, data.day || 1);
     this._createLocalPlayer(false);
-    this._spawnGuide(data.npc);
+    this._spawnNpcs(data.npc, data.snowNpc);
     const pd = data.player;
     if (pd) {
       this.localPlayer.x = pd.x; this.localPlayer.y = pd.y;
@@ -465,12 +483,16 @@ class Game {
     this.toast('Loaded ' + data.name, 'good');
   }
 
-  // The Guide NPC that keeps the player company from world creation onward.
-  // Implemented in js/entities/npc.js; see _spawnGuide's body for the lifecycle.
-  _spawnGuide(saved) {
+  // Friendly NPCs are created independently so old saves with only `npc` still
+  // load correctly while every new world also receives its Snowy Taiga resident.
+  _spawnNpcs(guideSaved, snowSaved) {
     this.npc = null;
+    this.snowNpc = null;
+    this.npcs = [];
     if (!this.world) return;
-    this.npc = Npc.create(this, saved);
+    this.npc = Npc.create(this, guideSaved);
+    this.snowNpc = Npc.createSnowkeeper(this, snowSaved);
+    this.npcs = [this.npc, this.snowNpc].filter(Boolean);
   }
 
   _createLocalPlayer(fresh) {
@@ -517,7 +539,7 @@ class Game {
     this.players.clear();
     this.time = new DayNight(time || 0, day || 1);
     this._createLocalPlayer(true);
-    this._spawnGuide(null);
+    this._spawnNpcs(null, null);
     this.currentSaveId = null; // clients never autosave the host's world
     this._enterPlaying();
     this.toast('Joined ' + this.worldName, 'good');
@@ -561,7 +583,7 @@ class Game {
     this.weather = new Weather(this.seed);
     this.localPlayer.inventory = inv;
     this.players.set(this.localPlayer.id, this.localPlayer);
-    this._spawnGuide(null);
+    this._spawnNpcs(null, null);
     const tx = Math.floor(this.world.spawnX / TILE);
     this.localPlayer.x = this.world.spawnX; this.localPlayer.y = this.world.spawnPixelY(tx, this.localPlayer.h);
     this.localPlayer.vx = 0; this.localPlayer.vy = 0;
@@ -595,6 +617,7 @@ class Game {
       progression: this.progression.serialize(),
       player: { x: p.x, y: p.y, hp: p.hp, mana: p.mana, inventory: p.inventory.serialize() },
       npc: this.npc ? this.npc.serialize() : null,
+      snowNpc: this.snowNpc ? this.snowNpc.serialize() : null,
     };
   }
 
@@ -667,25 +690,27 @@ class Game {
     else this.ui.menus.hidePause();
   }
   openCommandPanel() { this.commands.open(); }
-  // Clicking directly on the Guide is the other way in, alongside F / the
-  // mobile Talk button.
+  // Clicking directly on an NPC is the other way in, alongside F / the mobile
+  // Talk button.
   clickedNpc(worldX, worldY) {
-    const n = this.npc;
-    if (!n || !this.localPlayer) return false;
-    if (worldX < n.x - 4 || worldX > n.x + n.w + 4 || worldY < n.y - 6 || worldY > n.y + n.h + 4) return false;
-    if (!n.canTalkTo(this.localPlayer)) { this.toast('Too far away to talk', 'info'); return false; }
-    this.ui.npcDialog.toggle(n);
-    return true;
+    if (!this.localPlayer) return false;
+    for (const n of this.npcs || []) {
+      if (!n || !n.alive) continue;
+      if (worldX < n.x - 4 || worldX > n.x + n.w + 4 || worldY < n.y - 6 || worldY > n.y + n.h + 4) continue;
+      if (!n.canTalkTo(this.localPlayer)) { this.toast('Too far away to talk', 'info'); return false; }
+      this.ui.npcDialog.toggle(n);
+      return true;
+    }
+    return false;
   }
 
-  // Context action: talk to the Guide if we're standing next to them.
+  // Context action: talk to the nearest NPC if we're standing next to them.
   interact() {
     if (this.state !== 'playing' || !this.localPlayer || !this.localPlayer.alive) return;
     const chest = this._nearestLootChest(this.localPlayer);
     if (chest) { this.openLootChest(chest.tx, chest.ty, this.localPlayer); return; }
-    if (this.npc && this.npc.canTalkTo(this.localPlayer) && this.ui.npcDialog) {
-      this.ui.npcDialog.toggle(this.npc);
-    }
+    const npc = this.nearestTalkableNpc();
+    if (npc && this.ui.npcDialog) this.ui.npcDialog.toggle(npc);
   }
 
   _nearestLootChest(player) {

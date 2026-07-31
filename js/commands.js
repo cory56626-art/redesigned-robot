@@ -1,11 +1,11 @@
 // Summoner Realms — Demo Commands console (testing only).
-import { ITEMS, DEMO_GIVE_ALL } from './data/items.js?v=snowy-taiga-underground-1';
-import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=snowy-taiga-underground-1';
-import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=snowy-taiga-underground-1';
-import { TRACKS } from './engine/music.js?v=snowy-taiga-underground-1';
-import { FAUNA } from './data/fauna.js?v=snowy-taiga-underground-1';
-import { ACHIEVEMENTS } from './systems/achievements.js?v=snowy-taiga-underground-1';
-import { TILE, LIQUID_MAX } from './config.js?v=snowy-taiga-underground-1';
+import { ITEMS, DEMO_GIVE_ALL } from './data/items.js?v=snowy-taiga-npc-1';
+import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=snowy-taiga-npc-1';
+import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=snowy-taiga-npc-1';
+import { TRACKS } from './engine/music.js?v=snowy-taiga-npc-1';
+import { FAUNA } from './data/fauna.js?v=snowy-taiga-npc-1';
+import { ACHIEVEMENTS } from './systems/achievements.js?v=snowy-taiga-npc-1';
+import { TILE, LIQUID_MAX } from './config.js?v=snowy-taiga-npc-1';
 
 const $ = (id) => document.getElementById(id);
 

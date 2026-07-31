@@ -11,9 +11,9 @@
 //
 // Everything is pointer-event driven rather than mouse-specific, so drag, pan
 // and pinch all work under touch without a second code path.
-import { TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=snowy-taiga-underground-1';
-import { T, isSolid, tileDef } from '../world/tiles.js?v=snowy-taiga-underground-1';
-import { hasWall } from '../world/walls.js?v=snowy-taiga-underground-1';
+import { TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=snowy-taiga-npc-1';
+import { T, isSolid, tileDef } from '../world/tiles.js?v=snowy-taiga-npc-1';
+import { hasWall } from '../world/walls.js?v=snowy-taiga-npc-1';
 
 // Radius around the player, in tiles, that counts as explored.
 const REVEAL_RADIUS = 26;
@@ -247,7 +247,10 @@ export class Minimap {
       ctx.beginPath(); ctx.arc(mx, my, size, 0, Math.PI * 2); ctx.fill();
     };
 
-    if (g.npc) marker(g.npc.x + g.npc.w / 2, g.npc.y, '#7aa2ff', 2.2);
+    for (const npc of g.npcs || (g.npc ? [g.npc] : [])) {
+      if (!npc || !npc.alive) continue;
+      marker(npc.x + npc.w / 2, npc.y, npc.kind === 'snowkeeper' ? '#b9f4ff' : '#7aa2ff', 2.2);
+    }
     for (const c of g.critters || []) marker(c.x + c.w / 2, c.y, '#9ee07e', 1.4);
     for (const e of g.enemies) marker(e.x + e.w / 2, e.y, '#ff6b7d', 1.8);
     for (const b of g.bosses) marker(b.x + b.w / 2, b.y, '#ff3b5d', 4, true);

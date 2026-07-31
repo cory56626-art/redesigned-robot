@@ -1,15 +1,15 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=snowy-taiga-underground-1';
-import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=snowy-taiga-underground-1';
-import { SH } from '../world/shapes.js?v=snowy-taiga-underground-1';
-import { W, hasWall } from '../world/walls.js?v=snowy-taiga-underground-1';
-import { BIOMES } from '../world/biomes.js?v=snowy-taiga-underground-1';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=snowy-taiga-underground-1';
-import { item as getItem } from '../data/items.js?v=snowy-taiga-underground-1';
-import { canPlaceAt } from '../systems/combat.js?v=snowy-taiga-underground-1';
-import { clamp } from '../utils.js?v=snowy-taiga-underground-1';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=snowy-taiga-underground-1';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=snowy-taiga-npc-1';
+import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=snowy-taiga-npc-1';
+import { SH } from '../world/shapes.js?v=snowy-taiga-npc-1';
+import { W, hasWall } from '../world/walls.js?v=snowy-taiga-npc-1';
+import { BIOMES } from '../world/biomes.js?v=snowy-taiga-npc-1';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=snowy-taiga-npc-1';
+import { item as getItem } from '../data/items.js?v=snowy-taiga-npc-1';
+import { canPlaceAt } from '../systems/combat.js?v=snowy-taiga-npc-1';
+import { clamp } from '../utils.js?v=snowy-taiga-npc-1';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=snowy-taiga-npc-1';
 
 // Fallback appearance for players without a character record (remote players
 // on an older client, or a world loaded before characters existed).
@@ -145,7 +145,10 @@ export class Renderer {
       for (const b of game.bosses) box(b);
       ctx.strokeStyle = '#7ee0c0'; for (const p of game.players.values()) if (p.alive) box(p);
       ctx.strokeStyle = '#c58bff'; for (const m of game.minions) box(m);
-      if (game.npc) { ctx.strokeStyle = '#ffd9a0'; box(game.npc); }
+      for (const n of game.npcs || (game.npc ? [game.npc] : [])) {
+        ctx.strokeStyle = n.kind === 'snowkeeper' ? '#b9f4ff' : '#ffd9a0';
+        box(n);
+      }
     }
     // Spawn validity: sample floor tiles in view for a standard-size enemy.
     if (game.debug.spawn) {
@@ -1720,9 +1723,17 @@ export class Renderer {
     if (flash) { ctx.fillStyle = 'rgba(255,255,255,0.6)'; this._roundRect(ctx, x, y, w, h, 4); ctx.fill(); }
   }
 
-  // ---- The Guide ----
+  // ---- Friendly NPCs ----
   _drawNpc(game, ctx) {
-    const n = game.npc;
+    const npcs = game.npcs || (game.npc ? [game.npc] : []);
+    for (const n of npcs) {
+      if (!n || !n.alive) continue;
+      if (n.kind === 'snowkeeper') this._drawSnowkeeper(game, ctx, n);
+      else this._drawGuide(game, ctx, n);
+    }
+  }
+
+  _drawGuide(game, ctx, n) {
     if (!n || !n.alive) return;
     const x = n.x, y = n.y + Math.sin(n.bob) * 0.7, w = n.w, h = n.h;
     const legSwing = Math.sin(n.walkAnim) * 3;
@@ -1805,6 +1816,61 @@ export class Renderer {
       this._roundRect(ctx, x + w / 2 - 13, y - 18 + t, 26, 11, 3); ctx.fill();
       ctx.strokeStyle = '#7ee0c0'; ctx.lineWidth = 0.6; ctx.stroke();
       ctx.fillStyle = '#7ee0c0';
+      ctx.font = 'bold 7px Trebuchet MS, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(game.controlMode === 'mobile' ? 'Talk' : 'F  Talk', x + w / 2, y - 10 + t);
+      ctx.textAlign = 'left';
+    }
+  }
+
+  _drawSnowkeeper(game, ctx, n) {
+    const x = n.x, y = n.y + Math.sin(n.bob) * 0.65, w = n.w, h = n.h;
+    const legSwing = Math.sin(n.walkAnim) * 2.5;
+
+    // A small pool of cold light makes the Hearthkeeper readable against white
+    // snow without turning her into a full light source for the cave system.
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.16 + Math.sin(n.bob * 1.7) * 0.035;
+    ctx.fillStyle = '#81eaff';
+    ctx.beginPath(); ctx.arc(x + w + 3, y + h * 0.55, 12, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    // Boots and short winter coat.
+    ctx.fillStyle = '#1c2b40';
+    ctx.fillRect(x + 1, y + h - 8 + Math.max(0, legSwing), 5, 8 - Math.max(0, legSwing));
+    ctx.fillRect(x + w - 6, y + h - 8 + Math.max(0, -legSwing), 5, 8 - Math.max(0, -legSwing));
+    ctx.fillStyle = '#416b8a';
+    this._roundRect(ctx, x - 1, y + 8, w + 2, h - 13, 3); ctx.fill();
+    ctx.fillStyle = '#b9f4ff';
+    ctx.fillRect(x, y + 10, w, 2);
+    ctx.fillRect(x + 2, y + 16, 2, h - 22);
+
+    // Hood, face, and scarf.
+    ctx.fillStyle = '#ead5bd'; ctx.fillRect(x + 2, y + 2, w - 4, 9);
+    ctx.fillStyle = '#243c59';
+    ctx.fillRect(x, y - 1, w, 5);
+    ctx.fillRect(n.facing > 0 ? x : x + w - 3, y, 3, 9);
+    ctx.fillStyle = '#253044';
+    ctx.fillRect(n.facing > 0 ? x + w - 5 : x + 3, y + 5, 2, 2);
+    ctx.fillStyle = '#d8f8ff'; ctx.fillRect(x - 1, y + 10, w + 2, 3);
+
+    // The signature hearth-lantern, held just ahead of her body.
+    const lx = n.facing > 0 ? x + w + 2 : x - 5;
+    const ly = y + 15;
+    ctx.strokeStyle = '#b9f4ff'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(lx + 2.5, ly - 2, 2.5, Math.PI, 0); ctx.stroke();
+    ctx.fillStyle = '#79ddf2'; ctx.fillRect(lx, ly, 6, 8);
+    ctx.fillStyle = '#e8ffff'; ctx.fillRect(lx + 1.5, ly + 1.5, 3, 4);
+    ctx.fillStyle = '#6ca7c4'; ctx.fillRect(lx - 1, ly + 7, 8, 2);
+
+    const p = game.localPlayer;
+    if (p && n.canTalkTo(p) && !(game.ui.npcDialog && game.ui.npcDialog.isOpen())) {
+      const t = Math.sin(n.bob * 2) * 1.2;
+      ctx.fillStyle = 'rgba(10,14,28,0.82)';
+      this._roundRect(ctx, x + w / 2 - 17, y - 18 + t, 34, 11, 3); ctx.fill();
+      ctx.strokeStyle = '#b9f4ff'; ctx.lineWidth = 0.6; ctx.stroke();
+      ctx.fillStyle = '#b9f4ff';
       ctx.font = 'bold 7px Trebuchet MS, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(game.controlMode === 'mobile' ? 'Talk' : 'F  Talk', x + w / 2, y - 10 + t);
