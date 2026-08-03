@@ -1,12 +1,12 @@
 // Summoner Realms — minion entity. Owned by a player; the owner's client
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
-import { minionDef } from '../data/minions.js?v=prehardmode-mech-2';
-import { initAidanState, updateAidanState } from './aidan.js?v=prehardmode-mech-2';
-import { dist2, aabb, angleTo } from '../utils.js?v=prehardmode-mech-2';
-import { TILE } from '../config.js?v=prehardmode-mech-2';
-import { Projectile } from './projectile.js?v=prehardmode-mech-2';
-import * as AI from '../systems/ai.js?v=prehardmode-mech-2';
+import { minionDef } from '../data/minions.js?v=prehardmode-weapons-1';
+import { initAidanState, updateAidanState } from './aidan.js?v=prehardmode-weapons-1';
+import { dist2, aabb, angleTo } from '../utils.js?v=prehardmode-weapons-1';
+import { TILE } from '../config.js?v=prehardmode-weapons-1';
+import { Projectile } from './projectile.js?v=prehardmode-weapons-1';
+import * as AI from '../systems/ai.js?v=prehardmode-weapons-1';
 
 let MINION_SEQ = 1;
 
@@ -177,7 +177,7 @@ export class Minion {
           game.addProjectile(new Projectile({
             x: cx, y: cy, vx: Math.cos(a) * pj.speed, vy: Math.sin(a) * pj.speed,
             damage, ownerType: 'minion', ownerId: this.ownerId, kind: pj.kind, color: pj.color,
-            homing: !!pj.homing, effect: pj.effect || null, life: 2.5,
+            homing: !!pj.homing, effect: pj.effect || null, trail: pj.trail || null, life: 2.5,
           }), true);
         }
         break;

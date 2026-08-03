@@ -5,11 +5,11 @@
 // terrain with restitution and friction. What differs is what happens on
 // contact — explode on a fuse, stick and then explode, or damage and drop as a
 // recoverable pickup.
-import { GRAVITY, TILE } from '../config.js?v=prehardmode-mech-2';
-import { aabb } from '../utils.js?v=prehardmode-mech-2';
-import { explode } from '../systems/explosions.js?v=prehardmode-mech-2';
-import { Sprites } from '../art/sprites.js?v=prehardmode-mech-2';
-import { item as getItem } from '../data/items.js?v=prehardmode-mech-2';
+import { GRAVITY, TILE } from '../config.js?v=prehardmode-weapons-1';
+import { aabb } from '../utils.js?v=prehardmode-weapons-1';
+import { explode } from '../systems/explosions.js?v=prehardmode-weapons-1';
+import { Sprites } from '../art/sprites.js?v=prehardmode-weapons-1';
+import { item as getItem } from '../data/items.js?v=prehardmode-weapons-1';
 
 export class ThrownItem {
   /**

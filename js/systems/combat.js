@@ -1,13 +1,13 @@
 // Summoner Realms — combat & interaction resolution (weapons, mining, placing).
-import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=prehardmode-mech-2';
-import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=prehardmode-mech-2';
-import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=prehardmode-mech-2';
-import { SH, nextShape } from '../world/shapes.js?v=prehardmode-mech-2';
-import { W } from '../world/walls.js?v=prehardmode-mech-2';
-import { item as getItem } from '../data/items.js?v=prehardmode-mech-2';
-import { Projectile } from '../entities/projectile.js?v=prehardmode-mech-2';
-import { ThrownItem } from '../entities/thrown.js?v=prehardmode-mech-2';
-import { angleTo, aabb, clamp } from '../utils.js?v=prehardmode-mech-2';
+import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=prehardmode-weapons-1';
+import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=prehardmode-weapons-1';
+import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=prehardmode-weapons-1';
+import { SH, nextShape } from '../world/shapes.js?v=prehardmode-weapons-1';
+import { W } from '../world/walls.js?v=prehardmode-weapons-1';
+import { item as getItem } from '../data/items.js?v=prehardmode-weapons-1';
+import { Projectile } from '../entities/projectile.js?v=prehardmode-weapons-1';
+import { ThrownItem } from '../entities/thrown.js?v=prehardmode-weapons-1';
+import { angleTo, aabb, clamp } from '../utils.js?v=prehardmode-weapons-1';
 
 const MINE_RATE = 95;
 const MINE_SOUND_INTERVAL = 0.32;
@@ -226,6 +226,23 @@ function swingFx(game, player, item, angle, dmg, crit) {
       player.swing.color = 'rgba(150,240,110,0.85)';
       break;
     }
+    case 'tide': {
+      for (let i = 0; i < 10; i++) {
+        const a = angle + (Math.random() - 0.5) * 0.72;
+        const r = reach * (0.46 + Math.random() * 0.56);
+        game.fx.streak(pc.x + Math.cos(a) * r, pc.y + Math.sin(a) * r, a + Math.PI * 0.5,
+          i % 2 ? '#9defff' : '#4eb5d2', 2, { speed: 88, spread: 0.45, life: 0.28, size: 1.8, gravity: 24 });
+      }
+      game.fx.ring(tipX, tipY, 'rgba(157,239,255,0.68)', 15, { life: 0.18, width: 2 });
+      player.swing.color = 'rgba(120,225,255,0.88)';
+      break;
+    }
+    case 'stoneiron': {
+      game.fx.streak(tipX, tipY, angle, '#e2edf5', 6, { speed: 135, spread: 0.55, life: 0.2, size: 1.6 });
+      game.fx.ring(tipX, tipY, 'rgba(190,210,225,0.62)', 11, { life: 0.12, width: 1.5 });
+      player.swing.color = 'rgba(210,225,236,0.85)';
+      break;
+    }
     case 'shadow': {
       game.fx.ring(pc.x, pc.y, 'rgba(185,115,230,0.7)', reach + 8, { life: 0.2, width: 2 });
       game.fx.streak(tipX, tipY, angle, '#d7a5ff', 6, { speed: 155, spread: 0.9, life: 0.24, size: 2 });
@@ -301,6 +318,16 @@ function castFx(game, player, item, angle) {
       game.fx.ring(hx, hy, 'rgba(190,235,255,0.6)', 22, { life: 0.2, width: 2 });
       break;
     }
+    case 'spark': {
+      game.fx.ring(hx, hy, 'rgba(205,232,255,0.72)', 17, { life: 0.16, width: 2 });
+      game.fx.streak(hx, hy, angle, '#dff4ff', 7, { speed: 130, spread: 1.05, life: 0.2, size: 1.4 });
+      break;
+    }
+    case 'ember': {
+      game.fx.ring(hx, hy, 'rgba(255,176,92,0.68)', 19, { life: 0.16, width: 2 });
+      game.fx.streak(hx, hy, angle, '#ffcf6b', 8, { speed: 105, spread: 0.92, life: 0.28, size: 2, gravity: -30 });
+      break;
+    }
     case 'tide': {
       game.fx.ring(hx, hy, 'rgba(140,235,255,0.72)', 20, { life: 0.22, width: 2 });
       game.fx.streak(hx, hy, angle, '#9defff', 6, { speed: 120, spread: 0.7, life: 0.32, size: 2, gravity: 20 });
@@ -334,6 +361,16 @@ function shotFx(game, player, item, angle) {
       game.fx.streak(mx, my, angle, '#bfe9ff', 8, { speed: 260, spread: 0.4, life: 0.2, size: 2 });
       game.fx.ring(mx, my, 'rgba(140,220,255,0.6)', 18, { life: 0.14, width: 2 });
       break;
+    case 'leaf':
+      game.fx.streak(mx, my, angle, '#b9eb82', 4, { speed: 115, spread: 0.8, life: 0.24, size: 1.5, gravity: 28 });
+      break;
+    case 'sling':
+      game.fx.streak(mx, my, angle + Math.PI, '#c4bcae', 4, { speed: 62, spread: 0.65, life: 0.16, size: 1.4, gravity: 40 });
+      break;
+    case 'amber':
+      game.fx.ring(mx, my, 'rgba(255,226,129,0.72)', 16, { life: 0.14, width: 2 });
+      game.fx.streak(mx, my, angle, '#fff1a8', 6, { speed: 175, spread: 0.45, life: 0.24, size: 1.8 });
+      break;
   }
 }
 
@@ -347,7 +384,7 @@ function _fireProjectiles(game, player, item, aimAng, dmg, crit, cls) {
     game.addProjectile(new Projectile({
       x: pc.x, y: pc.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
       damage: dmg, ownerType: cls === 'ranged' ? 'player' : 'player', ownerId: player.id,
-      kind: item.rangedKind || item.mageKind || 'spark', color: item.projColor || item.color,
+      kind: item.projectileKind || item.rangedKind || item.mageKind || 'spark', color: item.projColor || item.color,
       pierce: item.pierce || 0, gravity: !!item.gravity, effect: item.effect || null,
       knockback: item.knockback || 3, crit, life: 3, trail: item.trail || null,
     }), true);

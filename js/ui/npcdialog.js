@@ -3,12 +3,12 @@
 // Two modes: a list of topics she can talk about, and an item-inspection mode
 // where you hand him something from your bag and he explains it. The content
 // itself lives in data/guide.js; this file is only presentation.
-import { INV_SIZE } from '../systems/inventory.js?v=prehardmode-mech-2';
-import { Sprites } from '../art/sprites.js?v=prehardmode-mech-2';
-import { item as getItem } from '../data/items.js?v=prehardmode-mech-2';
+import { INV_SIZE } from '../systems/inventory.js?v=prehardmode-weapons-1';
+import { Sprites } from '../art/sprites.js?v=prehardmode-weapons-1';
+import { item as getItem } from '../data/items.js?v=prehardmode-weapons-1';
 import {
   TOPICS, SNOWKEEPER_TOPICS, describeItem, greeting, snowkeeperGreeting,
-} from '../data/guide.js?v=prehardmode-mech-2';
+} from '../data/guide.js?v=prehardmode-weapons-1';
 
 const $ = (id) => document.getElementById(id);
 

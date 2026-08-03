@@ -1,11 +1,11 @@
 // Summoner Realms — Demo Commands console (testing only).
-import { ITEMS, DEMO_GIVE_ALL, allItemIds, isItemEnabled } from './data/items.js?v=prehardmode-mech-2';
-import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=prehardmode-mech-2';
-import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=prehardmode-mech-2';
-import { TRACKS } from './engine/music.js?v=prehardmode-mech-2';
-import { FAUNA } from './data/fauna.js?v=prehardmode-mech-2';
-import { ACHIEVEMENTS } from './systems/achievements.js?v=prehardmode-mech-2';
-import { TILE, LIQUID_MAX } from './config.js?v=prehardmode-mech-2';
+import { ITEMS, DEMO_GIVE_ALL, allItemIds, isItemEnabled } from './data/items.js?v=prehardmode-weapons-1';
+import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=prehardmode-weapons-1';
+import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=prehardmode-weapons-1';
+import { TRACKS } from './engine/music.js?v=prehardmode-weapons-1';
+import { FAUNA } from './data/fauna.js?v=prehardmode-weapons-1';
+import { ACHIEVEMENTS } from './systems/achievements.js?v=prehardmode-weapons-1';
+import { TILE, LIQUID_MAX } from './config.js?v=prehardmode-weapons-1';
 
 const $ = (id) => document.getElementById(id);
 

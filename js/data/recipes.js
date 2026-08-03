@@ -1,7 +1,7 @@
 // Summoner Realms — crafting recipes.
 // station: null (hand) | 'bench' | 'smeltery' | 'forge' | 'altar'
 // requiresBoss: optional progression gate (unused in the boss-free reset).
-import { isItemEnabled } from './items.js?v=prehardmode-mech-2';
+import { isItemEnabled } from './items.js?v=prehardmode-weapons-1';
 
 const ALL_RECIPES = [
   // --- Hand ---

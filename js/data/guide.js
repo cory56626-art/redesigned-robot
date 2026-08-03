@@ -13,11 +13,11 @@
 //                the recipe list and boss loot tables, so a new item is
 //                explained correctly the day it's added without anyone writing
 //                a paragraph for it.
-import { ITEMS, item as getItem } from './items.js?v=prehardmode-mech-2';
-import { RECIPES } from './recipes.js?v=prehardmode-mech-2';
-import { BOSSES } from './bosses.js?v=prehardmode-mech-2';
-import { ENEMIES } from './enemies.js?v=prehardmode-mech-2';
-import { TILE } from '../config.js?v=prehardmode-mech-2';
+import { ITEMS, item as getItem } from './items.js?v=prehardmode-weapons-1';
+import { RECIPES } from './recipes.js?v=prehardmode-weapons-1';
+import { BOSSES } from './bosses.js?v=prehardmode-weapons-1';
+import { ENEMIES } from './enemies.js?v=prehardmode-weapons-1';
+import { TILE } from '../config.js?v=prehardmode-weapons-1';
 
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
 

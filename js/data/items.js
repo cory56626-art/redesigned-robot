@@ -1,7 +1,7 @@
 // Summoner Realms — item catalogue. All original names/designs.
 // Categories: weapon (melee/ranged/mage/summon), tool, armor, accessory,
 // potion, ammo, material, block, station, summonitem.
-import { T } from '../world/tiles.js?v=prehardmode-mech-2';
+import { T } from '../world/tiles.js?v=prehardmode-weapons-1';
 
 export const ITEMS = {};
 
@@ -104,16 +104,16 @@ melee('glimmerGlaive', 'Glimmer Glaive', '#ffe08a', 28, 0.34, 3, { meleeKind: 's
 // other blade is stopped by rock (see systems/combat._meleeCanReach). It is a
 // deliberate top-tier perk, and the tooltip says so.
 melee('aetheredgeGreatblade', 'Aetheredge Greatblade', '#8ad9ff', 40, 0.5, 4, { meleeKind: 'heavy', reach: 40, arc: 2.2, knockback: 10, crit: 0.12, phasing: true, fx: { swing: 'arcwave' }, desc: 'Massive arc of arcane steel. Its edge cuts straight through stone.' });
-melee('tideTrident', 'Tide Trident', '#51c8e8', 24, 0.38, 3, { meleeKind: 'spear', reach: 52, arc: 0.55, knockback: 6, effect: { slow: 1.2 }, desc: 'A long blue-metal thrust that leaves a slowing spray.' });
+melee('tideTrident', 'Tide Trident', '#51c8e8', 24, 0.38, 3, { meleeKind: 'spear', reach: 52, arc: 0.55, knockback: 6, effect: { slow: 1.2 }, fx: { swing: 'tide' }, desc: 'A long blue-metal thrust that leaves a slowing spray.' });
 melee('emberblade', 'Emberblade', '#f05b32', 32, 0.48, 4, { meleeKind: 'heavy', reach: 38, arc: 2.0, knockback: 8, effect: { burn: 4 }, fx: { swing: 'flame' }, desc: 'A hot red-orange blade that sets enemies ablaze.' });
 melee('stoneironBroadsword', 'Stoneiron Broadsword', '#9aa7b2', 12, 0.39, 1, {
-  reach: 34, knockback: 5, desc: 'A dependable first-tier blade forged from rugged gray metal.',
+  reach: 34, knockback: 5, fx: { swing: 'stoneiron' }, desc: 'A dependable first-tier blade forged from rugged gray metal.',
 });
-melee('verdantVineblade', 'Verdant Vineblade', '#65b957', 21, 0.44, 5, {
+melee('verdantVineblade', 'Verdant Vineblade', '#65b957', 25, 0.42, 5, {
   reach: 38, arc: 1.45, knockback: 5, effect: { poison: 2.5 }, fx: { swing: 'vine' },
   desc: 'A living green blade that leaves a mild toxin in its cuts.',
 });
-melee('shadowglassScythe', 'Shadowglass Scythe', '#9d65d1', 27, 0.58, 7, {
+melee('shadowglassScythe', 'Shadowglass Scythe', '#9d65d1', 34, 0.54, 7, {
   meleeKind: 'heavy', reach: 45, arc: 2.05, knockback: 7, crit: 0.08, fx: { swing: 'shadow' },
   desc: 'A wide black-purple crystal sweep. Strong, but deliberately slow before Hardmode.',
 });
@@ -121,38 +121,38 @@ melee('shadowglassScythe', 'Shadowglass Scythe', '#9d65d1', 27, 0.58, 7, {
 // ---------- Ranged weapons (8) ----------
 const ranged = (id, name, color, dmg, useTime, tier, extra = {}) =>
   def(Object.assign({ id, name, category: 'weapon', weaponClass: 'ranged', color, damage: dmg, useTime, tier, knockback: 3, crit: 0.06, projSpeed: 480, projColor: color, rangedKind: 'bow', desc: `${name} — ${dmg} ranged damage.` }, extra));
-ranged('saplingBow', 'Sapling Bow', '#7a9a4a', 9, 0.42, 0, { ammo: 'flintArrow', gravity: true, desc: 'Simple bow. Uses Flint Arrows.' });
-ranged('slingcaster', 'Slingcaster', '#b0895a', 7, 0.30, 0, { projSpeed: 420, gravity: true, projColor: '#9a9a9a', desc: 'Hurls pebbles. No ammo needed.' });
+ranged('saplingBow', 'Sapling Bow', '#7a9a4a', 9, 0.42, 0, { ammo: 'flintArrow', gravity: true, projectileKind: 'saplingArrow', trail: '#a8d883', fx: { shot: 'leaf' }, desc: 'Simple bow. Uses Flint Arrows.' });
+ranged('slingcaster', 'Slingcaster', '#b0895a', 7, 0.30, 0, { projSpeed: 420, gravity: true, projColor: '#9a9a9a', projectileKind: 'slingStone', trail: '#b7bec8', fx: { shot: 'sling' }, desc: 'Hurls pebbles. No ammo needed.' });
 ranged('cupriteRepeater', 'Cuprite Repeater', '#c47b4a', 11, 0.22, 1, { ammo: 'bolt', projSpeed: 560, desc: 'Rapid crossbow. Uses Bolts.' });
 ranged('huntersLongbow', "Hunter's Longbow", '#8a6a3a', 14, 0.45, 1, { ammo: 'flintArrow', gravity: true, projSpeed: 620, desc: 'Powerful draw. Uses Flint Arrows.' });
 ranged('boltflinger', 'Boltflinger', '#9aa6c0', 16, 0.20, 2, { projSpeed: 640, desc: 'Auto-flings energy bolts. No ammo.' });
 ranged('emberlockMusket', 'Emberlock Musket', '#5a4a3a', 26, 0.6, 2, { ammo: 'shot', rangedKind: 'gun', projSpeed: 760, projColor: '#ffcf6b', effect: { burn: 2 }, fx: { shot: 'muzzle' }, desc: 'Slow, heavy gun. Uses Shot.' });
 ranged('glimmerRifle', 'Glimmer Rifle', '#ffe08a', 22, 0.26, 3, { ammo: 'shot', rangedKind: 'gun', projSpeed: 820, crit: 0.10, fx: { shot: 'muzzle' }, desc: 'Fast rifle. Uses Shot.' });
 ranged('stormpiercer', 'Stormpiercer', '#8ad9ff', 20, 0.30, 3, { projSpeed: 700, pierce: 2, projColor: '#bfe9ff', fx: { shot: 'storm' }, trail: '#bfe9ff', desc: 'Piercing storm arrows. No ammo.' });
-ranged('amberBow', 'Amber Bow', '#ffc04d', 18, 0.36, 2, { ammo: 'flintArrow', gravity: true, projSpeed: 650, projColor: '#ffe08a', desc: 'Golden crystal limbs launch bright Flint Arrows.' });
+ranged('amberBow', 'Amber Bow', '#ffc04d', 18, 0.36, 2, { ammo: 'flintArrow', gravity: true, projSpeed: 650, projColor: '#ffe08a', projectileKind: 'amberArrow', trail: '#ffe08a', fx: { shot: 'amber' }, desc: 'Golden crystal limbs launch bright Flint Arrows.' });
 
 // ---------- Mage weapons (8) ----------
 const mage = (id, name, color, dmg, useTime, tier, mana, extra = {}) =>
   def(Object.assign({ id, name, category: 'weapon', weaponClass: 'mage', color, damage: dmg, useTime, tier, manaCost: mana, knockback: 2, crit: 0.06, projSpeed: 420, projColor: color, mageKind: 'staff', desc: `${name} — ${dmg} magic damage, ${mana} Aether.` }, extra));
-mage('sparkWand', 'Spark Wand', '#9ec3ff', 10, 0.32, 0, 7);
-mage('emberTome', 'Ember Tome', '#ff7a3b', 12, 0.5, 0, 11, { mageKind: 'tome', effect: { burn: 3 }, gravity: false, desc: 'Lobs burning embers.' });
+mage('sparkWand', 'Spark Wand', '#9ec3ff', 10, 0.32, 0, 7, { projectileKind: 'sparkBolt', trail: '#cfe6ff', fx: { cast: 'spark' } });
+mage('emberTome', 'Ember Tome', '#ff7a3b', 12, 0.5, 0, 11, { mageKind: 'tome', effect: { burn: 3 }, gravity: false, projectileKind: 'emberball', trail: '#ff9e52', fx: { cast: 'ember' }, desc: 'Lobs burning embers.' });
 mage('frostshardStaff', 'Frostshard Staff', '#bfe9ff', 14, 0.36, 1, 10, { effect: { slow: 1.6 }, fx: { cast: 'frost' }, desc: 'Chilling shards that slow foes.' });
 mage('venomWand', 'Venom Wand', '#7ee08a', 11, 0.32, 1, 9, { effect: { poison: 4 }, desc: 'Spits venom that poisons.' });
 mage('aetherboltStaff', 'Aetherbolt Staff', '#8ad9ff', 18, 0.32, 2, 13);
 mage('thunderRod', 'Thunder Rod', '#fff2a0', 22, 0.45, 2, 18, { pierce: 3, projSpeed: 900, fx: { cast: 'lightning' }, trail: '#fff2a0', desc: 'Piercing bolt of lightning.' });
 mage('prismScepter', 'Prism Scepter', '#c58bff', 20, 0.30, 3, 16, { multishot: 3, spread: 0.4, fx: { cast: 'prism' }, desc: 'Fires a fan of prism shards.' });
 mage('voidlance', 'Voidlance', '#b06bff', 34, 0.5, 4, 24, { pierce: 4, projSpeed: 640, fx: { cast: 'void' }, trail: '#b06bff', desc: 'A lancing beam of void energy.' });
-mage('stormcaller', 'Stormcaller', '#fff06a', 36, 0.42, 6, 20, { pierce: 3, projSpeed: 900, fx: { cast: 'lightning' }, trail: '#fff8a8', desc: 'Calls a piercing yellow bolt from the sky.' });
+mage('stormcaller', 'Stormcaller', '#fff06a', 36, 0.42, 6, 20, { pierce: 3, projSpeed: 900, projectileKind: 'stormBolt', fx: { cast: 'lightning' }, trail: '#fff8a8', desc: 'Calls a piercing yellow bolt from the sky.' });
 mage('tideWand', 'Tide Wand', '#4eb5d2', 15, 0.34, 3, 10, {
-  effect: { slow: 0.8 }, projSpeed: 520, fx: { cast: 'tide' }, trail: '#9defff',
+  effect: { slow: 0.8 }, projSpeed: 520, projectileKind: 'tideBolt', fx: { cast: 'tide' }, trail: '#9defff',
   desc: 'Launches a compact water bolt that briefly slows enemies.',
 });
 mage('verdantBloomStaff', 'Verdant Bloom Staff', '#65b957', 19, 0.44, 5, 13, {
-  effect: { poison: 2.5 }, projSpeed: 500, fx: { cast: 'bloom' }, trail: '#b8f58a',
+  effect: { poison: 2.5 }, projSpeed: 500, projectileKind: 'seedBloom', fx: { cast: 'bloom' }, trail: '#b8f58a',
   desc: 'Fires a seed-bloom projectile with a small lingering toxin.',
 });
 mage('shadowglassOrb', 'Shadowglass Orb', '#9d65d1', 25, 0.48, 7, 17, {
-  pierce: 1, projSpeed: 620, fx: { cast: 'shadow' }, trail: '#d7a5ff',
+  pierce: 1, projSpeed: 620, projectileKind: 'shadowOrb', fx: { cast: 'shadow' }, trail: '#d7a5ff',
   desc: 'A slow black-purple orb that pierces one enemy before Hardmode.',
 });
 

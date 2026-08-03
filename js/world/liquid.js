@@ -15,9 +15,9 @@
 //      tick, so a change propagates outward until everything settles.
 //
 // Mining into a pool drains it because World.set wakes the tile it changed.
-import { LIQUID_MAX, LIQUID_TICK, LIQUID_BUDGET, TILE } from '../config.js?v=prehardmode-mech-2';
-import { isSolid } from './tiles.js?v=prehardmode-mech-2';
-import { SH, shapeContains } from './shapes.js?v=prehardmode-mech-2';
+import { LIQUID_MAX, LIQUID_TICK, LIQUID_BUDGET, TILE } from '../config.js?v=prehardmode-weapons-1';
+import { isSolid } from './tiles.js?v=prehardmode-weapons-1';
+import { SH, shapeContains } from './shapes.js?v=prehardmode-weapons-1';
 
 export class LiquidGrid {
   constructor(world) {

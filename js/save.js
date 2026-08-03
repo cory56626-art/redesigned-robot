@@ -2,7 +2,7 @@
 import {
   SAVE_PREFIX, SAVE_INDEX_KEY, SETTINGS_KEY, SAVE_VERSION, LEGACY_WORLD_W,
   CHAR_PREFIX, CHAR_INDEX_KEY, CHAR_VERSION, LAST_CHAR_KEY,
-} from './config.js?v=prehardmode-mech-2';
+} from './config.js?v=prehardmode-weapons-1';
 
 // Upgrade a save to the current format.
 //

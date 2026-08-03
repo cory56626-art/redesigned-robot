@@ -1,15 +1,15 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=prehardmode-mech-2';
-import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=prehardmode-mech-2';
-import { SH } from '../world/shapes.js?v=prehardmode-mech-2';
-import { W, hasWall } from '../world/walls.js?v=prehardmode-mech-2';
-import { BIOMES } from '../world/biomes.js?v=prehardmode-mech-2';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=prehardmode-mech-2';
-import { item as getItem } from '../data/items.js?v=prehardmode-mech-2';
-import { canPlaceAt } from '../systems/combat.js?v=prehardmode-mech-2';
-import { clamp } from '../utils.js?v=prehardmode-mech-2';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=prehardmode-mech-2';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=prehardmode-weapons-1';
+import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=prehardmode-weapons-1';
+import { SH } from '../world/shapes.js?v=prehardmode-weapons-1';
+import { W, hasWall } from '../world/walls.js?v=prehardmode-weapons-1';
+import { BIOMES } from '../world/biomes.js?v=prehardmode-weapons-1';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=prehardmode-weapons-1';
+import { item as getItem } from '../data/items.js?v=prehardmode-weapons-1';
+import { canPlaceAt } from '../systems/combat.js?v=prehardmode-weapons-1';
+import { clamp } from '../utils.js?v=prehardmode-weapons-1';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=prehardmode-weapons-1';
 
 // Fallback appearance for players without a character record (remote players
 // on an older client, or a world loaded before characters existed).
@@ -21,7 +21,10 @@ const DEFAULT_LOOK = {
 const PROJ_GLOW = {
   thorn: '#7ee08a', seed: '#a7e36f', rock: '#8a7a5a', shock: '#d3b985',
   blight: '#c58bff', crystal: '#df8cff', voidorb: '#b06bff',
-  spark: '#9ec3ff', wispbolt: '#9ec3ff', emberball: '#ff8c3b',
+  spark: '#9ec3ff', sparkBolt: '#cfe6ff', wispbolt: '#9ec3ff', emberball: '#ff8c3b',
+  saplingArrow: '#b9eb82', amberArrow: '#ffe08a', slingStone: '#b7bec8',
+  stormBolt: '#fff8a8', tideBolt: '#9defff', tideshard: '#9defff',
+  seedBloom: '#b8f58a', shadowOrb: '#d7a5ff', shadowmote: '#d7a5ff',
   poisonDart: '#9be871', aurora: '#b9ffe8',
   arcwave: '#bfe9ff', frostbolt: '#9cecff', diamondSpear: '#dffcff', miniDiamondSpear: '#8be9ff', aidanPulse: '#8feaff', aidanNova: '#d8a7ff', aidanFreeze: '#61eaff',
   mechMissile: '#ffad55', mechPlasma: '#78e9ff', mechShock: '#ffd36d',
@@ -749,6 +752,134 @@ export class Renderer {
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(pr.rot);
+
+      // Active player weapons and the new pre-Hardmode minions keep a readable,
+      // themed silhouette in flight. Before this branch, bows and staff shots
+      // fell through to the generic four-pixel bolt even though their icons and
+      // casting effects were already distinct.
+      if (pr.kind === 'saplingArrow' || pr.kind === 'amberArrow') {
+        const amber = pr.kind === 'amberArrow';
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = amber ? 0.30 : 0.18;
+        ctx.fillStyle = amber ? '#ffe79b' : '#b9eb82';
+        ctx.fillRect(-11, -3, 20, 6);
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = amber ? '#9b642c' : '#56753b';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(7, 0); ctx.stroke();
+        ctx.fillStyle = amber ? '#fff7ca' : '#e8ffc9';
+        ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(5, -3); ctx.lineTo(5, 3); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = amber ? '#ffc85d' : '#a5d364';
+        ctx.beginPath(); ctx.moveTo(-7, 0); ctx.lineTo(-11, -3); ctx.lineTo(-9, 0); ctx.lineTo(-11, 3); ctx.closePath(); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'slingStone') {
+        const pulse = 1 + Math.sin(performance.now() * 0.017 + pr.x * 0.06) * 0.1;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.16;
+        ctx.fillStyle = '#d6dce4'; ctx.beginPath(); ctx.arc(0, 0, 8 * pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#6e7480'; ctx.beginPath(); ctx.arc(0, 0, 4.4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#bfc6d0'; ctx.beginPath(); ctx.arc(-1.3, -1.4, 1.4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#4b515d'; ctx.fillRect(1, 1, 2, 1.5);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'sparkBolt' || pr.kind === 'wispbolt') {
+        const wisp = pr.kind === 'wispbolt';
+        const pulse = 1 + Math.sin(performance.now() * 0.02 + pr.y * 0.05) * 0.14;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.22 * pulse;
+        ctx.fillStyle = wisp ? '#9ec3ff' : '#dff4ff'; ctx.beginPath(); ctx.arc(0, 0, 9 * pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = wisp ? '#8fb8ff' : '#a7d8ff';
+        ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(0, -4); ctx.lineTo(-7, 0); ctx.lineTo(0, 4); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#f2fdff'; ctx.fillRect(-1.5, -1.5, 4, 3);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'emberball') {
+        const pulse = 1 + Math.sin(performance.now() * 0.022 + pr.x * 0.04) * 0.12;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.25 * pulse;
+        ctx.fillStyle = '#ff8c3b'; ctx.beginPath(); ctx.arc(0, 0, 10 * pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#d7492e'; ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffcf6b'; ctx.beginPath(); ctx.arc(1, -1, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff2b0'; ctx.fillRect(1, -2, 2, 2);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'stormBolt') {
+        const pulse = 1 + Math.sin(performance.now() * 0.032 + pr.x * 0.06) * 0.12;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.26 * pulse;
+        ctx.fillStyle = '#fff8a8'; ctx.fillRect(-11, -7, 22, 14);
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = '#fff2a0'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(-10, -2); ctx.lineTo(-4, 2); ctx.lineTo(-1, -4); ctx.lineTo(4, 1); ctx.lineTo(10, -1); ctx.stroke();
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.moveTo(-9, -2); ctx.lineTo(-3, 1); ctx.lineTo(0, -3); ctx.lineTo(5, 0); ctx.lineTo(9, -1); ctx.stroke();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'tideBolt' || pr.kind === 'tideshard') {
+        const shard = pr.kind === 'tideshard';
+        const pulse = 1 + Math.sin(performance.now() * 0.018 + pr.y * 0.04) * 0.1;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.22 * pulse;
+        ctx.fillStyle = '#9defff'; ctx.beginPath(); ctx.arc(0, 0, (shard ? 8 : 10) * pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = shard ? '#69c7df' : '#46a7c9';
+        ctx.beginPath(); ctx.moveTo(8, 0); ctx.quadraticCurveTo(0, -6, -6, 0); ctx.quadraticCurveTo(0, 6, 8, 0); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#e9ffff'; ctx.beginPath(); ctx.moveTo(5, 0); ctx.quadraticCurveTo(0, -2.5, -2, 0); ctx.quadraticCurveTo(0, 2.5, 5, 0); ctx.closePath(); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'seedBloom') {
+        const pulse = 1 + Math.sin(performance.now() * 0.018 + pr.x * 0.03) * 0.12;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.18 * pulse;
+        ctx.fillStyle = '#b8f58a'; ctx.beginPath(); ctx.arc(0, 0, 11 * pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#65b957';
+        for (let i = 0; i < 4; i++) {
+          const a = i * Math.PI * 0.5 + performance.now() * 0.003;
+          ctx.beginPath(); ctx.ellipse(Math.cos(a) * 3, Math.sin(a) * 3, 3.5, 2, a, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.fillStyle = '#e8ffb4'; ctx.beginPath(); ctx.arc(0, 0, 2.6, 0, Math.PI * 2); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'shadowOrb' || pr.kind === 'shadowmote') {
+        const mote = pr.kind === 'shadowmote';
+        const pulse = 1 + Math.sin(performance.now() * 0.021 + pr.y * 0.04) * 0.12;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.22 * pulse;
+        ctx.fillStyle = '#b56ee0'; ctx.beginPath(); ctx.arc(0, 0, (mote ? 9 : 12) * pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#24172e'; ctx.beginPath(); ctx.arc(0, 0, mote ? 4.2 : 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#c990f0'; ctx.beginPath(); ctx.moveTo(4, 0); ctx.lineTo(0, -3); ctx.lineTo(-4, 0); ctx.lineTo(0, 3); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#f0d9ff'; ctx.fillRect(-1, -1, 2, 2);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        continue;
+      }
 
       if (pr.kind === 'frostbolt') {
         const pulse = 1 + Math.sin((pr.x + pr.y) * 0.025 + performance.now() * 0.012) * 0.12;

@@ -31,9 +31,9 @@
 //   Torches — the darkest reachable spot that has something to sit on, biased
 //             ahead of the player, so walking into a dark cave and holding
 //             place lights the way forward rather than where you came from.
-import { REACH, TILE } from '../config.js?v=prehardmode-mech-2';
-import { T, tileDef } from '../world/tiles.js?v=prehardmode-mech-2';
-import { canPlaceAt } from './combat.js?v=prehardmode-mech-2';
+import { REACH, TILE } from '../config.js?v=prehardmode-weapons-1';
+import { T, tileDef } from '../world/tiles.js?v=prehardmode-weapons-1';
+import { canPlaceAt } from './combat.js?v=prehardmode-weapons-1';
 
 // How far along the aim ray to search, in half-tile steps. Bounded by reach.
 const RAY_STEPS = REACH * 3;
