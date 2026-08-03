@@ -9,9 +9,9 @@
 // top, a shadowed underside and rimmed sides. That neighbour awareness — plus
 // grass fringing down onto dirt and trunk/canopy shading — is most of what makes
 // terrain read as terrain instead of a grid of coloured squares.
-import { T, TILES, tileMat, isTree, isLeaf } from '../world/tiles.js?v=prehardmode-ores-1';
-import { W, WALLS } from '../world/walls.js?v=prehardmode-ores-1';
-import { mulberry32 } from '../utils.js?v=prehardmode-ores-1';
+import { T, TILES, tileMat, isTree, isLeaf } from '../world/tiles.js?v=prehardmode-classes-1';
+import { W, WALLS } from '../world/walls.js?v=prehardmode-classes-1';
+import { mulberry32 } from '../utils.js?v=prehardmode-classes-1';
 
 function makeCanvas(w, h) {
   const c = document.createElement('canvas');
@@ -776,6 +776,21 @@ class SpriteBank {
       ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(7, 14); ctx.lineTo(10, 5); ctx.lineTo(17, 2); ctx.lineTo(14, 11); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#ffd166'; ctx.beginPath(); ctx.moveTo(10, 7); ctx.lineTo(15, 3); ctx.lineTo(12, 10); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#ffec8a'; ctx.fillRect(5, 15, 2, 2);
+    } else if (id === 'stoneironBroadsword') {
+      ctx.strokeStyle = '#5d3e2b'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(3, 18); ctx.lineTo(8, 13); ctx.stroke();
+      ctx.fillStyle = '#6f7d8b'; ctx.beginPath(); ctx.moveTo(7, 14); ctx.lineTo(8, 5); ctx.lineTo(17, 2); ctx.lineTo(14, 12); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#cbd6df'; ctx.beginPath(); ctx.moveTo(9, 6); ctx.lineTo(16, 3); ctx.lineTo(12, 10); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#8d9ba8'; ctx.fillRect(5, 14, 3, 2); ctx.fillStyle = '#dbe5ee'; ctx.fillRect(9, 5, 2, 2);
+    } else if (id === 'verdantVineblade') {
+      ctx.strokeStyle = '#5c3b25'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(3, 18); ctx.lineTo(8, 13); ctx.stroke();
+      ctx.fillStyle = '#397a43'; ctx.beginPath(); ctx.moveTo(7, 14); ctx.quadraticCurveTo(8, 7, 17, 2); ctx.lineTo(14, 12); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#9fe875'; ctx.beginPath(); ctx.moveTo(9, 10); ctx.quadraticCurveTo(12, 5, 16, 3); ctx.lineTo(12, 10); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#d7ff9f'; ctx.fillRect(13, 4, 2, 2); ctx.strokeStyle = '#8bd55c'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(6, 13); ctx.quadraticCurveTo(8, 10, 9, 8); ctx.stroke();
+    } else if (id === 'shadowglassScythe') {
+      ctx.strokeStyle = '#44304e'; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(3, 18); ctx.lineTo(14, 5); ctx.stroke();
+      ctx.fillStyle = '#24172e'; ctx.beginPath(); ctx.moveTo(11, 7); ctx.quadraticCurveTo(14, 0, 19, 2); ctx.quadraticCurveTo(16, 8, 11, 11); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#b983e5'; ctx.beginPath(); ctx.moveTo(12, 7); ctx.quadraticCurveTo(15, 2, 18, 3); ctx.quadraticCurveTo(15, 6, 12, 9); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#e1b7ff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(13, 7); ctx.quadraticCurveTo(16, 3, 18, 3); ctx.stroke();
     } else {
       ctx.fillStyle = '#5288ac'; ctx.beginPath(); ctx.moveTo(3, 17); ctx.lineTo(8, 5); ctx.lineTo(17, 2); ctx.lineTo(13, 13); ctx.lineTo(7, 18); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#d6fbff'; ctx.beginPath(); ctx.moveTo(8, 6); ctx.lineTo(16, 3); ctx.lineTo(11, 12); ctx.closePath(); ctx.fill();
@@ -852,6 +867,24 @@ class SpriteBank {
       ctx.strokeStyle = '#6d5a29'; ctx.lineWidth = 2.7; ctx.beginPath(); ctx.moveTo(6, 18); ctx.lineTo(11, 8); ctx.stroke();
       ctx.fillStyle = '#fff06a'; ctx.beginPath(); ctx.moveTo(13, 1); ctx.lineTo(10, 7); ctx.lineTo(13, 7); ctx.lineTo(11, 12); ctx.lineTo(18, 4); ctx.lineTo(14, 5); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#fffbd0'; ctx.fillRect(12, 4, 2, 2);
+    } else if (id === 'tideWand') {
+      ctx.strokeStyle = '#5c442d'; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(5, 18); ctx.quadraticCurveTo(8, 11, 11, 7); ctx.stroke();
+      ctx.fillStyle = '#4eb5d2'; ctx.beginPath(); ctx.arc(13, 6, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#d9fbff'; ctx.beginPath(); ctx.moveTo(13, 1); ctx.quadraticCurveTo(17, 5, 13, 9); ctx.quadraticCurveTo(9, 5, 13, 1); ctx.fill();
+      ctx.fillStyle = '#77dff0'; ctx.fillRect(11, 5, 4, 2);
+    } else if (id === 'verdantBloomStaff') {
+      ctx.strokeStyle = '#5b3b28'; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(5, 18); ctx.lineTo(11, 8); ctx.stroke();
+      ctx.fillStyle = '#397a43'; ctx.beginPath(); ctx.arc(13, 6, 4, 0, Math.PI * 2); ctx.fill();
+      for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+        ctx.fillStyle = a === 0 ? '#d6ff9c' : '#72ca57';
+        ctx.beginPath(); ctx.ellipse(13 + Math.cos(a) * 4, 6 + Math.sin(a) * 4, 2.6, 1.4, a, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = '#fff4a3'; ctx.fillRect(12, 5, 2, 2);
+    } else if (id === 'shadowglassOrb') {
+      ctx.strokeStyle = '#44304e'; ctx.lineWidth = 2.8; ctx.beginPath(); ctx.moveTo(5, 18); ctx.lineTo(11, 8); ctx.stroke();
+      ctx.fillStyle = '#25152f'; ctx.beginPath(); ctx.arc(13, 5, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#9d65d1'; ctx.beginPath(); ctx.arc(12, 4, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#f0cfff'; ctx.fillRect(11, 3, 2, 2); ctx.fillStyle = '#d7a5ff'; ctx.fillRect(14, 6, 2, 2);
     } else {
       ctx.strokeStyle = '#382947'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(5, 18); ctx.lineTo(12, 8); ctx.stroke();
       ctx.fillStyle = '#612d8f'; ctx.beginPath(); ctx.moveTo(11, 8); ctx.lineTo(13, 1); ctx.lineTo(17, 4); ctx.lineTo(15, 10); ctx.closePath(); ctx.fill();
@@ -875,6 +908,20 @@ class SpriteBank {
     } else if (id === 'thornguardIdol') {
       ctx.fillStyle = '#476739'; ctx.beginPath(); ctx.moveTo(10, 2); ctx.lineTo(16, 7); ctx.lineTo(14, 16); ctx.lineTo(6, 16); ctx.lineTo(4, 7); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#8dbd58'; ctx.fillRect(8, 6, 4, 5);
       ctx.fillStyle = '#dff58d'; ctx.fillRect(9, 7, 1, 1); ctx.fillRect(11, 7, 1, 1); ctx.fillStyle = '#704a2a'; ctx.fillRect(3, 17, 14, 2);
+    } else if (id === 'tideSpriteStaff') {
+      ctx.strokeStyle = '#5c442d'; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(5, 18); ctx.lineTo(10, 8); ctx.stroke();
+      ctx.fillStyle = '#286d8a'; ctx.beginPath(); ctx.moveTo(10, 2); ctx.lineTo(15, 5); ctx.lineTo(14, 11); ctx.lineTo(8, 9); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#8befff'; ctx.beginPath(); ctx.moveTo(10, 3); ctx.lineTo(13, 5); ctx.lineTo(12, 8); ctx.lineTo(9, 7); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#e6ffff'; ctx.fillRect(11, 5, 2, 2); ctx.strokeStyle = '#79dff1'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(15, 7, 3, -1.2, 1.2); ctx.stroke();
+    } else if (id === 'verdantSproutIdol') {
+      ctx.fillStyle = '#47713a'; ctx.beginPath(); ctx.moveTo(10, 2); ctx.lineTo(15, 7); ctx.lineTo(14, 16); ctx.lineTo(6, 16); ctx.lineTo(5, 7); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#8fd35c'; ctx.fillRect(8, 7, 4, 5); ctx.fillStyle = '#d6ff9c'; ctx.fillRect(9, 8, 2, 2);
+      ctx.strokeStyle = '#9fe875'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(6, 7); ctx.lineTo(3, 3); ctx.moveTo(14, 7); ctx.lineTo(17, 3); ctx.stroke();
+      ctx.fillStyle = '#704a2a'; ctx.fillRect(3, 17, 14, 2);
+    } else if (id === 'shadowmothTome') {
+      ctx.fillStyle = '#2d1b3b'; ctx.fillRect(4, 3, 11, 14); ctx.fillStyle = '#6f3d91'; ctx.fillRect(5, 4, 9, 12);
+      ctx.fillStyle = '#d7a5ff'; ctx.beginPath(); ctx.moveTo(10, 6); ctx.lineTo(14, 9); ctx.lineTo(10, 13); ctx.lineTo(6, 9); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#301743'; ctx.fillRect(9, 7, 2, 6); ctx.fillStyle = '#f0cfff'; ctx.fillRect(8, 8, 1, 1); ctx.fillRect(11, 8, 1, 1);
     } else {
       ctx.strokeStyle = '#4a3a5f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(10, 3); ctx.lineTo(10, 13); ctx.stroke();
       ctx.fillStyle = '#7653a8'; ctx.beginPath(); ctx.moveTo(5, 10); ctx.quadraticCurveTo(10, 15, 15, 10); ctx.lineTo(14, 16); ctx.quadraticCurveTo(10, 19, 6, 16); ctx.closePath(); ctx.fill();

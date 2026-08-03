@@ -1,13 +1,13 @@
 // Summoner Realms — combat & interaction resolution (weapons, mining, placing).
-import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=prehardmode-ores-1';
-import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=prehardmode-ores-1';
-import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=prehardmode-ores-1';
-import { SH, nextShape } from '../world/shapes.js?v=prehardmode-ores-1';
-import { W } from '../world/walls.js?v=prehardmode-ores-1';
-import { item as getItem } from '../data/items.js?v=prehardmode-ores-1';
-import { Projectile } from '../entities/projectile.js?v=prehardmode-ores-1';
-import { ThrownItem } from '../entities/thrown.js?v=prehardmode-ores-1';
-import { angleTo, aabb, clamp } from '../utils.js?v=prehardmode-ores-1';
+import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=prehardmode-classes-1';
+import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=prehardmode-classes-1';
+import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=prehardmode-classes-1';
+import { SH, nextShape } from '../world/shapes.js?v=prehardmode-classes-1';
+import { W } from '../world/walls.js?v=prehardmode-classes-1';
+import { item as getItem } from '../data/items.js?v=prehardmode-classes-1';
+import { Projectile } from '../entities/projectile.js?v=prehardmode-classes-1';
+import { ThrownItem } from '../entities/thrown.js?v=prehardmode-classes-1';
+import { angleTo, aabb, clamp } from '../utils.js?v=prehardmode-classes-1';
 
 const MINE_RATE = 95;
 const MINE_SOUND_INTERVAL = 0.32;
@@ -217,6 +217,21 @@ function swingFx(game, player, item, angle, dmg, crit) {
       player.swing.color = 'rgba(255,150,70,0.85)';
       break;
     }
+    case 'vine': {
+      for (let i = 0; i < 8; i++) {
+        const a = angle + (Math.random() - 0.5) * (item.arc || 1.4);
+        const r = reach * (0.35 + Math.random() * 0.7);
+        game.fx.streak(pc.x + Math.cos(a) * r, pc.y + Math.sin(a) * r, a + Math.PI * 0.5, '#9fe875', 3, { speed: 65, life: 0.25, size: 1.5 });
+      }
+      player.swing.color = 'rgba(150,240,110,0.85)';
+      break;
+    }
+    case 'shadow': {
+      game.fx.ring(pc.x, pc.y, 'rgba(185,115,230,0.7)', reach + 8, { life: 0.2, width: 2 });
+      game.fx.streak(tipX, tipY, angle, '#d7a5ff', 6, { speed: 155, spread: 0.9, life: 0.24, size: 2 });
+      player.swing.color = 'rgba(180,110,230,0.9)';
+      break;
+    }
     case 'gleam': {
       game.fx.streak(tipX, tipY, angle, '#fff2c0', 6, { speed: 200, spread: 0.7, life: 0.2, size: 2 });
       game.fx.ring(pc.x, pc.y, 'rgba(255,232,160,0.7)', reach + 6, { life: 0.18, width: 2 });
@@ -284,6 +299,22 @@ function castFx(game, player, item, angle) {
     case 'frost': {
       game.fx.streak(hx, hy, angle, '#e6f6ff', 8, { speed: 90, spread: 1.4, life: 0.45, size: 2, gravity: 40 });
       game.fx.ring(hx, hy, 'rgba(190,235,255,0.6)', 22, { life: 0.2, width: 2 });
+      break;
+    }
+    case 'tide': {
+      game.fx.ring(hx, hy, 'rgba(140,235,255,0.72)', 20, { life: 0.22, width: 2 });
+      game.fx.streak(hx, hy, angle, '#9defff', 6, { speed: 120, spread: 0.7, life: 0.32, size: 2, gravity: 20 });
+      break;
+    }
+    case 'bloom': {
+      const cols = ['#b8f58a', '#65b957', '#e1ffad'];
+      for (let i = 0; i < 8; i++) game.fx.streak(hx, hy, angle, cols[i % cols.length], 2, { speed: 100, spread: 1.1, life: 0.32, size: 2, gravity: 35 });
+      game.fx.ring(hx, hy, 'rgba(160,240,110,0.55)', 18, { life: 0.18, width: 2 });
+      break;
+    }
+    case 'shadow': {
+      game.fx.ring(hx, hy, 'rgba(215,165,255,0.65)', 24, { life: 0.24, width: 2 });
+      game.fx.streak(hx, hy, angle, '#d7a5ff', 7, { speed: 140, spread: 0.8, life: 0.3, size: 2, gravity: -20 });
       break;
     }
   }

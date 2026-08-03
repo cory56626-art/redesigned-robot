@@ -1,11 +1,11 @@
 // Summoner Realms — Demo Commands console (testing only).
-import { ITEMS, DEMO_GIVE_ALL, allItemIds, isItemEnabled } from './data/items.js?v=prehardmode-ores-1';
-import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=prehardmode-ores-1';
-import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=prehardmode-ores-1';
-import { TRACKS } from './engine/music.js?v=prehardmode-ores-1';
-import { FAUNA } from './data/fauna.js?v=prehardmode-ores-1';
-import { ACHIEVEMENTS } from './systems/achievements.js?v=prehardmode-ores-1';
-import { TILE, LIQUID_MAX } from './config.js?v=prehardmode-ores-1';
+import { ITEMS, DEMO_GIVE_ALL, allItemIds, isItemEnabled } from './data/items.js?v=prehardmode-classes-1';
+import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=prehardmode-classes-1';
+import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=prehardmode-classes-1';
+import { TRACKS } from './engine/music.js?v=prehardmode-classes-1';
+import { FAUNA } from './data/fauna.js?v=prehardmode-classes-1';
+import { ACHIEVEMENTS } from './systems/achievements.js?v=prehardmode-classes-1';
+import { TILE, LIQUID_MAX } from './config.js?v=prehardmode-classes-1';
 
 const $ = (id) => document.getElementById(id);
 

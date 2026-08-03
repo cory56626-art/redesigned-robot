@@ -1,15 +1,15 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=prehardmode-ores-1';
-import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=prehardmode-ores-1';
-import { SH } from '../world/shapes.js?v=prehardmode-ores-1';
-import { W, hasWall } from '../world/walls.js?v=prehardmode-ores-1';
-import { BIOMES } from '../world/biomes.js?v=prehardmode-ores-1';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=prehardmode-ores-1';
-import { item as getItem } from '../data/items.js?v=prehardmode-ores-1';
-import { canPlaceAt } from '../systems/combat.js?v=prehardmode-ores-1';
-import { clamp } from '../utils.js?v=prehardmode-ores-1';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=prehardmode-ores-1';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=prehardmode-classes-1';
+import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=prehardmode-classes-1';
+import { SH } from '../world/shapes.js?v=prehardmode-classes-1';
+import { W, hasWall } from '../world/walls.js?v=prehardmode-classes-1';
+import { BIOMES } from '../world/biomes.js?v=prehardmode-classes-1';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=prehardmode-classes-1';
+import { item as getItem } from '../data/items.js?v=prehardmode-classes-1';
+import { canPlaceAt } from '../systems/combat.js?v=prehardmode-classes-1';
+import { clamp } from '../utils.js?v=prehardmode-classes-1';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=prehardmode-classes-1';
 
 // Fallback appearance for players without a character record (remote players
 // on an older client, or a world loaded before characters existed).
@@ -1584,6 +1584,7 @@ export class Renderer {
       if (m.dead) continue;
       if (m.key === 'aidan') drawAidan(ctx, m);
       else if (m.key === 'diamondHeart') this._drawDiamondHeart(ctx, m);
+      else if (m.key === 'tideSprite' || m.key === 'verdantSprout' || m.key === 'shadowmoth') this._drawPrehardMinion(ctx, m);
       else this._blobCreature(ctx, m, m.color, m.color2, m.facing, m.hurtFlash > 0, true);
     }
     // Remote players' minion ghosts.
@@ -1602,12 +1603,66 @@ export class Renderer {
             w: 30, h: 42, color: '#dffcff', color2: '#62c9e8',
             anim: 0, hp: rm.hp, maxHp: rm.maxHp,
           }, rm, { x: rm.x, y: rm.y, facing: rm.f || 1 }));
+        } else if (rm.key === 'tideSprite' || rm.key === 'verdantSprout' || rm.key === 'shadowmoth') {
+          const remoteDef = rm.key === 'tideSprite'
+            ? { w: 12, h: 12, color: '#4eb5d2', color2: '#9defff' }
+            : rm.key === 'verdantSprout'
+              ? { w: 16, h: 18, color: '#65b957', color2: '#b8f58a' }
+              : { w: 16, h: 12, color: '#6f3d91', color2: '#d7a5ff' };
+          this._drawPrehardMinion(ctx, Object.assign(remoteDef, rm, { x: rm.x, y: rm.y, facing: rm.f || 1 }));
         } else {
           const spr = { x: rm.x, y: rm.y, w: 14, h: 14 };
           this._blobCreature(ctx, spr, '#9ec3ff', '#cfe6ff', rm.f || 1, false, true);
         }
       }
     }
+  }
+
+  _drawPrehardMinion(ctx, m) {
+    const x = m.x, y = m.y, w = m.w || 14, h = m.h || 14;
+    const cx = x + w / 2, cy = y + h / 2;
+    const t = m.anim || 0;
+    const hurt = m.hurtFlash > 0;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = m.key === 'shadowmoth' ? '#b56ee0' : m.color2;
+    ctx.beginPath(); ctx.arc(cx, cy, Math.max(w, h) * 0.9 + Math.sin(t * 2) * 2, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    if (m.key === 'tideSprite') {
+      const bob = Math.sin(t * 2.4) * 2;
+      ctx.translate(cx, cy + bob);
+      ctx.fillStyle = '#1d607d';
+      ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(7, -2); ctx.lineTo(5, 6); ctx.lineTo(0, 9); ctx.lineTo(-5, 6); ctx.lineTo(-7, -2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#4eb5d2';
+      ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(5, -1); ctx.lineTo(3, 5); ctx.lineTo(0, 7); ctx.lineTo(-3, 5); ctx.lineTo(-5, -1); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#d9fbff'; ctx.fillRect(m.facing < 0 ? -4 : 2, -1, 2, 2);
+      ctx.strokeStyle = '#9defff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, 0, 10, t % (Math.PI * 2), t % (Math.PI * 2) + 1.2); ctx.stroke();
+    } else if (m.key === 'verdantSprout') {
+      ctx.translate(cx, cy);
+      ctx.fillStyle = '#3c6d37'; ctx.beginPath(); ctx.moveTo(-7, 8); ctx.lineTo(-5, -3); ctx.lineTo(0, -8); ctx.lineTo(5, -3); ctx.lineTo(7, 8); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#65b957'; ctx.fillRect(-5, -2, 10, 10);
+      ctx.fillStyle = '#b8f58a'; ctx.fillRect(-3, -1, 2, 2); ctx.fillRect(2, -1, 2, 2);
+      ctx.strokeStyle = '#9fe875'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(-11, -6); ctx.moveTo(5, 0); ctx.lineTo(11, -6); ctx.stroke();
+      ctx.fillStyle = '#e1ffad'; ctx.fillRect(-12, -7, 3, 2); ctx.fillRect(9, -7, 3, 2);
+      ctx.fillStyle = '#47713a'; ctx.fillRect(-8, 8, 16, 3);
+    } else {
+      const flap = Math.sin(t * 3.2) * 3;
+      ctx.translate(cx, cy);
+      ctx.fillStyle = '#6f3d91';
+      ctx.beginPath(); ctx.moveTo(-2, -1); ctx.quadraticCurveTo(-13, -10 - flap, -9, 4); ctx.quadraticCurveTo(-5, 2, -1, 2); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(2, -1); ctx.quadraticCurveTo(13, -10 + flap, 9, 4); ctx.quadraticCurveTo(5, 2, 1, 2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#d7a5ff'; ctx.fillRect(-7, -4, 4, 5); ctx.fillRect(3, -4, 4, 5);
+      ctx.fillStyle = '#2c153b'; ctx.fillRect(-2, -5, 4, 10); ctx.fillStyle = '#f0cfff'; ctx.fillRect(m.facing < 0 ? -3 : 1, -2, 2, 2);
+    }
+    if (hurt) {
+      ctx.globalCompositeOperation = 'screen'; ctx.fillStyle = 'rgba(255,255,255,0.72)';
+      ctx.beginPath(); ctx.arc(cx, cy, Math.max(w, h) * 0.72, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+    if (m.maxHp != null && m.hp != null) this._miniHp(ctx, m, m.hp / m.maxHp, m.color2 || '#7ee0c0');
   }
 
   _drawDiamondHeart(ctx, m) {

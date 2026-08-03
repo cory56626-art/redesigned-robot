@@ -33,6 +33,23 @@ export const MINIONS = {
     color: '#b06bff', color2: '#7a3aae', w: 14, h: 18, attackRate: 0.35,
     desc: 'A swift wraith that slashes enemies rapidly.',
   },
+  tideSprite: {
+    key: 'tideSprite', name: 'Tide Sprite', behavior: 'shooter', damage: 7, speed: 165, range: 285,
+    color: '#4eb5d2', color2: '#9defff', w: 12, h: 12, fireRate: 1.2,
+    projectile: { kind: 'tideshard', speed: 270, color: '#9defff', effect: { slow: 0.55 } },
+    desc: 'A modest aquatic shooter. It will not fire through solid blocks.',
+  },
+  verdantSprout: {
+    key: 'verdantSprout', name: 'Verdant Sprout', behavior: 'guard', damage: 9, speed: 105, range: 150,
+    color: '#65b957', color2: '#b8f58a', w: 16, h: 18, attackRate: 0.9,
+    desc: 'A tethered plant guardian that lashes nearby targets only with clear sight.',
+  },
+  shadowmoth: {
+    key: 'shadowmoth', name: 'Shadowmoth', behavior: 'shooter', damage: 10, speed: 185, range: 330,
+    color: '#6f3d91', color2: '#d7a5ff', w: 16, h: 12, fireRate: 1.35,
+    projectile: { kind: 'shadowmote', speed: 295, color: '#d7a5ff', effect: { slow: 0.35 } },
+    desc: 'A fragile crystal-winged shooter with strict line-of-sight targeting.',
+  },
   diamondHeart: {
     key: 'diamondHeart', name: 'Diamond Heart', behavior: 'diamondHeart',
     damage: 0, speed: 280, range: 620, color: '#dffcff', color2: '#62c9e8',

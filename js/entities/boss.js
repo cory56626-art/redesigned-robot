@@ -11,12 +11,12 @@
 // distance, phase and line of sight. Animation fields (squash, jaw, segment
 // lag, shard spin) are updated here rather than in the renderer, so they are
 // driven by the simulation and stay frame-rate independent.
-import { TILE, normalizeDifficulty } from '../config.js?v=prehardmode-ores-1';
-import { BOSSES } from '../data/bosses.js?v=prehardmode-ores-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=prehardmode-ores-1';
-import { aabb, angleTo, randRange, clamp } from '../utils.js?v=prehardmode-ores-1';
-import { Projectile } from './projectile.js?v=prehardmode-ores-1';
-import * as AI from '../systems/ai.js?v=prehardmode-ores-1';
+import { TILE, normalizeDifficulty } from '../config.js?v=prehardmode-classes-1';
+import { BOSSES } from '../data/bosses.js?v=prehardmode-classes-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=prehardmode-classes-1';
+import { aabb, angleTo, randRange, clamp } from '../utils.js?v=prehardmode-classes-1';
+import { Projectile } from './projectile.js?v=prehardmode-classes-1';
+import * as AI from '../systems/ai.js?v=prehardmode-classes-1';
 
 const PROJ_COLOR = { thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff' };
 

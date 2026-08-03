@@ -1,14 +1,14 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=prehardmode-ores-1';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=prehardmode-ores-1';
-import { Sprites } from '../art/sprites.js?v=prehardmode-ores-1';
-import { item as getItem } from '../data/items.js?v=prehardmode-ores-1';
-import { availableRecipes } from '../systems/crafting.js?v=prehardmode-ores-1';
-import { claudeNotesHTML } from './claude-notes.js?v=prehardmode-ores-1';
-import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=prehardmode-ores-1';
-import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=prehardmode-ores-1';
-import { drawCharacterPreview } from '../art/charpreview.js?v=prehardmode-ores-1';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=prehardmode-classes-1';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=prehardmode-classes-1';
+import { Sprites } from '../art/sprites.js?v=prehardmode-classes-1';
+import { item as getItem } from '../data/items.js?v=prehardmode-classes-1';
+import { availableRecipes } from '../systems/crafting.js?v=prehardmode-classes-1';
+import { claudeNotesHTML } from './claude-notes.js?v=prehardmode-classes-1';
+import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=prehardmode-classes-1';
+import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=prehardmode-classes-1';
+import { drawCharacterPreview } from '../art/charpreview.js?v=prehardmode-classes-1';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [

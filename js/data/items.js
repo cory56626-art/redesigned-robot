@@ -1,7 +1,7 @@
 // Summoner Realms — item catalogue. All original names/designs.
 // Categories: weapon (melee/ranged/mage/summon), tool, armor, accessory,
 // potion, ammo, material, block, station, summonitem.
-import { T } from '../world/tiles.js?v=prehardmode-ores-1';
+import { T } from '../world/tiles.js?v=prehardmode-classes-1';
 
 export const ITEMS = {};
 
@@ -38,6 +38,9 @@ export const PREHARDMODE_ITEM_IDS = new Set([
   'stoneironPick', 'amberPick', 'tidePick', 'emberPick', 'verdantPick',
   'stormPick', 'shadowglassPick', 'starsteelPick',
   'amberBow', 'tideTrident', 'emberblade', 'stormcaller',
+  'stoneironBroadsword', 'verdantVineblade', 'shadowglassScythe',
+  'tideWand', 'verdantBloomStaff', 'shadowglassOrb',
+  'tideSpriteStaff', 'verdantSproutIdol', 'shadowmothTome',
 ]);
 
 // Raw terrain materials are also placeable blocks, so they remain available
@@ -102,6 +105,17 @@ melee('glimmerGlaive', 'Glimmer Glaive', '#ffe08a', 28, 0.34, 3, { meleeKind: 's
 melee('aetheredgeGreatblade', 'Aetheredge Greatblade', '#8ad9ff', 40, 0.5, 4, { meleeKind: 'heavy', reach: 40, arc: 2.2, knockback: 10, crit: 0.12, phasing: true, fx: { swing: 'arcwave' }, desc: 'Massive arc of arcane steel. Its edge cuts straight through stone.' });
 melee('tideTrident', 'Tide Trident', '#51c8e8', 24, 0.38, 3, { meleeKind: 'spear', reach: 52, arc: 0.55, knockback: 6, effect: { slow: 1.2 }, desc: 'A long blue-metal thrust that leaves a slowing spray.' });
 melee('emberblade', 'Emberblade', '#f05b32', 32, 0.48, 4, { meleeKind: 'heavy', reach: 38, arc: 2.0, knockback: 8, effect: { burn: 4 }, fx: { swing: 'flame' }, desc: 'A hot red-orange blade that sets enemies ablaze.' });
+melee('stoneironBroadsword', 'Stoneiron Broadsword', '#9aa7b2', 12, 0.39, 1, {
+  reach: 34, knockback: 5, desc: 'A dependable first-tier blade forged from rugged gray metal.',
+});
+melee('verdantVineblade', 'Verdant Vineblade', '#65b957', 21, 0.44, 5, {
+  reach: 38, arc: 1.45, knockback: 5, effect: { poison: 2.5 }, fx: { swing: 'vine' },
+  desc: 'A living green blade that leaves a mild toxin in its cuts.',
+});
+melee('shadowglassScythe', 'Shadowglass Scythe', '#9d65d1', 27, 0.58, 7, {
+  meleeKind: 'heavy', reach: 45, arc: 2.05, knockback: 7, crit: 0.08, fx: { swing: 'shadow' },
+  desc: 'A wide black-purple crystal sweep. Strong, but deliberately slow before Hardmode.',
+});
 
 // ---------- Ranged weapons (8) ----------
 const ranged = (id, name, color, dmg, useTime, tier, extra = {}) =>
@@ -128,6 +142,18 @@ mage('thunderRod', 'Thunder Rod', '#fff2a0', 22, 0.45, 2, 18, { pierce: 3, projS
 mage('prismScepter', 'Prism Scepter', '#c58bff', 20, 0.30, 3, 16, { multishot: 3, spread: 0.4, fx: { cast: 'prism' }, desc: 'Fires a fan of prism shards.' });
 mage('voidlance', 'Voidlance', '#b06bff', 34, 0.5, 4, 24, { pierce: 4, projSpeed: 640, fx: { cast: 'void' }, trail: '#b06bff', desc: 'A lancing beam of void energy.' });
 mage('stormcaller', 'Stormcaller', '#fff06a', 36, 0.42, 6, 20, { pierce: 3, projSpeed: 900, fx: { cast: 'lightning' }, trail: '#fff8a8', desc: 'Calls a piercing yellow bolt from the sky.' });
+mage('tideWand', 'Tide Wand', '#4eb5d2', 15, 0.34, 3, 10, {
+  effect: { slow: 0.8 }, projSpeed: 520, fx: { cast: 'tide' }, trail: '#9defff',
+  desc: 'Launches a compact water bolt that briefly slows enemies.',
+});
+mage('verdantBloomStaff', 'Verdant Bloom Staff', '#65b957', 19, 0.44, 5, 13, {
+  effect: { poison: 2.5 }, projSpeed: 500, fx: { cast: 'bloom' }, trail: '#b8f58a',
+  desc: 'Fires a seed-bloom projectile with a small lingering toxin.',
+});
+mage('shadowglassOrb', 'Shadowglass Orb', '#9d65d1', 25, 0.48, 7, 17, {
+  pierce: 1, projSpeed: 620, fx: { cast: 'shadow' }, trail: '#d7a5ff',
+  desc: 'A slow black-purple orb that pierces one enemy before Hardmode.',
+});
 
 // ---------- Summoner weapons (6) ----------
 const summon = (id, name, color, useTime, tier, mana, minion, extra = {}) =>
@@ -138,6 +164,15 @@ summon('ravenTotem', 'Raven Totem', '#7a6a9a', 0.5, 1, 16, 'raven');
 summon('emberlingStaff', 'Emberling Staff', '#ff7a3b', 0.5, 2, 18, 'emberling');
 summon('thornguardIdol', 'Thornguard Idol', '#5a7a3a', 0.5, 2, 20, 'sentinel');
 summon('wraithBell', 'Wraith Bell', '#b06bff', 0.5, 3, 24, 'wraith');
+summon('tideSpriteStaff', 'Tide Sprite Staff', '#4eb5d2', 0.5, 3, 10, 'tideSprite', {
+  desc: 'Summons a small blue Tide Sprite. It only fires when it has clear line of sight.',
+});
+summon('verdantSproutIdol', 'Verdant Sprout Idol', '#65b957', 0.5, 5, 14, 'verdantSprout', {
+  desc: 'Summons a tethered sprout guardian. Its melee lash requires clear line of sight.',
+});
+summon('shadowmothTome', 'Shadowmoth Tome', '#9d65d1', 0.5, 7, 18, 'shadowmoth', {
+  desc: 'Summons a fragile shadow moth that fires only through open sight lines.',
+});
 summon('diamondHeart', 'Diamond Heart', '#dffcff', 0.78, 5, 30, 'diamondHeart', {
   maxStack: 1,
   maxMinions: 1,

@@ -1,12 +1,12 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
-import { MSG } from './protocol.js?v=prehardmode-ores-1';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=prehardmode-ores-1';
-import { Player, assignColor } from '../entities/player.js?v=prehardmode-ores-1';
-import { Projectile } from '../entities/projectile.js?v=prehardmode-ores-1';
-import { ThrownItem } from '../entities/thrown.js?v=prehardmode-ores-1';
-import { ITEMS, isItemEnabled } from '../data/items.js?v=prehardmode-ores-1';
-import { ENEMIES } from '../data/enemies.js?v=prehardmode-ores-1';
-import { BOSSES } from '../data/bosses.js?v=prehardmode-ores-1';
+import { MSG } from './protocol.js?v=prehardmode-classes-1';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=prehardmode-classes-1';
+import { Player, assignColor } from '../entities/player.js?v=prehardmode-classes-1';
+import { Projectile } from '../entities/projectile.js?v=prehardmode-classes-1';
+import { ThrownItem } from '../entities/thrown.js?v=prehardmode-classes-1';
+import { ITEMS, isItemEnabled } from '../data/items.js?v=prehardmode-classes-1';
+import { ENEMIES } from '../data/enemies.js?v=prehardmode-classes-1';
+import { BOSSES } from '../data/bosses.js?v=prehardmode-classes-1';
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 

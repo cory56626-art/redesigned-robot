@@ -5,14 +5,14 @@ import {
   HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN,
   CAST_REGEN_DELAY, CAST_REGEN_MULT, RESPAWN_DELAY, RESPAWN_DELAY_BOSS,
   SWIM_DRAG, SWIM_STROKE, WIND_PLAYER_PUSH,
-} from '../config.js?v=prehardmode-ores-1';
-import { tileDef } from '../world/tiles.js?v=prehardmode-ores-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=prehardmode-ores-1';
-import { Inventory } from '../systems/inventory.js?v=prehardmode-ores-1';
-import { item as getItem } from '../data/items.js?v=prehardmode-ores-1';
-import * as combat from '../systems/combat.js?v=prehardmode-ores-1';
-import * as fishing from '../systems/fishing.js?v=prehardmode-ores-1';
-import { clamp } from '../utils.js?v=prehardmode-ores-1';
+} from '../config.js?v=prehardmode-classes-1';
+import { tileDef } from '../world/tiles.js?v=prehardmode-classes-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=prehardmode-classes-1';
+import { Inventory } from '../systems/inventory.js?v=prehardmode-classes-1';
+import { item as getItem } from '../data/items.js?v=prehardmode-classes-1';
+import * as combat from '../systems/combat.js?v=prehardmode-classes-1';
+import * as fishing from '../systems/fishing.js?v=prehardmode-classes-1';
+import { clamp } from '../utils.js?v=prehardmode-classes-1';
 
 export class Player {
   constructor(id, opts = {}) {

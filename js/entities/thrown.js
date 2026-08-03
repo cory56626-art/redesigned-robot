@@ -5,11 +5,11 @@
 // terrain with restitution and friction. What differs is what happens on
 // contact — explode on a fuse, stick and then explode, or damage and drop as a
 // recoverable pickup.
-import { GRAVITY, TILE } from '../config.js?v=prehardmode-ores-1';
-import { aabb } from '../utils.js?v=prehardmode-ores-1';
-import { explode } from '../systems/explosions.js?v=prehardmode-ores-1';
-import { Sprites } from '../art/sprites.js?v=prehardmode-ores-1';
-import { item as getItem } from '../data/items.js?v=prehardmode-ores-1';
+import { GRAVITY, TILE } from '../config.js?v=prehardmode-classes-1';
+import { aabb } from '../utils.js?v=prehardmode-classes-1';
+import { explode } from '../systems/explosions.js?v=prehardmode-classes-1';
+import { Sprites } from '../art/sprites.js?v=prehardmode-classes-1';
+import { item as getItem } from '../data/items.js?v=prehardmode-classes-1';
 
 export class ThrownItem {
   /**

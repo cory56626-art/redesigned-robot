@@ -1,6 +1,6 @@
 // Summoner Realms — dropped ground item. Host-authoritative physics + pickup.
-import { GRAVITY, TILE } from '../config.js?v=prehardmode-ores-1';
-import { dist2 } from '../utils.js?v=prehardmode-ores-1';
+import { GRAVITY, TILE } from '../config.js?v=prehardmode-classes-1';
+import { dist2 } from '../utils.js?v=prehardmode-classes-1';
 
 // How close a player has to be before a drop starts flying toward them, and how
 // close before it is collected.

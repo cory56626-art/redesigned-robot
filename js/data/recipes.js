@@ -1,7 +1,7 @@
 // Summoner Realms — crafting recipes.
 // station: null (hand) | 'bench' | 'smeltery' | 'forge' | 'altar'
 // requiresBoss: optional progression gate (unused in the boss-free reset).
-import { isItemEnabled } from './items.js?v=prehardmode-ores-1';
+import { isItemEnabled } from './items.js?v=prehardmode-classes-1';
 
 const ALL_RECIPES = [
   // --- Hand ---
@@ -99,6 +99,15 @@ const ALL_RECIPES = [
   { out: { item: 'tideTrident', count: 1 }, in: [{ item: 'tideBar', count: 14 }, { item: 'wood', count: 4 }], station: 'forge' },
   { out: { item: 'emberblade', count: 1 }, in: [{ item: 'emberBar', count: 16 }, { item: 'emberDust', count: 4 }], station: 'forge' },
   { out: { item: 'stormcaller', count: 1 }, in: [{ item: 'stormBar', count: 18 }, { item: 'emberDust', count: 6 }, { item: 'stone', count: 8 }], station: 'forge' },
+  { out: { item: 'stoneironBroadsword', count: 1 }, in: [{ item: 'stoneironBar', count: 8 }, { item: 'wood', count: 3 }], station: 'forge' },
+  { out: { item: 'verdantVineblade', count: 1 }, in: [{ item: 'verdantBar', count: 10 }, { item: 'fiber', count: 6 }], station: 'forge' },
+  { out: { item: 'shadowglassScythe', count: 1 }, in: [{ item: 'shadowglassBar', count: 14 }, { item: 'wood', count: 4 }], station: 'forge' },
+  { out: { item: 'tideWand', count: 1 }, in: [{ item: 'tideBar', count: 8 }, { item: 'wood', count: 4 }, { item: 'fiber', count: 3 }], station: 'forge' },
+  { out: { item: 'verdantBloomStaff', count: 1 }, in: [{ item: 'verdantBar', count: 12 }, { item: 'fiber', count: 8 }], station: 'forge' },
+  { out: { item: 'shadowglassOrb', count: 1 }, in: [{ item: 'shadowglassBar', count: 14 }, { item: 'stone', count: 6 }], station: 'forge' },
+  { out: { item: 'tideSpriteStaff', count: 1 }, in: [{ item: 'tideBar', count: 8 }, { item: 'fiber', count: 5 }], station: 'forge' },
+  { out: { item: 'verdantSproutIdol', count: 1 }, in: [{ item: 'verdantBar', count: 10 }, { item: 'fiber', count: 10 }], station: 'forge' },
+  { out: { item: 'shadowmothTome', count: 1 }, in: [{ item: 'shadowglassBar', count: 12 }, { item: 'emberDust', count: 4 }], station: 'forge' },
   { out: { item: 'cupritePick', count: 1 }, in: [{ item: 'cupriteBar', count: 8 }], station: 'forge' },
   { out: { item: 'cupriteAxe', count: 1 }, in: [{ item: 'cupriteBar', count: 7 }, { item: 'wood', count: 2 }], station: 'forge' },
   { out: { item: 'cupriteSword', count: 1 }, in: [{ item: 'cupriteBar', count: 8 }], station: 'forge' },

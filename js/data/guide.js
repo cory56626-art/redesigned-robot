@@ -13,11 +13,11 @@
 //                the recipe list and boss loot tables, so a new item is
 //                explained correctly the day it's added without anyone writing
 //                a paragraph for it.
-import { ITEMS, item as getItem } from './items.js?v=prehardmode-ores-1';
-import { RECIPES } from './recipes.js?v=prehardmode-ores-1';
-import { BOSSES } from './bosses.js?v=prehardmode-ores-1';
-import { ENEMIES } from './enemies.js?v=prehardmode-ores-1';
-import { TILE } from '../config.js?v=prehardmode-ores-1';
+import { ITEMS, item as getItem } from './items.js?v=prehardmode-classes-1';
+import { RECIPES } from './recipes.js?v=prehardmode-classes-1';
+import { BOSSES } from './bosses.js?v=prehardmode-classes-1';
+import { ENEMIES } from './enemies.js?v=prehardmode-classes-1';
+import { TILE } from '../config.js?v=prehardmode-classes-1';
 
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
 
@@ -72,6 +72,7 @@ export const TOPICS = [
       return [
         `Four ways to fight, and armour sets that lean into each. <b>Melee</b> is close and forgiving. <b>Ranged</b> needs arrows, bolts or shot. <b>Magic</b> spends Aether, which regenerates slower right after a cast. <b>Summoners</b> pay Aether once and let minions do the work.`,
         `Wearing three pieces of a set completes it and grants a bonus on top. Right now you have <b>${st.defense}</b> defense and room for <b>${st.minionCap}</b> minion${st.minionCap === 1 ? '' : 's'}.`,
+        `The new ore weapons stay pre-Hardmode: Stoneiron starts the melee line, Tide and Verdant open the mage and summoner paths, and Shadowglass closes them without turning a summoner into a boss killer. Minions respect line of sight and will regroup instead of firing through blocks.`,
         `Watch enemies before they reach you. Anything about to commit flashes first — a boar pawing the ground, a shade gathering its shot. That flash is your window to move.`,
       ];
     },

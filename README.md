@@ -237,8 +237,10 @@ reviewer can test the right things the right way.
 - **Background walls** behind every naturally-solid tile. Carving a cave leaves
   the wall, and walls block daylight, which is what makes the underground read as
   underground.
-- Starter weapons plus four ore-forged weapons — Amber Bow, Tide Trident,
-  Emberblade, and Stormcaller — with eight ore-specific pickaxes.
+- Starter weapons plus thirteen ore-forged class weapons — including three new
+  melee, three new mage, and three new summoner weapons — with eight ore-specific
+  pickaxes. Summoner minions use line-of-sight targeting and do not fire through
+  solid blocks.
 - **6 throwables:** Blast Bomb, Dynamite, Cling Charge, Ember Flask, Iron
   Shuriken, Balanced Knife. They arc, bounce off terrain, and the explosive ones
   destroy tiles and walls (and you, if you're standing too close).
@@ -246,8 +248,8 @@ reviewer can test the right things the right way.
   attacks. Boss progression is intentionally disabled in this reset.
 - **Vesper Thane, the Guide** — an NPC who spawns with your world and will
   explain any item you're carrying, including where it comes from.
-- Eight pre-Hardmode ores and bars, eight mining picks, four ore weapons, starter
-  armor, accessories, potions, materials, and a Forge, plus day/night cycling
+- Eight pre-Hardmode ores and bars, eight mining picks, thirteen ore weapons,
+  starter armor, accessories, potions, materials, and a Forge, plus day/night cycling
   with biome/time-based enemy spawns.
 - **Optional soundtrack:** drop audio files into `assets/music/` and they play,
   crossfading by biome, depth, time of day and boss fight. See that folder's
