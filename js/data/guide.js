@@ -13,11 +13,11 @@
 //                the recipe list and boss loot tables, so a new item is
 //                explained correctly the day it's added without anyone writing
 //                a paragraph for it.
-import { ITEMS, item as getItem } from './items.js?v=first-world-no-ore-boss-1';
-import { RECIPES } from './recipes.js?v=first-world-no-ore-boss-1';
-import { BOSSES } from './bosses.js?v=first-world-no-ore-boss-1';
-import { ENEMIES } from './enemies.js?v=first-world-no-ore-boss-1';
-import { TILE } from '../config.js?v=first-world-no-ore-boss-1';
+import { ITEMS, item as getItem } from './items.js?v=prehardmode-ores-1';
+import { RECIPES } from './recipes.js?v=prehardmode-ores-1';
+import { BOSSES } from './bosses.js?v=prehardmode-ores-1';
+import { ENEMIES } from './enemies.js?v=prehardmode-ores-1';
+import { TILE } from '../config.js?v=prehardmode-ores-1';
 
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
 
@@ -37,7 +37,7 @@ export const TOPICS = [
       } else if (!has('craftingBench')) {
         lines.push(`You have wood enough. Open your bag and craft a <b>Crafting Bench</b> — everything else starts there. Place it, stand near it, and the list of what you can make grows.`);
       } else {
-        lines.push(`Bench in hand. Put it down somewhere you'll come back to, then build a <b>Smeltery</b> for the first-world recipes.`);
+        lines.push(`Bench in hand. Put it down somewhere you'll come back to, then build a <b>Smeltery</b> for starter recipes and Stoneiron progression.`);
       }
       lines.push(`Torches next. The dark below is genuinely dark, and a stack of <b>Emberlight</b> costs almost nothing.`);
       return lines;
@@ -50,8 +50,8 @@ export const TOPICS = [
       const axe = p.inventory.bestToolFor('axe');
       return [
         `Right-click and I'll pick the right tool for whatever you're aiming at — the pick for stone, the axe for wood. Your best pickaxe is power <b>${pick.power}</b> and your best axe power <b>${axe.power}</b>.`,
-        `Your Oaken Pick is enough for the stone this realm generates. The Oaken Hatchet is for trees, and the mallet is for shaping what you build.`,
-        `There are no ores in this realm, so the useful loop is simple: gather wood, fiber, stone, and clay, then turn them into basic gear and shelter.`,
+        `Your Oaken Pick is enough for ordinary stone. Once you find <b>Stoneiron Ore</b>, smelt it into bars and work up through the eight pre-Hardmode ore tiers.`,
+        `Ore has a home: Amber in forests and dunes, Tide beside underground lakes, Verdant in the Jungle, Storm in sky islands, Shadowglass in the Corrupted Lands, and Starsteel at the deepest boundary.`,
         `If you'd rather not swing at all — <b>bombs</b>. They'll take out dirt and stone in a radius, and they do not care that you're standing next to them.`,
       ];
     },
@@ -60,7 +60,7 @@ export const TOPICS = [
     id: 'crafting', label: 'Crafting stations',
     text(g, p) {
       return [
-        `<b>Crafting Bench</b> from wood, then a <b>Smeltery</b> from stone and clay for the first-world recipes. There is no Forge or Aether Altar progression in this realm.`,
+        `<b>Crafting Bench</b> from wood, then a <b>Smeltery</b> from stone and clay. Smelt ore into bars, build a <b>Forge</b> with Stoneiron, and craft the next pickaxe before chasing the next tier.`,
         `You have to be standing near a station for its recipes to appear — about five tiles. Build a little workshop and keep the two together; you'll thank yourself.`,
       ];
     },
@@ -101,7 +101,7 @@ export const TOPICS = [
     id: 'survival', label: 'Surviving the realm',
     text() {
       return [
-        `There are no boss encounters here. Hostile wildlife still spawns, telegraphs its attacks, and drops the basic materials you can use.`,
+        `There are no boss encounters in this pre-Hardmode reset. Hostile wildlife still spawns, telegraphs its attacks, and drops the basic materials you can use.`,
         `Keep moving when an enemy flashes before a charge or shot. The Guide can also fire back when a hostile gets near camp.`,
       ];
     },
@@ -114,6 +114,7 @@ export const TOPICS = [
       const biome = g.world.biomeAt(tx, ty);
       const blurb = {
         forest: `The <b>Verdant Reach</b>. Ordinary, green, and the safest ground you'll find. Home.`,
+        jungle: `The <b>Verdant Jungle</b>. Dense trees, ferns, and living green metal hidden below the roots.`,
         dunes: `The <b>Sunken Dunes</b> at the world's edge. Flat, hot, cactus-ridden, and hiding sandstone under the sand.`,
         frostpine: `<b>Frostpine Hollow</b>. Snow over stone, tall pines, and rimeglass that'll blunt a poor pickaxe.`,
         corrupt: `The <b>Corrupted Lands</b>. Blightstone and thornvines. Mind the vines — they bite.`,
@@ -287,11 +288,11 @@ function purposeOf(def) {
     case 'station': return `A crafting station. Place it, stand within about five tiles, and its recipes appear in your bag.`;
     case 'block': return `A building block. Place it against something solid, or right beside yourself to climb.`;
     case 'summonitem': {
-      return `Boss summoning is disabled in this first-world realm.`;
+      return `Boss summoning is disabled in this pre-Hardmode realm.`;
     }
     case 'material': {
       if (def.matKind === 'ore') return `Raw ore. Worthless until you smelt it into bars at a Smeltery.`;
-      if (def.matKind === 'bar') return `A refined bar. This is what the Forge and the Altar actually want.`;
+      if (def.matKind === 'bar') return `A refined bar. This is what the Forge actually wants for pre-Hardmode gear.`;
       return `A crafting material. Something in your recipe list needs it.`;
     }
     default: return `I'm not sure what to tell you about this one.`;

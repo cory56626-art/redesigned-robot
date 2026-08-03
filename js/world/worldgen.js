@@ -3,12 +3,13 @@
 // Shape of a generated world, surface to bedrock:
 //
 //   sky        · nothing, daylight reaches down to the first solid tile
-//   surface    · biome bands (Dunes / Verdant Reach / Frostpine Hollow /
-//                Snowy Taiga / Corrupted Lands) with blended seams, each with its own
+//   surface    · biome bands (Dunes / Verdant Reach / Verdant Jungle /
+//                Frostpine Hollow / Snowy Taiga / Corrupted Lands) with blended seams, each with its own
 //                height profile, tile palette and decor
 //   subsurface · dirt / snow / sand, 4-13 tiles thick with a noisy underside
 //   stone      · with a speckled dirt-and-stone transition band above it
-//   deepstone  · below CAVERN_Y, noisy transition
+//   deepstone  · below CAVERN_Y, noisy transition, with ore tiers at depth
+//   sky        · small floating islands above the surface for Storm Ore
 //
 // Everything solid is generated with a background *wall* behind it, then caves
 // are carved out of that rock. The wall stays, so a cave reads as an enclosed
@@ -16,11 +17,11 @@
 //
 // Deterministic from a numeric seed. `tools/worldgen-check.mjs` asserts the
 // invariants this file is responsible for.
-import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE, LIQUID_MAX } from '../config.js?v=first-world-no-ore-boss-1';
-import { T, isSolid, isFlora } from './tiles.js?v=first-world-no-ore-boss-1';
-import { W } from './walls.js?v=first-world-no-ore-boss-1';
-import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=first-world-no-ore-boss-1';
-import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep, lerp } from '../utils.js?v=first-world-no-ore-boss-1';
+import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE, LIQUID_MAX } from '../config.js?v=prehardmode-ores-1';
+import { T, isSolid, isFlora } from './tiles.js?v=prehardmode-ores-1';
+import { W } from './walls.js?v=prehardmode-ores-1';
+import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=prehardmode-ores-1';
+import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep, lerp } from '../utils.js?v=prehardmode-ores-1';
 
 // Half-width of the guaranteed flat, cave-free plain the player spawns on.
 const SPAWN_PLAIN = 13;
@@ -49,6 +50,9 @@ export function generateWorld(seed) {
   applyCaves(tiles, cave, w, h, surface, spawnTx);
 
   decorate(tiles, w, h, surface, biome, rand, spawnTx);
+  // Floating islands are ordinary terrain structures rather than a new biome;
+  // Storm Ore uses their tile mask as its placement boundary.
+  const skyIslands = placeSkyIslands(tiles, w, h, surface, seed, spawnTx);
 
   sealSpawn(tiles, walls, w, h, surface, spawnTx, biome);
   // Decoration and the spawn seal both write tiles into carved space, which can
@@ -61,6 +65,7 @@ export function generateWorld(seed) {
   // Water goes in last: it settles into whatever shape the finished terrain
   // left behind, so it can never be buried by a later decoration pass.
   const liquid = fillWater(tiles, w, h, surface, biome, seed, spawnTx);
+  seedOres(tiles, liquid, w, h, surface, biome, seed, skyIslands);
   // Chests and wall-mounted dart traps are placed after water has settled, so
   // neither object can split a basin or spawn submerged.
   placeUndergroundFeatures(tiles, liquid, w, h, surface, rand, spawnTx);
@@ -69,7 +74,7 @@ export function generateWorld(seed) {
   return {
     tiles, walls, liquid, width: w, height: h, surface,
     biomeMap: biome.map, biomeBands: biome.bands,
-    spawnTx, spawnX: spawnTx * TILE, spawnY,
+    spawnTx, spawnX: spawnTx * TILE, spawnY, skyIslands,
   };
 }
 
@@ -869,6 +874,128 @@ function blobTilesOnly(tiles, w, h, cx, cy, r, id, replaceable) {
       if (replaceable.includes(tiles[idx(x, y)])) tiles[idx(x, y)] = id;
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Pre-Hardmode ores and sky islands
+// ---------------------------------------------------------------------------
+
+// Storm Ore needs a visible sky-island home. These are intentionally small,
+// sparse floating shelves made from existing building blocks, so they add a
+// discovery landmark without introducing another block family or touching the
+// grounded biome layout.
+function placeSkyIslands(tiles, w, h, surface, seed, spawnTx) {
+  const idx = (x, y) => y * w + x;
+  const rand = mulberry32((seed ^ 0x51a15a7e) >>> 0);
+  const mask = new Uint8Array(w * h);
+  let made = 0;
+
+  for (let attempt = 0; attempt < 18 && made < 6; attempt++) {
+    const cx = 32 + Math.floor(rand() * Math.max(1, w - 64));
+    if (Math.abs(cx - spawnTx) < 36) continue;
+    const cy = 24 + Math.floor(rand() * 22);
+    const rx = 6 + Math.floor(rand() * 7);
+    const ry = 2 + Math.floor(rand() * 3);
+    let cells = 0;
+
+    for (let y = cy - ry; y <= cy + ry; y++) {
+      for (let x = cx - rx; x <= cx + rx; x++) {
+        if (x < 2 || x >= w - 2 || y < 8 || y >= h - BEDROCK) continue;
+        const dx = (x - cx) / rx, dy = (y - cy) / ry;
+        if (dx * dx + dy * dy > 1.08) continue;
+        // Keep the structure above the natural surface so it reads as a
+        // floating island rather than a hill accidentally lifted into the sky.
+        if (y >= surface[x] - 6) continue;
+        const i = idx(x, y);
+        if (tiles[i] !== T.AIR) continue;
+        tiles[i] = (y <= cy - Math.max(1, ry - 1) && rand() < 0.28) ? T.GRASS : T.STONE;
+        mask[i] = 1;
+        cells++;
+      }
+    }
+    if (cells >= 12) made++;
+  }
+  return mask;
+}
+
+const ORE_HOSTS = {
+  shallow: new Set([T.STONE, T.SANDSTONE]),
+  surface: new Set([T.STONE, T.SANDSTONE, T.DIRT]),
+  rock: new Set([T.STONE, T.DEEPSTONE]),
+  deep: new Set([T.STONE, T.DEEPSTONE, T.BLIGHTSTONE]),
+  jungle: new Set([T.STONE, T.DIRT]),
+  shadow: new Set([T.STONE, T.DEEPSTONE, T.BLIGHTSTONE]),
+};
+
+// Each spec is a placement rule rather than just a random colour. The result
+// is that the ore table remains readable in-world: depth and biome are part of
+// the progression, not merely tooltip text.
+const ORE_SPECS = [
+  { key: 'stoneiron', tile: T.STONEIRON, hosts: ORE_HOSTS.shallow, veins: 34, size: [2, 5], allow: (x, y, s, b) => y >= s[x] + 8 && y < Math.min(UNDERGROUND_Y + 8, s[x] + 40) },
+  { key: 'amber', tile: T.AMBER, hosts: ORE_HOSTS.surface, veins: 30, size: [2, 5], allow: (x, y, s, b) => (b === 'forest' || b === 'dunes') && y >= s[x] + 10 && y < Math.min(UNDERGROUND_Y + 24, s[x] + 52) },
+  { key: 'tide', tile: T.TIDE, hosts: ORE_HOSTS.rock, veins: 18, size: [2, 4], allow: (x, y, s, b, liquid, w, h) => y >= UNDERGROUND_Y - 8 && y < CAVERN_Y + 18 && nearWater(liquid, w, h, x, y, 2) },
+  { key: 'ember', tile: T.EMBER, hosts: ORE_HOSTS.deep, veins: 28, size: [2, 5], allow: (x, y) => y >= CAVERN_Y + 4 },
+  { key: 'verdant', tile: T.VERDANT, hosts: ORE_HOSTS.jungle, veins: 26, size: [2, 5], allow: (x, y, s, b) => b === 'jungle' && y >= s[x] + 12 && y < CAVERN_Y + 8 },
+  { key: 'storm', tile: T.STORM, hosts: ORE_HOSTS.shallow, veins: 12, size: [2, 4], allow: (x, y, s, b, liquid, w, h, sky) => !!sky[y * w + x] },
+  { key: 'shadowglass', tile: T.SHADOWGLASS, hosts: ORE_HOSTS.shadow, veins: 24, size: [2, 5], allow: (x, y, s, b) => b === 'corrupt' && y >= UNDERGROUND_Y + 8 },
+  { key: 'starsteel', tile: T.STARSTEEL, hosts: ORE_HOSTS.deep, veins: 16, size: [1, 3], allow: (x, y, s, b, liquid, w, h) => y >= h - BEDROCK - 34 },
+];
+
+function nearWater(liquid, w, h, x, y, radius) {
+  if (!liquid) return false;
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      if (dx * dx + dy * dy > radius * radius) continue;
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < w && ny >= 0 && ny < h && liquid[ny * w + nx] > 0) return true;
+    }
+  }
+  return false;
+}
+
+function seedOres(tiles, liquid, w, h, surface, biome, seed, skyIslands) {
+  const idx = (x, y) => y * w + x;
+  const rand = mulberry32((seed ^ 0x0fe5eed) >>> 0);
+
+  for (const spec of ORE_SPECS) {
+    const candidates = [];
+    for (let y = 1; y < h - BEDROCK; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        const i = idx(x, y);
+        if (!spec.hosts.has(tiles[i])) continue;
+        const biomeKey = BIOME_ORDER[biome.map[x]];
+        if (spec.allow(x, y, surface, biomeKey, liquid, w, h, skyIslands)) candidates.push(i);
+      }
+    }
+
+    let made = 0;
+    const maxAttempts = Math.max(spec.veins * 8, Math.min(candidates.length * 2, 2400));
+    for (let attempt = 0; attempt < maxAttempts && made < spec.veins && candidates.length; attempt++) {
+      const seedIndex = candidates[(rand() * candidates.length) | 0];
+      const sx = seedIndex % w, sy = (seedIndex / w) | 0;
+      if (!spec.hosts.has(tiles[seedIndex])) continue;
+      const count = growOreVein(tiles, w, h, sx, sy, spec, surface, biome, liquid, skyIslands, rand);
+      if (count > 0) made++;
+    }
+  }
+}
+
+function growOreVein(tiles, w, h, sx, sy, spec, surface, biome, liquid, skyIslands, rand) {
+  const idx = (x, y) => y * w + x;
+  const length = spec.size[0] + Math.floor(rand() * (spec.size[1] - spec.size[0] + 1));
+  let x = sx, y = sy, placed = 0;
+  for (let n = 0; n < length; n++) {
+    if (x < 1 || x >= w - 1 || y < 1 || y >= h - BEDROCK) break;
+    const i = idx(x, y);
+    const biomeKey = BIOME_ORDER[biome.map[x]];
+    if (spec.hosts.has(tiles[i]) && spec.allow(x, y, surface, biomeKey, liquid, w, h, skyIslands)) {
+      tiles[i] = spec.tile;
+      placed++;
+    }
+    x += rand() < 0.5 ? -1 : 1;
+    y += rand() < 0.56 ? 0 : (rand() < 0.5 ? -1 : 1);
+  }
+  return placed;
 }
 
 // A restrained underground-content pass: enough chests to reward cave routes

@@ -13,7 +13,7 @@
 // failure can be reproduced with /debugcaves in-game.
 
 import { generateWorld, BEDROCK } from '../js/world/worldgen.js';
-import { T, TILES, isSolid, isOreTile, MAX_TILE_ID } from '../js/world/tiles.js';
+import { T, TILES, isSolid, isLegacyOreTile, MAX_TILE_ID } from '../js/world/tiles.js';
 import { W, MAX_WALL_ID, hasWall } from '../js/world/walls.js';
 import { BIOME_ORDER } from '../js/world/biomes.js';
 import { UNDERGROUND_Y, CAVERN_Y, TILE, WORLD_W, WORLD_H } from '../js/config.js';
@@ -214,18 +214,18 @@ for (let s = 0; s < SEEDS; s++) {
   check(seed, 'corruption is one band', runs.corrupt === 1, `${runs.corrupt} runs`);
 
   // ---- New underground exploration content ----
-  let chests = 0, dartTraps = 0, oreTiles = 0;
+  let chests = 0, dartTraps = 0, legacyOreTiles = 0;
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const id = at(x, y);
       if (id === T.LOOT_CHEST) chests++;
       if (id === T.POISON_DART_TRAP_LEFT || id === T.POISON_DART_TRAP_RIGHT) dartTraps++;
-      if (isOreTile(id)) oreTiles++;
+      if (isLegacyOreTile(id)) legacyOreTiles++;
     }
   }
   check(seed, 'cave chests generate', chests >= 8, `${chests} chests`);
   check(seed, 'poison dart traps generate', dartTraps >= 10, `${dartTraps} traps`);
-  check(seed, 'ores are removed', oreTiles === 0, `${oreTiles} ore tiles`);
+  check(seed, 'retired ore tiles stay absent', legacyOreTiles === 0, `${legacyOreTiles} retired ore tiles`);
 
   // ---- Caves exist, and some of them reach the surface ----
   let caveTiles = 0, undergroundTiles = 0;
@@ -329,30 +329,58 @@ for (let s = 0; s < SEEDS; s++) {
   }
   check(seed, 'surface layer has no wall', shallowWalls === 0, `${shallowWalls} walled tiles in the top 3 rows`);
 
-  // ---- Ore tiles remain absent from every generated world ----
-  const oreCount = { cuprite: 0, ironvein: 0, glimmer: 0, aetherite: 0, blightore: 0 };
-  let glimmerTooHigh = 0, blightOutsideCorruption = 0;
+  // ---- Pre-Hardmode ore table ----
+  const oreCount = {
+    stoneiron: 0, amber: 0, tide: 0, ember: 0,
+    verdant: 0, storm: 0, shadowglass: 0, starsteel: 0,
+  };
+  const oreTiles = new Set([
+    T.STONEIRON, T.AMBER, T.TIDE, T.EMBER,
+    T.VERDANT, T.STORM, T.SHADOWGLASS, T.STARSTEEL,
+  ]);
+  const oreNames = new Map([
+    [T.STONEIRON, 'stoneiron'], [T.AMBER, 'amber'], [T.TIDE, 'tide'], [T.EMBER, 'ember'],
+    [T.VERDANT, 'verdant'], [T.STORM, 'storm'], [T.SHADOWGLASS, 'shadowglass'], [T.STARSTEEL, 'starsteel'],
+  ]);
+  const oreRuleViolations = Object.fromEntries(Object.keys(oreCount).map(k => [k, 0]));
   for (let x = 0; x < width; x++) {
     for (let y = 0; y < height; y++) {
       const id = at(x, y);
-      if (id === T.CUPRITE) oreCount.cuprite++;
-      else if (id === T.IRONVEIN) oreCount.ironvein++;
-      else if (id === T.GLIMMER) { oreCount.glimmer++; if (y < UNDERGROUND_Y) glimmerTooHigh++; }
-      else if (id === T.AETHERITE) oreCount.aetherite++;
-      else if (id === T.BLIGHTORE) {
-        oreCount.blightore++;
-        if (y < UNDERGROUND_Y) blightOutsideCorruption++;
-      }
+      if (!oreTiles.has(id)) continue;
+      const name = oreNames.get(id);
+      oreCount[name]++;
+      const biomeKey = BIOME_ORDER[biomeMap[x]];
+      const nearWater = (() => {
+        for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if (nx >= 0 && nx < width && ny >= 0 && ny < height && g.liquid[ny * width + nx] > 0) return true;
+        }
+        return false;
+      })();
+      const bad = name === 'stoneiron'
+        ? y < surface[x] + 8 || y >= Math.min(UNDERGROUND_Y + 8, surface[x] + 40)
+        : name === 'amber'
+          ? !['forest', 'dunes'].includes(biomeKey) || y < surface[x] + 10
+          : name === 'tide'
+            ? !nearWater || y < UNDERGROUND_Y - 8 || y >= CAVERN_Y + 18
+            : name === 'ember'
+              ? y < CAVERN_Y + 4
+              : name === 'verdant'
+                ? biomeKey !== 'jungle'
+                : name === 'storm'
+                  ? y >= surface[x] - 6
+                  : name === 'shadowglass'
+                    ? biomeKey !== 'corrupt' || y < UNDERGROUND_Y + 8
+                    : y < height - BEDROCK - 34;
+      if (bad) oreRuleViolations[name]++;
     }
   }
   for (const k in oreCount) stats.ore[k] = (stats.ore[k] || []).concat(oreCount[k]);
-  check(seed, 'cuprite remains removed', oreCount.cuprite === 0, `${oreCount.cuprite} tiles`);
-  check(seed, 'ironvein remains removed', oreCount.ironvein === 0, `${oreCount.ironvein} tiles`);
-  check(seed, 'glimmer remains removed', oreCount.glimmer === 0, `${oreCount.glimmer} tiles`);
-  check(seed, 'aetherite remains removed', oreCount.aetherite === 0, `${oreCount.aetherite} tiles`);
-  check(seed, 'blightore remains removed', oreCount.blightore === 0, `${oreCount.blightore} tiles`);
-  check(seed, 'glimmer stays deep', glimmerTooHigh === 0, `${glimmerTooHigh} above the underground line`);
-  check(seed, 'blightore stays deep', blightOutsideCorruption === 0, `${blightOutsideCorruption} above the underground line`);
+  for (const [name, count] of Object.entries(oreCount)) {
+    check(seed, `${name} generates`, count > 0, 'no ore tiles');
+    check(seed, `${name} placement rule`, oreRuleViolations[name] === 0,
+      `${oreRuleViolations[name]} tiles outside its biome/depth rule`);
+  }
 
   // ---- Trees are rooted and their leaves are supported ----
   //

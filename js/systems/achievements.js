@@ -8,8 +8,8 @@
 // no check at all when it is fired by an explicit event (`unlock(id)` from the
 // place that knows it happened). Polling is deliberately throttled — none of
 // these need to be noticed the same frame they become true.
-import { item as getItem } from '../data/items.js?v=first-world-no-ore-boss-1';
-import { UNDERGROUND_Y, CAVERN_Y, TILE } from '../config.js?v=first-world-no-ore-boss-1';
+import { item as getItem } from '../data/items.js?v=prehardmode-ores-1';
+import { UNDERGROUND_Y, CAVERN_Y, TILE } from '../config.js?v=prehardmode-ores-1';
 
 const POLL_INTERVAL = 1.0;
 
@@ -30,9 +30,9 @@ export const ACHIEVEMENTS = [
   { id: 'bedrock', name: 'Bottom of the World', desc: 'Reach the deepest stone.', icon: '⬇',
     group: 'Exploration',
     check: (g) => g.localPlayer && g.localPlayer.y / TILE >= g.world.height - 12 },
-  { id: 'allBiomes', name: 'Wayfarer', desc: 'Visit all five surface biomes.', icon: '🧭',
+  { id: 'allBiomes', name: 'Wayfarer', desc: 'Visit all six surface biomes.', icon: '🧭',
     group: 'Exploration',
-    check: (g, st) => ['dunes', 'forest', 'frostpine', 'snowyTaiga', 'corrupt'].every(b => st.biomes[b]) },
+    check: (g, st) => ['dunes', 'forest', 'jungle', 'frostpine', 'snowyTaiga', 'corrupt'].every(b => st.biomes[b]) },
   { id: 'swim', name: 'Out of Your Depth', desc: 'Go for a swim.', icon: '🌊',
     group: 'Exploration',
     check: (g) => g.localPlayer && g.localPlayer.submerged },

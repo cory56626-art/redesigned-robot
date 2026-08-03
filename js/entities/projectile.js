@@ -1,6 +1,6 @@
 // Summoner Realms — projectiles for ranged/mage weapons, minions, enemies, bosses.
-import { GRAVITY, TILE } from '../config.js?v=first-world-no-ore-boss-1';
-import { aabb, dist2 } from '../utils.js?v=first-world-no-ore-boss-1';
+import { GRAVITY, TILE } from '../config.js?v=prehardmode-ores-1';
+import { aabb, dist2 } from '../utils.js?v=prehardmode-ores-1';
 
 export class Projectile {
   constructor(opts) {

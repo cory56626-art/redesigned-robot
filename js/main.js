@@ -2,50 +2,50 @@
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty, ZOOM_DEFAULT, REACH,
-} from './config.js?v=first-world-no-ore-boss-1';
-import { hashString, mulberry32, dist2, uid } from './utils.js?v=first-world-no-ore-boss-1';
-import { World } from './world/world.js?v=first-world-no-ore-boss-1';
-import { T, tileDef } from './world/tiles.js?v=first-world-no-ore-boss-1';
-import { Sprites } from './art/sprites.js?v=first-world-no-ore-boss-1';
-import { Camera } from './engine/camera.js?v=first-world-no-ore-boss-1';
-import { Input } from './engine/input.js?v=first-world-no-ore-boss-1';
-import { AudioManager } from './engine/audio.js?v=first-world-no-ore-boss-1';
-import { Renderer } from './engine/renderer.js?v=first-world-no-ore-boss-1';
-import { Fx } from './engine/fx.js?v=first-world-no-ore-boss-1';
-import { DayNight } from './systems/daynight.js?v=first-world-no-ore-boss-1';
-import { Weather } from './systems/weather.js?v=first-world-no-ore-boss-1';
-import { Spawner } from './systems/spawner.js?v=first-world-no-ore-boss-1';
-import { Progression } from './systems/progression.js?v=first-world-no-ore-boss-1';
-import { starterInventory } from './systems/inventory.js?v=first-world-no-ore-boss-1';
-import * as craftSys from './systems/crafting.js?v=first-world-no-ore-boss-1';
-import { applyPotion } from './systems/combat.js?v=first-world-no-ore-boss-1';
-import * as fishing from './systems/fishing.js?v=first-world-no-ore-boss-1';
-import { Critter } from './entities/critter.js?v=first-world-no-ore-boss-1';
-import { FAUNA } from './data/fauna.js?v=first-world-no-ore-boss-1';
-import { smartTarget } from './systems/smartcursor.js?v=first-world-no-ore-boss-1';
-import { Player, assignColor } from './entities/player.js?v=first-world-no-ore-boss-1';
-import { Enemy } from './entities/enemy.js?v=first-world-no-ore-boss-1';
-import { Boss } from './entities/boss.js?v=first-world-no-ore-boss-1';
-import { Minion } from './entities/minion.js?v=first-world-no-ore-boss-1';
-import { Npc } from './entities/npc.js?v=first-world-no-ore-boss-1';
-import { Projectile } from './entities/projectile.js?v=first-world-no-ore-boss-1';
-import { DropItem } from './entities/droppeditem.js?v=first-world-no-ore-boss-1';
-import { FallingTree } from './entities/fallingtree.js?v=first-world-no-ore-boss-1';
-import { ThrownItem } from './entities/thrown.js?v=first-world-no-ore-boss-1';
-import { ENEMIES } from './data/enemies.js?v=first-world-no-ore-boss-1';
-import { BOSSES } from './data/bosses.js?v=first-world-no-ore-boss-1';
-import { item as getItem, isItemEnabled } from './data/items.js?v=first-world-no-ore-boss-1';
-import { HUD } from './ui/hud.js?v=first-world-no-ore-boss-1';
-import { Minimap } from './ui/minimap.js?v=first-world-no-ore-boss-1';
-import { Menus } from './ui/menus.js?v=first-world-no-ore-boss-1';
-import { NpcDialog } from './ui/npcdialog.js?v=first-world-no-ore-boss-1';
-import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=first-world-no-ore-boss-1';
-import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=first-world-no-ore-boss-1';
-import { Achievements, craftAchievement } from './systems/achievements.js?v=first-world-no-ore-boss-1';
-import { CommandConsole } from './commands.js?v=first-world-no-ore-boss-1';
-import { Net } from './net/net.js?v=first-world-no-ore-boss-1';
-import { MSG } from './net/protocol.js?v=first-world-no-ore-boss-1';
-import * as sync from './net/sync.js?v=first-world-no-ore-boss-1';
+} from './config.js?v=prehardmode-ores-1';
+import { hashString, mulberry32, dist2, uid } from './utils.js?v=prehardmode-ores-1';
+import { World } from './world/world.js?v=prehardmode-ores-1';
+import { T, tileDef } from './world/tiles.js?v=prehardmode-ores-1';
+import { Sprites } from './art/sprites.js?v=prehardmode-ores-1';
+import { Camera } from './engine/camera.js?v=prehardmode-ores-1';
+import { Input } from './engine/input.js?v=prehardmode-ores-1';
+import { AudioManager } from './engine/audio.js?v=prehardmode-ores-1';
+import { Renderer } from './engine/renderer.js?v=prehardmode-ores-1';
+import { Fx } from './engine/fx.js?v=prehardmode-ores-1';
+import { DayNight } from './systems/daynight.js?v=prehardmode-ores-1';
+import { Weather } from './systems/weather.js?v=prehardmode-ores-1';
+import { Spawner } from './systems/spawner.js?v=prehardmode-ores-1';
+import { Progression } from './systems/progression.js?v=prehardmode-ores-1';
+import { starterInventory } from './systems/inventory.js?v=prehardmode-ores-1';
+import * as craftSys from './systems/crafting.js?v=prehardmode-ores-1';
+import { applyPotion } from './systems/combat.js?v=prehardmode-ores-1';
+import * as fishing from './systems/fishing.js?v=prehardmode-ores-1';
+import { Critter } from './entities/critter.js?v=prehardmode-ores-1';
+import { FAUNA } from './data/fauna.js?v=prehardmode-ores-1';
+import { smartTarget } from './systems/smartcursor.js?v=prehardmode-ores-1';
+import { Player, assignColor } from './entities/player.js?v=prehardmode-ores-1';
+import { Enemy } from './entities/enemy.js?v=prehardmode-ores-1';
+import { Boss } from './entities/boss.js?v=prehardmode-ores-1';
+import { Minion } from './entities/minion.js?v=prehardmode-ores-1';
+import { Npc } from './entities/npc.js?v=prehardmode-ores-1';
+import { Projectile } from './entities/projectile.js?v=prehardmode-ores-1';
+import { DropItem } from './entities/droppeditem.js?v=prehardmode-ores-1';
+import { FallingTree } from './entities/fallingtree.js?v=prehardmode-ores-1';
+import { ThrownItem } from './entities/thrown.js?v=prehardmode-ores-1';
+import { ENEMIES } from './data/enemies.js?v=prehardmode-ores-1';
+import { BOSSES } from './data/bosses.js?v=prehardmode-ores-1';
+import { item as getItem, isItemEnabled } from './data/items.js?v=prehardmode-ores-1';
+import { HUD } from './ui/hud.js?v=prehardmode-ores-1';
+import { Minimap } from './ui/minimap.js?v=prehardmode-ores-1';
+import { Menus } from './ui/menus.js?v=prehardmode-ores-1';
+import { NpcDialog } from './ui/npcdialog.js?v=prehardmode-ores-1';
+import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=prehardmode-ores-1';
+import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=prehardmode-ores-1';
+import { Achievements, craftAchievement } from './systems/achievements.js?v=prehardmode-ores-1';
+import { CommandConsole } from './commands.js?v=prehardmode-ores-1';
+import { Net } from './net/net.js?v=prehardmode-ores-1';
+import { MSG } from './net/protocol.js?v=prehardmode-ores-1';
+import * as sync from './net/sync.js?v=prehardmode-ores-1';
 
 class Game {
   constructor() {
@@ -1249,7 +1249,14 @@ class Game {
     else this.net.toHost({ t: MSG.CMD, cmd: 'spawnboss', args: { key } });
     this.toast('The ground trembles…', 'info');
   }
-  biomeLabel(b) { return b === 'forest' ? 'Forest' : b === 'corrupt' ? 'Corrupted Lands' : 'Underground'; }
+  biomeLabel(b) {
+    return b === 'forest' ? 'Forest'
+      : b === 'jungle' ? 'Verdant Jungle'
+        : b === 'dunes' ? 'Sunken Dunes'
+          : b === 'frostpine' ? 'Frostpine Hollow'
+            : b === 'snowyTaiga' ? 'Snowy Taiga'
+              : b === 'corrupt' ? 'Corrupted Lands' : 'Underground';
+  }
 
   onEnemyDeath(e) {
     if (!this.isHost) return;

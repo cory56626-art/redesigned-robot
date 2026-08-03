@@ -56,12 +56,27 @@ export const T = {
   LOOT_CHEST: 44,
   POISON_DART_TRAP_LEFT: 45,
   POISON_DART_TRAP_RIGHT: 46,
+  // --- Pre-Hardmode ore pass ---
+  STONEIRON: 47,
+  AMBER: 48,
+  TIDE: 49,
+  EMBER: 50,
+  VERDANT: 51,
+  STORM: 52,
+  SHADOWGLASS: 53,
+  STARSTEEL: 54,
 };
 
-// Kept as numeric IDs so old saves remain readable, but never generated,
-// rendered, mined, or accepted from a saved diff in the first-world build.
-export const ORE_TILE_IDS = new Set([
+// The old ore IDs stay reserved so saves from the short-lived pre-reset build
+// remain readable. They are not part of the new progression and resolve to air
+// when an old diff tries to reintroduce them.
+export const LEGACY_ORE_TILE_IDS = new Set([
   T.CUPRITE, T.IRONVEIN, T.GLIMMER, T.AETHERITE, T.BLIGHTORE, T.GLACIERITE,
+]);
+
+export const ORE_TILE_IDS = new Set([
+  T.STONEIRON, T.AMBER, T.TIDE, T.EMBER,
+  T.VERDANT, T.STORM, T.SHADOWGLASS, T.STARSTEEL,
 ]);
 
 // Each entry: name, solid, color (fallback), hardness, minPower, drop item id,
@@ -95,6 +110,17 @@ export const TILES = {
   [T.ALTAR]:      { name: 'Aether Altar', solid: false, color: '#5a7abf', hardness: 40, minPower: 0, drop: 'aetherAltar', station: 'altar', light: 0.5, decor: true, blastResist: 0 },
   [T.PLANKS]:     { name: 'Oaken Planks', solid: true, color: '#a67c46', hardness: 24, minPower: 0, drop: 'planks', mat: 'planks', blastResist: 1 },
   [T.STONEBRICK]: { name: 'Stone Brick', solid: true, color: '#7c8296', hardness: 50, minPower: 1, drop: 'stoneBrick', toolType: 'pickaxe', mat: 'stonebrick', blastResist: 1 },
+
+  // Pre-Hardmode ores. They share their host rock's framing material so veins
+  // read as embedded crystal/metal rather than as floating coloured squares.
+  [T.STONEIRON]: { name: 'Stoneiron Ore', solid: true, color: '#707b86', hardness: 68, minPower: 1, drop: 'stoneironOre', toolType: 'pickaxe', mat: 'stone', ore: true, blastResist: 1 },
+  [T.AMBER]:     { name: 'Amber Ore', solid: true, color: '#9b6a32', hardness: 78, minPower: 2, drop: 'amberOre', toolType: 'pickaxe', mat: 'stone', ore: true, blastResist: 1 },
+  [T.TIDE]:      { name: 'Tide Ore', solid: true, color: '#2e647d', hardness: 90, minPower: 3, drop: 'tideOre', toolType: 'pickaxe', mat: 'stone', ore: true, blastResist: 1 },
+  [T.EMBER]:     { name: 'Ember Ore', solid: true, color: '#713528', hardness: 104, minPower: 4, drop: 'emberOre', toolType: 'pickaxe', mat: 'deepstone', ore: true, blastResist: 2 },
+  [T.VERDANT]:   { name: 'Verdant Ore', solid: true, color: '#3d633e', hardness: 118, minPower: 5, drop: 'verdantOre', toolType: 'pickaxe', mat: 'stone', ore: true, blastResist: 2 },
+  [T.STORM]:     { name: 'Storm Ore', solid: true, color: '#746d31', hardness: 132, minPower: 6, drop: 'stormOre', toolType: 'pickaxe', mat: 'stone', ore: true, blastResist: 2 },
+  [T.SHADOWGLASS]: { name: 'Shadowglass Ore', solid: true, color: '#292039', hardness: 148, minPower: 7, drop: 'shadowglassOre', toolType: 'pickaxe', mat: 'deepstone', ore: true, blastResist: 2 },
+  [T.STARSTEEL]: { name: 'Starsteel Ore', solid: true, color: '#748da6', hardness: 168, minPower: 8, drop: 'starsteelOre', toolType: 'pickaxe', mat: 'deepstone', ore: true, blastResist: 3 },
 
   [T.SNOW]:       { name: 'Snowpack', solid: true, color: '#dfe8f4', hardness: 24, minPower: 0, drop: 'snow', mat: 'snow', blastResist: 0 },
   [T.ICE]:        { name: 'Rimeglass', solid: true, color: '#a8cfe4', hardness: 45, minPower: 1, drop: 'ice', toolType: 'pickaxe', mat: 'snow', blastResist: 2, slippery: true },
@@ -148,6 +174,7 @@ export function swayWeight(id) {
 }
 export function isFlora(id) { return !!(TILES[id] && TILES[id].flora); }
 export function isOreTile(id) { return ORE_TILE_IDS.has(id); }
+export function isLegacyOreTile(id) { return LEGACY_ORE_TILE_IDS.has(id); }
 // 'floor' | 'ceiling' | 'any' — which edge the plant is rooted to, and so
 // where its sway pivot sits.
 export function floraAnchor(id) { return (TILES[id] && TILES[id].anchor) || 'floor'; }

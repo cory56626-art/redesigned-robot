@@ -1,7 +1,7 @@
 // Summoner Realms — crafting recipes.
 // station: null (hand) | 'bench' | 'smeltery' | 'forge' | 'altar'
-// requiresBoss: optional progression gate (boss must be defeated to reveal).
-import { isItemEnabled } from './items.js?v=first-world-no-ore-boss-1';
+// requiresBoss: optional progression gate (unused in the boss-free reset).
+import { isItemEnabled } from './items.js?v=prehardmode-ores-1';
 
 const ALL_RECIPES = [
   // --- Hand ---
@@ -69,6 +69,14 @@ const ALL_RECIPES = [
   { out: { item: 'stickyBomb', count: 3 }, in: [{ item: 'bomb', count: 3 }, { item: 'fiber', count: 6 }, { item: 'sapling', count: 2 }], station: 'forge' },
 
   // --- Smeltery: ore -> bars ---
+  { out: { item: 'stoneironBar', count: 1 }, in: [{ item: 'stoneironOre', count: 3 }], station: 'smeltery' },
+  { out: { item: 'amberBar', count: 1 }, in: [{ item: 'amberOre', count: 3 }], station: 'smeltery' },
+  { out: { item: 'tideBar', count: 1 }, in: [{ item: 'tideOre', count: 4 }], station: 'smeltery' },
+  { out: { item: 'emberBar', count: 1 }, in: [{ item: 'emberOre', count: 4 }], station: 'smeltery' },
+  { out: { item: 'verdantBar', count: 1 }, in: [{ item: 'verdantOre', count: 5 }], station: 'smeltery' },
+  { out: { item: 'stormBar', count: 1 }, in: [{ item: 'stormOre', count: 5 }], station: 'smeltery' },
+  { out: { item: 'shadowglassBar', count: 1 }, in: [{ item: 'shadowglassOre', count: 6 }], station: 'smeltery' },
+  { out: { item: 'starsteelBar', count: 1 }, in: [{ item: 'starsteelOre', count: 7 }], station: 'smeltery' },
   { out: { item: 'cupriteBar', count: 1 }, in: [{ item: 'cupriteOre', count: 3 }], station: 'smeltery' },
   { out: { item: 'ironveinBar', count: 1 }, in: [{ item: 'ironveinOre', count: 4 }], station: 'smeltery' },
   { out: { item: 'glimmerBar', count: 1 }, in: [{ item: 'glimmerOre', count: 5 }], station: 'smeltery' },
@@ -76,8 +84,21 @@ const ALL_RECIPES = [
   { out: { item: 'glacieriteBar', count: 1 }, in: [{ item: 'glacieriteOre', count: 4 }], station: 'smeltery' },
   { out: { item: 'blightBar', count: 1 }, in: [{ item: 'blightoreOre', count: 6 }, { item: 'blightstone', count: 2 }], station: 'smeltery', requiresBoss: 'gravemaw' },
   { out: { item: 'forge', count: 1 }, in: [{ item: 'stone', count: 10 }, { item: 'cupriteBar', count: 4 }], station: 'smeltery' },
+  { out: { item: 'forge', count: 1 }, in: [{ item: 'stone', count: 16 }, { item: 'stoneironBar', count: 4 }], station: 'smeltery' },
 
   // --- Forge: metal gear ---
+  { out: { item: 'stoneironPick', count: 1 }, in: [{ item: 'stoneironBar', count: 8 }, { item: 'wood', count: 3 }], station: 'forge' },
+  { out: { item: 'amberPick', count: 1 }, in: [{ item: 'amberBar', count: 10 }, { item: 'wood', count: 3 }], station: 'forge' },
+  { out: { item: 'tidePick', count: 1 }, in: [{ item: 'tideBar', count: 12 }, { item: 'wood', count: 3 }], station: 'forge' },
+  { out: { item: 'emberPick', count: 1 }, in: [{ item: 'emberBar', count: 14 }, { item: 'wood', count: 3 }], station: 'forge' },
+  { out: { item: 'verdantPick', count: 1 }, in: [{ item: 'verdantBar', count: 16 }, { item: 'wood', count: 3 }], station: 'forge' },
+  { out: { item: 'stormPick', count: 1 }, in: [{ item: 'stormBar', count: 18 }, { item: 'wood', count: 3 }], station: 'forge' },
+  { out: { item: 'shadowglassPick', count: 1 }, in: [{ item: 'shadowglassBar', count: 20 }, { item: 'wood', count: 3 }], station: 'forge' },
+  { out: { item: 'starsteelPick', count: 1 }, in: [{ item: 'starsteelBar', count: 22 }, { item: 'wood', count: 3 }], station: 'forge' },
+  { out: { item: 'amberBow', count: 1 }, in: [{ item: 'amberBar', count: 10 }, { item: 'wood', count: 6 }, { item: 'fiber', count: 4 }], station: 'forge' },
+  { out: { item: 'tideTrident', count: 1 }, in: [{ item: 'tideBar', count: 14 }, { item: 'wood', count: 4 }], station: 'forge' },
+  { out: { item: 'emberblade', count: 1 }, in: [{ item: 'emberBar', count: 16 }, { item: 'emberDust', count: 4 }], station: 'forge' },
+  { out: { item: 'stormcaller', count: 1 }, in: [{ item: 'stormBar', count: 18 }, { item: 'emberDust', count: 6 }, { item: 'stone', count: 8 }], station: 'forge' },
   { out: { item: 'cupritePick', count: 1 }, in: [{ item: 'cupriteBar', count: 8 }], station: 'forge' },
   { out: { item: 'cupriteAxe', count: 1 }, in: [{ item: 'cupriteBar', count: 7 }, { item: 'wood', count: 2 }], station: 'forge' },
   { out: { item: 'cupriteSword', count: 1 }, in: [{ item: 'cupriteBar', count: 8 }], station: 'forge' },
@@ -146,9 +167,9 @@ const ALL_RECIPES = [
   { out: { item: 'blightIdol', count: 1 }, in: [{ item: 'marrow', count: 1 }, { item: 'blightoreOre', count: 8 }, { item: 'blightBar', count: 4 }], station: 'altar', requiresBoss: 'gravemaw' },
 ];
 
-// Only recipes reachable in the first world remain. This also removes recipes
-// that consume retired ore, bars, boss drops, or boss summon items, so no stale
-// entry can manufacture content that inventory filtering has removed.
+// Only recipes reachable in the starter and pre-Hardmode progression remain.
+// This also removes recipes that consume retired ore, bars, boss drops, or boss
+// summon items, so no stale entry can manufacture disabled content.
 export const RECIPES = ALL_RECIPES.filter((r) =>
   !r.requiresBoss && isItemEnabled(r.out.item) && r.in.every(i => isItemEnabled(i.item))
 );

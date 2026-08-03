@@ -4,7 +4,7 @@
 // Single build stamp for every cache-busted module import. Bump this once per
 // release instead of editing per-module `?build=` strings (which drifted out of
 // sync and could ship a half-updated module graph).
-export const BUILD = 'first-world-no-ore-boss-1';
+export const BUILD = 'prehardmode-ores-1';
 
 // Release identity, surfaced on the main menu and in Claude's Notes.
 export const VERSION = '4.1';
@@ -14,7 +14,7 @@ export const WORLD_DIFFICULTIES = Object.freeze([
   { key: 'normal', label: 'Normal', tier: 'Buffed baseline', hint: 'Enemies are tougher than the old baseline, but attacks stay readable.' },
   { key: 'hard', label: 'Hard', tier: 'Aggressive patterns', hint: 'Enemies hit harder and move more aggressively.' },
   { key: 'master', label: 'Master', tier: 'Punishing mastery', hint: 'Denser enemy pressure and tighter attack windows.' },
-  { key: 'masochist', label: 'Masochist', tier: 'Brutal but clearable', hint: 'The highest hostile pressure for a demanding first-world run.' },
+  { key: 'masochist', label: 'Masochist', tier: 'Brutal but clearable', hint: 'The highest hostile pressure for a demanding pre-Hardmode run.' },
 ]);
 
 export function normalizeDifficulty(value) {

@@ -4,9 +4,9 @@
 // world read as "two halves" rather than a landscape. They are now laid out as
 // seeded bands along the world with blended seams, and every band carries its
 // own terrain shaping, tile palette, wall palette, decor table and sky colours.
-import { T } from './tiles.js?v=first-world-no-ore-boss-1';
-import { W } from './walls.js?v=first-world-no-ore-boss-1';
-import { mulberry32 } from '../utils.js?v=first-world-no-ore-boss-1';
+import { T } from './tiles.js?v=prehardmode-ores-1';
+import { W } from './walls.js?v=prehardmode-ores-1';
+import { mulberry32 } from '../utils.js?v=prehardmode-ores-1';
 
 // groundCover : the undergrowth mix for this band — a chance plus a weighted
 //               list of plants. Each biome grows something different, so
@@ -42,6 +42,20 @@ export const BIOMES = {
     ] },
     treeTile: T.WOOD, leafTile: T.LEAVES, treeHeight: [5, 9], canopy: 'round',
     skyDay: ['#3a6ea5', '#8fc0e8'], skyNight: ['#0a0e22', '#1a1d3a'],
+  },
+  jungle: {
+    key: 'jungle', label: 'Verdant Jungle',
+    surface: T.GRASS, sub: T.DIRT, subDepth: [7, 12], stone: T.STONE,
+    wall: W.DIRT, subWall: W.DIRT, stoneWall: W.STONE,
+    amp: 8.5, rough: 0.62, lift: 1,
+    treeChance: 0.34, cactusChance: 0, vineChance: 0.16,
+    groundCover: { chance: 0.72, plants: [
+      { tile: T.FERN, weight: 7 },
+      { tile: T.TALLGRASS, weight: 5 },
+      { tile: T.FLOWERS, weight: 2 },
+    ] },
+    treeTile: T.WOOD, leafTile: T.LEAVES, treeHeight: [6, 11], canopy: 'round',
+    skyDay: ['#2f7b58', '#8fcf91'], skyNight: ['#071b19', '#153d32'],
   },
   frostpine: {
     key: 'frostpine', label: 'Frostpine Hollow',
@@ -92,7 +106,7 @@ export const BIOMES = {
 };
 
 // Append-only ordering keeps saved biome-map indices stable across updates.
-export const BIOME_ORDER = ['dunes', 'forest', 'frostpine', 'corrupt', 'snowyTaiga'];
+export const BIOME_ORDER = ['dunes', 'forest', 'frostpine', 'corrupt', 'snowyTaiga', 'jungle'];
 export const SURFACE_BIOMES = new Set(BIOME_ORDER);
 
 // Width of the cross-fade at every band seam, in tiles. Terrain properties are
@@ -113,6 +127,7 @@ export function buildBiomeMap(seed, width) {
   const duneW = Math.max(24, Math.round(width * 0.06));
   const frostW = Math.max(48, Math.round(width * (0.11 + rc() * 0.05)));
   const taigaW = Math.max(54, Math.round(width * (0.08 + rc() * 0.03)));
+  const jungleW = Math.max(56, Math.round(width * (0.08 + rc() * 0.025)));
   const corruptW = Math.max(56, Math.round(width * (0.13 + rc() * 0.06)));
 
   // Frostpine sits left of centre, corruption right of centre, both clear of
@@ -121,20 +136,27 @@ export function buildBiomeMap(seed, width) {
   const frostMax = Math.max(frostMin + 1, Math.floor(width * 0.40) - frostW);
   const frostStart = Math.round(frostMin + rc() * (frostMax - frostMin));
 
-  // The Taiga is a compact snow country between Frostpine and corruption. It
-  // has enough forest buffer on either side to read as its own place rather
-  // than a one-screen recolour.
-  const taigaMin = Math.max(frostStart + frostW + 42, Math.floor(width * 0.46));
+  // A dense jungle sits between Frostpine and the Taiga. It reuses the game's
+  // existing grass, trees and fern language while giving Verdant Ore a real
+  // named home instead of quietly treating every green column as a jungle.
+  const jungleMin = Math.max(frostStart + frostW + 24, Math.floor(width * 0.40));
+  const jungleMax = Math.max(jungleMin + 1, Math.floor(width * 0.52) - jungleW);
+  const jungleStart = Math.round(jungleMin + rc() * (jungleMax - jungleMin));
+
+  // The Taiga is a compact snow country after the jungle and before
+  // corruption. It has enough buffer on either side to read as its own place.
+  const taigaMin = Math.max(jungleStart + jungleW + 28, Math.floor(width * 0.52));
   const taigaMax = Math.max(taigaMin + 1, Math.floor(width * 0.66) - taigaW);
   const taigaStart = Math.round(taigaMin + rc() * (taigaMax - taigaMin));
 
-  const corruptMin = Math.max(taigaStart + taigaW + 44, Math.floor(width * 0.66));
+  const corruptMin = Math.max(taigaStart + taigaW + 38, Math.floor(width * 0.68));
   const corruptMax = Math.max(corruptMin + 1, width - duneW - corruptW - 30);
   const corruptStart = Math.round(corruptMin + rc() * (corruptMax - corruptMin));
 
   const bands = [
     { biome: 'dunes', x0: 0, x1: duneW },
     { biome: 'frostpine', x0: frostStart, x1: frostStart + frostW },
+    { biome: 'jungle', x0: jungleStart, x1: jungleStart + jungleW },
     { biome: 'snowyTaiga', x0: taigaStart, x1: taigaStart + taigaW },
     { biome: 'corrupt', x0: corruptStart, x1: corruptStart + corruptW },
     { biome: 'dunes', x0: width - duneW, x1: width },

@@ -9,9 +9,9 @@
 // top, a shadowed underside and rimmed sides. That neighbour awareness — plus
 // grass fringing down onto dirt and trunk/canopy shading — is most of what makes
 // terrain read as terrain instead of a grid of coloured squares.
-import { T, TILES, tileMat, isTree, isLeaf } from '../world/tiles.js?v=first-world-no-ore-boss-1';
-import { W, WALLS } from '../world/walls.js?v=first-world-no-ore-boss-1';
-import { mulberry32 } from '../utils.js?v=first-world-no-ore-boss-1';
+import { T, TILES, tileMat, isTree, isLeaf } from '../world/tiles.js?v=prehardmode-ores-1';
+import { W, WALLS } from '../world/walls.js?v=prehardmode-ores-1';
+import { mulberry32 } from '../utils.js?v=prehardmode-ores-1';
 
 function makeCanvas(w, h) {
   const c = document.createElement('canvas');
@@ -767,6 +767,15 @@ class SpriteBank {
       ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(13, 7); ctx.lineTo(18, 1); ctx.lineTo(17, 8); ctx.lineTo(12, 10); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#fff7ba'; ctx.beginPath(); ctx.moveTo(12, 8); ctx.lineTo(18, 1); ctx.lineTo(15, 9); ctx.closePath(); ctx.fill();
       ctx.fillStyle = col2; ctx.beginPath(); ctx.moveTo(4, 16); ctx.lineTo(8, 13); ctx.lineTo(7, 18); ctx.closePath(); ctx.fill();
+    } else if (id === 'tideTrident') {
+      ctx.strokeStyle = '#6b4c35'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(3, 18); ctx.lineTo(16, 4); ctx.stroke();
+      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(13, 7); ctx.lineTo(17, 1); ctx.moveTo(13, 7); ctx.lineTo(15, 8); ctx.moveTo(13, 7); ctx.lineTo(10, 3); ctx.stroke();
+      ctx.fillStyle = '#d8fbff'; ctx.fillRect(15, 2, 2, 2); ctx.fillRect(11, 4, 2, 2);
+    } else if (id === 'emberblade') {
+      ctx.strokeStyle = '#623523'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(3, 18); ctx.lineTo(8, 13); ctx.stroke();
+      ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(7, 14); ctx.lineTo(10, 5); ctx.lineTo(17, 2); ctx.lineTo(14, 11); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#ffd166'; ctx.beginPath(); ctx.moveTo(10, 7); ctx.lineTo(15, 3); ctx.lineTo(12, 10); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#ffec8a'; ctx.fillRect(5, 15, 2, 2);
     } else {
       ctx.fillStyle = '#5288ac'; ctx.beginPath(); ctx.moveTo(3, 17); ctx.lineTo(8, 5); ctx.lineTo(17, 2); ctx.lineTo(13, 13); ctx.lineTo(7, 18); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#d6fbff'; ctx.beginPath(); ctx.moveTo(8, 6); ctx.lineTo(16, 3); ctx.lineTo(11, 12); ctx.closePath(); ctx.fill();
@@ -802,6 +811,11 @@ class SpriteBank {
     } else if (id === 'glimmerRifle') {
       ctx.fillStyle = '#7d6a3a'; ctx.fillRect(2, 9, 16, 3); ctx.fillStyle = '#a79548'; ctx.fillRect(5, 12, 6, 3);
       ctx.fillStyle = '#fff0a6'; ctx.fillRect(7, 8, 6, 2); ctx.fillRect(15, 9, 3, 1); ctx.fillStyle = '#5b4e68'; ctx.fillRect(4, 12, 2, 5);
+    } else if (id === 'amberBow') {
+      ctx.strokeStyle = '#7b4e29'; ctx.lineWidth = 2.8; ctx.beginPath(); ctx.moveTo(7, 2); ctx.quadraticCurveTo(1, 10, 7, 18); ctx.stroke();
+      ctx.strokeStyle = '#fff3c4'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(7, 2); ctx.lineTo(7, 18); ctx.stroke();
+      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(7, 10); ctx.lineTo(17, 10); ctx.stroke();
+      ctx.fillStyle = '#fff4aa'; ctx.beginPath(); ctx.moveTo(18, 10); ctx.lineTo(14, 7); ctx.lineTo(14, 13); ctx.closePath(); ctx.fill();
     } else {
       ctx.strokeStyle = '#7dc4e8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(3, 16); ctx.lineTo(16, 4); ctx.stroke();
       ctx.fillStyle = '#dffbff'; ctx.beginPath(); ctx.moveTo(16, 2); ctx.lineTo(19, 5); ctx.lineTo(15, 6); ctx.closePath(); ctx.fill();
@@ -834,6 +848,10 @@ class SpriteBank {
       ctx.strokeStyle = '#59415f'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(6, 18); ctx.lineTo(10, 8); ctx.stroke();
       ctx.fillStyle = '#c58bff'; ctx.beginPath(); ctx.moveTo(12, 1); ctx.lineTo(17, 6); ctx.lineTo(12, 11); ctx.lineTo(7, 6); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#f5d4ff'; ctx.beginPath(); ctx.moveTo(12, 2); ctx.lineTo(15, 5); ctx.lineTo(12, 7); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#7c4eb0'; ctx.fillRect(10, 8, 4, 2);
+    } else if (id === 'stormcaller') {
+      ctx.strokeStyle = '#6d5a29'; ctx.lineWidth = 2.7; ctx.beginPath(); ctx.moveTo(6, 18); ctx.lineTo(11, 8); ctx.stroke();
+      ctx.fillStyle = '#fff06a'; ctx.beginPath(); ctx.moveTo(13, 1); ctx.lineTo(10, 7); ctx.lineTo(13, 7); ctx.lineTo(11, 12); ctx.lineTo(18, 4); ctx.lineTo(14, 5); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#fffbd0'; ctx.fillRect(12, 4, 2, 2);
     } else {
       ctx.strokeStyle = '#382947'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(5, 18); ctx.lineTo(12, 8); ctx.stroke();
       ctx.fillStyle = '#612d8f'; ctx.beginPath(); ctx.moveTo(11, 8); ctx.lineTo(13, 1); ctx.lineTo(17, 4); ctx.lineTo(15, 10); ctx.closePath(); ctx.fill();
@@ -937,8 +955,8 @@ class SpriteBank {
       ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(2, 7); ctx.lineTo(10, 4); ctx.lineTo(18, 8); ctx.stroke();
       ctx.fillStyle = '#edf2fb'; ctx.fillRect(9, 4, 2, 3); ctx.fillStyle = '#626a78'; ctx.fillRect(9, 7, 3, 2);
     } else {
-      ctx.strokeStyle = '#f4d86b'; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(2, 7); ctx.quadraticCurveTo(7, 2, 11, 6); ctx.quadraticCurveTo(15, 2, 18, 7); ctx.stroke();
-      ctx.fillStyle = '#fff6bd'; ctx.fillRect(10, 4, 2, 3); ctx.fillStyle = '#c9a64b'; ctx.fillRect(8, 7, 5, 2);
+      ctx.strokeStyle = col; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(2, 7); ctx.quadraticCurveTo(7, 2, 11, 6); ctx.quadraticCurveTo(15, 2, 18, 7); ctx.stroke();
+      ctx.fillStyle = shade(col, 0.36); ctx.fillRect(10, 4, 2, 3); ctx.fillStyle = col2; ctx.fillRect(8, 7, 5, 2);
     }
   }
   _axe(ctx, col, col2, id) {
@@ -1024,14 +1042,21 @@ class SpriteBank {
     else { ctx.fillStyle = '#4b2d66'; ctx.beginPath(); ctx.moveTo(10, 2); ctx.lineTo(17, 7); ctx.lineTo(14, 17); ctx.lineTo(6, 17); ctx.lineTo(3, 7); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#c58bff'; ctx.fillRect(8, 6, 4, 7); ctx.fillStyle = '#f0c4ff'; ctx.fillRect(9, 7, 2, 2); ctx.fillStyle = '#2d1e3d'; ctx.fillRect(3, 17, 14, 2); }
   }
   _ore(ctx, col, col2, id) {
-    const rock = id === 'blightoreOre' ? '#44304e' : id === 'aetheriteOre' ? '#5f7186' : '#6f7484';
+    const oreGem = {
+      stoneironOre: '#b9c8d4', amberOre: '#ffd166', tideOre: '#69e3ff',
+      emberOre: '#ff6a32', verdantOre: '#9be66b', stormOre: '#fff27a',
+      shadowglassOre: '#c58bff', starsteelOre: '#f2fcff',
+    }[id] || col;
+    const rock = id === 'blightoreOre' || id === 'shadowglassOre' ? '#44304e'
+      : id === 'aetheriteOre' || id === 'tideOre' || id === 'starsteelOre' ? '#5f7186'
+        : id === 'emberOre' ? '#512b2c' : id === 'verdantOre' ? '#304b35' : '#6f7484';
     ctx.fillStyle = rock;
     if (id === 'cupriteOre') { ctx.beginPath(); ctx.moveTo(3, 13); ctx.lineTo(7, 5); ctx.lineTo(15, 6); ctx.lineTo(17, 13); ctx.lineTo(11, 17); ctx.lineTo(5, 16); ctx.closePath(); ctx.fill(); [[7,8],[11,7],[12,12],[6,13]].forEach(([x,y])=>{ctx.fillStyle='#de8550';ctx.fillRect(x,y,3,3);ctx.fillStyle='#ffd090';ctx.fillRect(x,y,1,1);}); }
     else if (id === 'ironveinOre') { ctx.beginPath(); ctx.moveTo(4, 15); ctx.lineTo(5, 7); ctx.lineTo(11, 4); ctx.lineTo(16, 8); ctx.lineTo(15, 15); ctx.lineTo(9, 17); ctx.closePath(); ctx.fill(); [[7,8],[11,7],[9,12],[13,13]].forEach(([x,y])=>{ctx.fillStyle='#c8d0dc';ctx.fillRect(x,y,3,2);ctx.fillStyle='#f1f5fb';ctx.fillRect(x,y,1,1);}); }
     else if (id === 'glimmerOre') { ctx.beginPath(); ctx.moveTo(3, 12); ctx.lineTo(8, 4); ctx.lineTo(16, 7); ctx.lineTo(17, 14); ctx.lineTo(9, 17); ctx.closePath(); ctx.fill(); [[8,7],[12,8],[7,12],[13,13]].forEach(([x,y])=>{ctx.fillStyle='#ffe27b';ctx.fillRect(x,y,3,3);ctx.fillStyle='#fff9c8';ctx.fillRect(x,y,1,1);}); }
     else if (id === 'glacieriteOre') { ctx.beginPath();ctx.moveTo(3,13);ctx.lineTo(6,6);ctx.lineTo(12,4);ctx.lineTo(17,9);ctx.lineTo(15,15);ctx.lineTo(8,17);ctx.closePath();ctx.fill();ctx.fillStyle='#6ecce8';ctx.beginPath();ctx.moveTo(7,7);ctx.lineTo(11,5);ctx.lineTo(10,12);ctx.lineTo(6,13);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(13,9);ctx.lineTo(16,10);ctx.lineTo(13,15);ctx.lineTo(11,13);ctx.closePath();ctx.fill();ctx.fillStyle='#e8ffff';ctx.fillRect(8,7,2,3);ctx.fillRect(13,10,1,3); }
     else if (id === 'aetheriteOre') { ctx.beginPath(); ctx.moveTo(3, 12); ctx.lineTo(8, 4); ctx.lineTo(15, 6); ctx.lineTo(17, 14); ctx.lineTo(9, 17); ctx.closePath(); ctx.fill(); ctx.fillStyle='#91e5ff';ctx.beginPath();ctx.moveTo(9,5);ctx.lineTo(12,9);ctx.lineTo(10,14);ctx.lineTo(6,12);ctx.closePath();ctx.fill();ctx.fillStyle='#e4feff';ctx.fillRect(9,7,2,4);ctx.fillRect(13,11,2,2); }
-    else { ctx.beginPath(); ctx.moveTo(3, 12); ctx.lineTo(8, 4); ctx.lineTo(16, 7); ctx.lineTo(17, 14); ctx.lineTo(9, 17); ctx.closePath(); ctx.fill(); ctx.fillStyle='#c889f4';ctx.beginPath();ctx.moveTo(9,6);ctx.lineTo(14,9);ctx.lineTo(12,14);ctx.lineTo(7,12);ctx.closePath();ctx.fill();ctx.fillStyle='#f0c4ff';ctx.fillRect(9,8,2,2);ctx.fillRect(12,11,2,2); }
+    else { ctx.beginPath(); ctx.moveTo(3, 12); ctx.lineTo(8, 4); ctx.lineTo(16, 7); ctx.lineTo(17, 14); ctx.lineTo(9, 17); ctx.closePath(); ctx.fill(); ctx.fillStyle=oreGem;ctx.beginPath();ctx.moveTo(9,6);ctx.lineTo(14,9);ctx.lineTo(12,14);ctx.lineTo(7,12);ctx.closePath();ctx.fill();ctx.fillStyle=shade(oreGem, 0.34);ctx.fillRect(9,8,2,2);ctx.fillRect(12,11,2,2); }
   }
   _bar(ctx, col, col2, id) {
     if (id === 'cupriteBar') { ctx.fillStyle='#9c4d31';ctx.beginPath();ctx.moveTo(3,12);ctx.lineTo(6,8);ctx.lineTo(16,8);ctx.lineTo(18,13);ctx.lineTo(15,15);ctx.lineTo(5,15);ctx.closePath();ctx.fill();ctx.fillStyle='#e89a66';ctx.fillRect(6,9,10,3);ctx.fillStyle='#ffd39d';ctx.fillRect(7,9,7,1); }
@@ -1039,7 +1064,7 @@ class SpriteBank {
     else if (id === 'glimmerBar') { ctx.fillStyle='#a88338';ctx.beginPath();ctx.moveTo(3,13);ctx.lineTo(7,8);ctx.lineTo(15,8);ctx.lineTo(18,13);ctx.lineTo(15,15);ctx.lineTo(5,15);ctx.closePath();ctx.fill();ctx.fillStyle='#ffe79b';ctx.fillRect(7,9,8,3);ctx.fillStyle='#fff8d0';ctx.fillRect(8,9,5,1);ctx.fillStyle='#d2a946';ctx.fillRect(6,12,10,1); }
     else if (id === 'glacieriteBar') { ctx.fillStyle='#477c91';ctx.beginPath();ctx.moveTo(3,13);ctx.lineTo(7,8);ctx.lineTo(15,8);ctx.lineTo(18,13);ctx.lineTo(15,15);ctx.lineTo(5,15);ctx.closePath();ctx.fill();ctx.fillStyle='#9eeaff';ctx.fillRect(7,9,8,3);ctx.fillStyle='#e9ffff';ctx.fillRect(8,9,5,1);ctx.fillStyle='#62bad7';ctx.fillRect(6,12,10,1);ctx.fillStyle='#d8fbff';ctx.fillRect(13,10,1,1); }
     else if (id === 'aetheriteBar') { ctx.fillStyle='#4e829c';ctx.beginPath();ctx.moveTo(3,13);ctx.lineTo(7,8);ctx.lineTo(15,8);ctx.lineTo(18,13);ctx.lineTo(15,15);ctx.lineTo(5,15);ctx.closePath();ctx.fill();ctx.fillStyle='#a9edff';ctx.fillRect(7,9,8,3);ctx.fillStyle='#e6fcff';ctx.fillRect(8,9,5,1);ctx.fillStyle='#66b8db';ctx.fillRect(10,12,2,1); }
-    else { ctx.fillStyle='#5d3673';ctx.beginPath();ctx.moveTo(3,13);ctx.lineTo(7,8);ctx.lineTo(15,8);ctx.lineTo(18,13);ctx.lineTo(15,15);ctx.lineTo(5,15);ctx.closePath();ctx.fill();ctx.fillStyle='#b87be8';ctx.fillRect(7,9,8,3);ctx.fillStyle='#f1c9ff';ctx.fillRect(8,9,5,1);ctx.fillStyle='#7e4aa3';ctx.fillRect(9,12,4,1); }
+    else { const barGem = ({ stoneironBar: '#c5d0d8', amberBar: '#ffd36a', tideBar: '#9cecff', emberBar: '#ff9a55', verdantBar: '#a6e27d', stormBar: '#fff3a0', shadowglassBar: '#d4a4ff', starsteelBar: '#ffffff' }[id] || col); ctx.fillStyle=shade(barGem, -0.42);ctx.beginPath();ctx.moveTo(3,13);ctx.lineTo(7,8);ctx.lineTo(15,8);ctx.lineTo(18,13);ctx.lineTo(15,15);ctx.lineTo(5,15);ctx.closePath();ctx.fill();ctx.fillStyle=barGem;ctx.fillRect(7,9,8,3);ctx.fillStyle=shade(barGem, 0.35);ctx.fillRect(8,9,5,1);ctx.fillStyle=shade(barGem, -0.2);ctx.fillRect(9,12,4,1); }
   }
   _nugget(ctx, col, col2, id, kind) {
     if (id === 'fiber') { ctx.strokeStyle='#557c35';ctx.lineWidth=2;ctx.lineCap='round';for(const [x,y] of [[5,16],[8,17],[11,16],[14,17]]){ctx.beginPath();ctx.moveTo(x,y);ctx.quadraticCurveTo(x-2,9,x+2,4);ctx.stroke();}ctx.strokeStyle='#b9dc74';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(9,17);ctx.quadraticCurveTo(10,10,13,5);ctx.stroke();return; }
@@ -1056,6 +1081,14 @@ const ORE_GEM = {
   [T.AETHERITE]: '#8ad9ff',
   [T.BLIGHTORE]: '#c58bff',
   [T.GLACIERITE]: '#72d4ee',
+  [T.STONEIRON]: '#b9c8d4',
+  [T.AMBER]: '#ffd166',
+  [T.TIDE]: '#69e3ff',
+  [T.EMBER]: '#ff6a32',
+  [T.VERDANT]: '#9be66b',
+  [T.STORM]: '#fff27a',
+  [T.SHADOWGLASS]: '#c58bff',
+  [T.STARSTEEL]: '#f2fcff',
 };
 
 // Neighbour mask for framing. Two tiles merge when they share a `mat` group, so

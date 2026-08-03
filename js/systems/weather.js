@@ -11,8 +11,8 @@
 import {
   WIND_MIN_INTERVAL, WIND_MAX_INTERVAL, WIND_SHIFT_TIME,
   WIND_GUST_RATE, WIND_GUST_AMOUNT, WIND_DEPTH_FADE, TILE,
-} from '../config.js?v=first-world-no-ore-boss-1';
-import { mulberry32, clamp, lerp, smoothstep } from '../utils.js?v=first-world-no-ore-boss-1';
+} from '../config.js?v=prehardmode-ores-1';
+import { mulberry32, clamp, lerp, smoothstep } from '../utils.js?v=prehardmode-ores-1';
 
 // Named bands for the HUD readout, from the absolute wind strength.
 const BANDS = [

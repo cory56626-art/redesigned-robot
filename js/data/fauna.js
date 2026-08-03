@@ -26,13 +26,13 @@ export const FAUNA = {
   },
   sheep: {
     key: 'sheep', name: 'Cloudback Sheep', kind: 'critter', hp: 26, behavior: 'grazer',
-    biomes: ['forest', 'frostpine'], time: 'any', speed: 26, w: 22, h: 17,
+    biomes: ['forest', 'jungle', 'frostpine'], time: 'any', speed: 26, w: 22, h: 17,
     color: '#f2efe6', color2: '#c9c2b2', skittish: 6,
     drops: [{ item: 'rawMutton', chance: 1, min: 1, max: 1 }, { item: 'wool', chance: 1, min: 1, max: 3 }],
   },
   rabbit: {
     key: 'rabbit', name: 'Thicket Rabbit', kind: 'critter', hp: 8, behavior: 'hopper',
-    biomes: ['forest', 'frostpine'], time: 'any', speed: 62, w: 12, h: 10,
+    biomes: ['forest', 'jungle', 'frostpine'], time: 'any', speed: 62, w: 12, h: 10,
     color: '#c8b9a4', color2: '#8e8172', skittish: 9,
     drops: [{ item: 'rawGame', chance: 1, min: 1, max: 1 }, { item: 'leather', chance: 0.3, min: 1, max: 1 }],
   },
@@ -58,7 +58,7 @@ export const FAUNA = {
   },
   worm: {
     key: 'worm', name: 'Loam Worm', kind: 'bug', bait: 1, behavior: 'grazer',
-    biomes: ['forest', 'frostpine'], time: 'any', speed: 10, w: 8, h: 4,
+    biomes: ['forest', 'jungle', 'frostpine'], time: 'any', speed: 10, w: 8, h: 4,
     color: '#c98b7a', color2: '#9a6558', skittish: 4,
     catchItem: 'worm',
   },
@@ -76,7 +76,7 @@ export const FAUNA = {
   },
   firefly: {
     key: 'firefly', name: 'Emberfly', kind: 'bug', bait: 3, behavior: 'flutter',
-    biomes: ['forest', 'frostpine'], time: 'night', speed: 40, w: 6, h: 6,
+    biomes: ['forest', 'jungle', 'frostpine'], time: 'night', speed: 40, w: 6, h: 6,
     color: '#ffe9a0', color2: '#ffb347', light: 0.35, skittish: 6,
     catchItem: 'firefly',
   },

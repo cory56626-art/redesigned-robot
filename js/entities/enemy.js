@@ -3,12 +3,12 @@
 // Each enemy runs the same loop: perceive (do I know where the player is?),
 // decide (idle / approach / attack / retreat), then act. Perception, pathing and
 // steering live in systems/ai.js so every creature reasons the same way.
-import { TILE, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=first-world-no-ore-boss-1';
-import { ENEMIES } from '../data/enemies.js?v=first-world-no-ore-boss-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=first-world-no-ore-boss-1';
-import { aabb } from '../utils.js?v=first-world-no-ore-boss-1';
-import { Projectile } from './projectile.js?v=first-world-no-ore-boss-1';
-import * as AI from '../systems/ai.js?v=first-world-no-ore-boss-1';
+import { TILE, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=prehardmode-ores-1';
+import { ENEMIES } from '../data/enemies.js?v=prehardmode-ores-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=prehardmode-ores-1';
+import { aabb } from '../utils.js?v=prehardmode-ores-1';
+import { Projectile } from './projectile.js?v=prehardmode-ores-1';
+import * as AI from '../systems/ai.js?v=prehardmode-ores-1';
 
 export class Enemy {
   constructor(key, x, y, netId, difficulty = 'normal') {

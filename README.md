@@ -8,7 +8,7 @@ game assets, sprites, music, or designs are used or copied.
 Explore a procedurally generated world of layered biomes, winding wall-backed
 caves and flowing water; mine, build and sculpt terrain; fish, farm wildlife and
 craft progressively stronger gear across four combat classes; summon minions and
-fight three phased bosses — solo or in **real peer-to-peer co-op** that works
+survive the pre-Hardmode realm — solo or in **real peer-to-peer co-op** that works
 between PC and mobile.
 
 ![vertical slice](https://img.shields.io/badge/status-playable%20demo-7ee0c0)
@@ -57,19 +57,21 @@ deployment → GitHub Actions**, and your live URL will appear after the first r
 ## How to play
 
 Click **New World**, pick a seed (or leave it blank for random), and start
-gathering. Your goal: gather first-world materials, craft basic gear, survive
-hostile wildlife, and build a safe realm.
+gathering. Your goal: gather first-world materials, climb the eight pre-Hardmode
+ore tiers, survive hostile wildlife, and build a safe realm.
 
 **First-world path**
 
 1. Chop **Oakenwood**, gather **Plant Fiber**, and mine **Stone**. Place a
    **Crafting Bench** (it's in your bag) to unlock recipes.
-2. Craft a **Smeltery** for basic recipes, then build first-world gear,
-   torches, food, and shelter.
-3. Explore the biomes and caves, fight hostile wildlife, and keep building.
+2. Craft a **Smeltery**, mine **Stoneiron**, and smelt it into bars. Build a
+   **Forge**, then make the next pickaxe before hunting the next tier.
+3. Explore the biomes and caves: Amber in forests/deserts, Tide by underground
+   lakes, Verdant in the Jungle, Storm in sky islands, Shadowglass in corruption,
+   and Starsteel at the deepest boundary.
 
-This build intentionally has no ore or boss progression. Blocks and placeable
-terrain materials remain available for construction.
+This build intentionally has no boss progression. Blocks and placeable terrain
+materials remain available for construction.
 
 Progress autosaves every 30 seconds and whenever you open a menu.
 
@@ -134,10 +136,9 @@ Open **Multiplayer** from the main menu:
   world). You get a **room code** and a shareable **invite link** (`?room=CODE`).
 - **Join Server** — enter a room code, or just open someone's invite link.
 
-Player movement, mining, building, combat, health, enemies, minions, **bosses**,
-items, and world changes are synchronized. You get player names, colors, a live
-player list, chat, a connection indicator, and a **Leave Server** button. Multiple
-players can fight bosses together (damage is pooled; bosses aggro everyone).
+Player movement, mining, building, combat, health, enemies, minions, items, and
+world changes are synchronized. You get player names, colors, a live player list,
+chat, a connection indicator, and a **Leave Server** button.
 No bots, no duplicated characters. Single-player runs fully offline.
 
 > Multiplayer runs through a small **Node.js + Socket.IO** backend (in
@@ -194,12 +195,11 @@ they make testing fast:
 /give [item] [amount] give an item        /giveall   give all demo items
 /spawn [enemy]        spawn an enemy
 /killall              defeat nearby enemies
-/clearboss            clear any stale boss state
 /resetcombat          clear projectiles/particles & combat state
 /resetworldstate      clear enemies & projectiles (keep terrain)
 /heal                 restore health       /mana      restore Aether
 /fly                  toggle flight        /godmode   toggle invincibility
-/time day|night       set time of day      /teleport [biome]  forest|underground|corrupt
+/time day|night       set time of day      /teleport [biome]  forest|jungle|underground|corrupt
 /clearinventory       clear inventory      /save      manually save
 /resetdemo            reset the demo world
 
@@ -231,24 +231,24 @@ reviewer can test the right things the right way.
 
 ## Content
 
-- **Four surface biomes** in seeded bands with blended seams — Sunken Dunes,
-  Verdant Reach, Frostpine Hollow, Corrupted Lands — over a layered underground
-  of dirt, stone and deepstone, all procedurally generated from a seed.
+- **Six surface biomes** in seeded bands with blended seams — Sunken Dunes,
+  Verdant Reach, Verdant Jungle, Frostpine Hollow, Snowy Taiga, and Corrupted
+  Lands — over a layered underground of dirt, stone and deepstone.
 - **Background walls** behind every naturally-solid tile. Carving a cave leaves
   the wall, and walls block daylight, which is what makes the underground read as
   underground.
-- **32 original weapons:** 8 melee, 8 ranged, 8 mage, 6 summoner — a handful of
-  which throw real effects when used.
+- Starter weapons plus four ore-forged weapons — Amber Bow, Tide Trident,
+  Emberblade, and Stormcaller — with eight ore-specific pickaxes.
 - **6 throwables:** Blast Bomb, Dynamite, Cling Charge, Ember Flask, Iron
   Shuriken, Balanced Knife. They arc, bounce off terrain, and the explosive ones
   destroy tiles and walls (and you, if you're standing too close).
-- **5 minion types**, **10 enemy types**, **3 phased bosses** (Grovekeeper,
-  Gravemaw, Blight Sovereign) with health bars, telegraphed attacks, summon items
-  and loot tables.
+- **5 minion types** and **10 enemy types** with health bars and telegraphed
+  attacks. Boss progression is intentionally disabled in this reset.
 - **Vesper Thane, the Guide** — an NPC who spawns with your world and will
   explain any item you're carrying, including where it comes from.
-- Ores, bars, armor sets, accessories, potions, materials, and 5 crafting
-  stations, plus day/night cycling with biome/time-based enemy spawns.
+- Eight pre-Hardmode ores and bars, eight mining picks, four ore weapons, starter
+  armor, accessories, potions, materials, and a Forge, plus day/night cycling
+  with biome/time-based enemy spawns.
 - **Optional soundtrack:** drop audio files into `assets/music/` and they play,
   crossfading by biome, depth, time of day and boss fight. See that folder's
   README for the filenames.
@@ -298,7 +298,7 @@ npm run check:smoke      # boots the real game in a headless browser
 
 `tools/worldgen-check.mjs` runs in plain node with no dependencies, because
 worldgen and everything it imports are DOM-free. It asserts spawn safety,
-walkable slopes, biome contiguity, wall coverage, no generated ore tiles, and that no tree
+walkable slopes, biome contiguity, wall coverage, valid ore placement, and that no tree
 is left disconnected from the ground — plus, since 4.1, the cave-shape
 properties the generator is responsible for: no isolated pockets, horizontal
 elongation, surface reachability, an increasing depth profile, and that water is

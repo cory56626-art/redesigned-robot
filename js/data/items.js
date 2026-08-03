@@ -1,14 +1,14 @@
 // Summoner Realms — item catalogue. All original names/designs.
 // Categories: weapon (melee/ranged/mage/summon), tool, armor, accessory,
 // potion, ammo, material, block, station, summonitem.
-import { T } from '../world/tiles.js?v=first-world-no-ore-boss-1';
+import { T } from '../world/tiles.js?v=prehardmode-ores-1';
 
 export const ITEMS = {};
 
-// The first-world boundary is deliberately explicit. These are the tools,
-// basic gear, supplies, fauna materials, and simple utility items a player can
-// reach before any ore or boss progression. Blocks stay available separately
-// because the realm's building layer is not part of the combat/item cut.
+// The starter boundary is deliberately explicit. These are the tools, basic
+// gear, supplies, fauna materials, and simple utility items a player can reach
+// before ore progression. Blocks stay available separately because the realm's
+// building layer is not part of the combat/item cut.
 export const FIRST_WORLD_ITEM_IDS = new Set([
   // Starting kit and first-world tools/weapons.
   'woodPick', 'woodAxe', 'woodHammer', 'rustedShortblade', 'bonefangDagger',
@@ -26,6 +26,20 @@ export const FIRST_WORLD_ITEM_IDS = new Set([
   'woodCrate', 'huntersBoots',
 ]);
 
+// New pre-Hardmode content is intentionally listed separately from the starter
+// kit. This keeps the old retired catalogue disabled while making the new ore
+// progression auditable in one place.
+export const PREHARDMODE_ITEM_IDS = new Set([
+  'forge',
+  'stoneironOre', 'stoneironBar', 'amberOre', 'amberBar',
+  'tideOre', 'tideBar', 'emberOre', 'emberBar',
+  'verdantOre', 'verdantBar', 'stormOre', 'stormBar',
+  'shadowglassOre', 'shadowglassBar', 'starsteelOre', 'starsteelBar',
+  'stoneironPick', 'amberPick', 'tidePick', 'emberPick', 'verdantPick',
+  'stormPick', 'shadowglassPick', 'starsteelPick',
+  'amberBow', 'tideTrident', 'emberblade', 'stormcaller',
+]);
+
 // Raw terrain materials are also placeable blocks, so they remain available
 // under the user's explicit block exception even when they are not part of the
 // starter/crafting set above.
@@ -35,7 +49,8 @@ const BLOCK_MATERIAL_IDS = new Set([
 ]);
 
 function def(o) {
-  if (!FIRST_WORLD_ITEM_IDS.has(o.id) && o.category !== 'block' && !BLOCK_MATERIAL_IDS.has(o.id)) return null;
+  if (!FIRST_WORLD_ITEM_IDS.has(o.id) && !PREHARDMODE_ITEM_IDS.has(o.id) &&
+      o.category !== 'block' && !BLOCK_MATERIAL_IDS.has(o.id)) return null;
   const d = { maxStack: 99, tier: 0 };
   if (['weapon', 'tool', 'armor', 'accessory', 'summonitem'].includes(o.category)) d.maxStack = 1;
   ITEMS[o.id] = Object.assign(d, o);
@@ -44,6 +59,16 @@ function def(o) {
 
 // ---------- Tools: pickaxes (mine stone & ore) ----------
 def({ id: 'woodPick', name: 'Oaken Pick', category: 'tool', tool: { power: 1, kind: 'pickaxe' }, color: '#a67c46', desc: 'Basic pickaxe. Mines stone and building materials (power 1).' });
+const orePick = (id, name, color, power, tier, desc) =>
+  def({ id, name, category: 'tool', tool: { power, kind: 'pickaxe' }, color, tier, desc: `${desc} Mining power ${power}.` });
+orePick('stoneironPick', 'Stoneiron Pickaxe', '#9aa7b2', 2, 1, 'Rugged gray metal for the first ore tier.');
+orePick('amberPick', 'Amber Pickaxe', '#d69a3c', 3, 2, 'Golden crystal-metal that cuts deeper stone.');
+orePick('tidePick', 'Tide Pickaxe', '#4eb5d2', 4, 3, 'Blue aquatic metal that handles deep rock.');
+orePick('emberPick', 'Ember Pickaxe', '#e45532', 5, 4, 'Hot red-orange metal built for caverns.');
+orePick('verdantPick', 'Verdant Pickaxe', '#65b957', 6, 5, 'Plant-infused metal with a living edge.');
+orePick('stormPick', 'Storm Pickaxe', '#f4dc55', 7, 6, 'Electric yellow metal that crackles in the dark.');
+orePick('shadowglassPick', 'Shadowglass Pickaxe', '#9d65d1', 8, 7, 'Black-purple crystal-metal with a razor edge.');
+orePick('starsteelPick', 'Starsteel Pickaxe', '#d8f4ff', 9, 8, 'White-blue glowing metal from the deepest rock.');
 def({ id: 'cupritePick', name: 'Cuprite Pick', category: 'tool', tool: { power: 2, kind: 'pickaxe' }, color: '#c47b4a', tier: 1, desc: 'Mining power 2. Breaks Ironvein.' });
 def({ id: 'ironveinPick', name: 'Ironvein Pick', category: 'tool', tool: { power: 3, kind: 'pickaxe' }, color: '#a9b0bd', tier: 2, desc: 'Mining power 3. Breaks Glimmer & Aetherite.' });
 def({ id: 'glimmerPick', name: 'Glimmer Pick', category: 'tool', tool: { power: 4, kind: 'pickaxe' }, color: '#ffe08a', tier: 3, desc: 'Mining power 4. Breaks Blightore.' });
@@ -75,6 +100,8 @@ melee('glimmerGlaive', 'Glimmer Glaive', '#ffe08a', 28, 0.34, 3, { meleeKind: 's
 // other blade is stopped by rock (see systems/combat._meleeCanReach). It is a
 // deliberate top-tier perk, and the tooltip says so.
 melee('aetheredgeGreatblade', 'Aetheredge Greatblade', '#8ad9ff', 40, 0.5, 4, { meleeKind: 'heavy', reach: 40, arc: 2.2, knockback: 10, crit: 0.12, phasing: true, fx: { swing: 'arcwave' }, desc: 'Massive arc of arcane steel. Its edge cuts straight through stone.' });
+melee('tideTrident', 'Tide Trident', '#51c8e8', 24, 0.38, 3, { meleeKind: 'spear', reach: 52, arc: 0.55, knockback: 6, effect: { slow: 1.2 }, desc: 'A long blue-metal thrust that leaves a slowing spray.' });
+melee('emberblade', 'Emberblade', '#f05b32', 32, 0.48, 4, { meleeKind: 'heavy', reach: 38, arc: 2.0, knockback: 8, effect: { burn: 4 }, fx: { swing: 'flame' }, desc: 'A hot red-orange blade that sets enemies ablaze.' });
 
 // ---------- Ranged weapons (8) ----------
 const ranged = (id, name, color, dmg, useTime, tier, extra = {}) =>
@@ -87,6 +114,7 @@ ranged('boltflinger', 'Boltflinger', '#9aa6c0', 16, 0.20, 2, { projSpeed: 640, d
 ranged('emberlockMusket', 'Emberlock Musket', '#5a4a3a', 26, 0.6, 2, { ammo: 'shot', rangedKind: 'gun', projSpeed: 760, projColor: '#ffcf6b', effect: { burn: 2 }, fx: { shot: 'muzzle' }, desc: 'Slow, heavy gun. Uses Shot.' });
 ranged('glimmerRifle', 'Glimmer Rifle', '#ffe08a', 22, 0.26, 3, { ammo: 'shot', rangedKind: 'gun', projSpeed: 820, crit: 0.10, fx: { shot: 'muzzle' }, desc: 'Fast rifle. Uses Shot.' });
 ranged('stormpiercer', 'Stormpiercer', '#8ad9ff', 20, 0.30, 3, { projSpeed: 700, pierce: 2, projColor: '#bfe9ff', fx: { shot: 'storm' }, trail: '#bfe9ff', desc: 'Piercing storm arrows. No ammo.' });
+ranged('amberBow', 'Amber Bow', '#ffc04d', 18, 0.36, 2, { ammo: 'flintArrow', gravity: true, projSpeed: 650, projColor: '#ffe08a', desc: 'Golden crystal limbs launch bright Flint Arrows.' });
 
 // ---------- Mage weapons (8) ----------
 const mage = (id, name, color, dmg, useTime, tier, mana, extra = {}) =>
@@ -99,6 +127,7 @@ mage('aetherboltStaff', 'Aetherbolt Staff', '#8ad9ff', 18, 0.32, 2, 13);
 mage('thunderRod', 'Thunder Rod', '#fff2a0', 22, 0.45, 2, 18, { pierce: 3, projSpeed: 900, fx: { cast: 'lightning' }, trail: '#fff2a0', desc: 'Piercing bolt of lightning.' });
 mage('prismScepter', 'Prism Scepter', '#c58bff', 20, 0.30, 3, 16, { multishot: 3, spread: 0.4, fx: { cast: 'prism' }, desc: 'Fires a fan of prism shards.' });
 mage('voidlance', 'Voidlance', '#b06bff', 34, 0.5, 4, 24, { pierce: 4, projSpeed: 640, fx: { cast: 'void' }, trail: '#b06bff', desc: 'A lancing beam of void energy.' });
+mage('stormcaller', 'Stormcaller', '#fff06a', 36, 0.42, 6, 20, { pierce: 3, projSpeed: 900, fx: { cast: 'lightning' }, trail: '#fff8a8', desc: 'Calls a piercing yellow bolt from the sky.' });
 
 // ---------- Summoner weapons (6) ----------
 const summon = (id, name, color, useTime, tier, mana, minion, extra = {}) =>
@@ -261,6 +290,26 @@ mat('sovereignCore', "Sovereign's Core", '#c58bff', 'drop', 4, 'Pulsing heart of
 mat('emberDust', 'Ember Dust', '#ff8c3b', 'drop', 1, 'Warm to the touch.');
 mat('aetherShard', 'Aether Shard', '#8ad9ff', 'drop', 2, 'Crystalized Aether.');
 
+// Eight new pre-Hardmode ores and their refined bars. The names, colours and
+// tiers mirror the worldgen table so the inventory and terrain tell the same
+// progression story.
+mat('stoneironOre', 'Stoneiron Ore', '#9aa7b2', 'ore', 1, 'Rugged gray metal from surface caves.');
+mat('stoneironBar', 'Stoneiron Bar', '#c5d0d8', 'bar', 1, 'Refined Stoneiron for early mining gear.');
+mat('amberOre', 'Amber Ore', '#d69a3c', 'ore', 2, 'Golden crystal-metal in forests and deserts.');
+mat('amberBar', 'Amber Bar', '#ffd36a', 'bar', 2, 'Warm golden metal with a glassy shine.');
+mat('tideOre', 'Tide Ore', '#4eb5d2', 'ore', 3, 'Blue aquatic metal found beside underground lakes.');
+mat('tideBar', 'Tide Bar', '#9cecff', 'bar', 3, 'A cool blue ingot that still hums with water.');
+mat('emberOre', 'Ember Ore', '#e45532', 'ore', 4, 'Hot red-orange ore in the deep caverns.');
+mat('emberBar', 'Ember Bar', '#ff9a55', 'bar', 4, 'A blazing ingot that holds a living spark.');
+mat('verdantOre', 'Verdant Ore', '#65b957', 'ore', 5, 'Green, plant-infused metal beneath the jungle.');
+mat('verdantBar', 'Verdant Bar', '#a6e27d', 'bar', 5, 'A living green alloy threaded with vines.');
+mat('stormOre', 'Storm Ore', '#f4dc55', 'ore', 6, 'Electric yellow ore inside high sky islands.');
+mat('stormBar', 'Storm Bar', '#fff3a0', 'bar', 6, 'Charged metal that snaps with static.');
+mat('shadowglassOre', 'Shadowglass Ore', '#9d65d1', 'ore', 7, 'Black-purple crystalline ore in the Corrupted Lands.');
+mat('shadowglassBar', 'Shadowglass Bar', '#d4a4ff', 'bar', 7, 'Dark crystal refined into a razor-edged bar.');
+mat('starsteelOre', 'Starsteel Ore', '#d8f4ff', 'ore', 8, 'White-blue glowing metal at the deepest boundary.');
+mat('starsteelBar', 'Starsteel Bar', '#ffffff', 'bar', 8, 'A brilliant final pre-Hardmode alloy.');
+
 // ---------- Fauna drops, food and cooking ----------
 // Raw meat is a material; cooking it at a Smeltery turns it into a food item
 // that heals a little and grants a short buff. Food shares the healing
@@ -351,7 +400,7 @@ export function isItemEnabled(id) {
   // All blocks and raw materials that can be placed are explicitly excluded
   // from the item removal request, including biome building materials.
   if (d.category === 'block' || (d.category === 'material' && d.place != null)) return true;
-  return FIRST_WORLD_ITEM_IDS.has(id);
+  return FIRST_WORLD_ITEM_IDS.has(id) || PREHARDMODE_ITEM_IDS.has(id);
 }
 export function allItemIds() { return Object.keys(ITEMS).filter(isItemEnabled); }
 

@@ -1,12 +1,12 @@
 // Summoner Realms — runtime world: tile grid, wall grid, collision, mining,
 // lighting, and the edit diffs that get saved.
-import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=first-world-no-ore-boss-1';
-import { T, tileDef, isSolid, tileLight, isOreTile } from './tiles.js?v=first-world-no-ore-boss-1';
-import { W, hasWall, wallBlastResist } from './walls.js?v=first-world-no-ore-boss-1';
-import { SH, shapeContains, surfaceOffset, fillsTop } from './shapes.js?v=first-world-no-ore-boss-1';
-import { LiquidGrid } from './liquid.js?v=first-world-no-ore-boss-1';
-import { BIOME_ORDER } from './biomes.js?v=first-world-no-ore-boss-1';
-import { generateWorld } from './worldgen.js?v=first-world-no-ore-boss-1';
+import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=prehardmode-ores-1';
+import { T, tileDef, isSolid, tileLight, isLegacyOreTile } from './tiles.js?v=prehardmode-ores-1';
+import { W, hasWall, wallBlastResist } from './walls.js?v=prehardmode-ores-1';
+import { SH, shapeContains, surfaceOffset, fillsTop } from './shapes.js?v=prehardmode-ores-1';
+import { LiquidGrid } from './liquid.js?v=prehardmode-ores-1';
+import { BIOME_ORDER } from './biomes.js?v=prehardmode-ores-1';
+import { generateWorld } from './worldgen.js?v=prehardmode-ores-1';
 
 export class World {
   constructor(seed) {
@@ -56,7 +56,9 @@ export class World {
   // Set a tile. record=true adds to save diffs. Updates the lighting column.
   set(tx, ty, id, record = true) {
     if (!this.inBounds(tx, ty)) return;
-    if (isOreTile(id)) id = T.AIR;
+    // Only the retired pre-reset ore IDs are invalid in a saved edit. The new
+    // pre-Hardmode ore tiles are real terrain and must survive edits/sync.
+    if (isLegacyOreTile(id)) id = T.AIR;
     const i = this.index(tx, ty);
     const previous = this.tiles[i];
     if (previous === id) return;
@@ -384,7 +386,7 @@ export class World {
     for (let k = 0; k + 2 < arr.length; k += 3) {
       const tx = arr[k], ty = arr[k + 1], rawId = arr[k + 2];
       if (!this.inBounds(tx, ty)) continue;
-      const id = isOreTile(rawId) ? T.AIR : rawId;
+      const id = isLegacyOreTile(rawId) ? T.AIR : rawId;
       const i = this.index(tx, ty);
       this.tiles[i] = id;
       this.diffs.set(i, id);

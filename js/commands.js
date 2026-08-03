@@ -1,11 +1,11 @@
 // Summoner Realms — Demo Commands console (testing only).
-import { ITEMS, DEMO_GIVE_ALL, allItemIds, isItemEnabled } from './data/items.js?v=first-world-no-ore-boss-1';
-import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=first-world-no-ore-boss-1';
-import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=first-world-no-ore-boss-1';
-import { TRACKS } from './engine/music.js?v=first-world-no-ore-boss-1';
-import { FAUNA } from './data/fauna.js?v=first-world-no-ore-boss-1';
-import { ACHIEVEMENTS } from './systems/achievements.js?v=first-world-no-ore-boss-1';
-import { TILE, LIQUID_MAX } from './config.js?v=first-world-no-ore-boss-1';
+import { ITEMS, DEMO_GIVE_ALL, allItemIds, isItemEnabled } from './data/items.js?v=prehardmode-ores-1';
+import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=prehardmode-ores-1';
+import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=prehardmode-ores-1';
+import { TRACKS } from './engine/music.js?v=prehardmode-ores-1';
+import { FAUNA } from './data/fauna.js?v=prehardmode-ores-1';
+import { ACHIEVEMENTS } from './systems/achievements.js?v=prehardmode-ores-1';
+import { TILE, LIQUID_MAX } from './config.js?v=prehardmode-ores-1';
 
 const $ = (id) => document.getElementById(id);
 
@@ -42,19 +42,16 @@ export class CommandConsole {
       wind: { args: '[-1..1]', desc: 'Force the wind (blank = re-roll)', run: (a) => this._wind(a) },
       achievements: { args: '', desc: 'Show achievement progress', run: () => this._achievements() },
       unlockall: { args: '', desc: 'Unlock every achievement (testing)', run: () => this._unlockAll() },
-      spawnboss: { args: '[boss]', desc: 'Spawn a boss', run: (a) => this._spawnBoss(a) },
-      summonitem: { args: '[boss]', desc: 'Give a boss-summoning item', run: (a) => this._summonItem(a) },
       aidansigil: { args: '', desc: 'Give the debug-only Aidan Sigil', run: () => this._give(['aidanSigil', '1']) },
-      killall: { args: '', desc: 'Defeat nearby enemies (not bosses — use /clearboss)', run: () => this._killAll() },
-      clearboss: { args: '', desc: 'Remove active boss(es), their adds & shots', run: () => this._clearBoss() },
+      killall: { args: '', desc: 'Defeat nearby enemies', run: () => this._killAll() },
       resetcombat: { args: '', desc: 'Clear projectiles/effects & combat state', run: () => this._resetCombat() },
-      resetworldstate: { args: '', desc: 'Clear all bosses, enemies & projectiles', run: () => this._resetWorldState() },
+      resetworldstate: { args: '', desc: 'Clear enemies & projectiles', run: () => this._resetWorldState() },
       heal: { args: '', desc: 'Restore health', run: () => { g.localPlayer.hp = g.localPlayer.maxHp; return ok('Health restored.'); } },
       mana: { args: '', desc: 'Restore Aether (mana)', run: () => { g.localPlayer.mana = g.localPlayer.maxMana; return ok('Aether restored.'); } },
       fly: { args: '', desc: 'Toggle flight', run: () => { g.localPlayer.cheats.fly = !g.localPlayer.cheats.fly; return ok('Fly ' + (g.localPlayer.cheats.fly ? 'ON' : 'OFF')); } },
       godmode: { args: '', desc: 'Toggle invincibility', run: () => { g.localPlayer.cheats.godmode = !g.localPlayer.cheats.godmode; return ok('God mode ' + (g.localPlayer.cheats.godmode ? 'ON' : 'OFF')); } },
       time: { args: '[day|night]', desc: 'Set time of day', run: (a) => this._time(a) },
-      teleport: { args: '[forest|dunes|frostpine|snowytaiga|corrupt|underground|cavern]', desc: 'Teleport to a biome', run: (a) => this._teleport(a) },
+      teleport: { args: '[forest|jungle|dunes|frostpine|snowytaiga|corrupt|underground|cavern]', desc: 'Teleport to a biome', run: (a) => this._teleport(a) },
       clearinventory: { args: '', desc: 'Clear the inventory', run: () => { g.localPlayer.inventory.clear(); g.localPlayer.recomputeStats(); return ok('Inventory cleared.'); } },
       resetcooldowns: { args: '', desc: 'Clear attack/mana/heal cooldowns', run: () => this._resetCooldowns() },
       save: { args: '', desc: 'Manually save the game', run: () => { g.saveGame(true); return ok('Game saved.'); } },
@@ -258,9 +255,8 @@ export class CommandConsole {
       let pool = [];
       if (name === 'give') pool = Object.keys(ITEMS);
       else if (name === 'spawn') pool = ENEMY_KEYS;
-      else if (name === 'spawnboss' || name === 'summonitem') pool = BOSS_KEYS;
       else if (name === 'time') pool = ['day', 'night'];
-      else if (name === 'teleport') pool = ['forest', 'dunes', 'frostpine', 'snowytaiga', 'corrupt', 'underground', 'cavern'];
+      else if (name === 'teleport') pool = ['forest', 'jungle', 'dunes', 'frostpine', 'snowytaiga', 'corrupt', 'underground', 'cavern'];
       const prefix = parts.slice(0, parts.length - 1).join(' ') + ' ';
       items = pool.filter(k => k.toLowerCase().startsWith(q) || (ITEMS[k] && ITEMS[k].name.toLowerCase().includes(q)))
         .slice(0, 40).map(k => ({ text: prefix + k, desc: (ITEMS[k] && ITEMS[k].name) || (ENEMIES[k] && ENEMIES[k].name) || (BOSSES[k] && BOSSES[k].name) || '' }));
@@ -333,7 +329,7 @@ export class CommandConsole {
     const nameMap = {}; for (const k in ITEMS) nameMap[k] = ITEMS[k].name;
     const id = this._resolve(allItemIds(), a[0], nameMap);
     if (!id) return err(`No item matching "${a[0] || ''}".`);
-    if (!isItemEnabled(id)) return err(`That item is not available in the first-world build.`);
+    if (!isItemEnabled(id)) return err(`That item is not available in this build.`);
     const amt = Math.max(1, parseInt(a[1], 10) || 1);
     const left = this.game.localPlayer.inventory.add(id, amt);
     this.game.localPlayer.recomputeStats();
@@ -375,8 +371,7 @@ export class CommandConsole {
 
   _killAll() {
     this.game.hostCommand('killall', {});
-    const hasBoss = this.game.bosses.length > 0;
-    return ok('Cleared nearby enemies.' + (hasBoss ? ' (Bosses are NOT included — use /clearboss.)' : ''));
+    return ok('Cleared nearby enemies.');
   }
 
   _clearBoss() {
@@ -393,7 +388,7 @@ export class CommandConsole {
     this.game.clearBosses(true);
     this.game.killAllEnemies();
     this.game.resetCombatState();
-    return ok('World runtime reset: bosses, enemies and projectiles cleared (terrain kept).');
+    return ok('World runtime reset: enemies and projectiles cleared (terrain kept).');
   }
 
   _time(a) {
@@ -405,7 +400,7 @@ export class CommandConsole {
 
   _teleport(a) {
     const b = (a[0] || '').toLowerCase();
-    const places = ['forest', 'dunes', 'frostpine', 'snowytaiga', 'corrupt', 'underground', 'cavern'];
+    const places = ['forest', 'jungle', 'dunes', 'frostpine', 'snowytaiga', 'corrupt', 'underground', 'cavern'];
     if (!places.includes(b)) return err('Usage: /teleport ' + places.join('|'));
     this.game.teleportBiome(b === 'snowytaiga' ? 'snowyTaiga' : b);
     return ok('Teleported to ' + b + '.');
