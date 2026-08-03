@@ -13,11 +13,11 @@
 //                the recipe list and boss loot tables, so a new item is
 //                explained correctly the day it's added without anyone writing
 //                a paragraph for it.
-import { ITEMS, item as getItem } from './items.js?v=prehardmode-classes-1';
-import { RECIPES } from './recipes.js?v=prehardmode-classes-1';
-import { BOSSES } from './bosses.js?v=prehardmode-classes-1';
-import { ENEMIES } from './enemies.js?v=prehardmode-classes-1';
-import { TILE } from '../config.js?v=prehardmode-classes-1';
+import { ITEMS, item as getItem } from './items.js?v=prehardmode-mech-1';
+import { RECIPES } from './recipes.js?v=prehardmode-mech-1';
+import { BOSSES } from './bosses.js?v=prehardmode-mech-1';
+import { ENEMIES } from './enemies.js?v=prehardmode-mech-1';
+import { TILE } from '../config.js?v=prehardmode-mech-1';
 
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
 
@@ -102,7 +102,8 @@ export const TOPICS = [
     id: 'survival', label: 'Surviving the realm',
     text() {
       return [
-        `There are no boss encounters in this pre-Hardmode reset. Hostile wildlife still spawns, telegraphs its attacks, and drops the basic materials you can use.`,
+        `The first pre-Hardmode boss is <b>The Mech</b>. Forge a <b>Mech Beacon</b> from Starsteel, Storm Bars and Ember Dust, then use it on the surface with room to move.`,
+        `Its missile tracks you for five seconds before exploding, its jump answers big gaps and air time, and its two-handed Plasma Ray follows with the weapon — not the whole body. In Overdrive, keep an eye on the shoulder volley lanes.`,
         `Keep moving when an enemy flashes before a charge or shot. The Guide can also fire back when a hostile gets near camp.`,
       ];
     },
@@ -289,7 +290,10 @@ function purposeOf(def) {
     case 'station': return `A crafting station. Place it, stand within about five tiles, and its recipes appear in your bag.`;
     case 'block': return `A building block. Place it against something solid, or right beside yourself to climb.`;
     case 'summonitem': {
-      return `Boss summoning is disabled in this pre-Hardmode realm.`;
+      const boss = BOSSES[def.summonBoss];
+      return boss
+        ? `Use this on the ${boss.biome === 'surface' ? 'surface' : boss.biome} to summon <b>${boss.name}</b>. A boss does not refund its summon when you die, so make an arena first.`
+        : `A boss summoning item.`;
     }
     case 'material': {
       if (def.matKind === 'ore') return `Raw ore. Worthless until you smelt it into bars at a Smeltery.`;

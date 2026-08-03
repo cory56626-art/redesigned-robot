@@ -9,9 +9,9 @@
 // top, a shadowed underside and rimmed sides. That neighbour awareness — plus
 // grass fringing down onto dirt and trunk/canopy shading — is most of what makes
 // terrain read as terrain instead of a grid of coloured squares.
-import { T, TILES, tileMat, isTree, isLeaf } from '../world/tiles.js?v=prehardmode-classes-1';
-import { W, WALLS } from '../world/walls.js?v=prehardmode-classes-1';
-import { mulberry32 } from '../utils.js?v=prehardmode-classes-1';
+import { T, TILES, tileMat, isTree, isLeaf } from '../world/tiles.js?v=prehardmode-mech-1';
+import { W, WALLS } from '../world/walls.js?v=prehardmode-mech-1';
+import { mulberry32 } from '../utils.js?v=prehardmode-mech-1';
 
 function makeCanvas(w, h) {
   const c = document.createElement('canvas');
@@ -1086,6 +1086,17 @@ class SpriteBank {
   _idol(ctx, col, col2, id) {
     if (id === 'verdantEffigy') { ctx.fillStyle = '#3d6b35'; ctx.beginPath(); ctx.moveTo(10, 2); ctx.lineTo(16, 7); ctx.lineTo(14, 16); ctx.lineTo(6, 16); ctx.lineTo(4, 7); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#b7e86e'; ctx.fillRect(8, 6, 4, 4); ctx.fillStyle = '#2b4b29'; ctx.fillRect(8, 7, 1, 1); ctx.fillRect(11, 7, 1, 1); ctx.fillStyle = '#80512e'; ctx.fillRect(3, 17, 14, 2); }
     else if (id === 'boneSigil') { ctx.fillStyle = '#d9d0b3'; ctx.beginPath(); ctx.arc(10, 9, 6, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#4a3f36'; ctx.fillRect(6, 7, 3, 3); ctx.fillRect(11, 7, 3, 3); ctx.fillRect(8, 12, 4, 2); ctx.fillStyle = '#9d8e70'; ctx.fillRect(5, 16, 10, 2); }
+    else if (id === 'mechBeacon') {
+      // A small field beacon with a bright reactor, so it reads as technology
+      // rather than another occult idol in the inventory.
+      ctx.fillStyle = '#202d3b'; ctx.fillRect(4, 15, 12, 4);
+      ctx.fillStyle = '#60798c'; ctx.fillRect(6, 12, 8, 4);
+      ctx.fillStyle = '#31485b'; ctx.fillRect(7, 5, 6, 8);
+      ctx.fillStyle = '#a6c7d4'; ctx.fillRect(8, 6, 4, 2);
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.42; ctx.fillStyle = '#72ddff'; ctx.beginPath(); ctx.arc(10, 10, 5, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.fillStyle = '#e8ffff'; ctx.fillRect(9, 9, 3, 3); ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = '#8fdff2'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(10, 5); ctx.lineTo(10, 2); ctx.moveTo(8, 4); ctx.lineTo(6, 2); ctx.moveTo(12, 4); ctx.lineTo(14, 2); ctx.stroke();
+    }
     else { ctx.fillStyle = '#4b2d66'; ctx.beginPath(); ctx.moveTo(10, 2); ctx.lineTo(17, 7); ctx.lineTo(14, 17); ctx.lineTo(6, 17); ctx.lineTo(3, 7); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#c58bff'; ctx.fillRect(8, 6, 4, 7); ctx.fillStyle = '#f0c4ff'; ctx.fillRect(9, 7, 2, 2); ctx.fillStyle = '#2d1e3d'; ctx.fillRect(3, 17, 14, 2); }
   }
   _ore(ctx, col, col2, id) {
@@ -1115,6 +1126,14 @@ class SpriteBank {
   }
   _nugget(ctx, col, col2, id, kind) {
     if (id === 'fiber') { ctx.strokeStyle='#557c35';ctx.lineWidth=2;ctx.lineCap='round';for(const [x,y] of [[5,16],[8,17],[11,16],[14,17]]){ctx.beginPath();ctx.moveTo(x,y);ctx.quadraticCurveTo(x-2,9,x+2,4);ctx.stroke();}ctx.strokeStyle='#b9dc74';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(9,17);ctx.quadraticCurveTo(10,10,13,5);ctx.stroke();return; }
+    if (id === 'mechCore') {
+      ctx.fillStyle = '#21303e'; ctx.fillRect(4, 4, 12, 13);
+      ctx.fillStyle = '#59778a'; ctx.fillRect(6, 5, 8, 10);
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.40; ctx.fillStyle = '#72ddff'; ctx.beginPath(); ctx.arc(10, 10, 6, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.fillStyle = '#dffcff'; ctx.beginPath(); ctx.arc(10, 10, 3.4, 0, Math.PI * 2); ctx.fill(); ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#ffcf72'; ctx.fillRect(8, 16, 4, 2);
+      return;
+    }
     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(10, 11, 6, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = shade(col, 0.35); ctx.beginPath(); ctx.arc(8, 9, 2, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = col2; ctx.beginPath(); ctx.arc(13, 13, 2, 0, Math.PI * 2); ctx.fill();

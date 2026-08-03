@@ -1,7 +1,7 @@
 // Summoner Realms — item catalogue. All original names/designs.
 // Categories: weapon (melee/ranged/mage/summon), tool, armor, accessory,
 // potion, ammo, material, block, station, summonitem.
-import { T } from '../world/tiles.js?v=prehardmode-classes-1';
+import { T } from '../world/tiles.js?v=prehardmode-mech-1';
 
 export const ITEMS = {};
 
@@ -41,6 +41,7 @@ export const PREHARDMODE_ITEM_IDS = new Set([
   'stoneironBroadsword', 'verdantVineblade', 'shadowglassScythe',
   'tideWand', 'verdantBloomStaff', 'shadowglassOrb',
   'tideSpriteStaff', 'verdantSproutIdol', 'shadowmothTome',
+  'mechBeacon', 'mechCore',
 ]);
 
 // Raw terrain materials are also placeable blocks, so they remain available
@@ -344,6 +345,7 @@ mat('shadowglassOre', 'Shadowglass Ore', '#9d65d1', 'ore', 7, 'Black-purple crys
 mat('shadowglassBar', 'Shadowglass Bar', '#d4a4ff', 'bar', 7, 'Dark crystal refined into a razor-edged bar.');
 mat('starsteelOre', 'Starsteel Ore', '#d8f4ff', 'ore', 8, 'White-blue glowing metal at the deepest boundary.');
 mat('starsteelBar', 'Starsteel Bar', '#ffffff', 'bar', 8, 'A brilliant final pre-Hardmode alloy.');
+mat('mechCore', 'Mech Core', '#72ddff', 'drop', 8, 'A heavy blue reactor core claimed from The Mech. Its pulse marks the realm as Hardmode-ready.');
 
 // ---------- Fauna drops, food and cooking ----------
 // Raw meat is a material; cooking it at a Smeltery turns it into a food item
@@ -424,6 +426,7 @@ ITEMS.deepstone.place = T.DEEPSTONE;
 ITEMS.blightstone.place = T.BLIGHTSTONE;
 
 // ---------- Boss summoning items ----------
+def({ id: 'mechBeacon', name: 'Mech Beacon', category: 'summonitem', color: '#5f7896', color2: '#9deeff', summonBoss: 'theMech', maxStack: 20, desc: 'Summons The Mech on the surface. Build an open arena first.' });
 def({ id: 'verdantEffigy', name: 'Verdant Effigy', category: 'summonitem', color: '#7ee08a', color2: '#3a6a2a', summonBoss: 'grovekeeper', maxStack: 20, desc: 'Summons the Grovekeeper in the Forest (day or night).' });
 def({ id: 'boneSigil', name: 'Bone Sigil', category: 'summonitem', color: '#e9e2c8', color2: '#8a7a5a', summonBoss: 'gravemaw', maxStack: 20, desc: 'Summons the Gravemaw in the Underground.' });
 def({ id: 'blightIdol', name: 'Blight Idol', category: 'summonitem', color: '#c58bff', color2: '#4a2f66', summonBoss: 'blightSovereign', maxStack: 20, desc: 'Summons the Blight Sovereign in the Corrupted Lands.' });

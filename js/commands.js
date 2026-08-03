@@ -1,11 +1,11 @@
 // Summoner Realms — Demo Commands console (testing only).
-import { ITEMS, DEMO_GIVE_ALL, allItemIds, isItemEnabled } from './data/items.js?v=prehardmode-classes-1';
-import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=prehardmode-classes-1';
-import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=prehardmode-classes-1';
-import { TRACKS } from './engine/music.js?v=prehardmode-classes-1';
-import { FAUNA } from './data/fauna.js?v=prehardmode-classes-1';
-import { ACHIEVEMENTS } from './systems/achievements.js?v=prehardmode-classes-1';
-import { TILE, LIQUID_MAX } from './config.js?v=prehardmode-classes-1';
+import { ITEMS, DEMO_GIVE_ALL, allItemIds, isItemEnabled } from './data/items.js?v=prehardmode-mech-1';
+import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=prehardmode-mech-1';
+import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=prehardmode-mech-1';
+import { TRACKS } from './engine/music.js?v=prehardmode-mech-1';
+import { FAUNA } from './data/fauna.js?v=prehardmode-mech-1';
+import { ACHIEVEMENTS } from './systems/achievements.js?v=prehardmode-mech-1';
+import { TILE, LIQUID_MAX } from './config.js?v=prehardmode-mech-1';
 
 const $ = (id) => document.getElementById(id);
 
@@ -36,6 +36,8 @@ export class CommandConsole {
       give: { args: '[item] [amount]', desc: 'Give an item', run: (a) => this._give(a) },
       giveall: { args: '', desc: 'Give all demo items', run: () => this._giveAll() },
       spawn: { args: '[enemy]', desc: 'Spawn an enemy nearby', run: (a) => this._spawn(a) },
+      spawnboss: { args: '[boss]', desc: 'Summon a boss nearby', run: (a) => this._spawnBoss(a) },
+      summonitem: { args: '[boss]', desc: 'Give that boss’s summon item', run: (a) => this._summonItem(a) },
       spawnfauna: { args: '[animal]', desc: 'Spawn wildlife nearby (cow, rabbit, firefly, …)', run: (a) => this._spawnFauna(a) },
       water: { args: '[radius]', desc: 'Pour water around you (tests the flow sim)', run: (a) => this._water(a) },
       dryup: { args: '[radius]', desc: 'Remove water around you', run: (a) => this._dryUp(a) },
@@ -44,6 +46,7 @@ export class CommandConsole {
       unlockall: { args: '', desc: 'Unlock every achievement (testing)', run: () => this._unlockAll() },
       aidansigil: { args: '', desc: 'Give the debug-only Aidan Sigil', run: () => this._give(['aidanSigil', '1']) },
       killall: { args: '', desc: 'Defeat nearby enemies', run: () => this._killAll() },
+      damageboss: { args: '[amount]', desc: 'Damage the active boss (testing)', run: (a) => this._damageBoss(a) },
       resetcombat: { args: '', desc: 'Clear projectiles/effects & combat state', run: () => this._resetCombat() },
       resetworldstate: { args: '', desc: 'Clear enemies & projectiles', run: () => this._resetWorldState() },
       heal: { args: '', desc: 'Restore health', run: () => { g.localPlayer.hp = g.localPlayer.maxHp; return ok('Health restored.'); } },
@@ -372,6 +375,19 @@ export class CommandConsole {
   _killAll() {
     this.game.hostCommand('killall', {});
     return ok('Cleared nearby enemies.');
+  }
+
+  _damageBoss(a) {
+    const amount = Math.max(1, Math.min(10000, parseInt(a[0], 10) || 100));
+    const g = this.game;
+    if (g.isHost) {
+      const boss = g.bosses[0];
+      if (!boss) return err('No active boss.');
+      boss.takeDamage(amount, g, false);
+    } else {
+      g.hostCommand('damageboss', { amount });
+    }
+    return ok(`Dealt ${amount} testing damage to the active boss.`);
   }
 
   _clearBoss() {

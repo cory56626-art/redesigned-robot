@@ -1,15 +1,15 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=prehardmode-classes-1';
-import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=prehardmode-classes-1';
-import { SH } from '../world/shapes.js?v=prehardmode-classes-1';
-import { W, hasWall } from '../world/walls.js?v=prehardmode-classes-1';
-import { BIOMES } from '../world/biomes.js?v=prehardmode-classes-1';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=prehardmode-classes-1';
-import { item as getItem } from '../data/items.js?v=prehardmode-classes-1';
-import { canPlaceAt } from '../systems/combat.js?v=prehardmode-classes-1';
-import { clamp } from '../utils.js?v=prehardmode-classes-1';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=prehardmode-classes-1';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=prehardmode-mech-1';
+import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=prehardmode-mech-1';
+import { SH } from '../world/shapes.js?v=prehardmode-mech-1';
+import { W, hasWall } from '../world/walls.js?v=prehardmode-mech-1';
+import { BIOMES } from '../world/biomes.js?v=prehardmode-mech-1';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=prehardmode-mech-1';
+import { item as getItem } from '../data/items.js?v=prehardmode-mech-1';
+import { canPlaceAt } from '../systems/combat.js?v=prehardmode-mech-1';
+import { clamp } from '../utils.js?v=prehardmode-mech-1';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=prehardmode-mech-1';
 
 // Fallback appearance for players without a character record (remote players
 // on an older client, or a world loaded before characters existed).
@@ -24,6 +24,7 @@ const PROJ_GLOW = {
   spark: '#9ec3ff', wispbolt: '#9ec3ff', emberball: '#ff8c3b',
   poisonDart: '#9be871', aurora: '#b9ffe8',
   arcwave: '#bfe9ff', frostbolt: '#9cecff', diamondSpear: '#dffcff', miniDiamondSpear: '#8be9ff', aidanPulse: '#8feaff', aidanNova: '#d8a7ff', aidanFreeze: '#61eaff',
+  mechMissile: '#ffad55', mechPlasma: '#78e9ff', mechShock: '#ffd36d',
 };
 
 // Background colour anchors by depth, in tile rows. `colorAtDepth` interpolates
@@ -824,6 +825,60 @@ export class Renderer {
           const x = -13 - i * 5;
           ctx.fillRect(x, -1 + i % 2, 3, 2);
         }
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'mechMissile') {
+        const fuse = pr.burstTimer != null ? Math.max(0, pr.burstTimer) : 0;
+        const blink = fuse < 1.2 ? (Math.sin(performance.now() * 0.03) > 0 ? 1 : 0.22) : 0.75;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.20 + blink * 0.16;
+        ctx.fillStyle = '#ff9f4a';
+        ctx.beginPath(); ctx.arc(-6, 0, 11 + blink * 3, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.82;
+        ctx.fillStyle = '#ffd77e';
+        ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(-5, -3); ctx.lineTo(-5, 3); ctx.closePath(); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#273445';
+        this._roundRect(ctx, -6, -4, 12, 8, 2); ctx.fill();
+        ctx.fillStyle = '#61738a'; ctx.fillRect(-4, -3, 7, 2);
+        ctx.fillStyle = '#d7e6ed';
+        ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(3, -4); ctx.lineTo(3, 4); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#394b61';
+        ctx.beginPath(); ctx.moveTo(-2, -4); ctx.lineTo(-5, -8); ctx.lineTo(2, -4); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-2, 4); ctx.lineTo(-5, 8); ctx.lineTo(2, 4); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = blink ? '#fff7c2' : '#ff7d46'; ctx.fillRect(-1, -2, 3, 3);
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'mechPlasma') {
+        const pulse = 1 + Math.sin(performance.now() * 0.018 + pr.x * 0.04) * 0.16;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.22 * pulse;
+        ctx.fillStyle = pr.color || '#78e9ff';
+        ctx.beginPath(); ctx.arc(0, 0, 11 * pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = pr.color || '#78e9ff';
+        ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(0, -5); ctx.lineTo(-7, 0); ctx.lineTo(0, 5); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#e9ffff'; ctx.fillRect(-1, -2, 5, 4);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'mechShock') {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.20;
+        ctx.fillStyle = '#ffd36d'; ctx.fillRect(-10, -6, 20, 12);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#c48543';
+        ctx.beginPath(); ctx.moveTo(-9, 4); ctx.lineTo(-3, -4); ctx.lineTo(7, -5); ctx.lineTo(11, 4); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#fff2a8';
+        ctx.beginPath(); ctx.moveTo(-4, 2); ctx.lineTo(0, -2); ctx.lineTo(6, -2); ctx.lineTo(8, 2); ctx.closePath(); ctx.fill();
         ctx.globalCompositeOperation = 'source-over';
         ctx.restore();
         continue;
@@ -2115,7 +2170,8 @@ export class Renderer {
         const cx = b.x + b.w / 2, cy = b.y + b.h;
         ctx.translate(cx, cy); ctx.scale(sx, sy); ctx.translate(-cx, -cy);
       }
-      if (b.key === 'grovekeeper') this._drawGrovekeeper(ctx, b);
+      if (b.key === 'theMech') this._drawTheMech(ctx, b);
+      else if (b.key === 'grovekeeper') this._drawGrovekeeper(ctx, b);
       else if (b.key === 'gravemaw') this._drawGravemaw(ctx, b);
       else this._drawBlightSovereign(ctx, b);
       ctx.restore();
@@ -2162,6 +2218,180 @@ export class Renderer {
       ctx.beginPath(); ctx.arc(cx, cy, radius + (0.22 - b.attackPulse) * 30, 0, Math.PI * 2); ctx.stroke();
       ctx.globalAlpha = 1;
     }
+  }
+
+  // The Mech — an enormous, grounded siege machine. Its body is deliberately
+  // broad and heavy; the only free-tracking silhouette during Plasma Ray is
+  // the pair of arms plus their shared cannon.
+  _drawTheMech(ctx, b) {
+    const x = b.x, y = b.y, w = b.w, h = b.h;
+    const cx = x + w / 2;
+    const f = b.facing === -1 ? -1 : 1;
+    const walk = b.walkCycle || b.bob || 0;
+    const heat = clamp(b.mechHeat || 0, 0, 1);
+    const phaseTwo = heat > 0.3 || b.phaseName === 'Overdrive';
+    const coreColor = phaseTwo ? '#ffb35d' : '#72ddff';
+    const coreBright = phaseTwo ? '#fff0b3' : '#e7ffff';
+    const charge = b.telegraph > 0 ? 1 - b.telegraph / (b.telegraphMax || 0.6) : 0;
+    const ray = b.mechRay;
+
+    ctx.save();
+    this._bossAura(ctx, b, phaseTwo ? '#ffbd68' : '#72ddff', 76);
+
+    // Anchoring shadow and overdrive exhaust.
+    ctx.fillStyle = 'rgba(5,10,16,0.30)';
+    ctx.beginPath(); ctx.ellipse(cx, y + h + 3, w * 0.47, 7, 0, 0, Math.PI * 2); ctx.fill();
+    if (phaseTwo) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.12 + Math.sin(b.bob * 8) * 0.04;
+      ctx.fillStyle = '#ff8d4c';
+      ctx.beginPath(); ctx.arc(cx, y + 47, 51, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Pistoned legs sit behind the torso. Opposite stride offsets make the
+    // machine read as walking even at its intentionally slow pace.
+    for (let i = 0; i < 2; i++) {
+      const side = i ? 1 : -1;
+      const stride = Math.sin(walk + i * Math.PI) * 5.5;
+      const hipX = cx + side * 28;
+      const hipY = y + 73;
+      const kneeX = hipX + side * 5 + stride * 0.45;
+      const kneeY = y + 91 - Math.max(0, stride) * 0.28;
+      const footX = hipX + stride;
+      const footY = y + h - 5;
+      ctx.strokeStyle = '#1f2a37'; ctx.lineWidth = 13; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(kneeX, kneeY); ctx.lineTo(footX, footY); ctx.stroke();
+      ctx.strokeStyle = '#50677a'; ctx.lineWidth = 7;
+      ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(kneeX, kneeY); ctx.lineTo(footX, footY); ctx.stroke();
+      ctx.strokeStyle = '#a9c1cf'; ctx.globalAlpha = 0.55; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(hipX - side, hipY + 2); ctx.lineTo(kneeX - side, kneeY - 1); ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#263442'; this._roundRect(ctx, footX - 14, footY - 4, 28, 9, 3); ctx.fill();
+      ctx.fillStyle = '#8097a7'; this._roundRect(ctx, footX - 11, footY - 4, 18, 3, 1); ctx.fill();
+      ctx.fillStyle = '#b8d2db'; ctx.beginPath(); ctx.arc(kneeX, kneeY, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#334353'; ctx.beginPath(); ctx.arc(kneeX, kneeY, 2, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Back vents, shoulder pylons, and the large arm sockets.
+    ctx.fillStyle = '#1f2d3a'; this._roundRect(ctx, x + 8, y + 28, w - 16, 57, 15); ctx.fill();
+    ctx.fillStyle = '#3d5366'; this._roundRect(ctx, x + 11, y + 25, w - 22, 58, 13); ctx.fill();
+    ctx.fillStyle = '#6b8494'; this._roundRect(ctx, x + 16, y + 28, w - 32, 15, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(219,242,246,0.44)'; this._roundRect(ctx, x + 20, y + 30, w - 41, 4, 2); ctx.fill();
+    for (const side of [-1, 1]) {
+      const sx = cx + side * 47;
+      ctx.fillStyle = '#23313f'; this._roundRect(ctx, sx - 11, y + 34, 22, 31, 6); ctx.fill();
+      ctx.fillStyle = '#60788a'; this._roundRect(ctx, sx - 8, y + 37, 16, 22, 4); ctx.fill();
+      ctx.fillStyle = phaseTwo ? '#ff9e57' : '#69cce7'; ctx.fillRect(sx - 3, y + 40, 6, 3);
+    }
+
+    // Central armor, chest plate and glowing reactor.
+    ctx.fillStyle = '#314556'; this._roundRect(ctx, x + 25, y + 39, w - 50, 47, 10); ctx.fill();
+    ctx.fillStyle = '#536b7b'; this._roundRect(ctx, x + 29, y + 43, w - 58, 38, 8); ctx.fill();
+    ctx.fillStyle = '#273744'; this._roundRect(ctx, cx - 18, y + 50, 36, 27, 6); ctx.fill();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.28 + charge * 0.20 + heat * 0.10;
+    ctx.fillStyle = coreColor; ctx.beginPath(); ctx.arc(cx, y + 63, 21 + charge * 6, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = coreColor; ctx.beginPath(); ctx.arc(cx, y + 63, 10 + Math.sin(b.bob * 6) * 1.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = coreBright; ctx.beginPath(); ctx.arc(cx - 3, y + 60, 4.2, 0, Math.PI * 2); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = '#14222d'; ctx.fillRect(cx - 2, y + 60, 4, 7);
+    ctx.fillStyle = '#b3cbd7'; ctx.fillRect(x + 32, y + 48, 11, 2); ctx.fillRect(x + w - 43, y + 48, 11, 2);
+    ctx.fillStyle = '#20313f'; ctx.fillRect(x + 34, y + 75, 13, 3); ctx.fillRect(x + w - 47, y + 75, 13, 3);
+
+    // Cockpit / head is a fixed armored crown; the bright visor is the best
+    // long-distance read on the machine's current facing.
+    ctx.save();
+    ctx.translate(cx, y + 28); ctx.scale(f, 1);
+    ctx.fillStyle = '#202f3c'; this._roundRect(ctx, -25, -15, 50, 26, 9); ctx.fill();
+    ctx.fillStyle = '#627b8d'; this._roundRect(ctx, -21, -13, 42, 13, 6); ctx.fill();
+    ctx.fillStyle = '#a8c3cf'; this._roundRect(ctx, -16, -11, 27, 4, 2); ctx.fill();
+    ctx.fillStyle = '#162430'; this._roundRect(ctx, -15, -4, 30, 8, 3); ctx.fill();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.30 + charge * 0.35;
+    ctx.fillStyle = coreColor; ctx.fillRect(1, -6, 22, 12);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = coreBright; ctx.fillRect(5, -3, 13, 3);
+    ctx.fillStyle = '#20303c'; ctx.fillRect(13, -3, 3, 3);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.restore();
+
+    // A missile pod only opens on the leading arm. Its split hatch is a
+    // direct animation tell before the homing missile launches.
+    const podOpen = clamp(b.mechArmOpen || 0, 0, 1);
+    ctx.save();
+    ctx.translate(cx + f * 46, y + 47); ctx.scale(f, 1);
+    ctx.fillStyle = '#1d2a35'; this._roundRect(ctx, -10, -11, 25, 22, 5); ctx.fill();
+    ctx.fillStyle = '#587083'; this._roundRect(ctx, -7, -8, 19, 16, 3); ctx.fill();
+    if (podOpen > 0.04) {
+      ctx.save(); ctx.translate(4, -5); ctx.rotate(-podOpen * 0.95); ctx.fillStyle = '#2d4050'; this._roundRect(ctx, -4, -13, 12, 8, 2); ctx.fill(); ctx.restore();
+      ctx.save(); ctx.translate(4, 5); ctx.rotate(podOpen * 0.95); ctx.fillStyle = '#2d4050'; this._roundRect(ctx, -4, 5, 12, 8, 2); ctx.fill(); ctx.restore();
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.30 + podOpen * 0.35; ctx.fillStyle = '#ffad55'; ctx.beginPath(); ctx.arc(8, 0, 11, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#ffb15a'; ctx.fillRect(3, -3, 9, 6); ctx.fillStyle = '#fff0bd'; ctx.fillRect(9, -2, 3, 3);
+    } else {
+      ctx.fillStyle = '#9bb5c1'; ctx.fillRect(4, -5, 7, 3); ctx.fillRect(4, 2, 7, 3);
+    }
+    ctx.restore();
+
+    if (ray) {
+      // Both arms move as a linked mount. The chassis above stays still while
+      // the wrists, cannon and muzzle sweep toward the player's position.
+      const a = ray.angle || 0;
+      const wristX = cx + Math.cos(a) * 23;
+      const wristY = y + 43 + Math.sin(a) * 23;
+      for (const side of [-1, 1]) {
+        const sx = cx + side * 37, sy = y + 43;
+        ctx.strokeStyle = '#1c2935'; ctx.lineWidth = 12; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(wristX, wristY); ctx.stroke();
+        ctx.strokeStyle = '#7490a2'; ctx.lineWidth = 6;
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(wristX, wristY); ctx.stroke();
+        ctx.fillStyle = '#d1e2e5'; ctx.beginPath(); ctx.arc(sx, sy, 4, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.save(); ctx.translate(cx + Math.cos(a) * 34, y + 43 + Math.sin(a) * 34); ctx.rotate(a);
+      ctx.fillStyle = '#172531'; this._roundRect(ctx, -12, -9, 43, 18, 5); ctx.fill();
+      ctx.fillStyle = '#5f8195'; this._roundRect(ctx, -8, -6, 32, 12, 3); ctx.fill();
+      ctx.fillStyle = '#b2d5df'; ctx.fillRect(-5, -5, 19, 3);
+      ctx.fillStyle = '#20313d'; this._roundRect(ctx, 21, -12, 14, 24, 3); ctx.fill();
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35 + (b.mechRayCharge || 0) * 0.35; ctx.fillStyle = '#75e8ff'; ctx.beginPath(); ctx.arc(32, 0, 13, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.fillStyle = '#e9ffff'; ctx.fillRect(28, -3, 7, 6); ctx.globalCompositeOperation = 'source-over';
+      ctx.restore();
+    } else {
+      // Stowed hands retain a visible silhouette outside of the ray attack.
+      for (const side of [-1, 1]) {
+        const sx = cx + side * 39, sy = y + 55;
+        ctx.strokeStyle = '#22313e'; ctx.lineWidth = 10; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(sx, y + 43); ctx.lineTo(sx + side * 7, sy); ctx.stroke();
+        ctx.strokeStyle = '#7892a3'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(sx, y + 43); ctx.lineTo(sx + side * 7, sy); ctx.stroke();
+        ctx.fillStyle = '#bcced4'; ctx.beginPath(); ctx.arc(sx + side * 7, sy, 4, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    // Every major move has a local, readable tell: braced feet for the leap,
+    // bright pod for missiles, and a charged core/cannon for the Plasma Ray.
+    if (b.mechJumpCharge > 0.06) {
+      const k = b.mechJumpCharge;
+      ctx.strokeStyle = '#ffd36d'; ctx.globalAlpha = 0.35 + k * 0.45; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(cx, y + h - 1, 37 + k * 20, 8 + k * 4, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    if (b.mechLanding > 0.02) {
+      ctx.strokeStyle = '#ffdf8d'; ctx.globalAlpha = b.mechLanding * 0.8; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(cx, y + h, 54 - b.mechLanding * 12, 10, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    if (b.hurtFlash > 0) {
+      ctx.globalAlpha = 0.36 + b.hurtFlash * 2;
+      ctx.fillStyle = '#ffffff'; this._roundRect(ctx, x + 8, y + 13, w - 16, h - 17, 15); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    if (b.invuln > 0) {
+      ctx.strokeStyle = '#e9ffff'; ctx.globalAlpha = 0.6; ctx.lineWidth = 2;
+      this._roundRect(ctx, x + 4, y + 5, w - 8, h - 3, 17); ctx.stroke(); ctx.globalAlpha = 1;
+    }
+    ctx.restore();
   }
 
 

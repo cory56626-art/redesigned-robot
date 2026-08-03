@@ -1,14 +1,14 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=prehardmode-classes-1';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=prehardmode-classes-1';
-import { Sprites } from '../art/sprites.js?v=prehardmode-classes-1';
-import { item as getItem } from '../data/items.js?v=prehardmode-classes-1';
-import { availableRecipes } from '../systems/crafting.js?v=prehardmode-classes-1';
-import { claudeNotesHTML } from './claude-notes.js?v=prehardmode-classes-1';
-import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=prehardmode-classes-1';
-import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=prehardmode-classes-1';
-import { drawCharacterPreview } from '../art/charpreview.js?v=prehardmode-classes-1';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=prehardmode-mech-1';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=prehardmode-mech-1';
+import { Sprites } from '../art/sprites.js?v=prehardmode-mech-1';
+import { item as getItem } from '../data/items.js?v=prehardmode-mech-1';
+import { availableRecipes } from '../systems/crafting.js?v=prehardmode-mech-1';
+import { claudeNotesHTML } from './claude-notes.js?v=prehardmode-mech-1';
+import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=prehardmode-mech-1';
+import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=prehardmode-mech-1';
+import { drawCharacterPreview } from '../art/charpreview.js?v=prehardmode-mech-1';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [
@@ -600,12 +600,12 @@ export class Menus {
       <h4>Summoners &amp; achievements</h4>
       <ul>
         <li>Your <b>character</b> is separate from the world: their look, inventory and achievements come with them into any realm. Make more from <b>Summoners</b> on the main menu.</li>
-        <li>There are <b>16 realm achievements</b> — see them from the pause menu.</li>
+        <li>There are <b>17 realm achievements</b> — see them from the pause menu.</li>
       </ul>
       <h4>Tips</h4>
       <ul>
         <li>You start with only a <b>pickaxe</b>, an <b>axe</b>, a <b>sword</b>, and Emberlight. Chop trees with the axe (they topple and drop wood — leaves only give twigs), then mine stone with the pickaxe.</li>
-        <li>Craft a <b>Crafting Bench</b> and <b>Smeltery</b>, then mine Stoneiron to begin the eight-tier pre-Hardmode ore progression. There are no bosses in this reset.</li>
+        <li>Craft a <b>Crafting Bench</b> and <b>Smeltery</b>, then mine Stoneiron to begin the eight-tier pre-Hardmode ore progression. At a Forge, combine Starsteel Bars, Storm Bars, and Ember Dust into a <b>Mech Beacon</b>; use it on the surface to challenge <b>The Mech</b>.</li>
         <li>Caves run mostly <b>sideways</b> and open up the deeper you go. Look for a sinkhole on the surface, and take torches — or catch a <b>Glowmoth</b>, which lights the way on its own.</li>
         <li>The <b>wind</b> changes through the day and pushes you a little on the surface. It stops entirely underground.</li>
         <li><b>Bombs</b> are a mining tool as much as a weapon — they arc, bounce, and blow craters in dirt and stone. Stand clear: the blast hurts you too.</li>

@@ -1,12 +1,12 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
-import { MSG } from './protocol.js?v=prehardmode-classes-1';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=prehardmode-classes-1';
-import { Player, assignColor } from '../entities/player.js?v=prehardmode-classes-1';
-import { Projectile } from '../entities/projectile.js?v=prehardmode-classes-1';
-import { ThrownItem } from '../entities/thrown.js?v=prehardmode-classes-1';
-import { ITEMS, isItemEnabled } from '../data/items.js?v=prehardmode-classes-1';
-import { ENEMIES } from '../data/enemies.js?v=prehardmode-classes-1';
-import { BOSSES } from '../data/bosses.js?v=prehardmode-classes-1';
+import { MSG } from './protocol.js?v=prehardmode-mech-1';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=prehardmode-mech-1';
+import { Player, assignColor } from '../entities/player.js?v=prehardmode-mech-1';
+import { Projectile } from '../entities/projectile.js?v=prehardmode-mech-1';
+import { ThrownItem } from '../entities/thrown.js?v=prehardmode-mech-1';
+import { ITEMS, isItemEnabled } from '../data/items.js?v=prehardmode-mech-1';
+import { ENEMIES } from '../data/enemies.js?v=prehardmode-mech-1';
+import { BOSSES } from '../data/bosses.js?v=prehardmode-mech-1';
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 
@@ -161,6 +161,10 @@ function applyEntitySnapshot(game, msg) {
       b.aiState = bs.state || '';
       // Replicate the wind-up so clients see the same tell the host does.
       b.telegraph = bs.tel ? b.telegraphMax : 0;
+      // The chassis itself is intentionally stable during Plasma Ray, but its
+      // cannon needs the host's angle so remote players see the same sweep.
+      b.mechRay = bs.mr ? { angle: Number(bs.mr.a) || 0, time: Number(bs.mr.t) || 0 } : null;
+      b.mechHeat = phaseIndex > 0 ? 1 : 0;
     }
     newBosses.push(b);
   }
@@ -223,6 +227,8 @@ function makeGhostBoss(bs) {
     hidden: !!bs.hidden, telegraph: 0, telegraphMax: 0.6, attackPulse: 0,
     warnAt: null, warnTime: 0, warnMax: 0.6,
     squashX: 1, squashY: 1, jaw: 0, shardSpin: 0, segments, ghostTrail: [],
+    walkCycle: 0, mechArmOpen: 0, mechRayCharge: 0, mechJumpCharge: 0,
+    mechHeat: 0, mechLanding: 0, mechRay: null,
     aiState: bs.state || '',
     center() { return { x: this.x + this.w / 2, y: this.y + this.h / 2 }; },
   };
@@ -248,6 +254,14 @@ export function interpolateGhosts(game, dt) {
         s.x += ((headX - b.facing * i * 17) - s.x) * lagK;
         s.y += ((b.y + 12 + Math.sin(b.bob + i * 0.9) * 2) - s.y) * lagK;
       }
+    }
+    if (b.movement === 'mech') {
+      const moving = Math.abs((b._tx || 0) - b.x) > 0.4;
+      b.walkCycle += dt * (moving ? 4.8 : 0.65);
+      const heat = b.phaseName === 'Overdrive' ? 1 : 0;
+      b.mechHeat += (heat - (b.mechHeat || 0)) * (1 - Math.pow(0.12, dt));
+      const rayTarget = b.mechRay ? 1 : 0;
+      b.mechRayCharge += (rayTarget - (b.mechRayCharge || 0)) * (1 - Math.pow(0.01, dt));
     }
   }
   for (const d of game.drops) { if (d.ghost) d.bob += dt * 4; }

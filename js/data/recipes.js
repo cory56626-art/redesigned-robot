@@ -1,7 +1,7 @@
 // Summoner Realms — crafting recipes.
 // station: null (hand) | 'bench' | 'smeltery' | 'forge' | 'altar'
 // requiresBoss: optional progression gate (unused in the boss-free reset).
-import { isItemEnabled } from './items.js?v=prehardmode-classes-1';
+import { isItemEnabled } from './items.js?v=prehardmode-mech-1';
 
 const ALL_RECIPES = [
   // --- Hand ---
@@ -108,6 +108,9 @@ const ALL_RECIPES = [
   { out: { item: 'tideSpriteStaff', count: 1 }, in: [{ item: 'tideBar', count: 8 }, { item: 'fiber', count: 5 }], station: 'forge' },
   { out: { item: 'verdantSproutIdol', count: 1 }, in: [{ item: 'verdantBar', count: 10 }, { item: 'fiber', count: 10 }], station: 'forge' },
   { out: { item: 'shadowmothTome', count: 1 }, in: [{ item: 'shadowglassBar', count: 12 }, { item: 'emberDust', count: 4 }], station: 'forge' },
+  // The first boss is deliberately reached after the eight-ore climb. Its
+  // beacon uses the final alloy but does not revive any retired boss material.
+  { out: { item: 'mechBeacon', count: 1 }, in: [{ item: 'starsteelBar', count: 5 }, { item: 'stormBar', count: 4 }, { item: 'emberDust', count: 6 }], station: 'forge' },
   { out: { item: 'cupritePick', count: 1 }, in: [{ item: 'cupriteBar', count: 8 }], station: 'forge' },
   { out: { item: 'cupriteAxe', count: 1 }, in: [{ item: 'cupriteBar', count: 7 }, { item: 'wood', count: 2 }], station: 'forge' },
   { out: { item: 'cupriteSword', count: 1 }, in: [{ item: 'cupriteBar', count: 8 }], station: 'forge' },

@@ -1,6 +1,6 @@
 // Summoner Realms — projectiles for ranged/mage weapons, minions, enemies, bosses.
-import { GRAVITY, TILE } from '../config.js?v=prehardmode-classes-1';
-import { aabb, dist2 } from '../utils.js?v=prehardmode-classes-1';
+import { GRAVITY, TILE } from '../config.js?v=prehardmode-mech-1';
+import { aabb, dist2 } from '../utils.js?v=prehardmode-mech-1';
 
 export class Projectile {
   constructor(opts) {
@@ -19,6 +19,9 @@ export class Projectile {
     this.life = opts.life || 3;
     this.homing = !!opts.homing;
     this.homingStrength = opts.homingStrength || 3.5;
+    // A boss missile can be locked to the player it selected when fired. This
+    // keeps a co-op barrage fair: it will not silently swap to a nearby ally.
+    this.homingTargetId = opts.homingTargetId || null;
     this.destructible = !!opts.destructible;
     // Impact burst metadata is used by the Diamond Heart's large spear. Keeping
     // it on the projectile makes wall hits, enemy hits, and timeout hits behave
@@ -37,6 +40,10 @@ export class Projectile {
     this.burstTimer = this.burstDelay;
     this.burstHoming = !!opts.burstHoming;
     this.burstHomingStrength = opts.burstHomingStrength || 2.2;
+    // A timed blast can deal its damage directly in a radius, independently
+    // from the older shrapnel burst used by the Diamond Heart spear.
+    this.blastRadius = Math.max(0, Number(opts.blastRadius) || 0);
+    this.blastDamage = Math.max(0, Number(opts.blastDamage) || 0);
     this.fuseAnchored = false;
     this.visualOnly = !!opts.visualOnly;
     this.dead = false;
@@ -145,6 +152,10 @@ export class Projectile {
       }
       for (const m of (game.minions || [])) if (m.alive !== false && !m.dead) targets.push(m);
       for (const p of targets) {
+        if (this.homingTargetId != null && (p.id === this.homingTargetId || p.netId === this.homingTargetId)) {
+          target = p;
+          break;
+        }
         const d = dist2(cx, cy, p.x + p.w / 2, p.y + p.h / 2);
         if (d < best) { best = d; target = p; }
       }
@@ -203,34 +214,68 @@ export class Projectile {
   }
 
   _burst(game, x = this.x + this.w / 2, y = this.y + this.h / 2) {
-    if (this.burstDone || !this.burstCount || !this.burstKind || !game) return;
+    if (this.burstDone || !game) return;
+    const hasShrapnel = this.burstCount > 0 && !!this.burstKind;
+    const hasBlast = this.blastRadius > 0 && this.blastDamage > 0;
+    if (!hasShrapnel && !hasBlast) return;
     this.burstDone = true;
     const color = this.burstColor || this.color;
-    const n = Math.max(1, Math.floor(this.burstCount));
-    const phase = Math.random() * Math.PI * 2;
-    for (let i = 0; i < n; i++) {
-      const a = phase + (i / n) * Math.PI * 2;
-      const speed = this.burstSpeed * (0.86 + Math.random() * 0.22);
-      game.addProjectile(new Projectile({
-        x: x - 4, y: y - 2,
-        vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
-        w: 8, h: 4,
-        damage: this.burstDamage,
-        ownerType: this.ownerType,
-        ownerId: this.ownerId,
-        kind: this.burstKind,
-        color,
-        gravity: this.burstGravity,
-        knockback: 2.5,
-        life: this.burstLife,
-        homing: this.burstHoming,
-        homingStrength: this.burstHomingStrength,
-        trail: color,
-      }), true);
+    if (hasBlast) this._blastTargets(game, x, y);
+    if (hasShrapnel) {
+      const n = Math.max(1, Math.floor(this.burstCount));
+      const phase = Math.random() * Math.PI * 2;
+      for (let i = 0; i < n; i++) {
+        const a = phase + (i / n) * Math.PI * 2;
+        const speed = this.burstSpeed * (0.86 + Math.random() * 0.22);
+        game.addProjectile(new Projectile({
+          x: x - 4, y: y - 2,
+          vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
+          w: 8, h: 4,
+          damage: this.burstDamage,
+          ownerType: this.ownerType,
+          ownerId: this.ownerId,
+          kind: this.burstKind,
+          color,
+          gravity: this.burstGravity,
+          knockback: 2.5,
+          life: this.burstLife,
+          homing: this.burstHoming,
+          homingStrength: this.burstHomingStrength,
+          trail: color,
+        }), true);
+      }
     }
-    game.fx?.ring(x, y, color, 40, { life: 0.28, width: 2 });
-    game.fx?.burst(x, y, color, 20, { speed: 150, life: 0.5, size: 2, glow: true });
-    game.shake?.(1.5, 0.12);
+    const radius = Math.max(40, this.blastRadius || 0);
+    game.fx?.ring(x, y, color, radius, { life: 0.28, width: 2 });
+    game.fx?.burst(x, y, color, hasBlast ? 26 : 20, { speed: 150, life: 0.5, size: 2, glow: true });
+    game.fx?.shake?.(hasBlast ? 3.2 : 1.5, hasBlast ? 0.22 : 0.12);
+  }
+
+  _blastTargets(game, x, y) {
+    const friendly = this.ownerType === 'player' || this.ownerType === 'minion' || this.ownerType === 'npc';
+    const targets = friendly
+      ? [...(game.enemies || []), ...(game.bosses || [])]
+      : [
+          ...game.players.values(),
+          ...(game.npcs || (game.npc ? [game.npc] : [])),
+          ...(game.minions || []).filter(m => m.alive !== false && !m.dead && m.maxHp != null),
+        ];
+    for (const target of targets) {
+      if (!target || target.dead || target.alive === false) continue;
+      const tx = target.x + target.w / 2, ty = target.y + target.h / 2;
+      const distance = Math.hypot(tx - x, ty - y);
+      if (distance > this.blastRadius) continue;
+      const amount = Math.max(1, Math.round(this.blastDamage * (1 - distance / this.blastRadius)));
+      const knockback = Math.sign(tx - x) * this.knockback;
+      if (friendly) {
+        if (target.key && target.maxHp != null && (game.bosses || []).includes(target)) game.hurtBoss(target, amount, this.ownerId, this.crit);
+        else game.hurtEnemy(target, amount, knockback, -1, this.effect, this.ownerId, this.crit);
+      } else if (target.kind || target.isMinion) {
+        target.takeDamage(amount, knockback, game, 'explosion');
+      } else {
+        game.applyEnemyDamageToPlayer(target, amount, knockback, this.effect);
+      }
+    }
   }
 
   _cutBossProjectiles(game) {
@@ -247,6 +292,11 @@ export class Projectile {
   }
 
   _hitPlayers(game) {
+    // A fused missile is intentionally harmless on touch: it keeps tracking
+    // its selected target until the five-second fuse resolves (or a player
+    // shoots it down). Without this guard a 0-damage collision would still
+    // delete the missile before its promised explosion.
+    if (this.burstTimer != null && this.damage <= 0) return;
     const box = { x: this.x, y: this.y, w: this.w, h: this.h };
     const targets = [...game.players.values()];
     for (const npc of (game.npcs || (game.npc ? [game.npc] : []))) {
@@ -269,7 +319,7 @@ export class Projectile {
         }
         if (p.kind || p.isMinion) p.takeDamage(this.damage, knockback, game, 'enemy');
         else game.applyEnemyDamageToPlayer(p, this.damage, knockback, this.effect);
-        this.dead = true;
+        if (this.burstTimer == null) this.dead = true;
         return;
       }
     }

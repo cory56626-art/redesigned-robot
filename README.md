@@ -70,7 +70,11 @@ ore tiers, survive hostile wildlife, and build a safe realm.
    lakes, Verdant in the Jungle, Storm in sky islands, Shadowglass in corruption,
    and Starsteel at the deepest boundary.
 
-This build intentionally has no boss progression. Blocks and placeable terrain
+At the end of the pre-Hardmode climb, forge a **Mech Beacon** (5 Starsteel Bars,
+4 Storm Bars, and 6 Ember Dust) and use it on the surface to summon **The
+Mech**. It is the realm's first boss: dodge the five-second homing missiles,
+its crushing super-jump, and the two-handed Plasma Ray. Defeating it grants a
+Mech Core and marks the realm Hardmode-ready. Blocks and placeable terrain
 materials remain available for construction.
 
 Progress autosaves every 30 seconds and whenever you open a menu.

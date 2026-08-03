@@ -11,14 +11,17 @@
 // distance, phase and line of sight. Animation fields (squash, jaw, segment
 // lag, shard spin) are updated here rather than in the renderer, so they are
 // driven by the simulation and stay frame-rate independent.
-import { TILE, normalizeDifficulty } from '../config.js?v=prehardmode-classes-1';
-import { BOSSES } from '../data/bosses.js?v=prehardmode-classes-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=prehardmode-classes-1';
-import { aabb, angleTo, randRange, clamp } from '../utils.js?v=prehardmode-classes-1';
-import { Projectile } from './projectile.js?v=prehardmode-classes-1';
-import * as AI from '../systems/ai.js?v=prehardmode-classes-1';
+import { TILE, normalizeDifficulty } from '../config.js?v=prehardmode-mech-1';
+import { BOSSES } from '../data/bosses.js?v=prehardmode-mech-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=prehardmode-mech-1';
+import { aabb, angleTo, randRange, clamp } from '../utils.js?v=prehardmode-mech-1';
+import { Projectile } from './projectile.js?v=prehardmode-mech-1';
+import * as AI from '../systems/ai.js?v=prehardmode-mech-1';
 
-const PROJ_COLOR = { thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff' };
+const PROJ_COLOR = {
+  thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff',
+  mechMissile: '#ffad55', mechPlasma: '#78e9ff', mechShock: '#ffd36d',
+};
 
 // Beyond this distance from every player the boss is being kited out of its
 // arena; past the grace period it enrages, then leaves.
@@ -54,6 +57,7 @@ function scaledBossDef(source, tuning) {
       if (out.count != null) out.count = Math.max(1, out.count + tuning.extraProjectiles);
       if (out.addCount != null) out.addCount = Math.max(1, out.addCount + tuning.extraAdds);
       if (out.homingStrength != null) out.homingStrength *= tuning.projectile;
+      if (out.blastDamage != null && out.blastDamage > 0) out.blastDamage = Math.max(1, Math.round(out.blastDamage * tuning.damage));
       return out;
     }),
   }));
@@ -74,6 +78,7 @@ export class Boss {
     this.maxHp = d.maxHp; this.hp = d.maxHp;
     this.color = d.color; this.color2 = d.color2;
     this.movement = d.movement;
+    this.stepHeight = d.stepHeight || 0;
     this.facing = 1;
     this.onGround = false;
     this.phaseIndex = 0;
@@ -114,6 +119,15 @@ export class Boss {
     for (let i = 0; i < 3; i++) this.segments.push({ x: x + 4 + i * 17, y: y + 12 });
     this.ghostTrail = [];
     this._trailTimer = 0;
+    // The Mech animation state lives here with the other boss state, so its
+    // feet, hatches, arms and cannon look the same at every frame rate.
+    this.walkCycle = 0;
+    this.mechArmOpen = 0;
+    this.mechRayCharge = 0;
+    this.mechJumpCharge = 0;
+    this.mechHeat = 0;
+    this.mechLanding = 0;
+    this.mechRay = null;
   }
 
   center() { return { x: this.x + this.w / 2, y: this.y + this.h / 2 }; }
@@ -137,6 +151,10 @@ export class Boss {
       this.aiState = 'reposition';
       this.stateTime = 0;
       this.chosen = null; this.telegraph = 0;
+      // Phase changes are a clean reset, never a surprise continuation of a
+      // ray or leap that was chosen under the old pattern.
+      this.charge = null;
+      this.mechRay = null;
       game.toast(`${this.name}: ${this.phase().name}!`, 'bad');
       const c = this.center();
       game.fx.ring(c.x, c.y, this.color2, 90, { life: 0.55, width: 4 });
@@ -174,10 +192,19 @@ export class Boss {
     const speedMul = this.enraged ? this.tuning.enrageMove : 1;
     const tc = target.center();
     const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
-    this.facing = tc.x < cx ? -1 : 1;
+    // Plasma Ray locks the chassis in place. Its two hands and cannon are the
+    // only parts that sweep toward the target, which keeps the tell legible.
+    if (!this.mechRay) this.facing = tc.x < cx ? -1 : 1;
 
     // A committed charge or leap overrides everything until it expires.
     if (this.charge) {
+      if (this.charge.kind === 'mechJump') {
+        this._updateMechJump(dt, game, target, ph);
+        clampToWorld(this, game.world);
+        this._updateAnim(dt, game);
+        this._contactDamage(game, ph);
+        return;
+      }
       this.charge.time -= dt;
       if (this.movement === 'gravemaw') {
         applyGravity(this, dt);
@@ -195,6 +222,16 @@ export class Boss {
         this._flyMove(game, dt);
       }
       if (this.charge.time <= 0) { this.charge = null; this.aiState = 'recover'; this.recover = 0.4; }
+      this._updateAnim(dt, game);
+      this._contactDamage(game, ph);
+      return;
+    }
+
+    // During the Plasma Ray, the chassis stays planted and facing its original
+    // direction. Only the two arms and their cannon track the player.
+    if (this.mechRay) {
+      this._updateMechRay(dt, game, target, ph);
+      clampToWorld(this, game.world);
       this._updateAnim(dt, game);
       this._contactDamage(game, ph);
       return;
@@ -313,7 +350,7 @@ export class Boss {
 
   // No player alive: hover in place rather than freezing mid-animation.
   _drift(dt, game) {
-    if (this.movement === 'gravemaw') { applyGravity(this, dt); this.vx *= 0.9; this._move(game, dt); }
+    if (this.movement === 'gravemaw' || this.movement === 'mech') { applyGravity(this, dt); this.vx *= 0.9; this._move(game, dt); }
     else { this.vy = Math.sin(this.spawnTime) * 12; this.y += this.vy * dt; }
   }
 
@@ -341,6 +378,18 @@ export class Boss {
       this.vx = clamp((desiredX - cx) * 0.9, -speed, speed);
       this.vy = clamp((desiredY - cy) * 0.9, -speed, speed);
       this._flyMove(game, dt);
+    } else if (this.movement === 'mech') {
+      // The Mech has a slow, weighty stride. It keeps a little standoff room
+      // for its arm weapons rather than permanently sitting on the player.
+      applyGravity(this, dt);
+      const distX = Math.abs(dx);
+      const dir = Math.sign(dx) || this.facing;
+      const standOff = this.phaseIndex > 0 ? 86 : 102;
+      if (distX > standOff) this.vx = dir * speed;
+      else if (distX < 54) this.vx = -dir * speed * 0.32;
+      else this.vx = 0;
+      if (this.onGround && this.vx && AI.shouldJump(this, game.world, Math.sign(this.vx))) this.vy = -345;
+      this._move(game, dt);
     } else {
       // Gravemaw is grounded: it commits to the floor, hops ledges and gaps.
       applyGravity(this, dt);
@@ -386,6 +435,10 @@ export class Boss {
       if (a.minRange != null && dist < a.minRange) continue;
       if (a.maxRange != null && dist > a.maxRange) continue;
       if (a.needsLos && !los) continue;
+      if (a.when === 'airOrFar') {
+        const airborne = target.onGround === false || Math.abs(target.vy || 0) > 95;
+        if (!airborne && dist < (a.triggerRange || 240)) continue;
+      }
       options.push(a);
     }
     if (!options.length) return null;
@@ -482,6 +535,106 @@ export class Boss {
         this.ghostTrail.shift();
       }
     }
+
+    if (this.movement === 'mech') {
+      const moving = Math.abs(this.vx || 0) > 5 && this.onGround;
+      this.walkCycle += dt * (moving ? 5.2 : 0.65);
+      const telegraphType = this.chosen && this.chosen.type;
+      const ease = 1 - Math.pow(0.01, dt);
+      const armTarget = (this.telegraph > 0 && telegraphType === 'mechMissile') ? 1 : 0;
+      const rayTarget = this.mechRay ? 1 : (this.telegraph > 0 && telegraphType === 'plasmaRay' ? 0.72 : 0);
+      const jumpTarget = (this.telegraph > 0 && telegraphType === 'mechJump') ? 1 : 0;
+      this.mechArmOpen += (armTarget - this.mechArmOpen) * ease;
+      this.mechRayCharge += (rayTarget - this.mechRayCharge) * ease;
+      this.mechJumpCharge += (jumpTarget - this.mechJumpCharge) * ease;
+      this.mechHeat += ((this.phaseIndex > 0 ? 1 : 0) - this.mechHeat) * (1 - Math.pow(0.12, dt));
+      this.mechLanding = Math.max(0, this.mechLanding - dt * 2.8);
+    }
+  }
+
+  _mechMissileMuzzle() {
+    const f = this.facing || 1;
+    return { x: this.x + this.w / 2 + f * 47, y: this.y + 37 };
+  }
+
+  _mechRayMuzzle(angle) {
+    const cx = this.x + this.w / 2;
+    const cy = this.y + 42;
+    return { x: cx + Math.cos(angle) * 45, y: cy + Math.sin(angle) * 45 };
+  }
+
+  _updateMechJump(dt, game, target, ph) {
+    const jump = this.charge;
+    jump.elapsed = (jump.elapsed || 0) + dt;
+    const tc = target.center();
+    const cx = this.x + this.w / 2;
+    // A slight steer in the air makes it land near a jumping/far target while
+    // preserving a real ballistic arc. It never gains lift after launch.
+    const desired = clamp((tc.x - cx) * 1.35, -jump.speed, jump.speed);
+    this.vx += (desired - this.vx) * Math.min(1, dt * 3.1);
+    applyGravity(this, dt);
+    this._move(game, dt);
+
+    const landed = jump.airborne && this.onGround && jump.elapsed > 0.18;
+    if (!landed) return;
+    jump.airborne = false;
+    this.mechLanding = 1;
+    const impactX = this.x + this.w / 2;
+    const impactY = this.y + this.h;
+    game.fx.ring(impactX, impactY, '#ffd36d', 96, { life: 0.38, width: 4 });
+    game.fx.burst(impactX, impactY, ['#8a9aab', '#ffbd66', '#72ddff'], 30, {
+      speed: 210, life: 0.62, size: 2.5, gravity: 580, glow: true,
+    });
+    game.fx.shake(8, 0.48);
+    // Overdrive gets one extra readable punishment: low ground shockwaves.
+    // They travel on the floor and leave time to jump them.
+    if (this.phaseIndex > 0) {
+      for (const dir of [-1, 1]) {
+        game.addProjectile(new Projectile({
+          x: impactX, y: impactY - 7, vx: dir * 225, vy: 0, w: 16, h: 7,
+          damage: Math.max(1, Math.round(ph.contact * 0.5)), ownerType: 'boss',
+          kind: 'mechShock', color: '#ffd36d', life: 1.5, trail: '#ffca70',
+        }), true);
+      }
+    }
+    this.charge = null;
+    this.aiState = 'recover';
+    this.recover = Math.max(0.62, jump.recover || 0.8);
+  }
+
+  _updateMechRay(dt, game, target, ph) {
+    const ray = this.mechRay;
+    ray.time -= dt;
+    // The body remains grounded and does not re-face while the arms sweep.
+    this.vx = 0;
+    applyGravity(this, dt);
+    this._move(game, dt);
+
+    const origin = this._mechRayMuzzle(ray.angle);
+    const tc = target.center();
+    const desired = angleTo(origin.x, origin.y, tc.x, tc.y);
+    let diff = desired - ray.angle;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    ray.angle += clamp(diff, -ray.turnRate * dt, ray.turnRate * dt);
+
+    ray.fireT -= dt;
+    while (ray.fireT <= 0 && ray.time > 0) {
+      ray.fireT += ray.fireInterval;
+      const muzzle = this._mechRayMuzzle(ray.angle);
+      game.addProjectile(new Projectile({
+        x: muzzle.x - 5, y: muzzle.y - 3,
+        vx: Math.cos(ray.angle) * ray.projSpeed, vy: Math.sin(ray.angle) * ray.projSpeed,
+        w: 10, h: 6, damage: ray.damage, ownerType: 'boss', kind: 'mechPlasma',
+        color: '#78e9ff', life: 1.55, trail: '#79eaff', knockback: 4,
+      }), true);
+      game.fx.streak(muzzle.x, muzzle.y, ray.angle, '#d9fbff', 3, { speed: 280, life: 0.10, size: 1.6 });
+    }
+
+    if (ray.time > 0) return;
+    this.mechRay = null;
+    this.aiState = 'recover';
+    this.recover = ray.recover;
   }
 
   _contactDamage(game, ph) {
@@ -644,6 +797,69 @@ export class Boss {
         game.spawnBossAdds(atk.enemy, atk.addCount, this.x, this.y);
         break;
       }
+      case 'mechMissile': {
+        const n = atk.count || 1;
+        const muzzle = this._mechMissileMuzzle();
+        const base = angleTo(muzzle.x, muzzle.y, tc.x, tc.y);
+        for (let i = 0; i < n; i++) {
+          const a = base + (i - (n - 1) / 2) * 0.16;
+          game.addProjectile(new Projectile({
+            x: muzzle.x - 7, y: muzzle.y - 4,
+            vx: Math.cos(a) * atk.projSpeed, vy: Math.sin(a) * atk.projSpeed,
+            w: 14, h: 8, damage: atk.damage, ownerType: 'boss', kind: 'mechMissile',
+            color: '#ffad55', life: 5.1, homing: true, homingTargetId: target.id || target.netId || null,
+            homingStrength: atk.homingStrength || 1.8, destructible: true, trail: '#ffbf62',
+            burstDelay: 5, blastRadius: atk.blastRadius || 46, blastDamage: atk.blastDamage || 24,
+          }), true);
+        }
+        this.mechArmOpen = 1;
+        game.fx.burst(muzzle.x, muzzle.y, ['#ffca78', '#fff2c2', '#5f7896'], 10, { speed: 150, life: 0.35, glow: true });
+        break;
+      }
+      case 'mechJump': {
+        const dir = Math.sign(tc.x - cx) || this.facing;
+        this.charge = {
+          kind: 'mechJump', airborne: true, elapsed: 0, speed: atk.speed || 270,
+          recover: atk.recover || 0.8,
+        };
+        this.vx = dir * Math.min(atk.speed || 270, 180);
+        this.vy = -820;
+        game.audio?.bossAttack?.('leap');
+        game.fx.burst(cx, this.y + this.h, ['#8092a6', '#ffbf69'], 18, { speed: 170, life: 0.5, gravity: 520, size: 2.2 });
+        game.fx.shake(4, 0.24);
+        break;
+      }
+      case 'plasmaRay': {
+        const a = angleTo(cx, this.y + 42, tc.x, tc.y);
+        this.mechRay = {
+          time: atk.duration || 1.55,
+          recover: atk.recover || 0.8,
+          angle: a,
+          turnRate: atk.turnRate || 1.4,
+          fireInterval: atk.fireInterval || 0.14,
+          fireT: 0.08,
+          damage: atk.damage,
+          projSpeed: atk.projSpeed,
+        };
+        break;
+      }
+      case 'mechVolley': {
+        const f = this.facing || 1;
+        const shoulder = { x: cx + f * 30, y: this.y + 25 };
+        const base = angleTo(shoulder.x, shoulder.y, tc.x, tc.y);
+        const n = atk.count || 5;
+        for (let i = 0; i < n; i++) {
+          const a = base + (i - (n - 1) / 2) * ((atk.spread || 0.5) / Math.max(1, n - 1));
+          game.addProjectile(new Projectile({
+            x: shoulder.x - 4, y: shoulder.y - 4,
+            vx: Math.cos(a) * atk.projSpeed, vy: Math.sin(a) * atk.projSpeed,
+            w: 8, h: 8, damage: atk.damage, ownerType: 'boss', kind: 'mechPlasma',
+            color: '#ffcf72', life: 1.6, trail: '#ffcf72', knockback: 3.5,
+          }), true);
+        }
+        game.fx.ring(shoulder.x, shoulder.y, '#ffcf72', 34, { life: 0.24, width: 2 });
+        break;
+      }
     }
   }
 
@@ -682,6 +898,11 @@ export class Boss {
   // A boss should not simply blink out of existence.
   _deathThroes(game) {
     const c = this.center();
+    if (this.movement === 'mech') {
+      game.fx.ring(c.x, c.y, '#72ddff', 220, { life: 0.85, width: 4 });
+      game.fx.burst(c.x, c.y, ['#72ddff', '#ffbf69', '#dcecff'], 46, { speed: 290, life: 1.05, glow: true, gravity: 110, size: 2.8 });
+      game.fx.smoke(c.x, c.y, '#27313c', 24, { jitter: 42 });
+    }
     game.fx.shake(9, 0.8);
     game.fx.ring(c.x, c.y, '#ffffff', 140, { life: 0.5, width: 5 });
     game.fx.ring(c.x, c.y, this.color2, 190, { life: 0.75, width: 3 });
@@ -694,6 +915,7 @@ export class Boss {
       key: this.key, name: this.name, difficulty: this.difficulty, x: Math.round(this.x), y: Math.round(this.y),
       hp: Math.round(this.hp), maxHp: this.maxHp, phase: this.phaseIndex, facing: this.facing,
       state: this.aiState, hidden: this.hidden ? 1 : 0, tel: this.telegraph > 0 ? 1 : 0, frz: Math.round((this.freezeT || 0) * 100) / 100,
+      mr: this.mechRay ? { a: Math.round(this.mechRay.angle * 1000) / 1000, t: Math.round(this.mechRay.time * 100) / 100 } : null,
     };
   }
 }
