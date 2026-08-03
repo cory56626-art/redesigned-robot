@@ -1,12 +1,12 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
-import { MSG } from './protocol.js?v=snowy-taiga-combat-aidan-1';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=snowy-taiga-combat-aidan-1';
-import { Player, assignColor } from '../entities/player.js?v=snowy-taiga-combat-aidan-1';
-import { Projectile } from '../entities/projectile.js?v=snowy-taiga-combat-aidan-1';
-import { ThrownItem } from '../entities/thrown.js?v=snowy-taiga-combat-aidan-1';
-import { ITEMS } from '../data/items.js?v=snowy-taiga-combat-aidan-1';
-import { ENEMIES } from '../data/enemies.js?v=snowy-taiga-combat-aidan-1';
-import { BOSSES } from '../data/bosses.js?v=snowy-taiga-combat-aidan-1';
+import { MSG } from './protocol.js?v=first-world-no-ore-boss-1';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=first-world-no-ore-boss-1';
+import { Player, assignColor } from '../entities/player.js?v=first-world-no-ore-boss-1';
+import { Projectile } from '../entities/projectile.js?v=first-world-no-ore-boss-1';
+import { ThrownItem } from '../entities/thrown.js?v=first-world-no-ore-boss-1';
+import { ITEMS, isItemEnabled } from '../data/items.js?v=first-world-no-ore-boss-1';
+import { ENEMIES } from '../data/enemies.js?v=first-world-no-ore-boss-1';
+import { BOSSES } from '../data/bosses.js?v=first-world-no-ore-boss-1';
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 
@@ -169,7 +169,7 @@ function applyEntitySnapshot(game, msg) {
   // Drops
   const dSeen = new Set();
   for (const ds of drops) {
-    if (!ds || ds.netId == null) continue;
+    if (!ds || ds.netId == null || !isItemEnabled(ds.itemId)) continue;
     dSeen.add(ds.netId);
     let d = game.dropById.get(ds.netId);
     if (!d) {
@@ -354,7 +354,7 @@ export function handleMessage(game, fromId, msg, conn) {
       // A peer threw something: mirror it locally so everyone sees the arc and
       // the blast. Tile destruction still only happens on the host.
       const def = ITEMS[msg.id];
-      if (def) {
+      if (def && isItemEnabled(msg.id)) {
         const t = new ThrownItem(def, msg.x, msg.y, msg.vx, msg.vy, fromId);
         game.thrown.push(t);
       }

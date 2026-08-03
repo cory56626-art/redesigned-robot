@@ -7,10 +7,10 @@
 // Tile destruction is gated on each tile's `blastResist` — dirt and sand go up
 // with anything, stone needs a bomb, high-tier ore is immune — so explosives are
 // a tool for shaping the world without becoming a way to strip-mine the endgame.
-import { TILE } from '../config.js?v=snowy-taiga-combat-aidan-1';
-import { T, tileDef, blastResist } from '../world/tiles.js?v=snowy-taiga-combat-aidan-1';
-import { wallBlastResist } from '../world/walls.js?v=snowy-taiga-combat-aidan-1';
-import { W } from '../world/walls.js?v=snowy-taiga-combat-aidan-1';
+import { TILE } from '../config.js?v=first-world-no-ore-boss-1';
+import { T, tileDef, blastResist } from '../world/tiles.js?v=first-world-no-ore-boss-1';
+import { wallBlastResist } from '../world/walls.js?v=first-world-no-ore-boss-1';
+import { W } from '../world/walls.js?v=first-world-no-ore-boss-1';
 
 /**
  * Detonate at world pixel (x, y).

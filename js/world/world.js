@@ -1,12 +1,12 @@
 // Summoner Realms — runtime world: tile grid, wall grid, collision, mining,
 // lighting, and the edit diffs that get saved.
-import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=snowy-taiga-combat-aidan-1';
-import { T, tileDef, isSolid, tileLight } from './tiles.js?v=snowy-taiga-combat-aidan-1';
-import { W, hasWall, wallBlastResist } from './walls.js?v=snowy-taiga-combat-aidan-1';
-import { SH, shapeContains, surfaceOffset, fillsTop } from './shapes.js?v=snowy-taiga-combat-aidan-1';
-import { LiquidGrid } from './liquid.js?v=snowy-taiga-combat-aidan-1';
-import { BIOME_ORDER } from './biomes.js?v=snowy-taiga-combat-aidan-1';
-import { generateWorld } from './worldgen.js?v=snowy-taiga-combat-aidan-1';
+import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=first-world-no-ore-boss-1';
+import { T, tileDef, isSolid, tileLight, isOreTile } from './tiles.js?v=first-world-no-ore-boss-1';
+import { W, hasWall, wallBlastResist } from './walls.js?v=first-world-no-ore-boss-1';
+import { SH, shapeContains, surfaceOffset, fillsTop } from './shapes.js?v=first-world-no-ore-boss-1';
+import { LiquidGrid } from './liquid.js?v=first-world-no-ore-boss-1';
+import { BIOME_ORDER } from './biomes.js?v=first-world-no-ore-boss-1';
+import { generateWorld } from './worldgen.js?v=first-world-no-ore-boss-1';
 
 export class World {
   constructor(seed) {
@@ -56,6 +56,7 @@ export class World {
   // Set a tile. record=true adds to save diffs. Updates the lighting column.
   set(tx, ty, id, record = true) {
     if (!this.inBounds(tx, ty)) return;
+    if (isOreTile(id)) id = T.AIR;
     const i = this.index(tx, ty);
     const previous = this.tiles[i];
     if (previous === id) return;
@@ -381,8 +382,9 @@ export class World {
   applyDiffArray(arr) {
     if (!arr) return;
     for (let k = 0; k + 2 < arr.length; k += 3) {
-      const tx = arr[k], ty = arr[k + 1], id = arr[k + 2];
+      const tx = arr[k], ty = arr[k + 1], rawId = arr[k + 2];
       if (!this.inBounds(tx, ty)) continue;
+      const id = isOreTile(rawId) ? T.AIR : rawId;
       const i = this.index(tx, ty);
       this.tiles[i] = id;
       this.diffs.set(i, id);

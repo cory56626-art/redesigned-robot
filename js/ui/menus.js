@@ -1,14 +1,14 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=snowy-taiga-combat-aidan-1';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=snowy-taiga-combat-aidan-1';
-import { Sprites } from '../art/sprites.js?v=snowy-taiga-combat-aidan-1';
-import { item as getItem } from '../data/items.js?v=snowy-taiga-combat-aidan-1';
-import { availableRecipes } from '../systems/crafting.js?v=snowy-taiga-combat-aidan-1';
-import { claudeNotesHTML } from './claude-notes.js?v=snowy-taiga-combat-aidan-1';
-import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=snowy-taiga-combat-aidan-1';
-import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=snowy-taiga-combat-aidan-1';
-import { drawCharacterPreview } from '../art/charpreview.js?v=snowy-taiga-combat-aidan-1';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=first-world-no-ore-boss-1';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=first-world-no-ore-boss-1';
+import { Sprites } from '../art/sprites.js?v=first-world-no-ore-boss-1';
+import { item as getItem } from '../data/items.js?v=first-world-no-ore-boss-1';
+import { availableRecipes } from '../systems/crafting.js?v=first-world-no-ore-boss-1';
+import { claudeNotesHTML } from './claude-notes.js?v=first-world-no-ore-boss-1';
+import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=first-world-no-ore-boss-1';
+import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=first-world-no-ore-boss-1';
+import { drawCharacterPreview } from '../art/charpreview.js?v=first-world-no-ore-boss-1';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [
@@ -561,10 +561,10 @@ export class Menus {
   showHowTo() {
     $('howtoBody').innerHTML = `
       <h4>Goal</h4>
-      <ul><li>Gather materials, craft gear, and defeat the three bosses in order: <b>Grovekeeper → Gravemaw → Blight Sovereign</b>.</li></ul>
+      <ul><li>Gather first-world materials, craft basic gear, survive the hostile wildlife, and build a safe realm.</li></ul>
       <h4>PC Controls</h4>
       <ul>
-        <li><kbd>A</kbd>/<kbd>D</kbd> or arrows — move · <kbd>W</kbd>/<kbd>Space</kbd> — jump (double-jump with Cloudstep Charm)</li>
+        <li><kbd>A</kbd>/<kbd>D</kbd> or arrows — move · <kbd>W</kbd>/<kbd>Space</kbd> — jump</li>
         <li><b>Left-click</b> — use item (attack / cast / summon / throw / place / mine or chop with the held tool)</li>
         <li><b>Right-click</b> — dig/chop the targeted tile with the best tool for it (pickaxe for stone, axe for trees)</li>
         <li><kbd>1</kbd>–<kbd>0</kbd> / scroll — select hotbar · <kbd>E</kbd> — inventory &amp; crafting · <kbd>Q</kbd> — use potion</li>
@@ -587,7 +587,7 @@ export class Menus {
       </ul>
       <h4>Water, wildlife and fishing</h4>
       <ul>
-        <li>Water <b>flows</b>. Mine into a pool and it drains; carry it in a <b>Pail</b>. You can swim — hold jump to stroke upward.</li>
+        <li>Water <b>flows</b>. Mine into a pool and it drains. You can swim — hold jump to stroke upward.</li>
         <li><b>Click a bug</b> to catch it rather than attacking it. Bugs are fishing bait, and better bugs are better bait.</li>
         <li>Craft a <b>Sapling Rod</b>, stand by water and click to cast. Click again the moment the bobber dips. Rod tier, bait and how much open water you cast into all decide what you land — including <b>crates</b>.</li>
         <li>Animals drop meat and hides. Cook meat at a <b>Smeltery</b> for food that heals <i>and</i> buffs.</li>
@@ -600,18 +600,16 @@ export class Menus {
       <h4>Summoners &amp; achievements</h4>
       <ul>
         <li>Your <b>character</b> is separate from the world: their look, inventory and achievements come with them into any realm. Make more from <b>Summoners</b> on the main menu.</li>
-        <li>There are <b>22 achievements</b> — see them from the pause menu.</li>
+        <li>There are <b>16 first-world achievements</b> — see them from the pause menu.</li>
       </ul>
       <h4>Tips</h4>
       <ul>
-        <li>You start with only a <b>pickaxe</b>, an <b>axe</b>, and a <b>sword</b>. Chop trees with the axe (they topple and drop wood — leaves only give twigs), mine stone &amp; ore with the pickaxe.</li>
-        <li>Craft a <b>Crafting Bench</b> from wood, then build a Smeltery, Forge and Aether Altar as you progress.</li>
+        <li>You start with only a <b>pickaxe</b>, an <b>axe</b>, a <b>sword</b>, and Emberlight. Chop trees with the axe (they topple and drop wood — leaves only give twigs), then mine stone with the pickaxe.</li>
+        <li>Craft a <b>Crafting Bench</b> from wood, then build a <b>Smeltery</b> for the realm's basic recipes. This build has no ore or boss progression.</li>
         <li>Caves run mostly <b>sideways</b> and open up the deeper you go. Look for a sinkhole on the surface, and take torches — or catch a <b>Glowmoth</b>, which lights the way on its own.</li>
         <li>The <b>wind</b> changes through the day and pushes you a little on the surface. It stops entirely underground.</li>
         <li><b>Bombs</b> are a mining tool as much as a weapon — they arc, bounce, and blow craters in dirt and stone. Stand clear: the blast hurts you too.</li>
         <li>Bows need <b>arrows</b>, magic drains <b>Aether</b>, and healing has a <b>cooldown</b> — watch the hotbar timers.</li>
-        <li>Craft a <b>Verdant Effigy</b> and use it in the Forest to summon the first boss. Bosses <b>telegraph</b> every attack — watch for the charge-up.</li>
-        <li>Dying during a boss fight ends the encounter and costs a longer respawn, so the boss has to be summoned again.</li>
         <li>Lost? Talk to <b>Vesper Thane</b>, the Guide at your spawn, or find <b>Nivara Frostbell</b> in the Snowy Taiga. Either can explain items you are carrying.</li>
         <li>Stuck? Open the pause menu → <b>Demo Commands</b> for testing tools like <code>/giveall</code> or <code>/debugai</code>.</li>
       </ul>`;
@@ -996,7 +994,7 @@ export class Menus {
     } else if (def.category === 'tool') {
       const kinds = {
         axe: 'Axe (chops trees)',
-        pickaxe: 'Pickaxe (mines stone/ore)',
+        pickaxe: 'Pickaxe (mines stone)',
         hammer: 'Hammer (shapes blocks, strips walls)',
       };
       stat('Type', kinds[def.tool.kind] || def.tool.kind);

@@ -1,7 +1,9 @@
 // Summoner Realms — crafting recipes.
 // station: null (hand) | 'bench' | 'smeltery' | 'forge' | 'altar'
 // requiresBoss: optional progression gate (boss must be defeated to reveal).
-export const RECIPES = [
+import { isItemEnabled } from './items.js?v=first-world-no-ore-boss-1';
+
+const ALL_RECIPES = [
   // --- Hand ---
   { out: { item: 'craftingBench', count: 1 }, in: [{ item: 'wood', count: 8 }], station: null },
   { out: { item: 'torch', count: 5 }, in: [{ item: 'wood', count: 1 }, { item: 'fiber', count: 1 }], station: null },
@@ -144,5 +146,12 @@ export const RECIPES = [
   { out: { item: 'blightIdol', count: 1 }, in: [{ item: 'marrow', count: 1 }, { item: 'blightoreOre', count: 8 }, { item: 'blightBar', count: 4 }], station: 'altar', requiresBoss: 'gravemaw' },
 ];
 
-// Give every recipe a stable id.
+// Only recipes reachable in the first world remain. This also removes recipes
+// that consume retired ore, bars, boss drops, or boss summon items, so no stale
+// entry can manufacture content that inventory filtering has removed.
+export const RECIPES = ALL_RECIPES.filter((r) =>
+  !r.requiresBoss && isItemEnabled(r.out.item) && r.in.every(i => isItemEnabled(i.item))
+);
+
+// Give every retained recipe a stable id.
 RECIPES.forEach((r, i) => { r.id = 'r' + i + '_' + r.out.item; });

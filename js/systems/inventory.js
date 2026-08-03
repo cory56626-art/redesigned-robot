@@ -1,6 +1,6 @@
 // Summoner Realms — inventory, hotbar, equipment, and derived stats.
-import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=snowy-taiga-combat-aidan-1';
-import { ITEMS, item as getItem } from '../data/items.js?v=snowy-taiga-combat-aidan-1';
+import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=first-world-no-ore-boss-1';
+import { ITEMS, item as getItem, isItemEnabled } from '../data/items.js?v=first-world-no-ore-boss-1';
 
 export const INV_SIZE = HOTBAR_SIZE + INV_ROWS * INV_COLS;
 
@@ -39,7 +39,7 @@ export class Inventory {
 
   add(id, amount = 1) {
     const def = ITEMS[id];
-    if (!def) return amount;
+    if (!def || !isItemEnabled(id)) return amount;
     const max = def.maxStack || 99;
     // fill existing stacks first
     for (let i = 0; i < this.slots.length && amount > 0; i++) {
@@ -250,11 +250,22 @@ export class Inventory {
   }
   deserialize(data) {
     if (!data) return;
+    const cleanRef = (ref) => {
+      if (!ref || !isItemEnabled(ref.id)) return null;
+      const def = ITEMS[ref.id];
+      const count = Math.max(0, Math.floor(Number(ref.count) || 0));
+      if (!count) return null;
+      return { id: ref.id, count: Math.min(count, def.maxStack || 99) };
+    };
     this.slots = new Array(INV_SIZE).fill(null);
-    if (data.slots) for (let i = 0; i < Math.min(data.slots.length, INV_SIZE); i++) this.slots[i] = data.slots[i] || null;
-    this.equip = data.equip || { head: null, chest: null, legs: null, acc: [null, null, null] };
-    if (!this.equip.acc) this.equip.acc = [null, null, null];
-    this.selected = data.selected || 0;
+    if (data.slots) for (let i = 0; i < Math.min(data.slots.length, INV_SIZE); i++) this.slots[i] = cleanRef(data.slots[i]);
+    const oldEquip = data.equip || {};
+    this.equip = {
+      head: cleanRef(oldEquip.head), chest: cleanRef(oldEquip.chest), legs: cleanRef(oldEquip.legs),
+      acc: Array.isArray(oldEquip.acc) ? oldEquip.acc.slice(0, ACCESSORY_SLOTS).map(cleanRef) : [],
+    };
+    while (this.equip.acc.length < ACCESSORY_SLOTS) this.equip.acc.push(null);
+    this.selected = Math.max(0, Math.min(HOTBAR_SIZE - 1, Number(data.selected) || 0));
   }
 }
 

@@ -58,6 +58,12 @@ export const T = {
   POISON_DART_TRAP_RIGHT: 46,
 };
 
+// Kept as numeric IDs so old saves remain readable, but never generated,
+// rendered, mined, or accepted from a saved diff in the first-world build.
+export const ORE_TILE_IDS = new Set([
+  T.CUPRITE, T.IRONVEIN, T.GLIMMER, T.AETHERITE, T.BLIGHTORE, T.GLACIERITE,
+]);
+
 // Each entry: name, solid, color (fallback), hardness, minPower, drop item id,
 // light (0-1 emitted), station name.
 //   toolType    : 'pickaxe' | 'axe' — the tool that mines this tile efficiently.
@@ -79,13 +85,6 @@ export const TILES = {
   [T.LEAVES]:     { name: 'Leaves', solid: false, color: '#3e7a34', hardness: 8, minPower: 0, toolType: 'axe', leaf: true, decor: true, mat: 'leaves', blastResist: 0 },
   [T.CLAY]:       { name: 'Clay', solid: true, color: '#9a5b45', hardness: 30, minPower: 0, drop: 'clay', mat: 'clay', blastResist: 0 },
   [T.SAND]:       { name: 'Sand', solid: true, color: '#d8c98a', hardness: 22, minPower: 0, drop: 'sand', mat: 'sand', blastResist: 0 },
-  // Ores read as stone with a coloured gem seam, so veins sit inside the rock
-  // instead of looking like separate blocks stuck to it.
-  [T.CUPRITE]:    { name: 'Cuprite Ore', solid: true, color: '#77716f', hardness: 60, minPower: 1, drop: 'cupriteOre', toolType: 'pickaxe', mat: 'stone', blastResist: 1 },
-  [T.IRONVEIN]:   { name: 'Ironvein Ore', solid: true, color: '#74797f', hardness: 80, minPower: 2, drop: 'ironveinOre', toolType: 'pickaxe', mat: 'stone', blastResist: 1 },
-  [T.GLIMMER]:    { name: 'Glimmer Ore', solid: true, color: '#7a7566', hardness: 100, minPower: 3, drop: 'glimmerOre', toolType: 'pickaxe', mat: 'stone', blastResist: 2 },
-  [T.AETHERITE]:  { name: 'Aetherite Ore', solid: true, color: '#6a7480', hardness: 120, minPower: 3, drop: 'aetheriteOre', light: 0.35, toolType: 'pickaxe', mat: 'stone', blastResist: 2 },
-  [T.BLIGHTORE]:  { name: 'Blightore', solid: true, color: '#4b3560', hardness: 150, minPower: 4, drop: 'blightoreOre', light: 0.2, toolType: 'pickaxe', mat: 'blightstone', blastResist: 3 },
   [T.BLIGHTGRASS]:{ name: 'Blighted Grass', solid: true, color: '#6d3f8a', hardness: 30, minPower: 0, drop: 'dirt', mat: 'dirt', grass: '#8a52ab', blastResist: 0 },
   [T.BLIGHTSTONE]:{ name: 'Blightstone', solid: true, color: '#4a2f66', hardness: 90, minPower: 2, drop: 'blightstone', toolType: 'pickaxe', mat: 'blightstone', blastResist: 2 },
   [T.THORNVINE]:  { name: 'Thornvine', solid: false, color: '#5a7a3a', hardness: 10, minPower: 0, drop: 'fiber', dropChance: 0.6, decor: true, hazard: 3, blastResist: 0 },
@@ -129,7 +128,6 @@ export const TILES = {
   // Exploration content. Chests and traps are non-solid decor, so they read as
   // world objects without blocking a cave corridor. `chest` and `dartTrap`
   // are consumed by the interaction and hazard systems rather than by physics.
-  [T.GLACIERITE]: { name: 'Glacierite Ore', solid: true, color: '#66839a', hardness: 92, minPower: 2, drop: 'glacieriteOre', light: 0.06, toolType: 'pickaxe', mat: 'stone', blastResist: 2 },
   [T.LOOT_CHEST]: { name: 'Cave Chest', solid: false, color: '#a36a32', hardness: 1, minPower: 0, decor: true, chest: true, blastResist: 3 },
   [T.POISON_DART_TRAP_LEFT]: { name: 'Poison Dart Trap', solid: false, color: '#52674f', hardness: 20, minPower: 1, drop: 'stone', dropChance: 0.4, toolType: 'pickaxe', decor: true, dartTrap: -1, blastResist: 0 },
   [T.POISON_DART_TRAP_RIGHT]: { name: 'Poison Dart Trap', solid: false, color: '#52674f', hardness: 20, minPower: 1, drop: 'stone', dropChance: 0.4, toolType: 'pickaxe', decor: true, dartTrap: 1, blastResist: 0 },
@@ -149,6 +147,7 @@ export function swayWeight(id) {
   return d.leaf ? 1 : 0;
 }
 export function isFlora(id) { return !!(TILES[id] && TILES[id].flora); }
+export function isOreTile(id) { return ORE_TILE_IDS.has(id); }
 // 'floor' | 'ceiling' | 'any' — which edge the plant is rooted to, and so
 // where its sway pivot sits.
 export function floraAnchor(id) { return (TILES[id] && TILES[id].anchor) || 'floor'; }

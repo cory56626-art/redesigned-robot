@@ -13,7 +13,7 @@
 // failure can be reproduced with /debugcaves in-game.
 
 import { generateWorld, BEDROCK } from '../js/world/worldgen.js';
-import { T, TILES, isSolid, MAX_TILE_ID } from '../js/world/tiles.js';
+import { T, TILES, isSolid, isOreTile, MAX_TILE_ID } from '../js/world/tiles.js';
 import { W, MAX_WALL_ID, hasWall } from '../js/world/walls.js';
 import { BIOME_ORDER } from '../js/world/biomes.js';
 import { UNDERGROUND_Y, CAVERN_Y, TILE, WORLD_W, WORLD_H } from '../js/config.js';
@@ -214,23 +214,18 @@ for (let s = 0; s < SEEDS; s++) {
   check(seed, 'corruption is one band', runs.corrupt === 1, `${runs.corrupt} runs`);
 
   // ---- New underground exploration content ----
-  let chests = 0, dartTraps = 0, glacierite = 0, glacieriteOutsideTaiga = 0;
+  let chests = 0, dartTraps = 0, oreTiles = 0;
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const id = at(x, y);
       if (id === T.LOOT_CHEST) chests++;
       if (id === T.POISON_DART_TRAP_LEFT || id === T.POISON_DART_TRAP_RIGHT) dartTraps++;
-      if (id === T.GLACIERITE) {
-        glacierite++;
-        if (BIOME_ORDER[biomeMap[x]] !== 'snowyTaiga') glacieriteOutsideTaiga++;
-      }
+      if (isOreTile(id)) oreTiles++;
     }
   }
   check(seed, 'cave chests generate', chests >= 8, `${chests} chests`);
   check(seed, 'poison dart traps generate', dartTraps >= 10, `${dartTraps} traps`);
-  check(seed, 'glacierite generates', glacierite > 0, 'no glacierite');
-  check(seed, 'glacierite stays under the taiga', glacieriteOutsideTaiga === 0,
-    `${glacieriteOutsideTaiga} glacierite tiles outside taiga`);
+  check(seed, 'ores are removed', oreTiles === 0, `${oreTiles} ore tiles`);
 
   // ---- Caves exist, and some of them reach the surface ----
   let caveTiles = 0, undergroundTiles = 0;
@@ -334,7 +329,7 @@ for (let s = 0; s < SEEDS; s++) {
   }
   check(seed, 'surface layer has no wall', shallowWalls === 0, `${shallowWalls} walled tiles in the top 3 rows`);
 
-  // ---- Ore is present in its band and absent outside it ----
+  // ---- Ore tiles remain absent from every generated world ----
   const oreCount = { cuprite: 0, ironvein: 0, glimmer: 0, aetherite: 0, blightore: 0 };
   let glimmerTooHigh = 0, blightOutsideCorruption = 0;
   for (let x = 0; x < width; x++) {
@@ -351,11 +346,11 @@ for (let s = 0; s < SEEDS; s++) {
     }
   }
   for (const k in oreCount) stats.ore[k] = (stats.ore[k] || []).concat(oreCount[k]);
-  check(seed, 'cuprite generates', oreCount.cuprite > 200, `${oreCount.cuprite} tiles`);
-  check(seed, 'ironvein generates', oreCount.ironvein > 150, `${oreCount.ironvein} tiles`);
-  check(seed, 'glimmer generates', oreCount.glimmer > 40, `${oreCount.glimmer} tiles`);
-  check(seed, 'aetherite generates', oreCount.aetherite > 30, `${oreCount.aetherite} tiles`);
-  check(seed, 'blightore generates', oreCount.blightore > 10, `${oreCount.blightore} tiles`);
+  check(seed, 'cuprite remains removed', oreCount.cuprite === 0, `${oreCount.cuprite} tiles`);
+  check(seed, 'ironvein remains removed', oreCount.ironvein === 0, `${oreCount.ironvein} tiles`);
+  check(seed, 'glimmer remains removed', oreCount.glimmer === 0, `${oreCount.glimmer} tiles`);
+  check(seed, 'aetherite remains removed', oreCount.aetherite === 0, `${oreCount.aetherite} tiles`);
+  check(seed, 'blightore remains removed', oreCount.blightore === 0, `${oreCount.blightore} tiles`);
   check(seed, 'glimmer stays deep', glimmerTooHigh === 0, `${glimmerTooHigh} above the underground line`);
   check(seed, 'blightore stays deep', blightOutsideCorruption === 0, `${blightOutsideCorruption} above the underground line`);
 

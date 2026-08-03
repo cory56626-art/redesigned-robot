@@ -57,20 +57,19 @@ deployment → GitHub Actions**, and your live URL will appear after the first r
 ## How to play
 
 Click **New World**, pick a seed (or leave it blank for random), and start
-gathering. Your goal: gather materials, craft gear, and defeat the three bosses
-in order.
+gathering. Your goal: gather first-world materials, craft basic gear, survive
+hostile wildlife, and build a safe realm.
 
-**Progression path**
+**First-world path**
 
-1. Chop **Oakenwood**, gather **Plant Fiber**, mine **Stone/Cuprite**. Place a
+1. Chop **Oakenwood**, gather **Plant Fiber**, and mine **Stone**. Place a
    **Crafting Bench** (it's in your bag) to unlock recipes.
-2. Craft a **Smeltery** and **Forge**; smelt ore into bars; build starter gear
-   and a **Verdant Effigy**.
-3. Use the Verdant Effigy in the **Forest** to summon the **Grovekeeper**.
-4. Its loot (**Grove Heart**) lets you craft a **Bone Sigil** → summon the
-   **Gravemaw** underground.
-5. Gravemaw's loot opens the **Blight** tier → craft a **Blight Idol** → summon
-   the **Blight Sovereign** in the **Corrupted Lands** for the endgame gear.
+2. Craft a **Smeltery** for basic recipes, then build first-world gear,
+   torches, food, and shelter.
+3. Explore the biomes and caves, fight hostile wildlife, and keep building.
+
+This build intentionally has no ore or boss progression. Blocks and placeable
+terrain materials remain available for construction.
 
 Progress autosaves every 30 seconds and whenever you open a menu.
 
@@ -193,12 +192,11 @@ they make testing fast:
 ```
 /help                 show all commands
 /give [item] [amount] give an item        /giveall   give all demo items
-/spawn [enemy]        spawn an enemy       /spawnboss [boss]  spawn a boss
-/summonitem [boss]    give a boss-summon item
-/killall              defeat nearby enemies (not bosses)
-/clearboss            remove active boss(es), their adds & projectiles
+/spawn [enemy]        spawn an enemy
+/killall              defeat nearby enemies
+/clearboss            clear any stale boss state
 /resetcombat          clear projectiles/particles & combat state
-/resetworldstate      clear all bosses, enemies & projectiles (keep terrain)
+/resetworldstate      clear enemies & projectiles (keep terrain)
 /heal                 restore health       /mana      restore Aether
 /fly                  toggle flight        /godmode   toggle invincibility
 /time day|night       set time of day      /teleport [biome]  forest|underground|corrupt
@@ -300,7 +298,7 @@ npm run check:smoke      # boots the real game in a headless browser
 
 `tools/worldgen-check.mjs` runs in plain node with no dependencies, because
 worldgen and everything it imports are DOM-free. It asserts spawn safety,
-walkable slopes, biome contiguity, wall coverage, ore banding, and that no tree
+walkable slopes, biome contiguity, wall coverage, no generated ore tiles, and that no tree
 is left disconnected from the ground — plus, since 4.1, the cave-shape
 properties the generator is responsible for: no isolated pockets, horizontal
 elongation, surface reachability, an increasing depth profile, and that water is
@@ -319,7 +317,7 @@ action directly would have passed against the broken build.
 - Pure vanilla JS + Canvas 2D, ES modules, ~zero front-end dependencies
   (Socket.IO client only, for multiplayer).
 - Fixed-timestep simulation with viewport-culled rendering and a smooth lightmap.
-- Host-authoritative netcode: world/enemies/bosses/drops on the host; each client
+- Host-authoritative netcode: world/enemies/drops on the host; each client
   owns its inventory and reports actions. Normalized input makes PC ↔ mobile
   interoperate directly.
 - `window.__game` is exposed as a test hook.

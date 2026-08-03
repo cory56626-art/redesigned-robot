@@ -9,9 +9,9 @@
 // and the fishing together rather than leaving them as two unrelated features.
 import {
   TILE, REACH, FISH_MIN_WAIT, FISH_MAX_WAIT, FISH_HOOK_WINDOW, FISH_MIN_POOL,
-} from '../config.js?v=snowy-taiga-combat-aidan-1';
-import { item as getItem } from '../data/items.js?v=snowy-taiga-combat-aidan-1';
-import { UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=snowy-taiga-combat-aidan-1';
+} from '../config.js?v=first-world-no-ore-boss-1';
+import { item as getItem } from '../data/items.js?v=first-world-no-ore-boss-1';
+import { UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=first-world-no-ore-boss-1';
 
 // How far a cast can reach, in tiles. Generous compared to mining reach, since
 // standing on a bank and casting across is the point.
@@ -35,53 +35,30 @@ const CATCH_TABLES = {
   fair: [
     { item: 'rawFish', weight: 42 },
     { item: 'woodCrate', weight: 18 },
-    { item: 'cupriteOre', weight: 12 },
-    { item: 'ironCrate', weight: 8 },
     { item: 'healLesser', weight: 8 },
     { item: 'fiber', weight: 12 },
+    { item: 'stone', weight: 12 },
   ],
   good: [
     { item: 'rawFish', weight: 34 },
-    { item: 'ironCrate', weight: 22 },
-    { item: 'woodCrate', weight: 14 },
-    { item: 'ironveinOre', weight: 12 },
-    { item: 'aetherCrate', weight: 8 },
-    { item: 'healGreater', weight: 6 },
-    { item: 'aetherShard', weight: 4 },
+    { item: 'woodCrate', weight: 22 },
+    { item: 'healLesser', weight: 12 },
+    { item: 'flintArrow', weight: 12 },
+    { item: 'bomb', weight: 8 },
+    { item: 'fiber', weight: 12 },
   ],
 };
 
 /** What a crate can contain, by crate tier. */
 const CRATE_TABLES = {
   woodCrate: [
-    { item: 'cupriteOre', min: 4, max: 10, weight: 26 },
     { item: 'stone', min: 10, max: 25, weight: 18 },
     { item: 'healLesser', min: 1, max: 3, weight: 16 },
     { item: 'torch', min: 4, max: 10, weight: 14 },
     { item: 'flintArrow', min: 15, max: 40, weight: 12 },
     { item: 'bomb', min: 1, max: 3, weight: 8 },
-    { item: 'swiftboots', min: 1, max: 1, weight: 3 },
-    { item: 'vitalBand', min: 1, max: 1, weight: 3 },
-  ],
-  ironCrate: [
-    { item: 'ironveinOre', min: 6, max: 14, weight: 24 },
-    { item: 'cupriteBar', min: 3, max: 8, weight: 18 },
-    { item: 'healGreater', min: 1, max: 3, weight: 14 },
-    { item: 'aetherTonic', min: 1, max: 3, weight: 12 },
-    { item: 'dynamite', min: 1, max: 3, weight: 10 },
-    { item: 'ironhideEmblem', min: 1, max: 1, weight: 8 },
-    { item: 'cloudstepCharm', min: 1, max: 1, weight: 8 },
-    { item: 'aetherLocket', min: 1, max: 1, weight: 6 },
-  ],
-  aetherCrate: [
-    { item: 'aetheriteOre', min: 6, max: 14, weight: 22 },
-    { item: 'glimmerBar', min: 3, max: 7, weight: 18 },
-    { item: 'aetheriteBar', min: 3, max: 7, weight: 16 },
-    { item: 'beastmasterSigil', min: 1, max: 1, weight: 12 },
-    { item: 'ironskinTonic', min: 2, max: 4, weight: 10 },
-    { item: 'stormpiercer', min: 1, max: 1, weight: 8 },
-    { item: 'prismScepter', min: 1, max: 1, weight: 8 },
-    { item: 'glimmerRod', min: 1, max: 1, weight: 6 },
+    { item: 'fireFlask', min: 1, max: 2, weight: 7 },
+    { item: 'shuriken', min: 2, max: 6, weight: 7 },
   ],
 };
 

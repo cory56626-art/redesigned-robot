@@ -2,50 +2,50 @@
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty, ZOOM_DEFAULT, REACH,
-} from './config.js?v=snowy-taiga-combat-aidan-1';
-import { hashString, mulberry32, dist2, uid } from './utils.js?v=snowy-taiga-combat-aidan-1';
-import { World } from './world/world.js?v=snowy-taiga-combat-aidan-1';
-import { T, tileDef } from './world/tiles.js?v=snowy-taiga-combat-aidan-1';
-import { Sprites } from './art/sprites.js?v=snowy-taiga-combat-aidan-1';
-import { Camera } from './engine/camera.js?v=snowy-taiga-combat-aidan-1';
-import { Input } from './engine/input.js?v=snowy-taiga-combat-aidan-1';
-import { AudioManager } from './engine/audio.js?v=snowy-taiga-combat-aidan-1';
-import { Renderer } from './engine/renderer.js?v=snowy-taiga-combat-aidan-1';
-import { Fx } from './engine/fx.js?v=snowy-taiga-combat-aidan-1';
-import { DayNight } from './systems/daynight.js?v=snowy-taiga-combat-aidan-1';
-import { Weather } from './systems/weather.js?v=snowy-taiga-combat-aidan-1';
-import { Spawner } from './systems/spawner.js?v=snowy-taiga-combat-aidan-1';
-import { Progression } from './systems/progression.js?v=snowy-taiga-combat-aidan-1';
-import { starterInventory } from './systems/inventory.js?v=snowy-taiga-combat-aidan-1';
-import * as craftSys from './systems/crafting.js?v=snowy-taiga-combat-aidan-1';
-import { applyPotion } from './systems/combat.js?v=snowy-taiga-combat-aidan-1';
-import * as fishing from './systems/fishing.js?v=snowy-taiga-combat-aidan-1';
-import { Critter } from './entities/critter.js?v=snowy-taiga-combat-aidan-1';
-import { FAUNA } from './data/fauna.js?v=snowy-taiga-combat-aidan-1';
-import { smartTarget } from './systems/smartcursor.js?v=snowy-taiga-combat-aidan-1';
-import { Player, assignColor } from './entities/player.js?v=snowy-taiga-combat-aidan-1';
-import { Enemy } from './entities/enemy.js?v=snowy-taiga-combat-aidan-1';
-import { Boss } from './entities/boss.js?v=snowy-taiga-combat-aidan-1';
-import { Minion } from './entities/minion.js?v=snowy-taiga-combat-aidan-1';
-import { Npc } from './entities/npc.js?v=snowy-taiga-combat-aidan-1';
-import { Projectile } from './entities/projectile.js?v=snowy-taiga-combat-aidan-1';
-import { DropItem } from './entities/droppeditem.js?v=snowy-taiga-combat-aidan-1';
-import { FallingTree } from './entities/fallingtree.js?v=snowy-taiga-combat-aidan-1';
-import { ThrownItem } from './entities/thrown.js?v=snowy-taiga-combat-aidan-1';
-import { ENEMIES } from './data/enemies.js?v=snowy-taiga-combat-aidan-1';
-import { BOSSES } from './data/bosses.js?v=snowy-taiga-combat-aidan-1';
-import { item as getItem } from './data/items.js?v=snowy-taiga-combat-aidan-1';
-import { HUD } from './ui/hud.js?v=snowy-taiga-combat-aidan-1';
-import { Minimap } from './ui/minimap.js?v=snowy-taiga-combat-aidan-1';
-import { Menus } from './ui/menus.js?v=snowy-taiga-combat-aidan-1';
-import { NpcDialog } from './ui/npcdialog.js?v=snowy-taiga-combat-aidan-1';
-import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=snowy-taiga-combat-aidan-1';
-import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=snowy-taiga-combat-aidan-1';
-import { Achievements, craftAchievement } from './systems/achievements.js?v=snowy-taiga-combat-aidan-1';
-import { CommandConsole } from './commands.js?v=snowy-taiga-combat-aidan-1';
-import { Net } from './net/net.js?v=snowy-taiga-combat-aidan-1';
-import { MSG } from './net/protocol.js?v=snowy-taiga-combat-aidan-1';
-import * as sync from './net/sync.js?v=snowy-taiga-combat-aidan-1';
+} from './config.js?v=first-world-no-ore-boss-1';
+import { hashString, mulberry32, dist2, uid } from './utils.js?v=first-world-no-ore-boss-1';
+import { World } from './world/world.js?v=first-world-no-ore-boss-1';
+import { T, tileDef } from './world/tiles.js?v=first-world-no-ore-boss-1';
+import { Sprites } from './art/sprites.js?v=first-world-no-ore-boss-1';
+import { Camera } from './engine/camera.js?v=first-world-no-ore-boss-1';
+import { Input } from './engine/input.js?v=first-world-no-ore-boss-1';
+import { AudioManager } from './engine/audio.js?v=first-world-no-ore-boss-1';
+import { Renderer } from './engine/renderer.js?v=first-world-no-ore-boss-1';
+import { Fx } from './engine/fx.js?v=first-world-no-ore-boss-1';
+import { DayNight } from './systems/daynight.js?v=first-world-no-ore-boss-1';
+import { Weather } from './systems/weather.js?v=first-world-no-ore-boss-1';
+import { Spawner } from './systems/spawner.js?v=first-world-no-ore-boss-1';
+import { Progression } from './systems/progression.js?v=first-world-no-ore-boss-1';
+import { starterInventory } from './systems/inventory.js?v=first-world-no-ore-boss-1';
+import * as craftSys from './systems/crafting.js?v=first-world-no-ore-boss-1';
+import { applyPotion } from './systems/combat.js?v=first-world-no-ore-boss-1';
+import * as fishing from './systems/fishing.js?v=first-world-no-ore-boss-1';
+import { Critter } from './entities/critter.js?v=first-world-no-ore-boss-1';
+import { FAUNA } from './data/fauna.js?v=first-world-no-ore-boss-1';
+import { smartTarget } from './systems/smartcursor.js?v=first-world-no-ore-boss-1';
+import { Player, assignColor } from './entities/player.js?v=first-world-no-ore-boss-1';
+import { Enemy } from './entities/enemy.js?v=first-world-no-ore-boss-1';
+import { Boss } from './entities/boss.js?v=first-world-no-ore-boss-1';
+import { Minion } from './entities/minion.js?v=first-world-no-ore-boss-1';
+import { Npc } from './entities/npc.js?v=first-world-no-ore-boss-1';
+import { Projectile } from './entities/projectile.js?v=first-world-no-ore-boss-1';
+import { DropItem } from './entities/droppeditem.js?v=first-world-no-ore-boss-1';
+import { FallingTree } from './entities/fallingtree.js?v=first-world-no-ore-boss-1';
+import { ThrownItem } from './entities/thrown.js?v=first-world-no-ore-boss-1';
+import { ENEMIES } from './data/enemies.js?v=first-world-no-ore-boss-1';
+import { BOSSES } from './data/bosses.js?v=first-world-no-ore-boss-1';
+import { item as getItem, isItemEnabled } from './data/items.js?v=first-world-no-ore-boss-1';
+import { HUD } from './ui/hud.js?v=first-world-no-ore-boss-1';
+import { Minimap } from './ui/minimap.js?v=first-world-no-ore-boss-1';
+import { Menus } from './ui/menus.js?v=first-world-no-ore-boss-1';
+import { NpcDialog } from './ui/npcdialog.js?v=first-world-no-ore-boss-1';
+import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=first-world-no-ore-boss-1';
+import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=first-world-no-ore-boss-1';
+import { Achievements, craftAchievement } from './systems/achievements.js?v=first-world-no-ore-boss-1';
+import { CommandConsole } from './commands.js?v=first-world-no-ore-boss-1';
+import { Net } from './net/net.js?v=first-world-no-ore-boss-1';
+import { MSG } from './net/protocol.js?v=first-world-no-ore-boss-1';
+import * as sync from './net/sync.js?v=first-world-no-ore-boss-1';
 
 class Game {
   constructor() {
@@ -812,18 +812,16 @@ class Game {
   _rollChestLoot(tx, ty) {
     const seed = (this.seed ^ Math.imul(tx + 17, 0x9e3779b1) ^ Math.imul(ty + 31, 0x85ebca6b)) >>> 0;
     const rand = mulberry32(seed);
-    const taiga = this.world.surfaceBiomeAt(tx) === 'snowyTaiga';
-    const deep = ty >= CAVERN_Y;
     const table = [
       { item: 'torch', min: 5, max: 10, weight: 10 },
       { item: 'healLesser', min: 1, max: 2, weight: 18 },
       { item: 'flintArrow', min: 15, max: 30, weight: 18 },
       { item: 'bomb', min: 1, max: 2, weight: 14 },
-      { item: 'cupriteOre', min: 3, max: 7, weight: 16 },
-      { item: 'ironveinOre', min: 2, max: 5, weight: deep ? 17 : 8 },
-      { item: 'aetherShard', min: 1, max: 1, weight: deep ? 8 : 3 },
-      { item: 'vigorBrew', min: 1, max: 1, weight: 7 },
-      ...(taiga ? [{ item: 'glacieriteOre', min: 2, max: 4, weight: 18 }] : []),
+      { item: 'fireFlask', min: 1, max: 2, weight: 8 },
+      { item: 'shuriken', min: 4, max: 8, weight: 8 },
+      { item: 'wood', min: 4, max: 12, weight: 8 },
+      { item: 'stone', min: 4, max: 12, weight: 8 },
+      { item: 'fiber', min: 3, max: 8, weight: 8 },
     ];
     const loot = [];
     const pulls = 2 + (rand() < 0.55 ? 1 : 0);
@@ -833,11 +831,6 @@ class Game {
       let chosen = table[0];
       for (const entry of table) { pick -= entry.weight; if (pick <= 0) { chosen = entry; break; } }
       loot.push({ item: chosen.item, count: chosen.min + ((rand() * (chosen.max - chosen.min + 1)) | 0) });
-    }
-    // Taiga chests always visibly reinforce their region, even if random rolls
-    // otherwise happened to choose only supplies.
-    if (taiga && !loot.some(entry => entry.item === 'glacieriteOre')) {
-      loot.push({ item: 'glacieriteOre', count: 2 + ((rand() * 3) | 0) });
     }
     return loot;
   }
@@ -1212,8 +1205,9 @@ class Game {
   }
   spawnBossByKey(key) {
     if (!this.isHost) return;
-    if (this.bosses.length) { this.toast('A boss is already present', 'bad'); return; }
     const def = BOSSES[key];
+    if (!def) { this.toast('Boss encounters are disabled in this realm.', 'bad'); return; }
+    if (this.bosses.length) { this.toast('A boss is already present', 'bad'); return; }
     const anchor = this.nearestPlayer(this.localPlayer ? this.localPlayer.x : 0, this.localPlayer ? this.localPlayer.y : 0) || this.localPlayer;
     let bx = anchor ? anchor.x : this.world.spawnX;
     let by = anchor ? anchor.y - 140 : this.world.spawnY - 140;
@@ -1244,6 +1238,7 @@ class Game {
 
   trySummonBoss(key, player, itemId) {
     const def = BOSSES[key];
+    if (!def || !isItemEnabled(itemId)) { this.toast('Boss encounters are disabled in this realm.', 'bad'); return; }
     const tx = Math.floor((player.x + player.w / 2) / TILE), ty = Math.floor((player.y + player.h / 2) / TILE);
     const biome = this.world.biomeAt(tx, ty);
     const okBiome = (def.biome === 'underground') ? (biome === 'underground' || biome === 'cavern') : (biome === def.biome);
@@ -1269,13 +1264,14 @@ class Game {
   }
   onBossDeath(b) {
     if (!this.isHost) return;
+    const def = BOSSES[b.key];
+    if (!def) return;
     // A boss that fled its arena was never defeated: no progression, no loot.
     if (b.fled) {
       this.enemies = this.enemies.filter(e => { if (e.fromBoss) { this.enemyById.delete(e.netId); return false; } return true; });
       this.projectiles = this.projectiles.filter(p => p.ownerType !== 'boss');
       return;
     }
-    const def = BOSSES[b.key];
     this.progression.defeatBoss(b.key);
     this.achievements.unlock(b.key);
     for (const drop of def.loot || []) {
@@ -1450,6 +1446,7 @@ class Game {
 
   // ============ DROPS ============
   spawnDrop(x, y, itemId, count) {
+    if (!isItemEnabled(itemId) || !Number.isFinite(count) || count <= 0) return null;
     const d = new DropItem(this.nextNetId(), itemId, count, x, y);
     if (this.net && !this.isHost) d.localOnly = true;
     this.drops.push(d); this.dropById.set(d.netId, d);

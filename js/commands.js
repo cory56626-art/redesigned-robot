@@ -1,11 +1,11 @@
 // Summoner Realms — Demo Commands console (testing only).
-import { ITEMS, DEMO_GIVE_ALL } from './data/items.js?v=snowy-taiga-combat-aidan-1';
-import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=snowy-taiga-combat-aidan-1';
-import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=snowy-taiga-combat-aidan-1';
-import { TRACKS } from './engine/music.js?v=snowy-taiga-combat-aidan-1';
-import { FAUNA } from './data/fauna.js?v=snowy-taiga-combat-aidan-1';
-import { ACHIEVEMENTS } from './systems/achievements.js?v=snowy-taiga-combat-aidan-1';
-import { TILE, LIQUID_MAX } from './config.js?v=snowy-taiga-combat-aidan-1';
+import { ITEMS, DEMO_GIVE_ALL, allItemIds, isItemEnabled } from './data/items.js?v=first-world-no-ore-boss-1';
+import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=first-world-no-ore-boss-1';
+import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=first-world-no-ore-boss-1';
+import { TRACKS } from './engine/music.js?v=first-world-no-ore-boss-1';
+import { FAUNA } from './data/fauna.js?v=first-world-no-ore-boss-1';
+import { ACHIEVEMENTS } from './systems/achievements.js?v=first-world-no-ore-boss-1';
+import { TILE, LIQUID_MAX } from './config.js?v=first-world-no-ore-boss-1';
 
 const $ = (id) => document.getElementById(id);
 
@@ -331,8 +331,9 @@ export class CommandConsole {
 
   _give(a) {
     const nameMap = {}; for (const k in ITEMS) nameMap[k] = ITEMS[k].name;
-    const id = this._resolve(Object.keys(ITEMS), a[0], nameMap);
+    const id = this._resolve(allItemIds(), a[0], nameMap);
     if (!id) return err(`No item matching "${a[0] || ''}".`);
+    if (!isItemEnabled(id)) return err(`That item is not available in the first-world build.`);
     const amt = Math.max(1, parseInt(a[1], 10) || 1);
     const left = this.game.localPlayer.inventory.add(id, amt);
     this.game.localPlayer.recomputeStats();

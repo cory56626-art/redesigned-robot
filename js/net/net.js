@@ -9,7 +9,7 @@
 //
 // The backend URL is configured in index.html (window.SUMMONER_SERVER_URL) and
 // can be overridden per-visit with ?server=https://your-service.onrender.com
-import { MSG } from './protocol.js?v=snowy-taiga-combat-aidan-1';
+import { MSG } from './protocol.js?v=first-world-no-ore-boss-1';
 
 // Resolve the multiplayer backend URL, trailing slashes trimmed:
 //   1. ?server= query param (handy for testing without editing files)

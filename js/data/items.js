@@ -1,11 +1,41 @@
 // Summoner Realms — item catalogue. All original names/designs.
 // Categories: weapon (melee/ranged/mage/summon), tool, armor, accessory,
 // potion, ammo, material, block, station, summonitem.
-import { T } from '../world/tiles.js?v=snowy-taiga-combat-aidan-1';
+import { T } from '../world/tiles.js?v=first-world-no-ore-boss-1';
 
 export const ITEMS = {};
 
+// The first-world boundary is deliberately explicit. These are the tools,
+// basic gear, supplies, fauna materials, and simple utility items a player can
+// reach before any ore or boss progression. Blocks stay available separately
+// because the realm's building layer is not part of the combat/item cut.
+export const FIRST_WORLD_ITEM_IDS = new Set([
+  // Starting kit and first-world tools/weapons.
+  'woodPick', 'woodAxe', 'woodHammer', 'rustedShortblade', 'bonefangDagger',
+  'saplingBow', 'slingcaster', 'sparkWand', 'emberTome', 'spriteWhistle',
+  'fiberHood', 'fiberVest', 'fiberLeggings', 'flintArrow',
+  'bomb', 'fireFlask', 'shuriken', 'healLesser',
+  // Gathered materials and early stations.
+  'wood', 'fiber', 'stick', 'sapling', 'dirt', 'stone', 'clay', 'sand',
+  'craftingBench', 'smeltery', 'emberDust',
+  // Wildlife, cooking, fishing, and basic exploration supplies.
+  'rawBeef', 'rawPork', 'rawMutton', 'rawGame', 'rawFish',
+  'leather', 'wool', 'feather',
+  'cookedBeef', 'cookedPork', 'cookedMutton', 'cookedGame', 'cookedFish',
+  'woodRod', 'worm', 'grub', 'cricket', 'beetle', 'firefly', 'glowmoth',
+  'woodCrate', 'huntersBoots',
+]);
+
+// Raw terrain materials are also placeable blocks, so they remain available
+// under the user's explicit block exception even when they are not part of the
+// starter/crafting set above.
+const BLOCK_MATERIAL_IDS = new Set([
+  'dirt', 'stone', 'wood', 'sand', 'clay', 'snow', 'ice', 'sandstone',
+  'deepstone', 'blightstone',
+]);
+
 function def(o) {
+  if (!FIRST_WORLD_ITEM_IDS.has(o.id) && o.category !== 'block' && !BLOCK_MATERIAL_IDS.has(o.id)) return null;
   const d = { maxStack: 99, tier: 0 };
   if (['weapon', 'tool', 'armor', 'accessory', 'summonitem'].includes(o.category)) d.maxStack = 1;
   ITEMS[o.id] = Object.assign(d, o);
@@ -13,7 +43,7 @@ function def(o) {
 }
 
 // ---------- Tools: pickaxes (mine stone & ore) ----------
-def({ id: 'woodPick', name: 'Oaken Pick', category: 'tool', tool: { power: 1, kind: 'pickaxe' }, color: '#a67c46', desc: 'Basic pickaxe. Mines stone & ore (power 1).' });
+def({ id: 'woodPick', name: 'Oaken Pick', category: 'tool', tool: { power: 1, kind: 'pickaxe' }, color: '#a67c46', desc: 'Basic pickaxe. Mines stone and building materials (power 1).' });
 def({ id: 'cupritePick', name: 'Cuprite Pick', category: 'tool', tool: { power: 2, kind: 'pickaxe' }, color: '#c47b4a', tier: 1, desc: 'Mining power 2. Breaks Ironvein.' });
 def({ id: 'ironveinPick', name: 'Ironvein Pick', category: 'tool', tool: { power: 3, kind: 'pickaxe' }, color: '#a9b0bd', tier: 2, desc: 'Mining power 3. Breaks Glimmer & Aetherite.' });
 def({ id: 'glimmerPick', name: 'Glimmer Pick', category: 'tool', tool: { power: 4, kind: 'pickaxe' }, color: '#ffe08a', tier: 3, desc: 'Mining power 4. Breaks Blightore.' });
@@ -291,7 +321,7 @@ def({ id: 'stoneBrick', name: 'Stone Brick', category: 'block', place: T.STONEBR
 def({ id: 'torch', name: 'Emberlight', category: 'block', place: T.TORCH, color: '#ffb347', maxStack: 99, desc: 'Placeable light source.' });
 // stations
 def({ id: 'craftingBench', name: 'Crafting Bench', category: 'station', place: T.BENCH, color: '#8a6a3a', desc: 'Unlocks basic recipes.' });
-def({ id: 'smeltery', name: 'Smeltery', category: 'station', place: T.SMELTERY, color: '#5a5560', desc: 'Smelts ore into bars.' });
+def({ id: 'smeltery', name: 'Smeltery', category: 'station', place: T.SMELTERY, color: '#5a5560', desc: 'Cooks food and supports basic recipes.' });
 def({ id: 'forge', name: 'Forge', category: 'station', place: T.FORGE, color: '#4a4a55', desc: 'Forges metal gear.' });
 def({ id: 'aetherAltar', name: 'Aether Altar', category: 'station', place: T.ALTAR, color: '#5a7abf', desc: 'Crafts magic gear & boss idols.' });
 // raw dirt/stone/etc as placeable too
@@ -315,10 +345,18 @@ def({ id: 'boneSigil', name: 'Bone Sigil', category: 'summonitem', color: '#e9e2
 def({ id: 'blightIdol', name: 'Blight Idol', category: 'summonitem', color: '#c58bff', color2: '#4a2f66', summonBoss: 'blightSovereign', maxStack: 20, desc: 'Summons the Blight Sovereign in the Corrupted Lands.' });
 
 export function item(id) { return ITEMS[id]; }
-export function allItemIds() { return Object.keys(ITEMS); }
+export function isItemEnabled(id) {
+  const d = ITEMS[id];
+  if (!d) return false;
+  // All blocks and raw materials that can be placed are explicitly excluded
+  // from the item removal request, including biome building materials.
+  if (d.category === 'block' || (d.category === 'material' && d.place != null)) return true;
+  return FIRST_WORLD_ITEM_IDS.has(id);
+}
+export function allItemIds() { return Object.keys(ITEMS).filter(isItemEnabled); }
 
 // Convenience groupings for commands / crafting UI.
-export const WEAPON_IDS = Object.values(ITEMS).filter(i => i.category === 'weapon').map(i => i.id);
+export const WEAPON_IDS = Object.values(ITEMS).filter(i => isItemEnabled(i.id) && i.category === 'weapon').map(i => i.id);
 export const DEMO_GIVE_ALL = Object.values(ITEMS)
-  .filter(i => !i.debugOnly && (i.category !== 'material' || i.matKind === 'bar'))
+  .filter(i => isItemEnabled(i.id) && !i.debugOnly && (i.category !== 'material' || i.matKind === 'bar'))
   .map(i => i.id);

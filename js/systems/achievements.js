@@ -8,16 +8,14 @@
 // no check at all when it is fired by an explicit event (`unlock(id)` from the
 // place that knows it happened). Polling is deliberately throttled — none of
 // these need to be noticed the same frame they become true.
-import { item as getItem } from '../data/items.js?v=snowy-taiga-combat-aidan-1';
-import { UNDERGROUND_Y, CAVERN_Y, TILE } from '../config.js?v=snowy-taiga-combat-aidan-1';
+import { item as getItem } from '../data/items.js?v=first-world-no-ore-boss-1';
+import { UNDERGROUND_Y, CAVERN_Y, TILE } from '../config.js?v=first-world-no-ore-boss-1';
 
 const POLL_INTERVAL = 1.0;
 
 export const ACHIEVEMENTS = [
   // --- First steps ---
   { id: 'firstTree', name: 'Timber', desc: 'Fell your first tree.', icon: '🌲', group: 'Gathering' },
-  { id: 'firstOre', name: 'Prospector', desc: 'Mine your first ore.', icon: '⛏', group: 'Gathering' },
-  { id: 'firstSmelt', name: 'Smelter', desc: 'Smelt ore into a bar.', icon: '🔥', group: 'Gathering' },
   { id: 'firstCraft', name: 'Maker', desc: 'Craft anything at a bench.', icon: '🔨', group: 'Gathering' },
   { id: 'firstBuild', name: 'Homesteader', desc: 'Place 50 blocks.', icon: '🧱', group: 'Gathering',
     check: (g, st) => (st.counters.placed || 0) >= 50 },
@@ -44,13 +42,6 @@ export const ACHIEVEMENTS = [
   { id: 'firstFish', name: 'Angler', desc: 'Catch your first fish.', icon: '🎣', group: 'Wildlife' },
   { id: 'firstCrate', name: 'Salvager', desc: 'Open a crate.', icon: '📦', group: 'Wildlife' },
   { id: 'cook', name: 'Camp Cook', desc: 'Cook a meal.', icon: '🍖', group: 'Wildlife' },
-
-  // --- Combat ---
-  { id: 'grovekeeper', name: 'Grovekeeper Felled', desc: 'Defeat the Grovekeeper.', icon: '🌳', group: 'Bosses' },
-  { id: 'gravemaw', name: 'Gravemaw Felled', desc: 'Defeat the Gravemaw.', icon: '💀', group: 'Bosses' },
-  { id: 'blightSovereign', name: 'Sovereign Felled', desc: 'Defeat the Blight Sovereign.', icon: '👑', group: 'Bosses' },
-  { id: 'allBosses', name: 'Realm Champion', desc: 'Defeat every boss.', icon: '🏆', group: 'Bosses',
-    check: (g, st) => st.unlocked.grovekeeper && st.unlocked.gravemaw && st.unlocked.blightSovereign },
 
   // --- Gear ---
   { id: 'fullSet', name: 'Suited Up', desc: 'Wear a complete armour set.', icon: '🛡', group: 'Gear',
@@ -163,7 +154,6 @@ export class Achievements {
 export function craftAchievement(itemId) {
   const def = getItem(itemId);
   if (!def) return null;
-  if (def.matKind === 'bar') return 'firstSmelt';
   if (def.food) return 'cook';
   return 'firstCraft';
 }

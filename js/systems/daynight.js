@@ -1,5 +1,5 @@
 // Summoner Realms — day / night cycle.
-import { DAY_LENGTH } from '../config.js?v=snowy-taiga-combat-aidan-1';
+import { DAY_LENGTH } from '../config.js?v=first-world-no-ore-boss-1';
 
 export class DayNight {
   constructor(t = DAY_LENGTH * 0.15, day = 1) {

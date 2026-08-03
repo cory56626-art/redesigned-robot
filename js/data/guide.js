@@ -13,11 +13,11 @@
 //                the recipe list and boss loot tables, so a new item is
 //                explained correctly the day it's added without anyone writing
 //                a paragraph for it.
-import { ITEMS, item as getItem } from './items.js?v=snowy-taiga-combat-aidan-1';
-import { RECIPES } from './recipes.js?v=snowy-taiga-combat-aidan-1';
-import { BOSSES } from './bosses.js?v=snowy-taiga-combat-aidan-1';
-import { ENEMIES } from './enemies.js?v=snowy-taiga-combat-aidan-1';
-import { TILE } from '../config.js?v=snowy-taiga-combat-aidan-1';
+import { ITEMS, item as getItem } from './items.js?v=first-world-no-ore-boss-1';
+import { RECIPES } from './recipes.js?v=first-world-no-ore-boss-1';
+import { BOSSES } from './bosses.js?v=first-world-no-ore-boss-1';
+import { ENEMIES } from './enemies.js?v=first-world-no-ore-boss-1';
+import { TILE } from '../config.js?v=first-world-no-ore-boss-1';
 
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
 
@@ -37,7 +37,7 @@ export const TOPICS = [
       } else if (!has('craftingBench')) {
         lines.push(`You have wood enough. Open your bag and craft a <b>Crafting Bench</b> — everything else starts there. Place it, stand near it, and the list of what you can make grows.`);
       } else {
-        lines.push(`Bench in hand. Put it down somewhere you'll come back to, then work down: <b>Smeltery</b> for bars, <b>Forge</b> for metal gear, <b>Aether Altar</b> for magic and idols.`);
+        lines.push(`Bench in hand. Put it down somewhere you'll come back to, then build a <b>Smeltery</b> for the first-world recipes.`);
       }
       lines.push(`Torches next. The dark below is genuinely dark, and a stack of <b>Emberlight</b> costs almost nothing.`);
       return lines;
@@ -50,9 +50,9 @@ export const TOPICS = [
       const axe = p.inventory.bestToolFor('axe');
       return [
         `Right-click and I'll pick the right tool for whatever you're aiming at — the pick for stone, the axe for wood. Your best pickaxe is power <b>${pick.power}</b> and your best axe power <b>${axe.power}</b>.`,
-        `Power matters: Ironvein needs a Cuprite pick, Glimmer and Aetherite need Ironvein, and <b>Blightore</b> won't yield to anything under a Glimmer pick. Using the wrong tool still works, just badly.`,
-        `Ore hides in seams inside the rock, deeper the richer. Cuprite sits near the surface; Glimmer and Aetherite want the caverns; Blightore only ever forms inside blightstone under the Corrupted Lands.`,
-        `If you'd rather not swing at all — <b>bombs</b>. They'll take out dirt and stone in a radius. They will not touch Blightore, and they do not care that you're standing next to them.`,
+        `Your Oaken Pick is enough for the stone this realm generates. The Oaken Hatchet is for trees, and the mallet is for shaping what you build.`,
+        `There are no ores in this realm, so the useful loop is simple: gather wood, fiber, stone, and clay, then turn them into basic gear and shelter.`,
+        `If you'd rather not swing at all — <b>bombs</b>. They'll take out dirt and stone in a radius, and they do not care that you're standing next to them.`,
       ];
     },
   },
@@ -60,8 +60,8 @@ export const TOPICS = [
     id: 'crafting', label: 'Crafting stations',
     text(g, p) {
       return [
-        `Four stations, each unlocking the next. <b>Crafting Bench</b> from wood; <b>Smeltery</b> from stone and clay, which turns ore into bars; <b>Forge</b> from stone and cuprite bars for metal weapons, armour and tools; <b>Aether Altar</b> for magic gear, summoner idols and the potions worth drinking.`,
-        `You have to be standing near a station for its recipes to appear — about five tiles. Build a little workshop and keep all four together; you'll thank yourself.`,
+        `<b>Crafting Bench</b> from wood, then a <b>Smeltery</b> from stone and clay for the first-world recipes. There is no Forge or Aether Altar progression in this realm.`,
+        `You have to be standing near a station for its recipes to appear — about five tiles. Build a little workshop and keep the two together; you'll thank yourself.`,
       ];
     },
   },
@@ -81,8 +81,8 @@ export const TOPICS = [
     text() {
       return [
         `Throw them and gravity does the rest — they arc, they bounce off stone, and they land where physics puts them, not where you pointed.`,
-        `<b>Blast Bomb</b> for a small crater in dirt and stone. <b>Dynamite</b> for a much bigger one and tougher rock. <b>Cling Charge</b> sticks where it lands, which is the only sane way to blast a ceiling. <b>Ember Flask</b> bursts into flame on impact and leaves the terrain alone.`,
-        `<b>Shurikens</b> and <b>knives</b> aren't explosives at all: flat, fast, and you can often pick them back up afterwards.`,
+        `<b>Blast Bomb</b> makes a small crater in dirt and stone. <b>Ember Flask</b> bursts into flame on impact and leaves the terrain alone.`,
+        `<b>Shurikens</b> aren't explosives at all: flat, fast, and you can often pick them back up afterwards.`,
         `Stand clear. A blast doesn't check whose it was.`,
       ];
     },
@@ -98,19 +98,12 @@ export const TOPICS = [
     },
   },
   {
-    id: 'bosses', label: 'The three bosses',
-    text(g, p) {
-      const done = (k) => g.progression.isDefeated(k);
-      const lines = [];
-      for (const key of ['grovekeeper', 'gravemaw', 'blightSovereign']) {
-        const b = BOSSES[key];
-        const where = b.biome === 'forest' ? 'the forest' : b.biome === 'corrupt' ? 'the Corrupted Lands' : 'the underground';
-        const item = getItem(b.summonItem);
-        lines.push(`<b>${b.name}</b> — ${b.maxHp} health, ${b.phases.length} phases, summoned with a <b>${item.name}</b> in ${where}. ${done(key) ? '<span class="npc-stat">Already beaten.</span>' : ''}`);
-      }
-      lines.push(`They all telegraph. Every attack has a charge-up you can see and a recovery afterwards where they're slow — that recovery is when you hit back.`);
-      lines.push(`Two things they won't tolerate: running away, which enrages them and eventually makes them leave, and dying, which ends the fight outright. Either way you'll need another idol.`);
-      return lines;
+    id: 'survival', label: 'Surviving the realm',
+    text() {
+      return [
+        `There are no boss encounters here. Hostile wildlife still spawns, telegraphs its attacks, and drops the basic materials you can use.`,
+        `Keep moving when an enemy flashes before a charge or shot. The Guide can also fire back when a hostile gets near camp.`,
+      ];
     },
   },
   {
@@ -123,8 +116,8 @@ export const TOPICS = [
         forest: `The <b>Verdant Reach</b>. Ordinary, green, and the safest ground you'll find. Home.`,
         dunes: `The <b>Sunken Dunes</b> at the world's edge. Flat, hot, cactus-ridden, and hiding sandstone under the sand.`,
         frostpine: `<b>Frostpine Hollow</b>. Snow over stone, tall pines, and rimeglass that'll blunt a poor pickaxe.`,
-        corrupt: `The <b>Corrupted Lands</b>. Blightstone and thornvines, and the only place Blightore forms. Mind the vines — they bite.`,
-        underground: `<b>Underground</b>. Past the dirt, into the stone. This is where the ore starts being worth carrying home.`,
+        corrupt: `The <b>Corrupted Lands</b>. Blightstone and thornvines. Mind the vines — they bite.`,
+        underground: `<b>Underground</b>. Past the dirt, into the stone. Bring Emberlight and watch for hostile wildlife.`,
         cavern: `The <b>deep caverns</b>. Deepstone, wide halls, and the worst things in the world. Bring torches and don't be shy with them.`,
       };
       return [
@@ -147,8 +140,8 @@ export const SNOWKEEPER_TOPICS = [
     id: 'taiga', label: 'What is this place?',
     text() {
       return [
-        `This is the <b>Snowy Taiga</b> — a broad white country where the wind goes quiet between the pines. The blue seams in the stone are <b>Glacierite</b>; bring it home and smelt it into gear when your Forge is ready.`,
-        `The old ice under the snow is called <b>Rimeglass</b>. A weak pick will chip at it, but a proper metal pick makes the work much less miserable.`,
+        `This is the <b>Snowy Taiga</b> — a broad white country where the wind goes quiet between the pines. The snow and ice are building materials, and the pines still give you wood.`,
+        `The old ice under the snow is called <b>Rimeglass</b>. Your Oaken Pick can work it slowly.`,
       ];
     },
   },
@@ -263,7 +256,9 @@ function purposeOf(def) {
     case 'tool':
       return def.tool.kind === 'axe'
         ? `An axe, power ${def.tool.power}. Chop a trunk and the whole tree comes down — trunk into wood, leaves into twigs and seeds.`
-        : `A pickaxe, power ${def.tool.power}. Power decides what you can break at all: 2 for Ironvein, 3 for Glimmer and Aetherite, 4 for Blightore.`;
+        : def.tool.kind === 'hammer'
+          ? `A mallet for shaping blocks and stripping background walls.`
+          : `A pickaxe, power ${def.tool.power}. It works through the stone and building materials in this realm.`;
     case 'armor': {
       let s = `Armour for the <b>${def.slot}</b> slot: ${def.defense} defense, which takes the edge off every hit.`;
       if (def.setKey) s += ` Part of a set — wear all three pieces and you get a bonus on top of the armour itself.`;
@@ -292,9 +287,7 @@ function purposeOf(def) {
     case 'station': return `A crafting station. Place it, stand within about five tiles, and its recipes appear in your bag.`;
     case 'block': return `A building block. Place it against something solid, or right beside yourself to climb.`;
     case 'summonitem': {
-      const b = BOSSES[def.summonBoss];
-      const where = b.biome === 'forest' ? 'the forest' : b.biome === 'corrupt' ? 'the Corrupted Lands' : 'the underground';
-      return `This calls the <b>${b.name}</b>, and only in ${where}. It is consumed whether the fight goes well or not, so bring more than one.`;
+      return `Boss summoning is disabled in this first-world realm.`;
     }
     case 'material': {
       if (def.matKind === 'ore') return `Raw ore. Worthless until you smelt it into bars at a Smeltery.`;
@@ -335,10 +328,6 @@ function situationalTip(game, player, def) {
     const n = sets[def.setKey] || 0;
     if (n > 0 && n < 3) return `You're wearing ${n} of the three. One more piece and the set bonus is yours.`;
   }
-  if (def.category === 'summonitem' && !game.progression.isDefeated(previousBoss(def.summonBoss))) {
-    const prev = BOSSES[previousBoss(def.summonBoss)];
-    if (prev) return `I'd deal with the <b>${prev.name}</b> first, if I were you.`;
-  }
   if (def.category === 'tool' && def.tool) {
     const best = inv.bestToolFor(def.tool.kind);
     if (best.power > def.tool.power) return `You have a better one in the bag already — no reason to carry both.`;
@@ -346,20 +335,10 @@ function situationalTip(game, player, def) {
   return null;
 }
 
-const BOSS_ORDER = ['grovekeeper', 'gravemaw', 'blightSovereign'];
-function previousBoss(key) {
-  const i = BOSS_ORDER.indexOf(key);
-  return i > 0 ? BOSS_ORDER[i - 1] : null;
-}
-
 // The line the Guide opens with, which changes as you make progress.
 export function greeting(game, player) {
-  const p = game.progression;
   if (!player.inventory.count('craftingBench') && player.inventory.count('wood') < 8) {
     return `Ah — you're up. Vesper Thane; I keep a camp here so nobody has to start entirely alone. Get some wood into you and we'll talk about a workbench.`;
   }
-  if (p.isDefeated('blightSovereign')) return `The Sovereign is dead and the corruption is quiet. I'm not sure there's much left I can teach you.`;
-  if (p.isDefeated('gravemaw')) return `Two down. Only the <b>Blight Sovereign</b> left, and it is not like the others. Ask me anything.`;
-  if (p.isDefeated('grovekeeper')) return `The Grovekeeper's beaten — well done. The <b>Gravemaw</b> is next, and it's underground. What do you need?`;
   return `Back again? Good. Ask, and I'll tell you what I know.`;
 }

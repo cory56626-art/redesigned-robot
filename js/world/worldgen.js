@@ -16,11 +16,11 @@
 //
 // Deterministic from a numeric seed. `tools/worldgen-check.mjs` asserts the
 // invariants this file is responsible for.
-import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE, LIQUID_MAX } from '../config.js?v=snowy-taiga-combat-aidan-1';
-import { T, isSolid, isFlora } from './tiles.js?v=snowy-taiga-combat-aidan-1';
-import { W } from './walls.js?v=snowy-taiga-combat-aidan-1';
-import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=snowy-taiga-combat-aidan-1';
-import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep, lerp } from '../utils.js?v=snowy-taiga-combat-aidan-1';
+import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE, LIQUID_MAX } from '../config.js?v=first-world-no-ore-boss-1';
+import { T, isSolid, isFlora } from './tiles.js?v=first-world-no-ore-boss-1';
+import { W } from './walls.js?v=first-world-no-ore-boss-1';
+import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=first-world-no-ore-boss-1';
+import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep, lerp } from '../utils.js?v=first-world-no-ore-boss-1';
 
 // Half-width of the guaranteed flat, cave-free plain the player spawns on.
 const SPAWN_PLAIN = 13;
@@ -48,7 +48,6 @@ export function generateWorld(seed) {
   const cave = carveCaves(seed, w, h, surface, spawnTx);
   applyCaves(tiles, cave, w, h, surface, spawnTx);
 
-  seedOres(tiles, w, h, surface, biome.map, rand);
   decorate(tiles, w, h, surface, biome, rand, spawnTx);
 
   sealSpawn(tiles, walls, w, h, surface, spawnTx, biome);
@@ -761,63 +760,6 @@ function applyCaves(tiles, cave, w, h, surface, spawnTx) {
       if (protectedCol && y < surface[x] + 10) continue;
       tiles[idx(x, y)] = T.AIR;
     }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Ore
-// ---------------------------------------------------------------------------
-
-// Depth-banded with per-tier rarity. `from`/`to` are absolute tile rows unless
-// `fromSurface` is set, in which case they are measured below the surface line.
-const ORE_BANDS = [
-  { id: T.CUPRITE,   density: 0.0130, from: 4,   to: CAVERN_Y,        size: [3, 7], fromSurface: true },
-  { id: T.IRONVEIN,  density: 0.0092, from: 12,  to: WORLD_H,         size: [3, 6], fromSurface: true },
-  { id: T.GLIMMER,   density: 0.0050, from: UNDERGROUND_Y + 6, to: WORLD_H, size: [2, 5] },
-  { id: T.AETHERITE, density: 0.0040, from: CAVERN_Y - 14, to: WORLD_H, size: [2, 5] },
-  { id: T.BLIGHTORE, density: 0.0220, from: UNDERGROUND_Y, to: WORLD_H, size: [2, 5], hostMat: 'blightstone' },
-  // Glacierite is Taiga-only: a useful, visible reason to make the trip
-  // instead of treating the new snowy band as a purely cosmetic palette swap.
-  { id: T.GLACIERITE, density: 0.0120, from: 12, to: CAVERN_Y + 38, size: [3, 6], fromSurface: true, biome: 'snowyTaiga' },
-];
-
-function seedOres(tiles, w, h, surface, biomeMap, rand) {
-  const idx = (x, y) => y * w + x;
-  for (const band of ORE_BANDS) {
-    for (let x = 0; x < w; x++) {
-      if (band.biome && BIOME_ORDER[biomeMap[x]] !== band.biome) continue;
-      const minY = band.fromSurface ? surface[x] + band.from : band.from;
-      const maxY = Math.min(band.to, h - BEDROCK - 1);
-      for (let y = Math.max(0, minY); y < maxY; y++) {
-        if (rand() >= band.density) continue;
-        // Blightore only forms inside blightstone, so it stays a corruption
-        // resource instead of appearing under the forest.
-        if (band.hostMat && tiles[idx(x, y)] !== T.BLIGHTSTONE) continue;
-        const n = band.size[0] + Math.floor(rand() * (band.size[1] - band.size[0] + 1));
-        const inBand = band.biome ? (vx) => BIOME_ORDER[biomeMap[vx]] === band.biome : null;
-        vein(tiles, w, h, x, y, n, band.id, rand, minY, inBand);
-      }
-    }
-  }
-}
-
-// A vein wanders as it grows, so it is clamped to the band it belongs to —
-// otherwise a vein seeded on the boundary walks a tile or two out of its depth
-// range and, say, blightore shows up above the underground line.
-function vein(tiles, w, h, cx, cy, n, id, rand, minY, allowColumn = null) {
-  const idx = (x, y) => y * w + x;
-  let x = cx, y = cy;
-  for (let i = 0; i < n; i++) {
-    if (y < minY) y = minY;
-    if (x > 0 && x < w && y > 0 && y < h - BEDROCK && (!allowColumn || allowColumn(x))) {
-      const t = tiles[idx(x, y)];
-      if (t === T.STONE || t === T.BLIGHTSTONE || t === T.DEEPSTONE || t === T.DIRT || t === T.SANDSTONE) {
-        tiles[idx(x, y)] = id;
-      }
-    }
-    // Veins prefer to grow sideways, which reads as a seam rather than a blob.
-    x += (rand() < 0.6 ? (rand() < 0.5 ? -1 : 1) : 0);
-    y += (rand() < 0.45 ? (rand() < 0.5 ? -1 : 1) : 0);
   }
 }
 
