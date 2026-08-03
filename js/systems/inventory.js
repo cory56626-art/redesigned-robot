@@ -1,6 +1,6 @@
 // Summoner Realms — inventory, hotbar, equipment, and derived stats.
-import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=prehardmode-mech-1';
-import { ITEMS, item as getItem, isItemEnabled } from '../data/items.js?v=prehardmode-mech-1';
+import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=prehardmode-mech-2';
+import { ITEMS, item as getItem, isItemEnabled } from '../data/items.js?v=prehardmode-mech-2';
 
 export const INV_SIZE = HOTBAR_SIZE + INV_ROWS * INV_COLS;
 

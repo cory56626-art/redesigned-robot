@@ -7,10 +7,10 @@
 // Tile destruction is gated on each tile's `blastResist` — dirt and sand go up
 // with anything, stone needs a bomb, high-tier ore is immune — so explosives are
 // a tool for shaping the world without becoming a way to strip-mine the endgame.
-import { TILE } from '../config.js?v=prehardmode-mech-1';
-import { T, tileDef, blastResist } from '../world/tiles.js?v=prehardmode-mech-1';
-import { wallBlastResist } from '../world/walls.js?v=prehardmode-mech-1';
-import { W } from '../world/walls.js?v=prehardmode-mech-1';
+import { TILE } from '../config.js?v=prehardmode-mech-2';
+import { T, tileDef, blastResist } from '../world/tiles.js?v=prehardmode-mech-2';
+import { wallBlastResist } from '../world/walls.js?v=prehardmode-mech-2';
+import { W } from '../world/walls.js?v=prehardmode-mech-2';
 
 /**
  * Detonate at world pixel (x, y).

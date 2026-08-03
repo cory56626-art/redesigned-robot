@@ -11,12 +11,12 @@
 // distance, phase and line of sight. Animation fields (squash, jaw, segment
 // lag, shard spin) are updated here rather than in the renderer, so they are
 // driven by the simulation and stay frame-rate independent.
-import { TILE, normalizeDifficulty } from '../config.js?v=prehardmode-mech-1';
-import { BOSSES } from '../data/bosses.js?v=prehardmode-mech-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=prehardmode-mech-1';
-import { aabb, angleTo, randRange, clamp } from '../utils.js?v=prehardmode-mech-1';
-import { Projectile } from './projectile.js?v=prehardmode-mech-1';
-import * as AI from '../systems/ai.js?v=prehardmode-mech-1';
+import { TILE, normalizeDifficulty } from '../config.js?v=prehardmode-mech-2';
+import { BOSSES } from '../data/bosses.js?v=prehardmode-mech-2';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=prehardmode-mech-2';
+import { aabb, angleTo, randRange, clamp } from '../utils.js?v=prehardmode-mech-2';
+import { Projectile } from './projectile.js?v=prehardmode-mech-2';
+import * as AI from '../systems/ai.js?v=prehardmode-mech-2';
 
 const PROJ_COLOR = {
   thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff',
@@ -164,6 +164,9 @@ export class Boss {
   }
 
   update(dt, game) {
+    // Death is resolved by the game loop after this frame. Never let a zero-HP
+    // boss enter a new phase or fire one more attack during that short gap.
+    if (this.dead) return;
     this.spawnTime += dt;
     if (this.hurtFlash > 0) this.hurtFlash -= dt;
     if (this.attackPulse > 0) this.attackPulse -= dt;

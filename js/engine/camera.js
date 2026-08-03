@@ -2,8 +2,8 @@
 import {
   TILE, WORLD_W, WORLD_H, TARGET_TILES_V,
   ZOOM_MIN, ZOOM_MAX, ZOOM_DEFAULT, ZOOM_STEP,
-} from '../config.js?v=prehardmode-mech-1';
-import { clamp, lerp } from '../utils.js?v=prehardmode-mech-1';
+} from '../config.js?v=prehardmode-mech-2';
+import { clamp, lerp } from '../utils.js?v=prehardmode-mech-2';
 
 export class Camera {
   constructor() {

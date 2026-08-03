@@ -1,8 +1,8 @@
 // Summoner Realms — crafting logic.
-import { TILE } from '../config.js?v=prehardmode-mech-1';
-import { RECIPES } from '../data/recipes.js?v=prehardmode-mech-1';
-import { tileDef } from '../world/tiles.js?v=prehardmode-mech-1';
-import { item as getItem } from '../data/items.js?v=prehardmode-mech-1';
+import { TILE } from '../config.js?v=prehardmode-mech-2';
+import { RECIPES } from '../data/recipes.js?v=prehardmode-mech-2';
+import { tileDef } from '../world/tiles.js?v=prehardmode-mech-2';
+import { item as getItem } from '../data/items.js?v=prehardmode-mech-2';
 
 // Which crafting stations are within reach of the player? (null = by hand)
 export function nearbyStations(game, player) {

@@ -8,10 +8,10 @@
 //
 // Bugs are the same entity with `kind: 'bug'`: smaller, flightier, and caught by
 // clicking them rather than by killing them.
-import { TILE, GRAVITY } from '../config.js?v=prehardmode-mech-1';
-import { FAUNA } from '../data/fauna.js?v=prehardmode-mech-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=prehardmode-mech-1';
-import { dist2 } from '../utils.js?v=prehardmode-mech-1';
+import { TILE, GRAVITY } from '../config.js?v=prehardmode-mech-2';
+import { FAUNA } from '../data/fauna.js?v=prehardmode-mech-2';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=prehardmode-mech-2';
+import { dist2 } from '../utils.js?v=prehardmode-mech-2';
 
 export class Critter {
   constructor(key, x, y, netId) {

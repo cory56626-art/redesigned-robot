@@ -1,12 +1,12 @@
 // Summoner Realms — runtime world: tile grid, wall grid, collision, mining,
 // lighting, and the edit diffs that get saved.
-import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=prehardmode-mech-1';
-import { T, tileDef, isSolid, tileLight, isLegacyOreTile } from './tiles.js?v=prehardmode-mech-1';
-import { W, hasWall, wallBlastResist } from './walls.js?v=prehardmode-mech-1';
-import { SH, shapeContains, surfaceOffset, fillsTop } from './shapes.js?v=prehardmode-mech-1';
-import { LiquidGrid } from './liquid.js?v=prehardmode-mech-1';
-import { BIOME_ORDER } from './biomes.js?v=prehardmode-mech-1';
-import { generateWorld } from './worldgen.js?v=prehardmode-mech-1';
+import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=prehardmode-mech-2';
+import { T, tileDef, isSolid, tileLight, isLegacyOreTile } from './tiles.js?v=prehardmode-mech-2';
+import { W, hasWall, wallBlastResist } from './walls.js?v=prehardmode-mech-2';
+import { SH, shapeContains, surfaceOffset, fillsTop } from './shapes.js?v=prehardmode-mech-2';
+import { LiquidGrid } from './liquid.js?v=prehardmode-mech-2';
+import { BIOME_ORDER } from './biomes.js?v=prehardmode-mech-2';
+import { generateWorld } from './worldgen.js?v=prehardmode-mech-2';
 
 export class World {
   constructor(seed) {

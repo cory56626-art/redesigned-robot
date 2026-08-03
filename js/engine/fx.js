@@ -7,7 +7,7 @@
 //
 // A particle is a plain object so it stays cheap to allocate in bulk:
 //   { x, y, vx, vy, life, max, size, color, gravity, drag, glow, shrink, spin }
-import { MAX_PARTICLES } from '../config.js?v=prehardmode-mech-1';
+import { MAX_PARTICLES } from '../config.js?v=prehardmode-mech-2';
 
 export class Fx {
   constructor(game) {

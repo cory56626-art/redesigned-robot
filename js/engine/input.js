@@ -2,7 +2,7 @@
 // Produces a platform-agnostic InputState so PC and mobile drive gameplay and
 // networking identically. Keyboard/mouse and touch joysticks both feed the same
 // intents: move, jump, aim, primary-use, mine, place, consume.
-import { REACH, TILE } from '../config.js?v=prehardmode-mech-1';
+import { REACH, TILE } from '../config.js?v=prehardmode-mech-2';
 
 export class Input {
   constructor(canvas) {
