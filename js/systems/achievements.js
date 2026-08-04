@@ -8,8 +8,8 @@
 // no check at all when it is fired by an explicit event (`unlock(id)` from the
 // place that knows it happened). Polling is deliberately throttled — none of
 // these need to be noticed the same frame they become true.
-import { item as getItem } from '../data/items.js?v=prehardmode-weapons-1';
-import { UNDERGROUND_Y, CAVERN_Y, TILE } from '../config.js?v=prehardmode-weapons-1';
+import { item as getItem } from '../data/items.js?v=the-worm-1';
+import { UNDERGROUND_Y, CAVERN_Y, TILE } from '../config.js?v=the-worm-1';
 
 const POLL_INTERVAL = 1.0;
 
@@ -69,6 +69,7 @@ export const ACHIEVEMENTS = [
 
   // --- Bosses ---
   { id: 'theMech', name: 'Machina Breaker', desc: 'Defeat The Mech.', icon: '⚙', group: 'Bosses' },
+  { id: 'theWorm', name: 'Tunnelbreaker', desc: 'Defeat The Worm.', icon: '🪱', group: 'Bosses' },
 ];
 
 export const ACHIEVEMENT_BY_ID = Object.fromEntries(ACHIEVEMENTS.map(a => [a.id, a]));

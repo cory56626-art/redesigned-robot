@@ -1,7 +1,7 @@
 // Summoner Realms — crafting recipes.
 // station: null (hand) | 'bench' | 'smeltery' | 'forge' | 'altar'
-// requiresBoss: optional progression gate (unused in the boss-free reset).
-import { isItemEnabled } from './items.js?v=prehardmode-weapons-1';
+// requiresBoss: optional active-boss progression gate.
+import { isItemEnabled } from './items.js?v=the-worm-1';
 
 const ALL_RECIPES = [
   // --- Hand ---
@@ -111,6 +111,10 @@ const ALL_RECIPES = [
   // The first boss is deliberately reached after the eight-ore climb. Its
   // beacon uses the final alloy but does not revive any retired boss material.
   { out: { item: 'mechBeacon', count: 1 }, in: [{ item: 'starsteelBar', count: 5 }, { item: 'stormBar', count: 4 }, { item: 'emberDust', count: 6 }], station: 'forge' },
+  // The second boss is a post-Mech cavern fight. A guaranteed Mech Core means
+  // the first clear always opens the path, while repeat summons still ask the
+  // player to earn another core instead of making the lure an infinite freebie.
+  { out: { item: 'wormLure', count: 1 }, in: [{ item: 'mechCore', count: 1 }, { item: 'shadowglassBar', count: 6 }, { item: 'emberDust', count: 8 }], station: 'forge', requiresBoss: 'theMech' },
   { out: { item: 'cupritePick', count: 1 }, in: [{ item: 'cupriteBar', count: 8 }], station: 'forge' },
   { out: { item: 'cupriteAxe', count: 1 }, in: [{ item: 'cupriteBar', count: 7 }, { item: 'wood', count: 2 }], station: 'forge' },
   { out: { item: 'cupriteSword', count: 1 }, in: [{ item: 'cupriteBar', count: 8 }], station: 'forge' },
@@ -179,11 +183,13 @@ const ALL_RECIPES = [
   { out: { item: 'blightIdol', count: 1 }, in: [{ item: 'marrow', count: 1 }, { item: 'blightoreOre', count: 8 }, { item: 'blightBar', count: 4 }], station: 'altar', requiresBoss: 'gravemaw' },
 ];
 
-// Only recipes reachable in the starter and pre-Hardmode progression remain.
-// This also removes recipes that consume retired ore, bars, boss drops, or boss
-// summon items, so no stale entry can manufacture disabled content.
+// Only recipes reachable in the starter, active pre-Hardmode, and active boss
+// progression remain. Explicitly listing the live gates keeps retired boss
+// recipes out even though the crafting system supports progression locks.
+const ACTIVE_BOSS_RECIPE_GATES = new Set(['theMech', 'theWorm']);
 export const RECIPES = ALL_RECIPES.filter((r) =>
-  !r.requiresBoss && isItemEnabled(r.out.item) && r.in.every(i => isItemEnabled(i.item))
+  (!r.requiresBoss || ACTIVE_BOSS_RECIPE_GATES.has(r.requiresBoss)) &&
+  isItemEnabled(r.out.item) && r.in.every(i => isItemEnabled(i.item))
 );
 
 // Give every retained recipe a stable id.

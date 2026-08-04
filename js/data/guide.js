@@ -13,11 +13,11 @@
 //                the recipe list and boss loot tables, so a new item is
 //                explained correctly the day it's added without anyone writing
 //                a paragraph for it.
-import { ITEMS, item as getItem } from './items.js?v=prehardmode-weapons-1';
-import { RECIPES } from './recipes.js?v=prehardmode-weapons-1';
-import { BOSSES } from './bosses.js?v=prehardmode-weapons-1';
-import { ENEMIES } from './enemies.js?v=prehardmode-weapons-1';
-import { TILE } from '../config.js?v=prehardmode-weapons-1';
+import { ITEMS, item as getItem } from './items.js?v=the-worm-1';
+import { RECIPES } from './recipes.js?v=the-worm-1';
+import { BOSSES } from './bosses.js?v=the-worm-1';
+import { ENEMIES } from './enemies.js?v=the-worm-1';
+import { TILE } from '../config.js?v=the-worm-1';
 
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
 
@@ -102,7 +102,7 @@ export const TOPICS = [
     id: 'survival', label: 'Surviving the realm',
     text() {
       return [
-        `The first pre-Hardmode boss is <b>The Mech</b>. Forge a <b>Mech Beacon</b> from Starsteel, Storm Bars and Ember Dust, then use it on the surface with room to move.`,
+        `The first pre-Hardmode boss is <b>The Mech</b>. Forge a <b>Mech Beacon</b> from Starsteel, Storm Bars and Ember Dust, then use it on the surface with room to move. Its Core can be forged into a <b>Worm Lure</b>; take that Underground only after The Mech falls.`,
         `Its missile tracks you for five seconds before exploding, its jump answers big gaps and air time, and its two-handed Plasma Ray follows with the weapon — not the whole body. In Overdrive, keep an eye on the shoulder volley lanes.`,
         `Keep moving when an enemy flashes before a charge or shot. The Guide can also fire back when a hostile gets near camp.`,
       ];

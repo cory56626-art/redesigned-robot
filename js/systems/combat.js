@@ -1,13 +1,13 @@
 // Summoner Realms — combat & interaction resolution (weapons, mining, placing).
-import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=prehardmode-weapons-1';
-import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=prehardmode-weapons-1';
-import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=prehardmode-weapons-1';
-import { SH, nextShape } from '../world/shapes.js?v=prehardmode-weapons-1';
-import { W } from '../world/walls.js?v=prehardmode-weapons-1';
-import { item as getItem } from '../data/items.js?v=prehardmode-weapons-1';
-import { Projectile } from '../entities/projectile.js?v=prehardmode-weapons-1';
-import { ThrownItem } from '../entities/thrown.js?v=prehardmode-weapons-1';
-import { angleTo, aabb, clamp } from '../utils.js?v=prehardmode-weapons-1';
+import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=the-worm-1';
+import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=the-worm-1';
+import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=the-worm-1';
+import { SH, nextShape } from '../world/shapes.js?v=the-worm-1';
+import { W } from '../world/walls.js?v=the-worm-1';
+import { item as getItem } from '../data/items.js?v=the-worm-1';
+import { Projectile } from '../entities/projectile.js?v=the-worm-1';
+import { ThrownItem } from '../entities/thrown.js?v=the-worm-1';
+import { angleTo, aabb, clamp } from '../utils.js?v=the-worm-1';
 
 const MINE_RATE = 95;
 const MINE_SOUND_INTERVAL = 0.32;
@@ -255,6 +255,21 @@ function swingFx(game, player, item, angle, dmg, crit) {
       player.swing.color = 'rgba(255,240,180,0.9)';
       break;
     }
+    case 'mechanical': {
+      // The rare sword should feel like a salvage weapon, not a recoloured
+      // blade: hard blue sparks, a little kick, and a broad cog-like flare.
+      for (let i = 0; i < 12; i++) {
+        const a = angle + (Math.random() - 0.5) * (item.arc || 1.8);
+        const r = reach * (0.35 + Math.random() * 0.72);
+        game.fx.streak(pc.x + Math.cos(a) * r, pc.y + Math.sin(a) * r, a, i % 3 ? '#8feaff' : '#ffcf72', 2, {
+          speed: 155, spread: 0.34, life: 0.25, size: 1.8, glow: true,
+        });
+      }
+      game.fx.ring(tipX, tipY, 'rgba(120,217,255,0.78)', 20, { life: 0.18, width: 2.5 });
+      game.fx.shake(1.5, 0.1);
+      player.swing.color = 'rgba(132,225,255,0.94)';
+      break;
+    }
     case 'arcwave': {
       // The greatblade projects its arc: a real damaging crescent, which is what
       // makes the top-tier melee weapon feel like an endgame item.
@@ -357,6 +372,13 @@ function shotFx(game, player, item, angle) {
       player.vx -= Math.cos(angle) * 26;
       game.fx.shake(1.2, 0.1);
       break;
+    case 'launcher':
+      game.fx.muzzle(mx, my, angle, '#ffbf69');
+      game.fx.ring(mx, my, 'rgba(255,190,105,0.7)', 25, { life: 0.18, width: 2.4 });
+      game.fx.smoke(mx - Math.cos(angle) * 4, my - Math.sin(angle) * 4, '#4b5361', 5, { jitter: 8 });
+      player.vx -= Math.cos(angle) * 48;
+      game.fx.shake(2.7, 0.16);
+      break;
     case 'storm':
       game.fx.streak(mx, my, angle, '#bfe9ff', 8, { speed: 260, spread: 0.4, life: 0.2, size: 2 });
       game.fx.ring(mx, my, 'rgba(140,220,255,0.6)', 18, { life: 0.14, width: 2 });
@@ -386,7 +408,13 @@ function _fireProjectiles(game, player, item, aimAng, dmg, crit, cls) {
       damage: dmg, ownerType: cls === 'ranged' ? 'player' : 'player', ownerId: player.id,
       kind: item.projectileKind || item.rangedKind || item.mageKind || 'spark', color: item.projColor || item.color,
       pierce: item.pierce || 0, gravity: !!item.gravity, effect: item.effect || null,
-      knockback: item.knockback || 3, crit, life: 3, trail: item.trail || null,
+      knockback: item.knockback || 3, crit, life: item.projectileLife || 3, trail: item.trail || null,
+      w: item.projectileW || 6, h: item.projectileH || 6,
+      burstCount: item.burstCount || 0, burstDamage: item.burstDamage || 0,
+      burstKind: item.burstKind || null, burstColor: item.burstColor || null,
+      burstSpeed: item.burstSpeed || 220, burstLife: item.burstLife || 1.25,
+      burstGravity: !!item.burstGravity, blastRadius: item.blastRadius || 0,
+      blastDamage: item.blastDamage || 0,
     }), true);
   }
 }

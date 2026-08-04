@@ -1,12 +1,12 @@
 // Summoner Realms — runtime world: tile grid, wall grid, collision, mining,
 // lighting, and the edit diffs that get saved.
-import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=prehardmode-weapons-1';
-import { T, tileDef, isSolid, tileLight, isLegacyOreTile } from './tiles.js?v=prehardmode-weapons-1';
-import { W, hasWall, wallBlastResist } from './walls.js?v=prehardmode-weapons-1';
-import { SH, shapeContains, surfaceOffset, fillsTop } from './shapes.js?v=prehardmode-weapons-1';
-import { LiquidGrid } from './liquid.js?v=prehardmode-weapons-1';
-import { BIOME_ORDER } from './biomes.js?v=prehardmode-weapons-1';
-import { generateWorld } from './worldgen.js?v=prehardmode-weapons-1';
+import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=the-worm-1';
+import { T, tileDef, isSolid, tileLight, isLegacyOreTile } from './tiles.js?v=the-worm-1';
+import { W, hasWall, wallBlastResist } from './walls.js?v=the-worm-1';
+import { SH, shapeContains, surfaceOffset, fillsTop } from './shapes.js?v=the-worm-1';
+import { LiquidGrid } from './liquid.js?v=the-worm-1';
+import { BIOME_ORDER } from './biomes.js?v=the-worm-1';
+import { generateWorld } from './worldgen.js?v=the-worm-1';
 
 export class World {
   constructor(seed) {

@@ -9,9 +9,9 @@
 // top, a shadowed underside and rimmed sides. That neighbour awareness — plus
 // grass fringing down onto dirt and trunk/canopy shading — is most of what makes
 // terrain read as terrain instead of a grid of coloured squares.
-import { T, TILES, tileMat, isTree, isLeaf } from '../world/tiles.js?v=prehardmode-weapons-1';
-import { W, WALLS } from '../world/walls.js?v=prehardmode-weapons-1';
-import { mulberry32 } from '../utils.js?v=prehardmode-weapons-1';
+import { T, TILES, tileMat, isTree, isLeaf } from '../world/tiles.js?v=the-worm-1';
+import { W, WALLS } from '../world/walls.js?v=the-worm-1';
+import { mulberry32 } from '../utils.js?v=the-worm-1';
 
 function makeCanvas(w, h) {
   const c = document.createElement('canvas');
@@ -791,6 +791,12 @@ class SpriteBank {
       ctx.fillStyle = '#24172e'; ctx.beginPath(); ctx.moveTo(11, 7); ctx.quadraticCurveTo(14, 0, 19, 2); ctx.quadraticCurveTo(16, 8, 11, 11); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#b983e5'; ctx.beginPath(); ctx.moveTo(12, 7); ctx.quadraticCurveTo(15, 2, 18, 3); ctx.quadraticCurveTo(15, 6, 12, 9); ctx.closePath(); ctx.fill();
       ctx.strokeStyle = '#e1b7ff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(13, 7); ctx.quadraticCurveTo(16, 3, 18, 3); ctx.stroke();
+    } else if (id === 'mechanicalSword') {
+      ctx.strokeStyle = '#263847'; ctx.lineWidth = 3.2; ctx.beginPath(); ctx.moveTo(3, 18); ctx.lineTo(8, 13); ctx.stroke();
+      ctx.fillStyle = '#37576b'; ctx.beginPath(); ctx.moveTo(7, 15); ctx.lineTo(8, 5); ctx.lineTo(17, 2); ctx.lineTo(14, 12); ctx.lineTo(10, 15); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#a9efff'; ctx.beginPath(); ctx.moveTo(9, 6); ctx.lineTo(16, 3); ctx.lineTo(12, 10); ctx.lineTo(10, 10); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#ffcf72'; ctx.beginPath(); ctx.arc(7, 14, 2.5, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#e9ffff'; ctx.fillRect(10, 7, 2, 3);
+      ctx.strokeStyle = '#7fdcf4'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(5, 13); ctx.lineTo(10, 18); ctx.stroke();
     } else {
       ctx.fillStyle = '#5288ac'; ctx.beginPath(); ctx.moveTo(3, 17); ctx.lineTo(8, 5); ctx.lineTo(17, 2); ctx.lineTo(13, 13); ctx.lineTo(7, 18); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#d6fbff'; ctx.beginPath(); ctx.moveTo(8, 6); ctx.lineTo(16, 3); ctx.lineTo(11, 12); ctx.closePath(); ctx.fill();
@@ -831,6 +837,13 @@ class SpriteBank {
       ctx.strokeStyle = '#fff3c4'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(7, 2); ctx.lineTo(7, 18); ctx.stroke();
       ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(7, 10); ctx.lineTo(17, 10); ctx.stroke();
       ctx.fillStyle = '#fff4aa'; ctx.beginPath(); ctx.moveTo(18, 10); ctx.lineTo(14, 7); ctx.lineTo(14, 13); ctx.closePath(); ctx.fill();
+    } else if (id === 'missileLauncher') {
+      ctx.fillStyle = '#263746'; ctx.fillRect(2, 8, 15, 6);
+      ctx.fillStyle = '#58788d'; ctx.fillRect(4, 7, 13, 4);
+      ctx.fillStyle = '#9edff0'; ctx.fillRect(7, 8, 7, 1.5); ctx.fill();
+      ctx.fillStyle = '#ffb35b'; ctx.beginPath(); ctx.moveTo(18, 11); ctx.lineTo(13, 8); ctx.lineTo(13, 14); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#fff0bd'; ctx.fillRect(14, 10, 3, 2); ctx.fill();
+      ctx.fillStyle = '#3c2b25'; ctx.fillRect(5, 13, 4, 5); ctx.fill(); ctx.fillStyle = '#ffcf72'; ctx.fillRect(9, 12, 2, 2);
     } else {
       ctx.strokeStyle = '#7dc4e8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(3, 16); ctx.lineTo(16, 4); ctx.stroke();
       ctx.fillStyle = '#dffbff'; ctx.beginPath(); ctx.moveTo(16, 2); ctx.lineTo(19, 5); ctx.lineTo(15, 6); ctx.closePath(); ctx.fill();
@@ -1086,6 +1099,16 @@ class SpriteBank {
   _idol(ctx, col, col2, id) {
     if (id === 'verdantEffigy') { ctx.fillStyle = '#3d6b35'; ctx.beginPath(); ctx.moveTo(10, 2); ctx.lineTo(16, 7); ctx.lineTo(14, 16); ctx.lineTo(6, 16); ctx.lineTo(4, 7); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#b7e86e'; ctx.fillRect(8, 6, 4, 4); ctx.fillStyle = '#2b4b29'; ctx.fillRect(8, 7, 1, 1); ctx.fillRect(11, 7, 1, 1); ctx.fillStyle = '#80512e'; ctx.fillRect(3, 17, 14, 2); }
     else if (id === 'boneSigil') { ctx.fillStyle = '#d9d0b3'; ctx.beginPath(); ctx.arc(10, 9, 6, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#4a3f36'; ctx.fillRect(6, 7, 3, 3); ctx.fillRect(11, 7, 3, 3); ctx.fillRect(8, 12, 4, 2); ctx.fillStyle = '#9d8e70'; ctx.fillRect(5, 16, 10, 2); }
+    else if (id === 'wormLure') {
+      // A broken-looking purple drill signal, distinct from both the Mech's
+      // blue beacon and the retired occult idols.
+      ctx.fillStyle = '#1f1728'; ctx.fillRect(4, 14, 12, 4);
+      ctx.fillStyle = '#4a315d'; ctx.fillRect(6, 6, 8, 9);
+      ctx.fillStyle = '#7b4ca0'; ctx.fillRect(8, 4, 4, 10); ctx.fill();
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.42; ctx.fillStyle = '#d39aff'; ctx.beginPath(); ctx.arc(10, 10, 5.5, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.fillStyle = '#f0d4ff'; ctx.beginPath(); ctx.moveTo(10, 6); ctx.lineTo(13, 10); ctx.lineTo(10, 14); ctx.lineTo(7, 10); ctx.closePath(); ctx.fill(); ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = '#c588f3'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(10, 5); ctx.lineTo(10, 2); ctx.moveTo(7, 6); ctx.lineTo(5, 3); ctx.moveTo(13, 6); ctx.lineTo(15, 3); ctx.stroke();
+    }
     else if (id === 'mechBeacon') {
       // A small field beacon with a bright reactor, so it reads as technology
       // rather than another occult idol in the inventory.
@@ -1132,6 +1155,13 @@ class SpriteBank {
       ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.40; ctx.fillStyle = '#72ddff'; ctx.beginPath(); ctx.arc(10, 10, 6, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
       ctx.fillStyle = '#dffcff'; ctx.beginPath(); ctx.arc(10, 10, 3.4, 0, Math.PI * 2); ctx.fill(); ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = '#ffcf72'; ctx.fillRect(8, 16, 4, 2);
+      return;
+    }
+    if (id === 'wormCore') {
+      ctx.fillStyle = '#20152a'; ctx.beginPath(); ctx.arc(10, 10, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.4; ctx.fillStyle = '#c383ff'; ctx.beginPath(); ctx.arc(10, 10, 7, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.fillStyle = '#e8caff'; ctx.beginPath(); ctx.moveTo(10, 4); ctx.lineTo(14, 10); ctx.lineTo(10, 16); ctx.lineTo(6, 10); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#7d43a2'; ctx.fillRect(9, 6, 2, 8); ctx.globalCompositeOperation = 'source-over';
       return;
     }
     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(10, 11, 6, 0, Math.PI * 2); ctx.fill();

@@ -2,50 +2,50 @@
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty, ZOOM_DEFAULT, REACH,
-} from './config.js?v=prehardmode-weapons-1';
-import { hashString, mulberry32, dist2, uid } from './utils.js?v=prehardmode-weapons-1';
-import { World } from './world/world.js?v=prehardmode-weapons-1';
-import { T, tileDef } from './world/tiles.js?v=prehardmode-weapons-1';
-import { Sprites } from './art/sprites.js?v=prehardmode-weapons-1';
-import { Camera } from './engine/camera.js?v=prehardmode-weapons-1';
-import { Input } from './engine/input.js?v=prehardmode-weapons-1';
-import { AudioManager } from './engine/audio.js?v=prehardmode-weapons-1';
-import { Renderer } from './engine/renderer.js?v=prehardmode-weapons-1';
-import { Fx } from './engine/fx.js?v=prehardmode-weapons-1';
-import { DayNight } from './systems/daynight.js?v=prehardmode-weapons-1';
-import { Weather } from './systems/weather.js?v=prehardmode-weapons-1';
-import { Spawner } from './systems/spawner.js?v=prehardmode-weapons-1';
-import { Progression } from './systems/progression.js?v=prehardmode-weapons-1';
-import { starterInventory } from './systems/inventory.js?v=prehardmode-weapons-1';
-import * as craftSys from './systems/crafting.js?v=prehardmode-weapons-1';
-import { applyPotion } from './systems/combat.js?v=prehardmode-weapons-1';
-import * as fishing from './systems/fishing.js?v=prehardmode-weapons-1';
-import { Critter } from './entities/critter.js?v=prehardmode-weapons-1';
-import { FAUNA } from './data/fauna.js?v=prehardmode-weapons-1';
-import { smartTarget } from './systems/smartcursor.js?v=prehardmode-weapons-1';
-import { Player, assignColor } from './entities/player.js?v=prehardmode-weapons-1';
-import { Enemy } from './entities/enemy.js?v=prehardmode-weapons-1';
-import { Boss } from './entities/boss.js?v=prehardmode-weapons-1';
-import { Minion } from './entities/minion.js?v=prehardmode-weapons-1';
-import { Npc } from './entities/npc.js?v=prehardmode-weapons-1';
-import { Projectile } from './entities/projectile.js?v=prehardmode-weapons-1';
-import { DropItem } from './entities/droppeditem.js?v=prehardmode-weapons-1';
-import { FallingTree } from './entities/fallingtree.js?v=prehardmode-weapons-1';
-import { ThrownItem } from './entities/thrown.js?v=prehardmode-weapons-1';
-import { ENEMIES } from './data/enemies.js?v=prehardmode-weapons-1';
-import { BOSSES } from './data/bosses.js?v=prehardmode-weapons-1';
-import { item as getItem, isItemEnabled } from './data/items.js?v=prehardmode-weapons-1';
-import { HUD } from './ui/hud.js?v=prehardmode-weapons-1';
-import { Minimap } from './ui/minimap.js?v=prehardmode-weapons-1';
-import { Menus } from './ui/menus.js?v=prehardmode-weapons-1';
-import { NpcDialog } from './ui/npcdialog.js?v=prehardmode-weapons-1';
-import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=prehardmode-weapons-1';
-import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=prehardmode-weapons-1';
-import { Achievements, craftAchievement } from './systems/achievements.js?v=prehardmode-weapons-1';
-import { CommandConsole } from './commands.js?v=prehardmode-weapons-1';
-import { Net } from './net/net.js?v=prehardmode-weapons-1';
-import { MSG } from './net/protocol.js?v=prehardmode-weapons-1';
-import * as sync from './net/sync.js?v=prehardmode-weapons-1';
+} from './config.js?v=the-worm-1';
+import { hashString, mulberry32, dist2, uid } from './utils.js?v=the-worm-1';
+import { World } from './world/world.js?v=the-worm-1';
+import { T, tileDef } from './world/tiles.js?v=the-worm-1';
+import { Sprites } from './art/sprites.js?v=the-worm-1';
+import { Camera } from './engine/camera.js?v=the-worm-1';
+import { Input } from './engine/input.js?v=the-worm-1';
+import { AudioManager } from './engine/audio.js?v=the-worm-1';
+import { Renderer } from './engine/renderer.js?v=the-worm-1';
+import { Fx } from './engine/fx.js?v=the-worm-1';
+import { DayNight } from './systems/daynight.js?v=the-worm-1';
+import { Weather } from './systems/weather.js?v=the-worm-1';
+import { Spawner } from './systems/spawner.js?v=the-worm-1';
+import { Progression } from './systems/progression.js?v=the-worm-1';
+import { starterInventory } from './systems/inventory.js?v=the-worm-1';
+import * as craftSys from './systems/crafting.js?v=the-worm-1';
+import { applyPotion } from './systems/combat.js?v=the-worm-1';
+import * as fishing from './systems/fishing.js?v=the-worm-1';
+import { Critter } from './entities/critter.js?v=the-worm-1';
+import { FAUNA } from './data/fauna.js?v=the-worm-1';
+import { smartTarget } from './systems/smartcursor.js?v=the-worm-1';
+import { Player, assignColor } from './entities/player.js?v=the-worm-1';
+import { Enemy } from './entities/enemy.js?v=the-worm-1';
+import { Boss } from './entities/boss.js?v=the-worm-1';
+import { Minion } from './entities/minion.js?v=the-worm-1';
+import { Npc } from './entities/npc.js?v=the-worm-1';
+import { Projectile } from './entities/projectile.js?v=the-worm-1';
+import { DropItem } from './entities/droppeditem.js?v=the-worm-1';
+import { FallingTree } from './entities/fallingtree.js?v=the-worm-1';
+import { ThrownItem } from './entities/thrown.js?v=the-worm-1';
+import { ENEMIES } from './data/enemies.js?v=the-worm-1';
+import { BOSSES, rollMechSpecialDrop } from './data/bosses.js?v=the-worm-1';
+import { item as getItem, isItemEnabled } from './data/items.js?v=the-worm-1';
+import { HUD } from './ui/hud.js?v=the-worm-1';
+import { Minimap } from './ui/minimap.js?v=the-worm-1';
+import { Menus } from './ui/menus.js?v=the-worm-1';
+import { NpcDialog } from './ui/npcdialog.js?v=the-worm-1';
+import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=the-worm-1';
+import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=the-worm-1';
+import { Achievements, craftAchievement } from './systems/achievements.js?v=the-worm-1';
+import { CommandConsole } from './commands.js?v=the-worm-1';
+import { Net } from './net/net.js?v=the-worm-1';
+import { MSG } from './net/protocol.js?v=the-worm-1';
+import * as sync from './net/sync.js?v=the-worm-1';
 
 class Game {
   constructor() {
@@ -1212,9 +1212,9 @@ class Game {
     let bx = anchor ? anchor.x : this.world.spawnX;
     let by = anchor ? anchor.y - 140 : this.world.spawnY - 140;
     if (def.movement === 'gravemaw') by = anchor ? anchor.y - def.h : by;
-    if (def.movement === 'mech' && anchor) {
-      // A huge grounded boss should enter beside the player rather than fall
-      // directly on their head. It still has to walk into the arena itself.
+    if ((def.movement === 'mech' || def.movement === 'worm') && anchor) {
+      // Huge grounded bosses enter beside the player rather than fall directly
+      // on their head. They still have to walk into the arena themselves.
       const side = anchor.facing || 1;
       bx = anchor.x + side * (def.spawnDistance || 220);
       by = anchor.y - def.h - 20;
@@ -1246,6 +1246,11 @@ class Game {
   trySummonBoss(key, player, itemId) {
     const def = BOSSES[key];
     if (!def || !isItemEnabled(itemId)) { this.toast('That boss is unavailable in this realm.', 'bad'); return; }
+    if (def.requiresBoss && !this.progression.isDefeated(def.requiresBoss)) {
+      const gate = BOSSES[def.requiresBoss];
+      this.toast((gate ? gate.name : 'That boss') + ' must be defeated first.', 'bad');
+      return;
+    }
     const tx = Math.floor((player.x + player.w / 2) / TILE), ty = Math.floor((player.y + player.h / 2) / TILE);
     const biome = this.world.biomeAt(tx, ty);
     const okBiome = def.biome === 'surface'
@@ -1292,6 +1297,7 @@ class Game {
       return;
     }
     const unlockedHardmode = !!def.unlocksHardmode && !this.progression.hardmodeUnlocked;
+    const mechSpecialDrop = b.key === 'theMech' ? rollMechSpecialDrop() : null;
     this.progression.defeatBoss(b.key);
     this.achievements.unlock(b.key);
     for (const drop of def.loot || []) {
@@ -1300,10 +1306,15 @@ class Game {
         for (let i = 0; i < n; i++) this.spawnDrop(b.x + b.w / 2 + (Math.random() - 0.5) * 40, b.y + b.h / 2, drop.item, 1);
       }
     }
+    if (mechSpecialDrop) {
+      this.spawnDrop(b.x + b.w / 2 + (Math.random() - 0.5) * 40, b.y + b.h / 2, mechSpecialDrop, 1);
+      this.toast('The Mech dropped ' + getItem(mechSpecialDrop).name + '!', 'good');
+    }
     // clear boss adds
     this.enemies = this.enemies.filter(e => { if (e.fromBoss) { this.enemyById.delete(e.netId); return false; } return true; });
     this.toast(def.name + ' defeated!', 'good');
     if (unlockedHardmode) this.toast('The Mech Core stabilizes — the realm is now Hardmode-ready.', 'good');
+    if (b.key === 'theMech') this.toast('A massive presence stirs in the Underground…', 'info');
     if (this.net && this.isHost) { this.net.broadcast({ t: MSG.EVENT, kind: 'bossDefeat', key: b.key, name: def.name }); }
     this.markDirty();
     this.saveGame(false);

@@ -5,14 +5,14 @@ import {
   HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN,
   CAST_REGEN_DELAY, CAST_REGEN_MULT, RESPAWN_DELAY, RESPAWN_DELAY_BOSS,
   SWIM_DRAG, SWIM_STROKE, WIND_PLAYER_PUSH,
-} from '../config.js?v=prehardmode-weapons-1';
-import { tileDef } from '../world/tiles.js?v=prehardmode-weapons-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=prehardmode-weapons-1';
-import { Inventory } from '../systems/inventory.js?v=prehardmode-weapons-1';
-import { item as getItem } from '../data/items.js?v=prehardmode-weapons-1';
-import * as combat from '../systems/combat.js?v=prehardmode-weapons-1';
-import * as fishing from '../systems/fishing.js?v=prehardmode-weapons-1';
-import { clamp } from '../utils.js?v=prehardmode-weapons-1';
+} from '../config.js?v=the-worm-1';
+import { tileDef } from '../world/tiles.js?v=the-worm-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=the-worm-1';
+import { Inventory } from '../systems/inventory.js?v=the-worm-1';
+import { item as getItem } from '../data/items.js?v=the-worm-1';
+import * as combat from '../systems/combat.js?v=the-worm-1';
+import * as fishing from '../systems/fishing.js?v=the-worm-1';
+import { clamp } from '../utils.js?v=the-worm-1';
 
 export class Player {
   constructor(id, opts = {}) {

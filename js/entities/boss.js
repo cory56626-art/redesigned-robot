@@ -11,16 +11,17 @@
 // distance, phase and line of sight. Animation fields (squash, jaw, segment
 // lag, shard spin) are updated here rather than in the renderer, so they are
 // driven by the simulation and stay frame-rate independent.
-import { TILE, normalizeDifficulty } from '../config.js?v=prehardmode-weapons-1';
-import { BOSSES } from '../data/bosses.js?v=prehardmode-weapons-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=prehardmode-weapons-1';
-import { aabb, angleTo, randRange, clamp } from '../utils.js?v=prehardmode-weapons-1';
-import { Projectile } from './projectile.js?v=prehardmode-weapons-1';
-import * as AI from '../systems/ai.js?v=prehardmode-weapons-1';
+import { TILE, normalizeDifficulty } from '../config.js?v=the-worm-1';
+import { BOSSES } from '../data/bosses.js?v=the-worm-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=the-worm-1';
+import { aabb, angleTo, randRange, clamp } from '../utils.js?v=the-worm-1';
+import { Projectile } from './projectile.js?v=the-worm-1';
+import * as AI from '../systems/ai.js?v=the-worm-1';
 
 const PROJ_COLOR = {
   thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff',
   mechMissile: '#ffad55', mechPlasma: '#78e9ff', mechShock: '#ffd36d',
+  wormSpit: '#ca8cff', wormQuake: '#d8a6ff',
 };
 
 // Beyond this distance from every player the boss is being kited out of its
@@ -116,7 +117,9 @@ export class Boss {
     this.jaw = 0;
     this.shardSpin = 0;
     this.segments = [];
-    for (let i = 0; i < 3; i++) this.segments.push({ x: x + 4 + i * 17, y: y + 12 });
+    const segmentCount = Math.max(0, d.segmentCount != null ? d.segmentCount : 3);
+    const segmentLength = d.segmentLength || 17;
+    for (let i = 0; i < segmentCount; i++) this.segments.push({ x: x + 4 + i * segmentLength, y: y + 12 });
     this.ghostTrail = [];
     this._trailTimer = 0;
     // The Mech animation state lives here with the other boss state, so its
@@ -209,7 +212,7 @@ export class Boss {
         return;
       }
       this.charge.time -= dt;
-      if (this.movement === 'gravemaw') {
+      if (this.movement === 'gravemaw' || this.movement === 'worm') {
         applyGravity(this, dt);
         this.vx = this.charge.vx;
         this._move(game, dt);
@@ -224,7 +227,10 @@ export class Boss {
         this.vx = this.charge.vx; this.vy = this.charge.vy;
         this._flyMove(game, dt);
       }
-      if (this.charge.time <= 0) { this.charge = null; this.aiState = 'recover'; this.recover = 0.4; }
+      if (this.charge.time <= 0) {
+        const recover = this.charge.recover != null ? this.charge.recover : 0.4;
+        this.charge = null; this.aiState = 'recover'; this.recover = recover;
+      }
       this._updateAnim(dt, game);
       this._contactDamage(game, ph);
       return;
@@ -317,7 +323,8 @@ export class Boss {
     // Dust boiling up from where it will surface, so the marker has weight.
     if (this.warnAt && Math.random() < 0.4) {
       game.fx.burst(this.warnAt.x + randRange(Math.random, -10, 10), this.warnAt.y + 8,
-        this.movement === 'gravemaw' ? '#8a7358' : this.color2, 2, { speed: 40, life: 0.4, gravity: 90 });
+        this.movement === 'gravemaw' ? '#8a7358' : this.movement === 'worm' ? '#513463' : this.color2,
+        2, { speed: 40, life: 0.4, gravity: 90 });
     }
     if (this.warnTime <= 0) this._emerge(game, target);
   }
@@ -353,7 +360,7 @@ export class Boss {
 
   // No player alive: hover in place rather than freezing mid-animation.
   _drift(dt, game) {
-    if (this.movement === 'gravemaw' || this.movement === 'mech') { applyGravity(this, dt); this.vx *= 0.9; this._move(game, dt); }
+    if (this.movement === 'gravemaw' || this.movement === 'worm' || this.movement === 'mech') { applyGravity(this, dt); this.vx *= 0.9; this._move(game, dt); }
     else { this.vy = Math.sin(this.spawnTime) * 12; this.y += this.vy * dt; }
   }
 
@@ -476,11 +483,11 @@ export class Boss {
     // constraint is the whole difference: without it the segments merely eased
     // toward offsets computed from the box, so the body slid around
     // independently of the head and the creature came apart whenever it moved.
-    if (this.movement === 'gravemaw') {
+    if (this.movement === 'gravemaw' || this.movement === 'worm') {
       this.headX = this.x + (this.facing > 0 ? this.w - 20 : 20);
       this.headY = this.y + 20;
 
-      const LINK = 15;
+      const LINK = this.def.segmentLength || 15;
       const lagK = 1 - Math.pow(0.0006, dt);
       let px = this.headX, py = this.headY;
       for (let i = 0; i < this.segments.length; i++) {
@@ -520,7 +527,7 @@ export class Boss {
         this.squashX = 1.35; this.squashY = 0.68;
         game?.fx?.shake?.(2.4, 0.16);
         game?.fx?.burst?.(this.x + this.w / 2, this.y + this.h,
-          '#8a7358', 12, { speed: 120, life: 0.5, size: 2.4, gravity: 220 });
+          this.movement === 'worm' ? '#513463' : '#8a7358', 12, { speed: 120, life: 0.5, size: 2.4, gravity: 220 });
       }
     }
 
@@ -787,13 +794,58 @@ export class Boss {
         this.charge = { time: 0.55, vx: Math.cos(a) * atk.speed, vy: Math.sin(a) * atk.speed };
         break;
       }
+      case 'wormCharge': {
+        const dir = Math.sign(tc.x - cx) || this.facing || 1;
+        this.charge = {
+          kind: 'wormCharge', time: atk.duration || 0.78, vx: dir * (atk.speed || 340), vy: 0,
+          recover: atk.recover != null ? atk.recover : 0.78,
+        };
+        this.vx = this.charge.vx;
+        game.fx.burst(cx, this.y + this.h - 4, ['#4c315e', '#b776f2', '#efceff'], 16, {
+          speed: 150, life: 0.46, gravity: 460, size: 2.1, glow: true,
+        });
+        game.fx.shake(3.2, 0.2);
+        break;
+      }
+      case 'wormSpit': {
+        const mouth = { x: cx + (this.facing || 1) * 34, y: this.y + 23 };
+        const base = angleTo(mouth.x, mouth.y, tc.x, tc.y);
+        const n = atk.count || 3;
+        for (let i = 0; i < n; i++) {
+          const a = base + (i - (n - 1) / 2) * ((atk.spread || 0.45) / Math.max(1, n - 1));
+          game.addProjectile(new Projectile({
+            x: mouth.x - 5, y: mouth.y - 5,
+            vx: Math.cos(a) * atk.projSpeed, vy: Math.sin(a) * atk.projSpeed - 72,
+            w: 10, h: 10, damage: atk.damage, ownerType: 'boss', kind: 'wormSpit',
+            color: '#ca8cff', gravity: true, life: 2.8, trail: '#b96cf0', knockback: 4,
+            effect: { poison: atk.poison || 1.8 },
+          }), true);
+        }
+        game.fx.ring(mouth.x, mouth.y, '#dba8ff', 28, { life: 0.22, width: 2 });
+        game.fx.burst(mouth.x, mouth.y, ['#e5bdff', '#a85de3', '#4a2c5d'], 10, { speed: 112, life: 0.36, glow: true });
+        break;
+      }
       case 'burrow': {
         this.hidden = true;
         const side = Math.random() < 0.5 ? -1 : 1;
-        this.warnAt = { x: tc.x + side * 80, y: tc.y + 10 };
-        this.warnMax = 1.0; this.warnTime = 1.0;
-        game.fx.burst(cx, this.y + this.h, '#8a7358', 20, { speed: 130, gravity: 400 });
+        this.warnAt = { x: tc.x + side * (atk.burrowOffset || 80), y: tc.y + (atk.burrowY || 10) };
+        this.warnMax = atk.burrowTime || 1.0; this.warnTime = this.warnMax;
+        game.fx.burst(cx, this.y + this.h, this.movement === 'worm' ? '#513463' : '#8a7358', 20, { speed: 130, gravity: 400 });
         game.fx.shake(3, 0.3);
+        break;
+      }
+      case 'wormQuake': {
+        const y = this.y + this.h - 7;
+        for (const dir of [-1, 1]) {
+          game.addProjectile(new Projectile({
+            x: cx, y, vx: dir * atk.projSpeed, vy: 0, w: 18, h: 9,
+            damage: atk.damage, ownerType: 'boss', kind: 'wormQuake', color: '#d8a6ff',
+            life: 2.0, trail: '#a75edb', knockback: 5,
+          }), true);
+        }
+        game.fx.ring(cx, y, '#d8a6ff', 64, { life: 0.34, width: 3 });
+        game.fx.burst(cx, y, ['#4b315d', '#c383ff', '#e8ccff'], 18, { speed: 145, life: 0.45, gravity: 420, glow: true });
+        game.fx.shake(4.2, 0.3);
         break;
       }
       case 'spawnAdds': {
@@ -905,6 +957,11 @@ export class Boss {
       game.fx.ring(c.x, c.y, '#72ddff', 220, { life: 0.85, width: 4 });
       game.fx.burst(c.x, c.y, ['#72ddff', '#ffbf69', '#dcecff'], 46, { speed: 290, life: 1.05, glow: true, gravity: 110, size: 2.8 });
       game.fx.smoke(c.x, c.y, '#27313c', 24, { jitter: 42 });
+    }
+    if (this.movement === 'worm') {
+      game.fx.ring(c.x, c.y, '#c383ff', 205, { life: 0.82, width: 4 });
+      game.fx.burst(c.x, c.y, ['#c383ff', '#efceff', '#4a2c5d'], 52, { speed: 275, life: 1.0, glow: true, gravity: 150, size: 2.8 });
+      game.fx.smoke(c.x, c.y, '#211728', 24, { jitter: 40 });
     }
     game.fx.shake(9, 0.8);
     game.fx.ring(c.x, c.y, '#ffffff', 140, { life: 0.5, width: 5 });

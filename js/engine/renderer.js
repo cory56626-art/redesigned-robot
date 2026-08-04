@@ -1,15 +1,15 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=prehardmode-weapons-1';
-import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=prehardmode-weapons-1';
-import { SH } from '../world/shapes.js?v=prehardmode-weapons-1';
-import { W, hasWall } from '../world/walls.js?v=prehardmode-weapons-1';
-import { BIOMES } from '../world/biomes.js?v=prehardmode-weapons-1';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=prehardmode-weapons-1';
-import { item as getItem } from '../data/items.js?v=prehardmode-weapons-1';
-import { canPlaceAt } from '../systems/combat.js?v=prehardmode-weapons-1';
-import { clamp } from '../utils.js?v=prehardmode-weapons-1';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=prehardmode-weapons-1';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=the-worm-1';
+import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=the-worm-1';
+import { SH } from '../world/shapes.js?v=the-worm-1';
+import { W, hasWall } from '../world/walls.js?v=the-worm-1';
+import { BIOMES } from '../world/biomes.js?v=the-worm-1';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=the-worm-1';
+import { item as getItem } from '../data/items.js?v=the-worm-1';
+import { canPlaceAt } from '../systems/combat.js?v=the-worm-1';
+import { clamp } from '../utils.js?v=the-worm-1';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=the-worm-1';
 
 // Fallback appearance for players without a character record (remote players
 // on an older client, or a world loaded before characters existed).
@@ -28,6 +28,7 @@ const PROJ_GLOW = {
   poisonDart: '#9be871', aurora: '#b9ffe8',
   arcwave: '#bfe9ff', frostbolt: '#9cecff', diamondSpear: '#dffcff', miniDiamondSpear: '#8be9ff', aidanPulse: '#8feaff', aidanNova: '#d8a7ff', aidanFreeze: '#61eaff',
   mechMissile: '#ffad55', mechPlasma: '#78e9ff', mechShock: '#ffd36d',
+  playerMissile: '#ffbd69', wormSpit: '#ca8cff', wormQuake: '#d8a6ff',
 };
 
 // Background colour anchors by depth, in tile rows. `colorAtDepth` interpolates
@@ -956,6 +957,50 @@ export class Renderer {
           const x = -13 - i * 5;
           ctx.fillRect(x, -1 + i % 2, 3, 2);
         }
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'playerMissile') {
+        const pulse = 1 + Math.sin(performance.now() * 0.024 + pr.x * 0.04) * 0.1;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.20 * pulse;
+        ctx.fillStyle = '#ffb35b'; ctx.beginPath(); ctx.arc(-7, 0, 13 * pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.7;
+        ctx.fillStyle = '#ffd987'; ctx.beginPath(); ctx.moveTo(-14, 0); ctx.lineTo(-6, -3.5); ctx.lineTo(-6, 3.5); ctx.closePath(); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#314655'; this._roundRect(ctx, -7, -4.5, 15, 9, 2); ctx.fill();
+        ctx.fillStyle = '#7898aa'; ctx.fillRect(-4, -3, 8, 2);
+        ctx.fillStyle = '#e7f7ff'; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(4, -5); ctx.lineTo(4, 5); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#ffb35b'; ctx.fillRect(-1, -2, 4, 4); ctx.fillStyle = '#fff3c7'; ctx.fillRect(0, -1, 2, 2);
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'wormSpit') {
+        const pulse = 1 + Math.sin(performance.now() * 0.02 + pr.y * 0.05) * 0.12;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.24 * pulse;
+        ctx.fillStyle = '#d99fff'; ctx.beginPath(); ctx.arc(0, 0, 11 * pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#4b2a5e'; ctx.beginPath(); ctx.arc(0, 0, 5.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#c383ff'; ctx.beginPath(); ctx.arc(-1, -1, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#f0d1ff'; ctx.beginPath(); ctx.arc(-2.2, -2.1, 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'wormQuake') {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.22;
+        ctx.fillStyle = '#c383ff'; ctx.fillRect(-12, -7, 24, 14);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#4b2a5e';
+        ctx.beginPath(); ctx.moveTo(-11, 4); ctx.lineTo(-5, -6); ctx.lineTo(0, 1); ctx.lineTo(6, -7); ctx.lineTo(12, 4); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#edceff'; ctx.beginPath(); ctx.moveTo(-5, 2); ctx.lineTo(-1, -3); ctx.lineTo(3, 1); ctx.lineTo(6, -2); ctx.lineTo(8, 2); ctx.closePath(); ctx.fill();
         ctx.globalCompositeOperation = 'source-over';
         ctx.restore();
         continue;
@@ -2302,6 +2347,7 @@ export class Renderer {
         ctx.translate(cx, cy); ctx.scale(sx, sy); ctx.translate(-cx, -cy);
       }
       if (b.key === 'theMech') this._drawTheMech(ctx, b);
+      else if (b.key === 'theWorm') this._drawTheWorm(ctx, b);
       else if (b.key === 'grovekeeper') this._drawGrovekeeper(ctx, b);
       else if (b.key === 'gravemaw') this._drawGravemaw(ctx, b);
       else this._drawBlightSovereign(ctx, b);
@@ -2521,6 +2567,127 @@ export class Renderer {
     if (b.invuln > 0) {
       ctx.strokeStyle = '#e9ffff'; ctx.globalAlpha = 0.6; ctx.lineWidth = 2;
       this._roundRect(ctx, x + 4, y + 5, w - 8, h - 3, 17); ctx.stroke(); ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+
+
+  // The Worm — a cavern-scale armored predator. Its whole body is drawn from
+  // the simulated segment chain, tail first, so it stays visibly connected
+  // while it charges, turns, or erupts from a burrow warning.
+  _drawTheWorm(ctx, b) {
+    const x = b.x, y = b.y, w = b.w, h = b.h;
+    const seg = b.segments || [];
+    const headX = b.headX != null ? b.headX : x + w / 2;
+    const headY = b.headY != null ? b.headY : y + 20;
+    const f = b.facing === -1 ? -1 : 1;
+    const phaseTwo = b.phaseIndex > 0;
+    const charge = b.telegraph > 0 ? 1 - b.telegraph / (b.telegraphMax || 0.6) : 0;
+    const rush = b.charge?.kind === 'wormCharge';
+    const spitTell = b.chosen?.type === 'wormSpit' && b.telegraph > 0;
+    const crouch = b.crouch || 0;
+    const ridge = phaseTwo ? '#d58cff' : '#b36ee7';
+    const glow = phaseTwo ? '#ffd0a8' : '#e7c1ff';
+
+    ctx.save();
+    this._bossAura(ctx, b, phaseTwo ? '#df96ff' : '#bd79ef', 58);
+
+    // A long soft shadow glues the segmented body to the cavern floor.
+    ctx.fillStyle = 'rgba(5,3,12,0.34)';
+    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h + 3, w * 0.52, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Tail first: every front plate overlaps the one behind it, giving the
+    // creature a single heavy spine rather than a row of detached circles.
+    for (let i = seg.length - 1; i >= 0; i--) {
+      const s = seg[i];
+      const r = Math.max(8.5, 15.5 - i * 1.05);
+      const plate = phaseTwo
+        ? (i % 2 ? '#3c234d' : '#47295a')
+        : (i % 2 ? '#302039' : '#3a2745');
+      ctx.save();
+      ctx.translate(s.x, s.y);
+      ctx.rotate(s.angle || 0);
+      ctx.fillStyle = '#17121f'; this._roundRect(ctx, -r - 1, -r * 0.9 - 1, r * 2 + 2, r * 1.8 + 2, r * 0.54); ctx.fill();
+      ctx.fillStyle = plate; this._roundRect(ctx, -r, -r * 0.9, r * 2, r * 1.8, r * 0.5); ctx.fill();
+      ctx.fillStyle = 'rgba(12,8,18,0.36)'; this._roundRect(ctx, -r + 2, r * 0.05, r * 2 - 4, r * 0.72, r * 0.34); ctx.fill();
+      ctx.fillStyle = phaseTwo ? 'rgba(255,196,234,0.38)' : 'rgba(225,178,255,0.30)';
+      this._roundRect(ctx, -r + 3, -r * 0.72, r * 2 - 6, r * 0.38, r * 0.24); ctx.fill();
+      ctx.strokeStyle = '#140d1b'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(-r + 1, -r * 0.05); ctx.lineTo(r - 1, -r * 0.05); ctx.stroke();
+      ctx.fillStyle = ridge;
+      ctx.beginPath(); ctx.moveTo(-3, -r * 0.86); ctx.lineTo(0, -r * (1.48 + (rush ? 0.12 : 0))); ctx.lineTo(3, -r * 0.86); ctx.closePath(); ctx.fill();
+      if (i < seg.length - 1) {
+        ctx.fillStyle = '#8c51ba'; ctx.fillRect(-r * 0.46, -r * 0.62, r * 0.42, 1.6);
+      }
+      ctx.restore();
+    }
+
+    // The blocky head is intentionally bigger than any plate so the dangerous
+    // end reads instantly when The Worm comes out of a dark tunnel.
+    ctx.save();
+    ctx.translate(headX, headY + crouch * 2);
+    ctx.scale(f, 1);
+    ctx.fillStyle = '#17111f'; this._roundRect(ctx, -17, -16, 36, 31, 10); ctx.fill();
+    ctx.fillStyle = phaseTwo ? '#49295b' : '#3c2948'; this._roundRect(ctx, -15, -15, 32, 26, 8); ctx.fill();
+    ctx.fillStyle = phaseTwo ? '#754186' : '#633875'; this._roundRect(ctx, -12, -14, 27, 8, 5); ctx.fill();
+    ctx.fillStyle = 'rgba(239,199,255,0.40)'; this._roundRect(ctx, -9, -13, 20, 3, 2); ctx.fill();
+    // Front drill-plates make the charge silhouette read before impact.
+    ctx.fillStyle = '#24182d'; ctx.beginPath(); ctx.moveTo(13, -10); ctx.lineTo(23, -4); ctx.lineTo(17, 2); ctx.lineTo(22, 7); ctx.lineTo(12, 10); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = ridge; ctx.beginPath(); ctx.moveTo(15, -7); ctx.lineTo(20, -3); ctx.lineTo(15, -1); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(15, 3); ctx.lineTo(20, 6); ctx.lineTo(14, 8); ctx.closePath(); ctx.fill();
+    // Jaw opens during every telegraph, then snaps closed on the committed hit.
+    const jaw = b.jaw != null ? b.jaw : 0;
+    ctx.save(); ctx.translate(-10, 1); ctx.rotate(jaw * 0.56);
+    ctx.fillStyle = '#120d18'; this._roundRect(ctx, 0, 0, 28, 13, 5); ctx.fill();
+    ctx.fillStyle = '#f2ddc0';
+    for (let i = 0; i < 5; i++) {
+      const tx = 3 + i * 4.8;
+      ctx.beginPath(); ctx.moveTo(tx, 1); ctx.lineTo(tx + 1.8, 6.5); ctx.lineTo(tx + 3.5, 1); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+    ctx.fillStyle = '#f6e6c7';
+    for (let i = 0; i < 4; i++) {
+      const tx = -7 + i * 5.5;
+      ctx.beginPath(); ctx.moveTo(tx, 2); ctx.lineTo(tx + 1.8, 7.5); ctx.lineTo(tx + 3.6, 2); ctx.closePath(); ctx.fill();
+    }
+
+    // Core eye and cheek sac brighten differently: the eye warns of any move,
+    // the cheek sac specifically signals the arcing spit volley.
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.28 + charge * 0.45;
+    ctx.fillStyle = phaseTwo ? '#ffb36d' : '#d493ff'; ctx.beginPath(); ctx.arc(7, -7, 10 + charge * 5, 0, Math.PI * 2); ctx.fill();
+    if (spitTell) { ctx.globalAlpha = 0.28 + charge * 0.36; ctx.fillStyle = '#dba8ff'; ctx.beginPath(); ctx.arc(-8, 1, 11 + charge * 4, 0, Math.PI * 2); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = glow; ctx.fillRect(5, -9, 6, 4); ctx.fillStyle = '#25152e'; ctx.fillRect(8, -8, 2, 3);
+    if (spitTell) { ctx.fillStyle = '#c383ff'; ctx.beginPath(); ctx.arc(-8, 1, 4, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#f4d7ff'; ctx.beginPath(); ctx.arc(-9.4, -0.8, 1.4, 0, Math.PI * 2); ctx.fill(); }
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.restore();
+
+    // Small root-spurs keep it grounded and flare out while it braces to rush.
+    if (b.onGround) {
+      ctx.strokeStyle = '#26182f'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (const s of seg) {
+        const spread = 5 + crouch * 4 + (rush ? 2 : 0);
+        ctx.moveTo(s.x - 4, s.y + 10); ctx.lineTo(s.x - spread, s.y + 17);
+        ctx.moveTo(s.x + 4, s.y + 10); ctx.lineTo(s.x + spread, s.y + 17);
+      }
+      ctx.stroke();
+    }
+
+    if (rush || b.telegraph > 0) {
+      ctx.strokeStyle = phaseTwo ? '#ffd0a8' : '#dca5ff'; ctx.globalAlpha = 0.38 + charge * 0.42; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(headX, y + h - 1, 31 + charge * 14, 7 + charge * 3, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    if (b.hurtFlash > 0) {
+      ctx.globalAlpha = 0.42; ctx.fillStyle = '#ffffff';
+      for (const s of seg) { ctx.beginPath(); ctx.arc(s.x, s.y, 13, 0, Math.PI * 2); ctx.fill(); }
+      ctx.beginPath(); ctx.arc(headX, headY, 17, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+    }
+    if (b.invuln > 0) {
+      ctx.strokeStyle = '#f3dcff'; ctx.globalAlpha = 0.7; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(headX, headY, 18, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
     }
     ctx.restore();
   }

@@ -1,7 +1,7 @@
 // Summoner Realms — item catalogue. All original names/designs.
 // Categories: weapon (melee/ranged/mage/summon), tool, armor, accessory,
 // potion, ammo, material, block, station, summonitem.
-import { T } from '../world/tiles.js?v=prehardmode-weapons-1';
+import { T } from '../world/tiles.js?v=the-worm-1';
 
 export const ITEMS = {};
 
@@ -41,7 +41,8 @@ export const PREHARDMODE_ITEM_IDS = new Set([
   'stoneironBroadsword', 'verdantVineblade', 'shadowglassScythe',
   'tideWand', 'verdantBloomStaff', 'shadowglassOrb',
   'tideSpriteStaff', 'verdantSproutIdol', 'shadowmothTome',
-  'mechBeacon', 'mechCore',
+  'mechBeacon', 'mechCore', 'wormLure', 'wormCore',
+  'missileLauncher', 'mechanicalSword',
 ]);
 
 // Raw terrain materials are also placeable blocks, so they remain available
@@ -117,6 +118,10 @@ melee('shadowglassScythe', 'Shadowglass Scythe', '#9d65d1', 34, 0.54, 7, {
   meleeKind: 'heavy', reach: 45, arc: 2.05, knockback: 7, crit: 0.08, fx: { swing: 'shadow' },
   desc: 'A wide black-purple crystal sweep. Strong, but deliberately slow before Hardmode.',
 });
+melee('mechanicalSword', 'Mechanical Sword', '#78d9ff', 39, 0.46, 9, {
+  meleeKind: 'heavy', reach: 43, arc: 1.9, knockback: 8, crit: 0.08, fx: { swing: 'mechanical' },
+  desc: 'Rare Mech drop. A weighted blue-steel blade that tears a bright gear-shaped arc through a crowd.',
+});
 
 // ---------- Ranged weapons (8) ----------
 const ranged = (id, name, color, dmg, useTime, tier, extra = {}) =>
@@ -130,6 +135,12 @@ ranged('emberlockMusket', 'Emberlock Musket', '#5a4a3a', 26, 0.6, 2, { ammo: 'sh
 ranged('glimmerRifle', 'Glimmer Rifle', '#ffe08a', 22, 0.26, 3, { ammo: 'shot', rangedKind: 'gun', projSpeed: 820, crit: 0.10, fx: { shot: 'muzzle' }, desc: 'Fast rifle. Uses Shot.' });
 ranged('stormpiercer', 'Stormpiercer', '#8ad9ff', 20, 0.30, 3, { projSpeed: 700, pierce: 2, projColor: '#bfe9ff', fx: { shot: 'storm' }, trail: '#bfe9ff', desc: 'Piercing storm arrows. No ammo.' });
 ranged('amberBow', 'Amber Bow', '#ffc04d', 18, 0.36, 2, { ammo: 'flintArrow', gravity: true, projSpeed: 650, projColor: '#ffe08a', projectileKind: 'amberArrow', trail: '#ffe08a', fx: { shot: 'amber' }, desc: 'Golden crystal limbs launch bright Flint Arrows.' });
+ranged('missileLauncher', 'Missile Launcher', '#ffad55', 34, 0.72, 9, {
+  rangedKind: 'launcher', projectileKind: 'playerMissile', projSpeed: 520, projColor: '#ffb35b',
+  projectileW: 16, projectileH: 9, blastRadius: 54, blastDamage: 23, trail: '#ffca70',
+  fx: { shot: 'launcher' }, knockback: 7,
+  desc: 'Rare Mech drop. Fires a slow, self-powered rocket that detonates on impact. No ammo needed.',
+});
 
 // ---------- Mage weapons (8) ----------
 const mage = (id, name, color, dmg, useTime, tier, mana, extra = {}) =>
@@ -346,6 +357,7 @@ mat('shadowglassBar', 'Shadowglass Bar', '#d4a4ff', 'bar', 7, 'Dark crystal refi
 mat('starsteelOre', 'Starsteel Ore', '#d8f4ff', 'ore', 8, 'White-blue glowing metal at the deepest boundary.');
 mat('starsteelBar', 'Starsteel Bar', '#ffffff', 'bar', 8, 'A brilliant final pre-Hardmode alloy.');
 mat('mechCore', 'Mech Core', '#72ddff', 'drop', 8, 'A heavy blue reactor core claimed from The Mech. Its pulse marks the realm as Hardmode-ready.');
+mat('wormCore', 'Worm Core', '#c383ff', 'drop', 9, 'A pulsing violet core from The Worm. It vibrates as if the tunnel is still moving.');
 
 // ---------- Fauna drops, food and cooking ----------
 // Raw meat is a material; cooking it at a Smeltery turns it into a food item
@@ -427,6 +439,7 @@ ITEMS.blightstone.place = T.BLIGHTSTONE;
 
 // ---------- Boss summoning items ----------
 def({ id: 'mechBeacon', name: 'Mech Beacon', category: 'summonitem', color: '#5f7896', color2: '#9deeff', summonBoss: 'theMech', maxStack: 20, desc: 'Summons The Mech on the surface. Build an open arena first.' });
+def({ id: 'wormLure', name: 'Worm Lure', category: 'summonitem', color: '#3a2448', color2: '#d39aff', summonBoss: 'theWorm', maxStack: 20, desc: 'After The Mech falls, summons The Worm in the Underground. A long tunnel makes room to dodge.' });
 def({ id: 'verdantEffigy', name: 'Verdant Effigy', category: 'summonitem', color: '#7ee08a', color2: '#3a6a2a', summonBoss: 'grovekeeper', maxStack: 20, desc: 'Summons the Grovekeeper in the Forest (day or night).' });
 def({ id: 'boneSigil', name: 'Bone Sigil', category: 'summonitem', color: '#e9e2c8', color2: '#8a7a5a', summonBoss: 'gravemaw', maxStack: 20, desc: 'Summons the Gravemaw in the Underground.' });
 def({ id: 'blightIdol', name: 'Blight Idol', category: 'summonitem', color: '#c58bff', color2: '#4a2f66', summonBoss: 'blightSovereign', maxStack: 20, desc: 'Summons the Blight Sovereign in the Corrupted Lands.' });
