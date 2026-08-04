@@ -1,12 +1,12 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
-import { MSG } from './protocol.js?v=the-worm-1';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=the-worm-1';
-import { Player, assignColor } from '../entities/player.js?v=the-worm-1';
-import { Projectile } from '../entities/projectile.js?v=the-worm-1';
-import { ThrownItem } from '../entities/thrown.js?v=the-worm-1';
-import { ITEMS, isItemEnabled } from '../data/items.js?v=the-worm-1';
-import { ENEMIES } from '../data/enemies.js?v=the-worm-1';
-import { BOSSES } from '../data/bosses.js?v=the-worm-1';
+import { MSG } from './protocol.js?v=worm-pathing-1';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=worm-pathing-1';
+import { Player, assignColor } from '../entities/player.js?v=worm-pathing-1';
+import { Projectile } from '../entities/projectile.js?v=worm-pathing-1';
+import { ThrownItem } from '../entities/thrown.js?v=worm-pathing-1';
+import { ITEMS, isItemEnabled } from '../data/items.js?v=worm-pathing-1';
+import { ENEMIES } from '../data/enemies.js?v=worm-pathing-1';
+import { BOSSES } from '../data/bosses.js?v=worm-pathing-1';
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 

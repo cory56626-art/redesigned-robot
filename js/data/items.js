@@ -1,7 +1,7 @@
 // Summoner Realms — item catalogue. All original names/designs.
 // Categories: weapon (melee/ranged/mage/summon), tool, armor, accessory,
 // potion, ammo, material, block, station, summonitem.
-import { T } from '../world/tiles.js?v=the-worm-1';
+import { T } from '../world/tiles.js?v=worm-pathing-1';
 
 export const ITEMS = {};
 
@@ -438,8 +438,8 @@ ITEMS.deepstone.place = T.DEEPSTONE;
 ITEMS.blightstone.place = T.BLIGHTSTONE;
 
 // ---------- Boss summoning items ----------
-def({ id: 'mechBeacon', name: 'Mech Beacon', category: 'summonitem', color: '#5f7896', color2: '#9deeff', summonBoss: 'theMech', maxStack: 20, desc: 'Summons The Mech on the surface. Build an open arena first.' });
-def({ id: 'wormLure', name: 'Worm Lure', category: 'summonitem', color: '#3a2448', color2: '#d39aff', summonBoss: 'theWorm', maxStack: 20, desc: 'After The Mech falls, summons The Worm in the Underground. A long tunnel makes room to dodge.' });
+def({ id: 'mechBeacon', name: 'Mech Beacon', category: 'summonitem', color: '#5f7896', color2: '#9deeff', summonBoss: 'theMech', maxStack: 20, desc: 'Forge: 5 Starsteel Bars, 4 Storm Bars, 6 Ember Dust. Use on the Surface in an open arena to summon The Mech.' });
+def({ id: 'wormLure', name: 'Worm Lure', category: 'summonitem', color: '#3a2448', color2: '#d39aff', summonBoss: 'theWorm', maxStack: 20, desc: 'Post-Mech Forge recipe: 1 Mech Core, 6 Shadowglass Bars, 8 Ember Dust. Use Underground or in a Cavern to summon The Worm.' });
 def({ id: 'verdantEffigy', name: 'Verdant Effigy', category: 'summonitem', color: '#7ee08a', color2: '#3a6a2a', summonBoss: 'grovekeeper', maxStack: 20, desc: 'Summons the Grovekeeper in the Forest (day or night).' });
 def({ id: 'boneSigil', name: 'Bone Sigil', category: 'summonitem', color: '#e9e2c8', color2: '#8a7a5a', summonBoss: 'gravemaw', maxStack: 20, desc: 'Summons the Gravemaw in the Underground.' });
 def({ id: 'blightIdol', name: 'Blight Idol', category: 'summonitem', color: '#c58bff', color2: '#4a2f66', summonBoss: 'blightSovereign', maxStack: 20, desc: 'Summons the Blight Sovereign in the Corrupted Lands.' });

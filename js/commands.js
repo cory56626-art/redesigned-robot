@@ -1,11 +1,11 @@
 // Summoner Realms — Demo Commands console (testing only).
-import { ITEMS, DEMO_GIVE_ALL, allItemIds, isItemEnabled } from './data/items.js?v=the-worm-1';
-import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=the-worm-1';
-import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=the-worm-1';
-import { TRACKS } from './engine/music.js?v=the-worm-1';
-import { FAUNA } from './data/fauna.js?v=the-worm-1';
-import { ACHIEVEMENTS } from './systems/achievements.js?v=the-worm-1';
-import { TILE, LIQUID_MAX } from './config.js?v=the-worm-1';
+import { ITEMS, DEMO_GIVE_ALL, allItemIds, isItemEnabled } from './data/items.js?v=worm-pathing-1';
+import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=worm-pathing-1';
+import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=worm-pathing-1';
+import { TRACKS } from './engine/music.js?v=worm-pathing-1';
+import { FAUNA } from './data/fauna.js?v=worm-pathing-1';
+import { ACHIEVEMENTS } from './systems/achievements.js?v=worm-pathing-1';
+import { TILE, LIQUID_MAX } from './config.js?v=worm-pathing-1';
 
 const $ = (id) => document.getElementById(id);
 

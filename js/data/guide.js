@@ -13,13 +13,45 @@
 //                the recipe list and boss loot tables, so a new item is
 //                explained correctly the day it's added without anyone writing
 //                a paragraph for it.
-import { ITEMS, item as getItem } from './items.js?v=the-worm-1';
-import { RECIPES } from './recipes.js?v=the-worm-1';
-import { BOSSES } from './bosses.js?v=the-worm-1';
-import { ENEMIES } from './enemies.js?v=the-worm-1';
-import { TILE } from '../config.js?v=the-worm-1';
+import { ITEMS, item as getItem } from './items.js?v=worm-pathing-1';
+import { RECIPES } from './recipes.js?v=worm-pathing-1';
+import { BOSSES } from './bosses.js?v=worm-pathing-1';
+import { ENEMIES } from './enemies.js?v=worm-pathing-1';
+import { TILE } from '../config.js?v=worm-pathing-1';
 
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
+
+function bossBiomeLabel(biome) {
+  if (biome === 'surface') return 'the <b>Surface</b>';
+  if (biome === 'underground') return 'the <b>Underground</b> or a <b>Cavern</b>';
+  if (biome === 'forest') return 'the <b>Forest</b>';
+  if (biome === 'jungle') return 'the <b>Verdant Jungle</b>';
+  if (biome === 'dunes') return 'the <b>Sunken Dunes</b>';
+  if (biome === 'corrupt') return 'the <b>Corrupted Lands</b>';
+  return `the <b>${biome}</b>`;
+}
+
+// This is deliberately driven by the live boss + recipe data rather than a
+// handwritten list. Adding another active boss automatically gives the Guide
+// a correct gate, crafting cost, location, and summon item.
+function bossSummonGuide(g) {
+  return Object.entries(BOSSES).map(([key, boss], index) => {
+    const itemDef = getItem(boss.summonItem);
+    const recipe = RECIPES.find(r => r.out.item === boss.summonItem);
+    const gate = boss.requiresBoss ? BOSSES[boss.requiresBoss] : null;
+    const gateText = gate
+      ? ` First defeat <b>${gate.name}</b>${g.progression?.isDefeated(boss.requiresBoss) ? ' — that gate is open in this realm.' : ' to unlock this recipe.'}`
+      : '';
+    const cost = recipe
+      ? recipe.in.map(i => `${i.count}× ${getItem(i.item).name}`).join(', ')
+      : 'its required materials';
+    const station = recipe?.station ? recipe.station.charAt(0).toUpperCase() + recipe.station.slice(1) : 'hand';
+    const placePrep = boss.biome === 'surface' ? 'on' : 'in';
+    const prep = boss.summonGuide?.prep || `Use it in ${bossBiomeLabel(boss.biome)}.`;
+    const reward = boss.summonGuide?.reward || 'Its rewards are dropped when it is defeated.';
+    return `<b>${index + 1}. ${boss.name}</b> — craft a <b>${itemDef?.name || boss.summonItem}</b> ${recipe ? `at a <b>${station}</b> from ${cost}` : `from ${cost}`}.${gateText} Then use it ${placePrep} ${bossBiomeLabel(boss.biome)}. ${prep} ${reward}`;
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Conversation topics
@@ -99,10 +131,16 @@ export const TOPICS = [
     },
   },
   {
+    id: 'bosses', label: 'Boss summoning & progression',
+    text(g) {
+      return bossSummonGuide(g);
+    },
+  },
+  {
     id: 'survival', label: 'Surviving the realm',
     text() {
       return [
-        `The first pre-Hardmode boss is <b>The Mech</b>. Forge a <b>Mech Beacon</b> from Starsteel, Storm Bars and Ember Dust, then use it on the surface with room to move. Its Core can be forged into a <b>Worm Lure</b>; take that Underground only after The Mech falls.`,
+        `The Mech and The Worm both have clear wind-ups. Ask me about <b>Boss summoning & progression</b> whenever you need the exact recipe, location, and prerequisite for every active boss.`,
         `Its missile tracks you for five seconds before exploding, its jump answers big gaps and air time, and its two-handed Plasma Ray follows with the weapon — not the whole body. In Overdrive, keep an eye on the shoulder volley lanes.`,
         `Keep moving when an enemy flashes before a charge or shot. The Guide can also fire back when a hostile gets near camp.`,
       ];

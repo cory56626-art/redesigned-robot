@@ -2,7 +2,7 @@
 import {
   SAVE_PREFIX, SAVE_INDEX_KEY, SETTINGS_KEY, SAVE_VERSION, LEGACY_WORLD_W,
   CHAR_PREFIX, CHAR_INDEX_KEY, CHAR_VERSION, LAST_CHAR_KEY,
-} from './config.js?v=the-worm-1';
+} from './config.js?v=worm-pathing-1';
 
 // Upgrade a save to the current format.
 //

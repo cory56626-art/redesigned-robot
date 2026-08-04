@@ -1,15 +1,15 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=the-worm-1';
-import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=the-worm-1';
-import { SH } from '../world/shapes.js?v=the-worm-1';
-import { W, hasWall } from '../world/walls.js?v=the-worm-1';
-import { BIOMES } from '../world/biomes.js?v=the-worm-1';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=the-worm-1';
-import { item as getItem } from '../data/items.js?v=the-worm-1';
-import { canPlaceAt } from '../systems/combat.js?v=the-worm-1';
-import { clamp } from '../utils.js?v=the-worm-1';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=the-worm-1';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=worm-pathing-1';
+import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=worm-pathing-1';
+import { SH } from '../world/shapes.js?v=worm-pathing-1';
+import { W, hasWall } from '../world/walls.js?v=worm-pathing-1';
+import { BIOMES } from '../world/biomes.js?v=worm-pathing-1';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=worm-pathing-1';
+import { item as getItem } from '../data/items.js?v=worm-pathing-1';
+import { canPlaceAt } from '../systems/combat.js?v=worm-pathing-1';
+import { clamp } from '../utils.js?v=worm-pathing-1';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=worm-pathing-1';
 
 // Fallback appearance for players without a character record (remote players
 // on an older client, or a world loaded before characters existed).

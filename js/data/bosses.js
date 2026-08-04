@@ -31,6 +31,10 @@ export const BOSSES = Object.freeze({
     color2: '#72ddff',
     biome: 'surface',
     summonItem: 'mechBeacon',
+    summonGuide: {
+      prep: 'Build a wide, flat arena before calling it so there is room to dodge missiles, jumps, and the Plasma Ray.',
+      reward: 'It always drops a Mech Core and may also drop one special weapon: Missile Launcher (20%) or Mechanical Sword (30%).',
+    },
     unlocksHardmode: true,
     loot: [
       { item: 'mechCore', min: 1, max: 1, chance: 1 },
@@ -111,14 +115,14 @@ export const BOSSES = Object.freeze({
   },
   theWorm: {
     name: 'The Worm',
-    // A long, grounded cavern predator. The bounding box is deliberately
-    // modest compared with its trailing body so it can travel through a
-    // player-built tunnel instead of demanding an empty sky arena.
-    w: 104,
-    h: 62,
+    // The visual body remains long, but its collision body is deliberately
+    // smaller than the plates so natural cave ledges do not pin it in place.
+    // If a path still closes off, its tunnel recovery burrow takes over.
+    w: 88,
+    h: 50,
     movement: 'worm',
-    stepHeight: 16,
-    spawnDistance: 250,
+    stepHeight: 24,
+    spawnDistance: 210,
     segmentCount: 6,
     segmentLength: 17,
     maxHp: 1850,
@@ -128,6 +132,10 @@ export const BOSSES = Object.freeze({
     biome: 'underground',
     summonItem: 'wormLure',
     requiresBoss: 'theMech',
+    summonGuide: {
+      prep: 'A roomy horizontal tunnel or chamber is best. The Worm will burrow out of blocked paths, then show an emerge marker before it returns.',
+      reward: 'It always drops a Worm Core.',
+    },
     loot: [
       { item: 'wormCore', min: 1, max: 1, chance: 1 },
     ],

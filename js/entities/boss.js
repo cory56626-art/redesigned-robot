@@ -11,12 +11,12 @@
 // distance, phase and line of sight. Animation fields (squash, jaw, segment
 // lag, shard spin) are updated here rather than in the renderer, so they are
 // driven by the simulation and stay frame-rate independent.
-import { TILE, normalizeDifficulty } from '../config.js?v=the-worm-1';
-import { BOSSES } from '../data/bosses.js?v=the-worm-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=the-worm-1';
-import { aabb, angleTo, randRange, clamp } from '../utils.js?v=the-worm-1';
-import { Projectile } from './projectile.js?v=the-worm-1';
-import * as AI from '../systems/ai.js?v=the-worm-1';
+import { TILE, normalizeDifficulty } from '../config.js?v=worm-pathing-1';
+import { BOSSES } from '../data/bosses.js?v=worm-pathing-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=worm-pathing-1';
+import { aabb, angleTo, randRange, clamp } from '../utils.js?v=worm-pathing-1';
+import { Projectile } from './projectile.js?v=worm-pathing-1';
+import * as AI from '../systems/ai.js?v=worm-pathing-1';
 
 const PROJ_COLOR = {
   thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff',
@@ -107,6 +107,12 @@ export class Boss {
     this.warnTime = 0;
     this.warnMax = 0.6;
     this.charge = null;        // { time, vx, vy }
+    // The Worm is visibly large but still fights in natural cave geometry.
+    // These timers turn a bad wall collision or a player hiding behind stone
+    // into a telegraphed burrow rather than a free, stuck target.
+    this.wormBlockedTime = 0;
+    this.wormNoSightTime = 0;
+    this.wormBurrowCooldown = 0;
 
     // ---- Enrage / leash ----
     this.awayTimer = 0;
@@ -183,6 +189,9 @@ export class Boss {
     }
     this.bob += dt * 3;
     for (const [k, v] of this.cooldowns) if (v > 0) this.cooldowns.set(k, v - dt);
+    if (this.movement === 'worm' && this.wormBurrowCooldown > 0) {
+      this.wormBurrowCooldown = Math.max(0, this.wormBurrowCooldown - dt);
+    }
     this._updatePhase(game);
 
     const target = game.nearestHostileTarget
@@ -214,8 +223,14 @@ export class Boss {
       this.charge.time -= dt;
       if (this.movement === 'gravemaw' || this.movement === 'worm') {
         applyGravity(this, dt);
-        this.vx = this.charge.vx;
+        const requestedVx = this.charge.vx;
+        this.vx = requestedVx;
         this._move(game, dt);
+        if (this._tryWormTunnelRecovery(dt, game, target, requestedVx)) {
+          clampToWorld(this, game.world);
+          this._updateAnim(dt, game);
+          return;
+        }
         // Landing from a leap slams the ground.
         if (this.onGround && this.charge.airborne) {
           this.charge.airborne = false;
@@ -250,7 +265,7 @@ export class Boss {
     switch (this.aiState) {
       case 'telegraph': {
         // Wind-up: slow to a hover so the tell is readable, then commit.
-        this._moveToward(dt, game, target, ph, speedMul * 0.35);
+        if (this._moveToward(dt, game, target, ph, speedMul * 0.35)) break;
         this.telegraph -= dt;
         if (this.telegraph <= 0) {
           this._performAttack(this.chosen, game, target);
@@ -263,14 +278,14 @@ export class Boss {
       }
       case 'recover': {
         // A beat of vulnerability after every attack — the player's window.
-        this._moveToward(dt, game, target, ph, speedMul * 0.6);
+        if (this._moveToward(dt, game, target, ph, speedMul * 0.6)) break;
         this.recover -= dt;
         if (this.recover <= 0) { this.aiState = 'reposition'; this.stateTime = 0; }
         break;
       }
       default: { // reposition
         this.aiState = 'reposition';
-        this._moveToward(dt, game, target, ph, speedMul);
+        if (this._moveToward(dt, game, target, ph, speedMul)) break;
         // Pick an attack as soon as one is off cooldown and appropriate here.
         const atk = this._chooseAttack(game, target);
         if (atk) {
@@ -331,10 +346,31 @@ export class Boss {
 
   _emerge(game, target) {
     const at = this.warnAt || (target ? { x: target.x, y: target.y - 40 } : { x: this.x, y: this.y });
+    const before = { x: this.x, y: this.y };
     this.x = at.x - this.w / 2;
     this.y = at.y - this.h / 2;
     // Never surface inside rock.
-    this._nudgeOutOfTerrain(game.world);
+    const escaped = this._nudgeOutOfTerrain(game.world);
+    if (!escaped && game.world.rectHitsSolid(this.x, this.y, this.w, this.h) && this.movement === 'worm') {
+      // Terrain can change between the warning and the emergence. Keep the
+      // Worm hidden and show a fresh marker instead of popping into a wall.
+      const retry = this._findWormBurrowSpot(game.world, target, this.facing || 1, 156);
+      if (retry) {
+        this.x = before.x; this.y = before.y;
+        this.warnAt = retry;
+        this.warnMax = 0.58;
+        this.warnTime = this.warnMax;
+        return;
+      }
+      // A fully sealed cave should never turn the boss into a permanent
+      // statue. Return to its last known position and give the player another
+      // warning while it tries again on the next emerge frame.
+      this.x = before.x; this.y = before.y;
+      this.warnAt = { x: before.x + this.w / 2, y: before.y + this.h / 2 };
+      this.warnMax = 0.5;
+      this.warnTime = this.warnMax;
+      return;
+    }
     this.hidden = false;
     this.warnAt = null;
     this.warnTime = 0;
@@ -349,13 +385,14 @@ export class Boss {
 
   // Slide out of any solid tiles we ended up inside, preferring up.
   _nudgeOutOfTerrain(world) {
-    if (!world.rectHitsSolid(this.x, this.y, this.w, this.h)) return;
+    if (!world.rectHitsSolid(this.x, this.y, this.w, this.h)) return true;
     for (let r = 1; r <= 12; r++) {
       for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1]]) {
         const nx = this.x + dx * r * TILE, ny = this.y + dy * r * TILE;
-        if (!world.rectHitsSolid(nx, ny, this.w, this.h)) { this.x = nx; this.y = ny; return; }
+        if (!world.rectHitsSolid(nx, ny, this.w, this.h)) { this.x = nx; this.y = ny; return true; }
       }
     }
+    return false;
   }
 
   // No player alive: hover in place rather than freezing mid-animation.
@@ -400,6 +437,16 @@ export class Boss {
       else this.vx = 0;
       if (this.onGround && this.vx && AI.shouldJump(this, game.world, Math.sign(this.vx))) this.vy = -345;
       this._move(game, dt);
+    } else if (this.movement === 'worm') {
+      // The Worm still walks and jumps in an open tunnel, but it does not
+      // remain a harmless wall ornament if natural cave geometry blocks it.
+      applyGravity(this, dt);
+      const dir = Math.sign(dx) || this.facing || 1;
+      const requestedVx = dir * speed;
+      this.vx = requestedVx;
+      if (this.onGround && AI.shouldJump(this, game.world, dir)) this.vy = -370;
+      this._move(game, dt);
+      return this._tryWormTunnelRecovery(dt, game, target, requestedVx);
     } else {
       // Gravemaw is grounded: it commits to the floor, hops ledges and gaps.
       applyGravity(this, dt);
@@ -407,9 +454,109 @@ export class Boss {
       if (this.onGround && AI.shouldJump(this, game.world, Math.sign(dx) || this.facing)) this.vy = -340;
       this._move(game, dt);
     }
+    return false;
   }
 
   _move(game, dt) { moveAndCollide(this, game.world, dt); }
+
+  // A worm should be dangerous in caves, not immobilised by them. A short wall
+  // collision or sustained lack of sight starts a visibly warned reposition;
+  // the cooldown prevents it from chain-burrowing with no player response.
+  _tryWormTunnelRecovery(dt, game, target, requestedVx = 0) {
+    if (this.movement !== 'worm' || this.hidden || !target) return false;
+    const c = this.center();
+    const tc = target.center();
+    const dist = Math.hypot(tc.x - c.x, tc.y - c.y);
+    const blocked = this.hitWallX && Math.abs(requestedVx) > 12 && Math.abs(tc.x - c.x) > 42;
+    const hasLos = game.world.hasLineOfSight(c.x, c.y, tc.x, tc.y);
+    this.wormBlockedTime = blocked ? this.wormBlockedTime + dt : Math.max(0, this.wormBlockedTime - dt * 2.4);
+    this.wormNoSightTime = !hasLos && dist > 96
+      ? this.wormNoSightTime + dt
+      : Math.max(0, this.wormNoSightTime - dt * 2);
+    if (this.wormBurrowCooldown > 0) return false;
+
+    let reason = null;
+    if (this.wormBlockedTime >= 0.46) reason = 'blocked';
+    else if (this.wormNoSightTime >= 1.35) reason = 'hidden';
+    if (!reason) return false;
+
+    const side = Math.sign(tc.x - c.x) || this.facing || 1;
+    return this._beginWormBurrow(game, target, {
+      side,
+      preferredDistance: reason === 'blocked' ? 132 : 168,
+      warnTime: reason === 'blocked' ? 0.78 : 0.92,
+      cooldown: 2.25,
+    });
+  }
+
+  // Find a body-sized air pocket near the target. Grounded spots are scored
+  // first so the Worm emerges into a real fight instead of falling forever,
+  // but a clear mid-air pocket remains a safe fallback in rough cave layouts.
+  _findWormBurrowSpot(world, target, side = 1, preferredDistance = 156) {
+    if (!target) return null;
+    const tc = target.center();
+    const primary = Math.sign(side) || 1;
+    const directions = [primary, -primary];
+    const distances = [...new Set([preferredDistance, 112, 156, 204, 252, 300, 348, 396, 460, 524])];
+    const yOffsets = [-TILE * 5, -TILE * 3, -TILE, 0, TILE * 2, TILE * 4, TILE * 6];
+    const minCenterX = this.w / 2 + 2;
+    const maxCenterX = world.width * TILE - this.w / 2 - 2;
+    let grounded = null;
+    let airborne = null;
+
+    for (const dir of directions) {
+      for (const distance of distances) {
+        const centerX = clamp(tc.x + dir * distance, minCenterX, maxCenterX);
+        const x = Math.round(centerX - this.w / 2);
+        for (const yOffset of yOffsets) {
+          const y = Math.round(tc.y - this.h / 2 + yOffset);
+          if (world.rectHitsSolid(x, y, this.w, this.h)) continue;
+          const floorGap = this._wormFloorGap(world, x, y);
+          const score = Math.abs(distance - preferredDistance) * 0.24 + Math.abs(yOffset) * 0.68
+            + (dir === primary ? 0 : 28) + (Number.isFinite(floorGap) ? floorGap * 0.4 : 180);
+          const candidate = { x: centerX, y: y + this.h / 2, score };
+          if (Number.isFinite(floorGap) && floorGap <= TILE * 4) {
+            if (!grounded || candidate.score < grounded.score) grounded = candidate;
+          } else if (!airborne || candidate.score < airborne.score) {
+            airborne = candidate;
+          }
+        }
+      }
+    }
+    const chosen = grounded || airborne;
+    return chosen ? { x: chosen.x, y: chosen.y } : null;
+  }
+
+  _wormFloorGap(world, x, y) {
+    for (let gap = 0; gap <= TILE * 5; gap += 4) {
+      if (world.rectHitsSolid(x, y + this.h + gap, this.w, 4)) return gap;
+    }
+    return Infinity;
+  }
+
+  _beginWormBurrow(game, target, options = {}) {
+    const c = this.center();
+    const tc = target && target.center ? target.center() : c;
+    const side = options.side || Math.sign(tc.x - c.x) || this.facing || 1;
+    const at = this._findWormBurrowSpot(game.world, target, side, options.preferredDistance || 156);
+    if (!at) return false;
+    this.hidden = true;
+    this.charge = null;
+    this.telegraph = 0;
+    this.vx = 0; this.vy = 0;
+    this.warnAt = at;
+    this.warnMax = options.warnTime || 0.92;
+    this.warnTime = this.warnMax;
+    this.wormBurrowCooldown = options.cooldown != null ? options.cooldown : 1.35;
+    this.wormBlockedTime = 0;
+    this.wormNoSightTime = 0;
+    this.aiState = 'recover';
+    this.stateTime = 0;
+    this.recover = options.recover != null ? options.recover : 0.5;
+    game.fx.burst(c.x, this.y + this.h, '#513463', 20, { speed: 130, gravity: 400 });
+    game.fx.shake(3, 0.3);
+    return true;
+  }
 
   // Flying bosses used to integrate position directly with no collision at all,
   // so they swam through solid rock. They now refuse a move that would embed
@@ -826,12 +973,22 @@ export class Boss {
         break;
       }
       case 'burrow': {
-        this.hidden = true;
         const side = Math.random() < 0.5 ? -1 : 1;
-        this.warnAt = { x: tc.x + side * (atk.burrowOffset || 80), y: tc.y + (atk.burrowY || 10) };
-        this.warnMax = atk.burrowTime || 1.0; this.warnTime = this.warnMax;
-        game.fx.burst(cx, this.y + this.h, this.movement === 'worm' ? '#513463' : '#8a7358', 20, { speed: 130, gravity: 400 });
-        game.fx.shake(3, 0.3);
+        if (this.movement === 'worm') {
+          this._beginWormBurrow(game, target, {
+            side,
+            preferredDistance: atk.burrowOffset || 120,
+            warnTime: atk.burrowTime || 1.0,
+            cooldown: 1.2,
+            recover: atk.recover != null ? atk.recover : 0.5,
+          });
+        } else {
+          this.hidden = true;
+          this.warnAt = { x: tc.x + side * (atk.burrowOffset || 80), y: tc.y + (atk.burrowY || 10) };
+          this.warnMax = atk.burrowTime || 1.0; this.warnTime = this.warnMax;
+          game.fx.burst(cx, this.y + this.h, '#8a7358', 20, { speed: 130, gravity: 400 });
+          game.fx.shake(3, 0.3);
+        }
         break;
       }
       case 'wormQuake': {

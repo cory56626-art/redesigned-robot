@@ -4,8 +4,8 @@
 // hammer slopes present a real surface, so a ramp you can see is a ramp you can
 // walk up rather than a wall you bump into. Full blocks — everything natural
 // terrain generates — take the same fast path they always did.
-import { TILE, GRAVITY, MAX_FALL, SWIM_GRAVITY, SWIM_MAX_FALL } from '../config.js?v=the-worm-1';
-import { SH } from '../world/shapes.js?v=the-worm-1';
+import { TILE, GRAVITY, MAX_FALL, SWIM_GRAVITY, SWIM_MAX_FALL } from '../config.js?v=worm-pathing-1';
+import { SH } from '../world/shapes.js?v=worm-pathing-1';
 
 // Slopes are climbed by snapping to their surface rather than by the ledge
 // step-up, so the motion is continuous instead of a stair of 2px hops.
