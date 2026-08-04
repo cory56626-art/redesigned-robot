@@ -8,10 +8,10 @@
 //
 // Bugs are the same entity with `kind: 'bug'`: smaller, flightier, and caught by
 // clicking them rather than by killing them.
-import { TILE, GRAVITY } from '../config.js?v=worm-surface-4';
-import { FAUNA } from '../data/fauna.js?v=worm-surface-4';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=worm-surface-4';
-import { dist2 } from '../utils.js?v=worm-surface-4';
+import { TILE, GRAVITY } from '../config.js?v=vespera-surface-5';
+import { FAUNA } from '../data/fauna.js?v=vespera-surface-5';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=vespera-surface-5';
+import { dist2 } from '../utils.js?v=vespera-surface-5';
 
 export class Critter {
   constructor(key, x, y, netId) {

@@ -1,13 +1,13 @@
 // Summoner Realms — combat & interaction resolution (weapons, mining, placing).
-import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=worm-surface-4';
-import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=worm-surface-4';
-import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=worm-surface-4';
-import { SH, nextShape } from '../world/shapes.js?v=worm-surface-4';
-import { W } from '../world/walls.js?v=worm-surface-4';
-import { item as getItem } from '../data/items.js?v=worm-surface-4';
-import { Projectile } from '../entities/projectile.js?v=worm-surface-4';
-import { ThrownItem } from '../entities/thrown.js?v=worm-surface-4';
-import { angleTo, aabb, clamp } from '../utils.js?v=worm-surface-4';
+import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=vespera-surface-5';
+import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=vespera-surface-5';
+import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=vespera-surface-5';
+import { SH, nextShape } from '../world/shapes.js?v=vespera-surface-5';
+import { W } from '../world/walls.js?v=vespera-surface-5';
+import { item as getItem } from '../data/items.js?v=vespera-surface-5';
+import { Projectile } from '../entities/projectile.js?v=vespera-surface-5';
+import { ThrownItem } from '../entities/thrown.js?v=vespera-surface-5';
+import { angleTo, aabb, clamp } from '../utils.js?v=vespera-surface-5';
 
 const MINE_RATE = 95;
 const MINE_SOUND_INTERVAL = 0.32;
@@ -116,6 +116,18 @@ export function useWeapon(game, player, item) {
       // property of the weapon rather than an oversight in the hit test.
       if (!item.phasing && !_meleeCanReach(game, pc, tgt)) continue;
       game.hurtEnemyOrBoss(tgt, dmg, Math.sign(tcx - pc.x) * item.knockback, player.id, crit, item.effect);
+      // Mandible Edge earns its dual-blade identity with a delayed, compact
+      // follow-up hitbox. The short arming window clears the normal enemy
+      // iframe, so both cuts register while still reading as one quick swing.
+      if (item.doubleStrike) {
+        game.addProjectile(new Projectile({
+          x: tcx - 14, y: tcy - 12, vx: 0, vy: 0, w: 28, h: 24,
+          damage: Math.max(1, Math.round(dmg * item.doubleStrike)),
+          ownerType: 'player', ownerId: player.id, kind: 'mandibleSlash', color: '#efbb57',
+          pierce: 0, life: 0.18, armingDelay: 0.065, ignoreTerrain: true,
+          effect: item.effect || null, knockback: item.knockback || 3, crit,
+        }), true);
+      }
     }
     game.spawnSwingFx(player, aimAng, item);
     if (item.fx && item.fx.swing) swingFx(game, player, item, aimAng, dmg, crit);
@@ -284,6 +296,16 @@ function swingFx(game, player, item, angle, dmg, crit) {
       player.swing.color = 'rgba(180,230,255,0.95)';
       break;
     }
+    case 'mandible': {
+      for (const side of [-1, 1]) {
+        game.fx.streak(tipX, tipY, angle + side * 0.22, side < 0 ? '#f7df9b' : '#d99c3e', 5, {
+          speed: 170, spread: 0.24, life: 0.22, size: 1.7, glow: true,
+        });
+      }
+      game.fx.ring(tipX, tipY, 'rgba(239,187,87,0.65)', 18, { life: 0.16, width: 2 });
+      player.swing.color = 'rgba(245,202,105,0.94)';
+      break;
+    }
   }
 }
 
@@ -359,6 +381,15 @@ function castFx(game, player, item, angle) {
       game.fx.streak(hx, hy, angle, '#d7a5ff', 7, { speed: 140, spread: 0.8, life: 0.3, size: 2, gravity: -20 });
       break;
     }
+    case 'hive': {
+      for (let i = 0; i < 8; i++) {
+        game.fx.streak(hx, hy, angle + (Math.random() - 0.5) * 1.1, i % 2 ? '#c9ee79' : '#efc15a', 1, {
+          speed: 95, life: 0.28, size: 1.7, glow: true,
+        });
+      }
+      game.fx.ring(hx, hy, 'rgba(201,238,121,0.62)', 20, { life: 0.20, width: 2 });
+      break;
+    }
   }
 }
 
@@ -393,6 +424,10 @@ function shotFx(game, player, item, angle) {
       game.fx.ring(mx, my, 'rgba(255,226,129,0.72)', 16, { life: 0.14, width: 2 });
       game.fx.streak(mx, my, angle, '#fff1a8', 6, { speed: 175, spread: 0.45, life: 0.24, size: 1.8 });
       break;
+    case 'stinger':
+      game.fx.streak(mx, my, angle, '#f7df9b', 6, { speed: 220, spread: 0.28, life: 0.22, size: 1.6, glow: true });
+      game.fx.ring(mx, my, 'rgba(239,187,87,0.58)', 15, { life: 0.14, width: 1.8 });
+      break;
   }
 }
 
@@ -415,6 +450,9 @@ function _fireProjectiles(game, player, item, aimAng, dmg, crit, cls) {
       burstSpeed: item.burstSpeed || 220, burstLife: item.burstLife || 1.25,
       burstGravity: !!item.burstGravity, blastRadius: item.blastRadius || 0,
       blastDamage: item.blastDamage || 0,
+      homing: !!item.homing, homingStrength: item.homingStrength || 3.5,
+      burstHoming: !!item.burstHoming, burstHomingStrength: item.burstHomingStrength || 2.2,
+      burstEffect: item.burstEffect || null,
     }), true);
   }
 }

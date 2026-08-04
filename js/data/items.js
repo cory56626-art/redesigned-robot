@@ -1,7 +1,7 @@
 // Summoner Realms — item catalogue. All original names/designs.
 // Categories: weapon (melee/ranged/mage/summon), tool, armor, accessory,
 // potion, ammo, material, block, station, summonitem.
-import { T } from '../world/tiles.js?v=worm-surface-4';
+import { T } from '../world/tiles.js?v=vespera-surface-5';
 
 export const ITEMS = {};
 
@@ -41,8 +41,11 @@ export const PREHARDMODE_ITEM_IDS = new Set([
   'stoneironBroadsword', 'verdantVineblade', 'shadowglassScythe',
   'tideWand', 'verdantBloomStaff', 'shadowglassOrb',
   'tideSpriteStaff', 'verdantSproutIdol', 'shadowmothTome',
-  'mechBeacon', 'mechCore', 'wormLure', 'wormCore',
+  'mechBeacon', 'mechCore', 'wormLure', 'wormCore', 'hiveResonanceCore',
+  'royalChitinPlate', 'venomCore', 'royalChitinCrown', 'royalChitinCarapace', 'royalChitinTreads',
   'missileLauncher', 'mechanicalSword',
+  'stingerBow', 'mandibleEdge', 'hiveCatalyst', 'broodStaff',
+  'waspEmblem', 'vesperaWings',
 ]);
 
 // Raw terrain materials are also placeable blocks, so they remain available
@@ -122,6 +125,11 @@ melee('mechanicalSword', 'Mechanical Sword', '#78d9ff', 39, 0.46, 9, {
   meleeKind: 'heavy', reach: 43, arc: 1.9, knockback: 8, crit: 0.08, fx: { swing: 'mechanical' },
   desc: 'Rare Mech drop. A weighted blue-steel blade that tears a bright gear-shaped arc through a crowd.',
 });
+melee('mandibleEdge', 'Mandible Edge', '#efbb57', 22, 0.34, 10, {
+  reach: 37, arc: 1.48, knockback: 4, crit: 0.10, doubleStrike: 0.68,
+  effect: { poison: 1.8 }, fx: { swing: 'mandible' },
+  desc: 'Vespera drop. Twin obsidian-gold blades land a fast second slash and leave a brief toxin.',
+});
 
 // ---------- Ranged weapons (8) ----------
 const ranged = (id, name, color, dmg, useTime, tier, extra = {}) =>
@@ -140,6 +148,11 @@ ranged('missileLauncher', 'Missile Launcher', '#ffad55', 34, 0.72, 9, {
   projectileW: 16, projectileH: 9, blastRadius: 54, blastDamage: 23, trail: '#ffca70',
   fx: { shot: 'launcher' }, knockback: 7,
   desc: 'Rare Mech drop. Fires a slow, self-powered rocket that detonates on impact. No ammo needed.',
+});
+ranged('stingerBow', 'Stinger Bow', '#d89d3e', 30, 0.32, 10, {
+  ammo: 'flintArrow', gravity: true, projSpeed: 700, projColor: '#f4ce76', projectileKind: 'venomArrow',
+  effect: { poison: 3.2 }, trail: '#e7bb58', fx: { shot: 'stinger' },
+  desc: 'Vespera drop. Fires venom-coated arrows that keep poison pressure on anything they strike.',
 });
 
 // ---------- Mage weapons (8) ----------
@@ -166,6 +179,14 @@ mage('shadowglassOrb', 'Shadowglass Orb', '#9d65d1', 25, 0.48, 7, 17, {
   pierce: 1, projSpeed: 620, projectileKind: 'shadowOrb', fx: { cast: 'shadow' }, trail: '#d7a5ff',
   desc: 'A slow black-purple orb that pierces one enemy before Hardmode.',
 });
+mage('hiveCatalyst', 'Hive Catalyst', '#d7a34c', 24, 0.46, 10, 18, {
+  projectileKind: 'hiveOrb', projSpeed: 390, projectileW: 12, projectileH: 12,
+  homing: true, homingStrength: 2.2, effect: { poison: 2.8 }, trail: '#edc968',
+  burstCount: 3, burstDamage: 9, burstKind: 'venomMote', burstColor: '#c9ee79',
+  burstSpeed: 255, burstLife: 1.05, burstHoming: true, burstHomingStrength: 2.6,
+  burstEffect: { poison: 2.0 }, fx: { cast: 'hive' },
+  desc: 'Vespera drop. A guided venom orb splits into three smaller homing motes on impact.',
+});
 
 // ---------- Summoner weapons (6) ----------
 const summon = (id, name, color, useTime, tier, mana, minion, extra = {}) =>
@@ -184,6 +205,9 @@ summon('verdantSproutIdol', 'Verdant Sprout Idol', '#65b957', 0.5, 5, 14, 'verda
 });
 summon('shadowmothTome', 'Shadowmoth Tome', '#9d65d1', 0.5, 7, 18, 'shadowmoth', {
   desc: 'Summons a fragile shadow moth that fires only through open sight lines.',
+});
+summon('broodStaff', 'Brood Staff', '#d7a34c', 0.5, 10, 20, 'broodWasp', {
+  desc: 'Vespera drop. Summons a quick wasp that fires toxin stings through clear sight lines.',
 });
 summon('diamondHeart', 'Diamond Heart', '#dffcff', 0.78, 5, 30, 'diamondHeart', {
   maxStack: 1,
@@ -279,6 +303,13 @@ armor('thornweaveGuards', 'Thornweave Guards', '#5a7a3a', 'legs', 2, 1, 'thornwe
 armor('blightHelm', 'Blight Helm', '#8a4fb0', 'head', 6, 4, 'blight', { dmgMul: 0.08 });
 armor('blightCuirass', 'Blight Cuirass', '#8a4fb0', 'chest', 9, 4, 'blight', { dmgMul: 0.08 });
 armor('blightGreaves', 'Blight Greaves', '#8a4fb0', 'legs', 7, 4, 'blight', { dmgMul: 0.08 });
+// Royal Chitin is Vespera's post-clear defensive path. The base armor is solid
+// but not a tank set; its completed bonus turns that protection into movement,
+// making repeat Vespera clears and the next pre-Hardmode challenges feel more
+// mobile instead of simply erasing mistakes with raw defense.
+armor('royalChitinCrown', 'Royal Chitin Crown', '#2a222d', 'head', 7, 10, 'royalChitin', {});
+armor('royalChitinCarapace', 'Royal Chitin Carapace', '#2a222d', 'chest', 10, 10, 'royalChitin', {});
+armor('royalChitinTreads', 'Royal Chitin Treads', '#2a222d', 'legs', 8, 10, 'royalChitin', {});
 
 // ---------- Accessories ----------
 const acc = (id, name, color, kind, stats, tier, desc) =>
@@ -289,6 +320,8 @@ acc('vitalBand', 'Vital Band', '#ff6b7d', 'ring', { maxHp: 40 }, 1, '+40 max hea
 acc('aetherLocket', 'Aether Locket', '#9ec3ff', 'ring', { maxMana: 30 }, 2, '+30 max Aether.');
 acc('beastmasterSigil', 'Beastmaster Sigil', '#c58bff', 'ring', { minionCap: 1 }, 2, '+1 minion capacity.');
 acc('ironhideEmblem', 'Ironhide Emblem', '#a9b0bd', 'ring', { defense: 6 }, 2, '+6 defense.');
+acc('waspEmblem', 'Wasp Emblem', '#efbb57', 'emblem', { speed: 0.10, jumpMul: 1.12, fallDamageMul: 0.82 }, 10, '+10% movement speed, +12% jump height, and slightly reduced fall damage.');
+acc('vesperaWings', 'Vespera Wings', '#d7a34c', 'wing', { speed: 0.18, flightTime: 1.35, flightLift: 245, glideFallSpeed: 190 }, 10, 'Rare Vespera drop. Short flight, controlled glide, brief hover, and a strong horizontal boost.');
 
 // ---------- Potions ----------
 const pot = (id, name, color, effect, desc) => def({ id, name, category: 'potion', color, potion: effect, maxStack: 30, desc });
@@ -358,6 +391,8 @@ mat('starsteelOre', 'Starsteel Ore', '#d8f4ff', 'ore', 8, 'White-blue glowing me
 mat('starsteelBar', 'Starsteel Bar', '#ffffff', 'bar', 8, 'A brilliant final pre-Hardmode alloy.');
 mat('mechCore', 'Mech Core', '#72ddff', 'drop', 8, 'A heavy blue reactor core claimed from The Mech. Its pulse marks the realm as Hardmode-ready.');
 mat('wormCore', 'Worm Core', '#c383ff', 'drop', 9, 'A pulsing violet core from The Worm. It vibrates as if the tunnel is still moving.');
+mat('royalChitinPlate', 'Royal Chitin Plate', '#2a222d', 'drop', 10, 'Obsidian-black chitin threaded with molten gold. Used to craft the Hive Resonance Core and future mobility gear.');
+mat('venomCore', 'Venom Core', '#b9e86e', 'drop', 10, 'A pressurized gland taken from a Brood Drone. A rare component for venom gear and alchemy.');
 
 // ---------- Fauna drops, food and cooking ----------
 // Raw meat is a material; cooking it at a Smeltery turns it into a food item
@@ -440,6 +475,7 @@ ITEMS.blightstone.place = T.BLIGHTSTONE;
 // ---------- Boss summoning items ----------
 def({ id: 'mechBeacon', name: 'Mech Beacon', category: 'summonitem', color: '#5f7896', color2: '#9deeff', summonBoss: 'theMech', maxStack: 20, desc: 'Forge: 5 Starsteel Bars, 4 Storm Bars, 6 Ember Dust. Use on the Surface in an open arena to summon The Mech.' });
 def({ id: 'wormLure', name: 'Worm Lure', category: 'summonitem', color: '#3a2448', color2: '#d39aff', summonBoss: 'theWorm', maxStack: 20, desc: 'Post-Mech Forge recipe: 1 Mech Core, 6 Shadowglass Bars, 8 Ember Dust. Use on the Surface in an open arena to summon The Worm.' });
+def({ id: 'hiveResonanceCore', name: 'Hive Resonance Core', category: 'summonitem', color: '#211a25', color2: '#efbb57', summonBoss: 'vespera', maxStack: 20, desc: 'Post-Worm Forge recipe: 8 Royal Chitin Plates and 4 rare Venom Cores. Use anywhere on the Surface at night to summon Vespera.' });
 def({ id: 'verdantEffigy', name: 'Verdant Effigy', category: 'summonitem', color: '#7ee08a', color2: '#3a6a2a', summonBoss: 'grovekeeper', maxStack: 20, desc: 'Summons the Grovekeeper in the Forest (day or night).' });
 def({ id: 'boneSigil', name: 'Bone Sigil', category: 'summonitem', color: '#e9e2c8', color2: '#8a7a5a', summonBoss: 'gravemaw', maxStack: 20, desc: 'Summons the Gravemaw in the Underground.' });
 def({ id: 'blightIdol', name: 'Blight Idol', category: 'summonitem', color: '#c58bff', color2: '#4a2f66', summonBoss: 'blightSovereign', maxStack: 20, desc: 'Summons the Blight Sovereign in the Corrupted Lands.' });

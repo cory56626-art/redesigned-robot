@@ -11,17 +11,18 @@
 // distance, phase and line of sight. Animation fields (squash, jaw, segment
 // lag, shard spin) are updated here rather than in the renderer, so they are
 // driven by the simulation and stay frame-rate independent.
-import { TILE, normalizeDifficulty } from '../config.js?v=worm-surface-4';
-import { BOSSES } from '../data/bosses.js?v=worm-surface-4';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=worm-surface-4';
-import { aabb, angleTo, randRange, clamp } from '../utils.js?v=worm-surface-4';
-import { Projectile } from './projectile.js?v=worm-surface-4';
-import * as AI from '../systems/ai.js?v=worm-surface-4';
+import { TILE, normalizeDifficulty } from '../config.js?v=vespera-surface-5';
+import { BOSSES } from '../data/bosses.js?v=vespera-surface-5';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=vespera-surface-5';
+import { aabb, angleTo, randRange, clamp } from '../utils.js?v=vespera-surface-5';
+import { Projectile } from './projectile.js?v=vespera-surface-5';
+import * as AI from '../systems/ai.js?v=vespera-surface-5';
 
 const PROJ_COLOR = {
   thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff',
   mechMissile: '#ffad55', mechPlasma: '#78e9ff', mechShock: '#ffd36d',
   wormSpit: '#ca8cff', wormQuake: '#d8a6ff',
+  venomInjector: '#f0c56b', venomStinger: '#f6d172', vesperaShard: '#ffe089',
 };
 
 // Beyond this distance from every player the boss is being kited out of its
@@ -143,6 +144,20 @@ export class Boss {
     this.mechHeat = 0;
     this.mechLanding = 0;
     this.mechRay = null;
+
+    // Vespera carries a few encounter-local states on the boss rather than in
+    // the renderer. That makes dives, phase debris, denial trails and Frenzy
+    // deterministic, frame-rate independent, and safe to clear with the rest
+    // of the boss state on death/reset.
+    this.vesperaDive = null;
+    this.vesperaTransition = null;
+    this.vesperaTrail = null;
+    this.vesperaFrenzy = false;
+    this.vesperaFrenzyArmed = false;
+    this.vesperaFrenzyCycle = 10;
+    this.vesperaFrenzyTime = 0;
+    this.vesperaWingBeat = Math.random() * Math.PI * 2;
+    this.vesperaMandible = 0;
   }
 
   center() { return { x: this.x + this.w / 2, y: this.y + this.h / 2 }; }
@@ -157,12 +172,14 @@ export class Boss {
 
   _updatePhase(game) {
     const ratio = this.hp / this.maxHp;
+    const prior = this.phaseIndex;
     let idx = 0;
     for (let i = 0; i < this.def.phases.length; i++) if (ratio <= this.def.phases[i].at) idx = i;
     if (idx !== this.phaseIndex) {
       this.phaseIndex = idx;
       this._seedCooldowns();
-      this.invuln = 0.6;
+      const vesperaTransition = this.movement === 'vespera' && idx > prior;
+      this.invuln = vesperaTransition ? 4 : 0.6;
       this.aiState = 'reposition';
       this.stateTime = 0;
       this.chosen = null; this.telegraph = 0;
@@ -170,11 +187,13 @@ export class Boss {
       // ray or leap that was chosen under the old pattern.
       this.charge = null;
       this.mechRay = null;
+      this.vesperaDive = null;
       game.toast(`${this.name}: ${this.phase().name}!`, 'bad');
       const c = this.center();
       game.fx.ring(c.x, c.y, this.color2, 90, { life: 0.55, width: 4 });
       game.fx.burst(c.x, c.y, this.color2, 28, { speed: 200, glow: true, life: 0.6 });
       game.fx.shake(6, 0.5);
+      if (vesperaTransition) this._beginVesperaTransition(game);
     }
   }
 
@@ -206,16 +225,45 @@ export class Boss {
     this._updateLeash(dt, game, target);
     if (this.dead) return; // fled
 
+    if (this.movement === 'vespera') {
+      this._updateVesperaFrenzy(dt, game);
+      // The phase change intentionally owns Vespera for four seconds: she
+      // climbs, sheds debris, and repositions while invulnerable instead of
+      // immediately snapping into an untelegraphed phase-two attack.
+      if (this.vesperaTransition) {
+        this._updateVesperaTransition(dt, game, target);
+        clampToWorld(this, game.world);
+        this._updateAnim(dt, game);
+        return;
+      }
+    }
+
     if (this.hidden) { this._updateHidden(dt, game, target); this._updateAnim(dt, game); return; }
     if (!target) { this._drift(dt, game); this._updateAnim(dt, game); return; }
 
     const ph = this.phase();
-    const speedMul = this.enraged ? this.tuning.enrageMove : 1;
+    const speedMul = (this.enraged ? this.tuning.enrageMove : 1) *
+      (this.movement === 'vespera' && this.vesperaFrenzy ? 1.46 : 1);
     const tc = target.center();
     const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
     // Plasma Ray locks the chassis in place. Its two hands and cannon are the
     // only parts that sweep toward the target, which keeps the tell legible.
     if (!this.mechRay) this.facing = tc.x < cx ? -1 : 1;
+
+    if (this.movement === 'vespera') {
+      // Trails keep ticking while she chooses and performs later attacks. This
+      // is the deliberate phase-two overlap: the lane restriction remains
+      // readable, but players cannot reset the fight by merely waiting out one
+      // isolated move.
+      this._updateVesperaTrails(dt, game);
+      if (this.vesperaDive) {
+        this._updateVesperaDive(dt, game, target, ph, speedMul);
+        clampToWorld(this, game.world);
+        this._updateAnim(dt, game);
+        this._contactDamage(game, ph);
+        return;
+      }
+    }
 
     // A committed charge or leap overrides everything until it expires.
     if (this.charge) {
@@ -300,6 +348,9 @@ export class Boss {
           this.telegraph = this.telegraphMax;
           this.aiState = 'telegraph';
           this.stateTime = 0;
+          if (this.movement === 'vespera' && (atk.type === 'apexDive' || atk.type === 'executionDive')) {
+            game.audio?.mandibleClick?.();
+          }
           game.audio?.bossTelegraph?.();
           game.fx.ring(cx, cy, this.color2, 46, { life: this.telegraphMax, from: 70, width: 2 });
         }
@@ -437,6 +488,19 @@ export class Boss {
       const desiredY = tc.y - (dive ? 42 : (this.def.floatHeight || 72)) + Math.sin(orbit * 1.7) * (dive ? 18 : 32);
       this.vx = clamp((desiredX - cx) * 0.9, -speed, speed);
       this.vy = clamp((desiredY - cy) * 0.9, -speed, speed);
+      this._flyMove(game, dt);
+    } else if (this.movement === 'vespera') {
+      // Vespera never has a calm hover. She circles just outside contact range
+      // and continuously corrects toward the player, which creates aerial
+      // pressure without turning the boss into a permanent hitbox on top of
+      // them. Attacks temporarily override this movement with committed dives.
+      const orbit = this.spawnTime * (this.vesperaFrenzy ? 1.42 : 0.92);
+      const side = Math.sin(orbit * 0.62) >= 0 ? 1 : -1;
+      const standoff = this.phaseIndex > 0 ? 150 : 170;
+      const desiredX = tc.x + side * standoff + Math.sin(orbit * 1.75) * 48;
+      const desiredY = tc.y - (this.def.floatHeight || 142) + Math.cos(orbit * 1.28) * 38;
+      this.vx = clamp((desiredX - cx) * 1.32, -speed, speed);
+      this.vy = clamp((desiredY - cy) * 1.22, -speed, speed);
       this._flyMove(game, dt);
     } else if (this.movement === 'mech') {
       // The Mech has a slow, weighty stride. It keeps a little standoff room
@@ -649,6 +713,207 @@ export class Boss {
     this.vx = 0; this.vy = 0;
   }
 
+  // ---- Vespera: phase transition, sustained denial, and chained dives ----
+
+  _beginVesperaTransition(game) {
+    const c = this.center();
+    this.vesperaTransition = { time: 4, debrisT: 0.02 };
+    this.vesperaDive = null;
+    this.vesperaTrail = null;
+    this.charge = null;
+    this.vx = 0;
+    this.vy = -220;
+    game.toast('Vespera fractures her crown!', 'bad');
+    game.audio?.vesperaScream?.();
+    game.fx.ring(c.x, c.y, '#ffd56f', 112, { life: 0.72, width: 4 });
+    game.fx.burst(c.x, c.y, ['#fff0b2', '#efbb57', '#493341'], 34, {
+      speed: 220, life: 0.72, glow: true, size: 2.5,
+    });
+  }
+
+  _updateVesperaTransition(dt, game, target) {
+    const transition = this.vesperaTransition;
+    if (!transition) return;
+    transition.time -= dt;
+    this.invuln = Math.max(this.invuln, transition.time);
+    const c = this.center();
+    const tc = target && target.center ? target.center() : c;
+    // Rise hard at first, then hold a high lateral position over the arena so
+    // the debris rain is visible and there is no hidden contact hitbox.
+    const rise = Math.max(0, Math.min(1, transition.time / 1.25));
+    const desiredX = tc.x + Math.sin(this.spawnTime * 1.5) * 142;
+    const desiredY = tc.y - 230 - rise * 120;
+    this.vx = clamp((desiredX - c.x) * 1.18, -285, 285);
+    this.vy = clamp((desiredY - c.y) * 1.36, -330, 220);
+    this._flyMove(game, dt);
+
+    transition.debrisT -= dt;
+    while (transition.debrisT <= 0) {
+      transition.debrisT += 0.14;
+      const spreadX = tc.x + randRange(Math.random, -310, 310);
+      const spawnY = Math.min(c.y - 24, tc.y - 220 - Math.random() * 96);
+      game.addProjectile(new Projectile({
+        x: spreadX - 3, y: spawnY - 5,
+        vx: randRange(Math.random, -84, 84), vy: 108 + Math.random() * 100,
+        w: 6, h: 10, damage: 9, ownerType: 'boss', kind: 'vesperaShard',
+        color: '#ffd778', gravity: true, life: 2.35, trail: '#efbb57', knockback: 2.5,
+      }), true);
+    }
+
+    if (transition.time > 0) return;
+    this.vesperaTransition = null;
+    this.invuln = Math.max(this.invuln, 0.16);
+    this.aiState = 'recover';
+    this.recover = 0.42;
+    game.fx.ring(this.x + this.w / 2, this.y + this.h / 2, '#f5cb68', 86, { life: 0.36, width: 3 });
+  }
+
+  _updateVesperaFrenzy(dt, game) {
+    if (this.phaseIndex < 1 || this.hp / this.maxHp > 0.20) {
+      this.vesperaFrenzy = false;
+      this.vesperaFrenzyArmed = false;
+      this.vesperaFrenzyCycle = 10;
+      return;
+    }
+    if (!this.vesperaFrenzyArmed) {
+      this.vesperaFrenzyArmed = true;
+      this.vesperaFrenzyCycle = 10;
+      game.toast('Vespera is nearing a frenzy!', 'bad');
+    }
+    this.vesperaFrenzyCycle -= dt;
+    if (this.vesperaFrenzy) {
+      this.vesperaFrenzyTime -= dt;
+      if (this.vesperaFrenzyTime <= 0) {
+        this.vesperaFrenzy = false;
+        game.toast('Vespera relents for a moment.', 'info');
+      }
+      return;
+    }
+    if (this.vesperaFrenzyCycle > 0) return;
+    this.vesperaFrenzy = true;
+    this.vesperaFrenzyTime = 6;
+    this.vesperaFrenzyCycle = 10;
+    const c = this.center();
+    game.toast('VESPERA: FRENZY!', 'bad');
+    game.fx.ring(c.x, c.y, '#ffe07a', 122, { life: 0.48, width: 4 });
+    game.fx.burst(c.x, c.y, ['#fff4bd', '#efbb57', '#9be76d'], 28, { speed: 180, glow: true, life: 0.55 });
+  }
+
+  _spawnVesperaVenomZone(game, x, y, opts = {}) {
+    const w = opts.w || 82;
+    const h = opts.h || 34;
+    game.addProjectile(new Projectile({
+      x: x - w / 2, y: y - h / 2,
+      vx: 0, vy: 0, w, h,
+      damage: opts.damage != null ? opts.damage : 7,
+      ownerType: 'boss', kind: 'venomZone', color: '#b9e86e', life: opts.life || 4.1,
+      persistent: true, hitCooldown: opts.hitCooldown || 0.58, ignoreTerrain: true,
+      effect: { poison: opts.poison || 2.2 }, knockback: 1.5,
+    }), true);
+  }
+
+  _updateVesperaTrails(dt, game) {
+    const trail = this.vesperaTrail;
+    if (!trail) return;
+    trail.time -= dt;
+    trail.emit -= dt;
+    while (trail.emit <= 0 && trail.time > 0) {
+      trail.emit += trail.interval;
+      const c = this.center();
+      this._spawnVesperaVenomZone(game, c.x - (this.facing || 1) * 18, c.y + this.h * 0.22, {
+        w: 76, h: 30, life: 3.85, damage: 6, poison: 2.1,
+      });
+    }
+    if (trail.time <= 0) this.vesperaTrail = null;
+  }
+
+  _startVesperaDive(atk, game, target) {
+    const c = this.center();
+    const tc = target.center();
+    const kind = atk.type;
+    this.vesperaDive = {
+      kind,
+      stage: 'orbit',
+      time: atk.orbitTime || 0.56,
+      maxTime: atk.orbitTime || 0.56,
+      pass: 0,
+      count: Math.max(1, atk.dives || 1),
+      speed: atk.diveSpeed || 650,
+      duration: atk.diveDuration || 0.34,
+      recover: atk.recover != null ? atk.recover : 0.5,
+      seed: angleTo(tc.x, tc.y, c.x, c.y) + randRange(Math.random, -0.45, 0.45),
+      direction: Math.random() < 0.5 ? -1 : 1,
+      radius: kind === 'executionDive' ? 178 : 154,
+    };
+    game.fx.ring(c.x, c.y, '#efbb57', 54, { life: 0.3, width: 2.5 });
+  }
+
+  _launchVesperaDivePass(dive, game, target) {
+    const c = this.center();
+    const tc = target.center();
+    const isFinal = dive.pass === dive.count - 1;
+    const frenzy = this.vesperaFrenzy ? 1.30 : 1;
+    const executionFinal = dive.kind === 'executionDive' && isFinal;
+    const speed = dive.speed * frenzy * (executionFinal ? 1.18 : 1);
+    // Lock the line at launch. The target can still dodge, while late steering
+    // would turn the attack into a homing body hit with no fair escape lane.
+    const lead = executionFinal ? 0.04 : 0.12;
+    const tx = tc.x + (target.vx || 0) * lead;
+    const ty = tc.y + (target.vy || 0) * lead;
+    const a = angleTo(c.x, c.y, tx, ty);
+    dive.stage = 'lunge';
+    dive.angle = a;
+    dive.speedNow = speed;
+    dive.time = Math.max(0.18, Math.min(dive.duration + (executionFinal ? -0.07 : 0), 0.46));
+    this.facing = Math.cos(a) < 0 ? -1 : 1;
+    game.fx.streak(c.x, c.y, a, executionFinal ? '#fff0a8' : '#efbb57', 8, {
+      speed: speed * 0.52, spread: 0.24, life: 0.22, size: 2.1, glow: true,
+    });
+  }
+
+  _updateVesperaDive(dt, game, target) {
+    const dive = this.vesperaDive;
+    if (!dive || !target) {
+      this.vesperaDive = null;
+      this.aiState = 'recover';
+      this.recover = 0.38;
+      return;
+    }
+    const c = this.center();
+    const tc = target.center();
+    if (dive.stage === 'lunge') {
+      dive.time -= dt;
+      this.vx = Math.cos(dive.angle) * dive.speedNow;
+      this.vy = Math.sin(dive.angle) * dive.speedNow;
+      this._flyMove(game, dt);
+      if (dive.time > 0) return;
+      dive.pass++;
+      if (dive.pass >= dive.count) {
+        this.vesperaDive = null;
+        this.aiState = 'recover';
+        this.recover = dive.recover;
+        return;
+      }
+      dive.stage = 'setup';
+      const finalPass = dive.pass === dive.count - 1;
+      dive.maxTime = finalPass && dive.kind === 'executionDive' ? 0.035 : (dive.kind === 'executionDive' ? 0.14 : 0.22);
+      dive.time = dive.maxTime;
+      return;
+    }
+
+    const progress = 1 - dive.time / Math.max(0.001, dive.maxTime);
+    const turn = dive.stage === 'orbit' ? progress * Math.PI * 2 : 0;
+    const a = dive.seed + dive.direction * (turn + dive.pass * Math.PI * 2 / dive.count);
+    const desiredX = tc.x + Math.cos(a) * dive.radius;
+    const desiredY = tc.y + Math.sin(a) * dive.radius * 0.64 - 30;
+    const setupSpeed = dive.kind === 'executionDive' ? 520 : 390;
+    this.vx = clamp((desiredX - c.x) * 2.0, -setupSpeed, setupSpeed);
+    this.vy = clamp((desiredY - c.y) * 2.0, -setupSpeed, setupSpeed);
+    this._flyMove(game, dt);
+    dive.time -= dt;
+    if (dive.time <= 0) this._launchVesperaDivePass(dive, game, target);
+  }
+
   // Flying bosses used to integrate position directly with no collision at all,
   // so they swam through solid rock. They now refuse a move that would embed
   // them and climb out of whatever they are pressed against.
@@ -782,6 +1047,14 @@ export class Boss {
       } else if (!fast && this.ghostTrail.length) {
         this.ghostTrail.shift();
       }
+    }
+
+    if (this.movement === 'vespera') {
+      const diveActive = !!this.vesperaDive;
+      const beatRate = this.vesperaFrenzy ? 20 : diveActive ? 15 : 10;
+      this.vesperaWingBeat += dt * beatRate;
+      const mandibleTarget = this.telegraph > 0 || diveActive ? 1 : 0;
+      this.vesperaMandible += (mandibleTarget - this.vesperaMandible) * (1 - Math.pow(0.008, dt));
     }
 
     if (this.movement === 'mech') {
@@ -1096,6 +1369,101 @@ export class Boss {
         game.fx.shake(4.2, 0.3);
         break;
       }
+      case 'apexDive':
+      case 'executionDive': {
+        this._startVesperaDive(atk, game, target);
+        break;
+      }
+      case 'injectorBurst': {
+        const n = this.vesperaFrenzy ? (atk.frenzyCount || 11) : (atk.count || 9);
+        const base = angleTo(cx, cy, tc.x, tc.y);
+        for (let i = 0; i < n; i++) {
+          const a = base + (i - (n - 1) / 2) * ((atk.spread || 1.4) / Math.max(1, n - 1));
+          game.addProjectile(new Projectile({
+            x: cx - 5, y: cy - 3,
+            vx: Math.cos(a) * atk.projSpeed, vy: Math.sin(a) * atk.projSpeed,
+            w: 11, h: 5, damage: atk.damage, ownerType: 'boss', kind: 'venomInjector',
+            color: '#f0c56b', life: 2.0, homing: true,
+            homingTargetId: target.id || target.netId || null,
+            homingStrength: atk.homingStrength || 0.72,
+            effect: { poison: atk.poison || 2.2 }, trail: '#d7a34c', knockback: 3,
+          }), true);
+        }
+        game.fx.ring(cx, cy, '#f5cd6d', 52, { life: 0.28, width: 2.5 });
+        game.fx.burst(cx, cy, ['#f5de91', '#d89b41', '#403042'], 14, { speed: 130, life: 0.38, glow: true });
+        break;
+      }
+      case 'broodDrop': {
+        const n = this.vesperaFrenzy ? (atk.frenzyCount || 4) : (atk.count || 2);
+        const fuse = this.vesperaFrenzy ? (atk.frenzyFuse || 0.58) : (atk.podFuse || 1.12);
+        for (let i = 0; i < n; i++) {
+          const offset = (i - (n - 1) / 2) * 58 + randRange(Math.random, -16, 16);
+          const px = tc.x + offset;
+          const py = Math.min(cy + 20, tc.y - 150 - Math.random() * 36);
+          game.addProjectile(new Projectile({
+            x: px - 8, y: py - 8,
+            vx: randRange(Math.random, -30, 30), vy: 105 + Math.random() * 38,
+            w: 16, h: 16, damage: 0, ownerType: 'boss', kind: 'broodPod', color: '#b9e86e',
+            gravity: true, life: fuse + 0.35, burstDelay: fuse, trail: '#b9e86e',
+            spawnOnBurst: {
+              adds: { key: 'swarmling', count: 2, lifetime: 10.5 },
+              hazard: { w: 88, h: 34, damage: atk.damage || 7, life: 4.2, hitCooldown: 0.56, poison: 2.4 },
+            },
+          }), true);
+        }
+        game.fx.burst(cx, cy + 12, ['#d7a34c', '#b9e86e', '#342637'], 12, { speed: 110, life: 0.36, glow: true });
+        break;
+      }
+      case 'wingPressure': {
+        // The gust applies a short control-disrupting push, then the five
+        // stingers chase the displaced lane. It never deals unavoidable direct
+        // damage itself, so the player still has time to recover and dodge.
+        for (const p of game.players.values()) {
+          if (!p || p.alive === false || p.dead) continue;
+          const pc = p.center ? p.center() : { x: p.x + p.w / 2, y: p.y + p.h / 2 };
+          const dir = Math.sign(pc.x - cx) || this.facing || 1;
+          p.vx = dir * (atk.gustSpeed || 240);
+          p.vy = Math.min(p.vy || 0, -(atk.gustLift || 145));
+          p.kbTimer = Math.max(p.kbTimer || 0, 0.18);
+        }
+        const n = atk.count || 5;
+        const base = angleTo(cx, cy, tc.x, tc.y);
+        for (let i = 0; i < n; i++) {
+          const a = base + (i - (n - 1) / 2) * (0.84 / Math.max(1, n - 1));
+          game.addProjectile(new Projectile({
+            x: cx - 5, y: cy - 4,
+            vx: Math.cos(a) * atk.projSpeed, vy: Math.sin(a) * atk.projSpeed,
+            w: 10, h: 5, damage: atk.damage, ownerType: 'boss', kind: 'venomStinger',
+            color: '#f6d172', life: 2.7, homing: true,
+            homingTargetId: target.id || target.netId || null,
+            homingStrength: atk.homingStrength || 1.15,
+            effect: { poison: atk.poison || 1.8 }, trail: '#efbb57', knockback: 3.5,
+          }), true);
+        }
+        for (let i = 0; i < 7; i++) {
+          const a = base + (i - 3) * 0.17;
+          game.fx.streak(cx, cy, a, '#f6d172', 2, { speed: 185, life: 0.22, size: 1.3, glow: true });
+        }
+        break;
+      }
+      case 'swarmCall': {
+        const min = atk.addMin != null ? atk.addMin : 3;
+        const max = atk.addMax != null ? atk.addMax : 5;
+        let count = min + ((Math.random() * (max - min + 1)) | 0);
+        if (this.vesperaFrenzy) count *= 2;
+        game.spawnBossAdds('broodDrone', count, cx, cy, { lifetime: this.vesperaFrenzy ? 13.5 : 11.5 });
+        game.fx.ring(cx, cy, '#b9e86e', 72, { life: 0.32, width: 2 });
+        game.fx.burst(cx, cy, ['#b9e86e', '#efbb57', '#382c40'], 16, { speed: 138, life: 0.46, glow: true });
+        break;
+      }
+      case 'hiveTrails': {
+        this.vesperaTrail = {
+          time: atk.duration || 2.4,
+          emit: 0.01,
+          interval: atk.interval || 0.30,
+        };
+        break;
+      }
       case 'spawnAdds': {
         game.spawnBossAdds(atk.enemy, atk.addCount, this.x, this.y);
         break;
@@ -1211,6 +1579,13 @@ export class Boss {
       game.fx.burst(c.x, c.y, ['#c383ff', '#efceff', '#4a2c5d'], 52, { speed: 275, life: 1.0, glow: true, gravity: 150, size: 2.8 });
       game.fx.smoke(c.x, c.y, '#211728', 24, { jitter: 40 });
     }
+    if (this.movement === 'vespera') {
+      game.fx.ring(c.x, c.y, '#efbb57', 230, { life: 0.90, width: 4 });
+      game.fx.burst(c.x, c.y, ['#fff0b2', '#efbb57', '#211923', '#b9e86e'], 64, {
+        speed: 300, life: 1.08, glow: true, gravity: 120, size: 2.7,
+      });
+      game.fx.smoke(c.x, c.y, '#17121b', 28, { jitter: 44 });
+    }
     game.fx.shake(9, 0.8);
     game.fx.ring(c.x, c.y, '#ffffff', 140, { life: 0.5, width: 5 });
     game.fx.ring(c.x, c.y, this.color2, 190, { life: 0.75, width: 3 });
@@ -1232,6 +1607,8 @@ export class Boss {
       hp: Math.round(this.hp), maxHp: this.maxHp, phase: this.phaseIndex, facing: this.facing,
       state: this.aiState, hidden: this.hidden ? 1 : 0, tel: this.telegraph > 0 ? 1 : 0, frz: Math.round((this.freezeT || 0) * 100) / 100,
       mr: this.mechRay ? { a: Math.round(this.mechRay.angle * 1000) / 1000, t: Math.round(this.mechRay.time * 100) / 100 } : null,
+      vf: this.vesperaFrenzy ? 1 : 0,
+      vt: this.vesperaTransition ? Math.round(this.vesperaTransition.time * 100) / 100 : 0,
       warn,
     };
   }

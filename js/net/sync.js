@@ -1,12 +1,12 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
-import { MSG } from './protocol.js?v=worm-surface-4';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=worm-surface-4';
-import { Player, assignColor } from '../entities/player.js?v=worm-surface-4';
-import { Projectile } from '../entities/projectile.js?v=worm-surface-4';
-import { ThrownItem } from '../entities/thrown.js?v=worm-surface-4';
-import { ITEMS, isItemEnabled } from '../data/items.js?v=worm-surface-4';
-import { ENEMIES } from '../data/enemies.js?v=worm-surface-4';
-import { BOSSES } from '../data/bosses.js?v=worm-surface-4';
+import { MSG } from './protocol.js?v=vespera-surface-5';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=vespera-surface-5';
+import { Player, assignColor } from '../entities/player.js?v=vespera-surface-5';
+import { Projectile } from '../entities/projectile.js?v=vespera-surface-5';
+import { ThrownItem } from '../entities/thrown.js?v=vespera-surface-5';
+import { ITEMS, isItemEnabled } from '../data/items.js?v=vespera-surface-5';
+import { ENEMIES } from '../data/enemies.js?v=vespera-surface-5';
+import { BOSSES } from '../data/bosses.js?v=vespera-surface-5';
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 
@@ -155,6 +155,7 @@ function applyEntitySnapshot(game, msg) {
     const phases = Array.isArray(def.phases) ? def.phases : [];
     const phaseNumber = Number(bs.phase);
     const phaseIndex = Number.isInteger(phaseNumber) && phaseNumber >= 0 ? phaseNumber : 0;
+    b.phaseIndex = phaseIndex;
     b.phaseName = (phases[phaseIndex] || phases[0] || {}).name || '';
     if (b.ghost) {
       b.hidden = !!bs.hidden;
@@ -172,6 +173,8 @@ function applyEntitySnapshot(game, msg) {
       // cannon needs the host's angle so remote players see the same sweep.
       b.mechRay = bs.mr ? { angle: Number(bs.mr.a) || 0, time: Number(bs.mr.t) || 0 } : null;
       b.mechHeat = phaseIndex > 0 ? 1 : 0;
+      b.vesperaFrenzy = !!bs.vf;
+      b.vesperaTransition = Number(bs.vt) > 0 ? { time: Number(bs.vt) } : null;
     }
     newBosses.push(b);
   }
@@ -228,7 +231,7 @@ function makeGhostBoss(bs) {
   return {
     key: bs.key, name: bs.name, x: bs.x, y: bs.y, _tx: bs.x, _ty: bs.y,
     w: def.w, h: def.h, hp: bs.hp, maxHp: bs.maxHp, color: def.color, color2: def.color2,
-    facing: bs.facing, hurtFlash: 0, invuln: 0, bob: 0, ghost: true, phaseName: '',
+    facing: bs.facing, hurtFlash: 0, invuln: 0, bob: 0, ghost: true, phaseName: '', phaseIndex: 0,
     movement: def.movement,
     vx: 0, vy: 0,
     hidden: !!bs.hidden, telegraph: 0, telegraphMax: 0.6, attackPulse: 0,
@@ -236,6 +239,8 @@ function makeGhostBoss(bs) {
     squashX: 1, squashY: 1, jaw: 0, shardSpin: 0, segments, ghostTrail: [],
     walkCycle: 0, mechArmOpen: 0, mechRayCharge: 0, mechJumpCharge: 0,
     mechHeat: 0, mechLanding: 0, mechRay: null,
+    vesperaFrenzy: false, vesperaTransition: null, vesperaDive: null,
+    vesperaWingBeat: Math.random() * Math.PI * 2, vesperaMandible: 0,
     aiState: bs.state || '',
     center() { return { x: this.x + this.w / 2, y: this.y + this.h / 2 }; },
   };
@@ -269,6 +274,11 @@ export function interpolateGhosts(game, dt) {
       b.mechHeat += (heat - (b.mechHeat || 0)) * (1 - Math.pow(0.12, dt));
       const rayTarget = b.mechRay ? 1 : 0;
       b.mechRayCharge += (rayTarget - (b.mechRayCharge || 0)) * (1 - Math.pow(0.01, dt));
+    }
+    if (b.movement === 'vespera') {
+      b.vesperaWingBeat += dt * (b.vesperaFrenzy ? 20 : 10);
+      const mandibleTarget = b.telegraph > 0 ? 1 : 0;
+      b.vesperaMandible += (mandibleTarget - (b.vesperaMandible || 0)) * (1 - Math.pow(0.008, dt));
     }
   }
   for (const d of game.drops) { if (d.ghost) d.bob += dt * 4; }

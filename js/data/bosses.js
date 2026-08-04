@@ -14,6 +14,15 @@ export function rollMechSpecialDrop(random = Math.random) {
   return null;
 }
 
+// Vespera always gives exactly one class weapon. Keeping this choice here, as
+// with The Mech's special drop, makes the one-from-the-pool contract explicit
+// and prevents a future loot edit from silently dropping two weapons at once.
+export function rollVesperaWeaponDrop(random = Math.random) {
+  const pool = ['stingerBow', 'mandibleEdge', 'hiveCatalyst', 'broodStaff'];
+  const roll = Math.max(0, Math.min(0.999999, Number(random()) || 0));
+  return pool[Math.floor(roll * pool.length)];
+}
+
 export const BOSSES = Object.freeze({
   theMech: {
     name: 'The Mech',
@@ -204,6 +213,130 @@ export const BOSSES = Object.freeze({
             cooldown: 8.2, telegraph: 0.98, recover: 0.82,
             minRange: 56, maxRange: 520,
             damage: 16, projSpeed: 242,
+          },
+        ],
+      },
+    ],
+  },
+  vespera: {
+    name: 'Vespera',
+    // A little over 3.5 player-heights tall. The wide body and wings make her
+    // read as an apex aerial threat without becoming too large for a surface
+    // arena or the default camera.
+    w: 112,
+    h: 94,
+    movement: 'vespera',
+    spawnDistance: 250,
+    maxHp: 5550, // exactly 3× The Worm before difficulty scaling
+    contactBase: 39,
+    color: '#17131b',
+    color2: '#efbb57',
+    biome: 'surface',
+    requiresNight: true,
+    requiresBoss: 'theWorm',
+    summonItem: 'hiveResonanceCore',
+    summonGuide: {
+      prep: 'Call Vespera on the Surface at night. Build width and vertical lanes into the arena: her venom zones and dives punish standing still.',
+      reward: 'She always drops Royal Chitin Plates, Venom Cores, a Wasp Emblem, and one weapon from her class pool. Vespera Wings are rare.',
+    },
+    loot: [
+      { item: 'royalChitinPlate', min: 8, max: 12, chance: 1 },
+      { item: 'venomCore', min: 3, max: 5, chance: 1 },
+      { item: 'waspEmblem', min: 1, max: 1, chance: 1 },
+      { item: 'vesperaWings', min: 1, max: 1, chance: 0.02 },
+    ],
+    phases: [
+      {
+        at: 1,
+        name: 'Apex Hunt',
+        speed: 186,
+        contact: 39,
+        floatHeight: 142,
+        attacks: [
+          {
+            type: 'apexDive', weight: 1.45,
+            cooldown: 7.6, telegraph: 0.88, recover: 0.58,
+            minRange: 70, maxRange: 700,
+            dives: 1, orbitTime: 0.72, diveSpeed: 630, diveDuration: 0.36,
+          },
+          {
+            type: 'injectorBurst', weight: 1.30,
+            cooldown: 6.2, telegraph: 0.86, recover: 0.58,
+            minRange: 108, maxRange: 660,
+            count: 9, frenzyCount: 11, spread: 1.46, damage: 13, projSpeed: 520,
+            homingStrength: 0.72, poison: 2.3,
+          },
+          {
+            type: 'broodDrop', weight: 1.08,
+            cooldown: 8.5, telegraph: 0.92, recover: 0.64,
+            minRange: 76, maxRange: 640,
+            count: 2, frenzyCount: 4, damage: 7, podFuse: 1.18, frenzyFuse: 0.66,
+          },
+          {
+            type: 'wingPressure', weight: 1.00,
+            cooldown: 8.9, telegraph: 0.90, recover: 0.62,
+            minRange: 72, maxRange: 600,
+            count: 5, damage: 10, projSpeed: 315, homingStrength: 1.16,
+            gustSpeed: 245, gustLift: 150, poison: 1.8,
+          },
+          {
+            type: 'swarmCall', weight: 0.94,
+            cooldown: 9.4, telegraph: 0.82, recover: 0.58,
+            minRange: 56, maxRange: 680,
+            addMin: 3, addMax: 5,
+          },
+        ],
+      },
+      {
+        at: 0.65,
+        name: 'Fractured Crown',
+        speed: 236,
+        contact: 45,
+        floatHeight: 158,
+        attacks: [
+          {
+            type: 'apexDive', weight: 1.28,
+            cooldown: 5.5, telegraph: 0.56, recover: 0.42,
+            minRange: 64, maxRange: 740,
+            dives: 2, orbitTime: 0.48, diveSpeed: 710, diveDuration: 0.34,
+          },
+          {
+            type: 'injectorBurst', weight: 1.34,
+            cooldown: 4.85, telegraph: 0.58, recover: 0.40,
+            minRange: 94, maxRange: 700,
+            count: 9, frenzyCount: 11, spread: 1.52, damage: 15, projSpeed: 566,
+            homingStrength: 0.86, poison: 2.7,
+          },
+          {
+            type: 'broodDrop', weight: 1.16,
+            cooldown: 6.65, telegraph: 0.60, recover: 0.45,
+            minRange: 72, maxRange: 680,
+            count: 2, frenzyCount: 4, damage: 8, podFuse: 0.94, frenzyFuse: 0.54,
+          },
+          {
+            type: 'wingPressure', weight: 1.04,
+            cooldown: 6.9, telegraph: 0.58, recover: 0.46,
+            minRange: 66, maxRange: 650,
+            count: 5, damage: 12, projSpeed: 352, homingStrength: 1.35,
+            gustSpeed: 280, gustLift: 170, poison: 2.1,
+          },
+          {
+            type: 'swarmCall', weight: 0.98,
+            cooldown: 7.1, telegraph: 0.54, recover: 0.42,
+            minRange: 50, maxRange: 720,
+            addMin: 3, addMax: 5,
+          },
+          {
+            type: 'executionDive', weight: 1.18,
+            cooldown: 8.8, telegraph: 0.72, recover: 0.62,
+            minRange: 92, maxRange: 760,
+            dives: 4, orbitTime: 0.36, diveSpeed: 760, diveDuration: 0.29,
+          },
+          {
+            type: 'hiveTrails', weight: 0.92,
+            cooldown: 8.0, telegraph: 0.56, recover: 0.40,
+            minRange: 70, maxRange: 700,
+            duration: 2.45, interval: 0.30,
           },
         ],
       },

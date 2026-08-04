@@ -13,11 +13,11 @@
 //                the recipe list and boss loot tables, so a new item is
 //                explained correctly the day it's added without anyone writing
 //                a paragraph for it.
-import { ITEMS, item as getItem } from './items.js?v=worm-surface-4';
-import { RECIPES } from './recipes.js?v=worm-surface-4';
-import { BOSSES } from './bosses.js?v=worm-surface-4';
-import { ENEMIES } from './enemies.js?v=worm-surface-4';
-import { TILE } from '../config.js?v=worm-surface-4';
+import { ITEMS, item as getItem } from './items.js?v=vespera-surface-5';
+import { RECIPES } from './recipes.js?v=vespera-surface-5';
+import { BOSSES } from './bosses.js?v=vespera-surface-5';
+import { ENEMIES } from './enemies.js?v=vespera-surface-5';
+import { TILE } from '../config.js?v=vespera-surface-5';
 
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
 
@@ -310,7 +310,11 @@ function purposeOf(def) {
       const s = def.accStats || {};
       const bits = [];
       if (s.speed) bits.push(`${Math.round(s.speed * 100)}% faster on your feet`);
+      if (s.jumpMul && s.jumpMul !== 1) bits.push(`${Math.round((s.jumpMul - 1) * 100)}% higher jumps`);
       if (s.extraJumps) bits.push(`${s.extraJumps} extra jump in mid-air`);
+      if (s.flightTime) bits.push(`${s.flightTime.toFixed(1)} seconds of wing lift`);
+      if (s.glideFallSpeed) bits.push(`a controlled glide`);
+      if (s.fallDamageMul && s.fallDamageMul !== 1) bits.push(`${Math.round((1 - s.fallDamageMul) * 100)}% less fall damage`);
       if (s.maxHp) bits.push(`${s.maxHp} more health`);
       if (s.maxMana) bits.push(`${s.maxMana} more Aether`);
       if (s.minionCap) bits.push(`room for ${s.minionCap} more minion`);
@@ -330,7 +334,7 @@ function purposeOf(def) {
     case 'summonitem': {
       const boss = BOSSES[def.summonBoss];
       return boss
-        ? `Use this on the ${boss.biome === 'surface' ? 'surface' : boss.biome} to summon <b>${boss.name}</b>. A boss does not refund its summon when you die, so make an arena first.`
+        ? `Use this on the ${boss.biome === 'surface' ? 'surface' : boss.biome}${boss.requiresNight ? ' at night' : ''} to summon <b>${boss.name}</b>. A boss does not refund its summon when you die, so make an arena first.`
         : `A boss summoning item.`;
     }
     case 'material': {

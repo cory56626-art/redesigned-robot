@@ -1,7 +1,7 @@
 // Summoner Realms — crafting recipes.
 // station: null (hand) | 'bench' | 'smeltery' | 'forge' | 'altar'
 // requiresBoss: optional active-boss progression gate.
-import { isItemEnabled } from './items.js?v=worm-surface-4';
+import { isItemEnabled } from './items.js?v=vespera-surface-5';
 
 const ALL_RECIPES = [
   // --- Hand ---
@@ -115,6 +115,13 @@ const ALL_RECIPES = [
   // the first clear always opens the path, while repeat summons still ask the
   // player to earn another core instead of making the lure an infinite freebie.
   { out: { item: 'wormLure', count: 1 }, in: [{ item: 'mechCore', count: 1 }, { item: 'shadowglassBar', count: 6 }, { item: 'emberDust', count: 8 }], station: 'forge', requiresBoss: 'theMech' },
+  // Vespera's lure comes from post-Worm overgrowth-cavern materials. Venom
+  // Cores are deliberately rare on Brood Drones, so this asks for exploration
+  // and swarm control before the third boss without consuming another Worm Core.
+  { out: { item: 'hiveResonanceCore', count: 1 }, in: [{ item: 'royalChitinPlate', count: 8 }, { item: 'venomCore', count: 4 }], station: 'forge', requiresBoss: 'theWorm' },
+  { out: { item: 'royalChitinCrown', count: 1 }, in: [{ item: 'royalChitinPlate', count: 12 }, { item: 'venomCore', count: 1 }], station: 'forge', requiresBoss: 'vespera' },
+  { out: { item: 'royalChitinCarapace', count: 1 }, in: [{ item: 'royalChitinPlate', count: 18 }, { item: 'venomCore', count: 2 }], station: 'forge', requiresBoss: 'vespera' },
+  { out: { item: 'royalChitinTreads', count: 1 }, in: [{ item: 'royalChitinPlate', count: 14 }, { item: 'venomCore', count: 1 }], station: 'forge', requiresBoss: 'vespera' },
   { out: { item: 'cupritePick', count: 1 }, in: [{ item: 'cupriteBar', count: 8 }], station: 'forge' },
   { out: { item: 'cupriteAxe', count: 1 }, in: [{ item: 'cupriteBar', count: 7 }, { item: 'wood', count: 2 }], station: 'forge' },
   { out: { item: 'cupriteSword', count: 1 }, in: [{ item: 'cupriteBar', count: 8 }], station: 'forge' },
@@ -186,7 +193,7 @@ const ALL_RECIPES = [
 // Only recipes reachable in the starter, active pre-Hardmode, and active boss
 // progression remain. Explicitly listing the live gates keeps retired boss
 // recipes out even though the crafting system supports progression locks.
-const ACTIVE_BOSS_RECIPE_GATES = new Set(['theMech', 'theWorm']);
+const ACTIVE_BOSS_RECIPE_GATES = new Set(['theMech', 'theWorm', 'vespera']);
 export const RECIPES = ALL_RECIPES.filter((r) =>
   (!r.requiresBoss || ACTIVE_BOSS_RECIPE_GATES.has(r.requiresBoss)) &&
   isItemEnabled(r.out.item) && r.in.every(i => isItemEnabled(i.item))

@@ -1,7 +1,7 @@
 // Summoner Realms — in-game HUD (bars, hotbar, boss bar, clock, indicators).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN } from '../config.js?v=worm-surface-4';
-import { Sprites } from '../art/sprites.js?v=worm-surface-4';
-import { item as getItem } from '../data/items.js?v=worm-surface-4';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN } from '../config.js?v=vespera-surface-5';
+import { Sprites } from '../art/sprites.js?v=vespera-surface-5';
+import { item as getItem } from '../data/items.js?v=vespera-surface-5';
 
 const BUFF_ICON = { regen: '♥', ironskin: '🛡', swift: '»' };
 

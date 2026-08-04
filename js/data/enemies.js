@@ -82,6 +82,32 @@ export const ENEMIES = {
     projectile: { kind: 'blight', damage: 10, speed: 220, color: '#c58bff' },
     drops: [{ item: 'blightstone', chance: 0.2, min: 1, max: 1 }],
   },
+  // Post-Worm overgrowth-cavern swarm. These only enter the natural cave pool
+  // below forest or jungle surface bands, so their materials are an earned
+  // exploration step rather than something that appears in every shallow cave.
+  swarmStinger: {
+    key: 'swarmStinger', name: 'Swarm Stinger', hp: 46, damage: 15, speed: 132, behavior: 'flyer',
+    biomes: ['underground', 'cavern'], time: 'any', color: '#26202b', color2: '#d99b3e', w: 18, h: 12, kbResist: 0.18,
+    aggroRange: 24, loseRange: 40, memory: 6, requiresBoss: 'theWorm', overgrowth: true,
+    drops: [{ item: 'royalChitinPlate', chance: 0.46, min: 1, max: 2 }],
+  },
+  broodDrone: {
+    key: 'broodDrone', name: 'Brood Drone', hp: 58, damage: 18, speed: 116, behavior: 'flyer',
+    biomes: ['underground', 'cavern'], time: 'any', color: '#1d1721', color2: '#efbb57', w: 22, h: 15, kbResist: 0.28,
+    aggroRange: 26, loseRange: 44, memory: 7, requiresBoss: 'theWorm', overgrowth: true, noBossLoot: true,
+    drops: [
+      { item: 'royalChitinPlate', chance: 0.70, min: 1, max: 2 },
+      { item: 'venomCore', chance: 0.18, min: 1, max: 1 },
+    ],
+  },
+  // Never appears naturally. Vespera hatches these from pods; their short
+  // lifetime is assigned by spawnBossAdds so they cannot turn into a permanent
+  // post-fight cleanup problem.
+  swarmling: {
+    key: 'swarmling', name: 'Swarmling', hp: 18, damage: 8, speed: 176, behavior: 'flyer',
+    biomes: [], time: 'any', color: '#392d42', color2: '#b7df65', w: 12, h: 9, kbResist: 0.05,
+    aggroRange: 28, loseRange: 48, memory: 5, drops: [],
+  },
 };
 
 export function enemyDef(key) { return ENEMIES[key]; }

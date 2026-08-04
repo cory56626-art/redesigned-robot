@@ -1,6 +1,6 @@
 // Summoner Realms — projectiles for ranged/mage weapons, minions, enemies, bosses.
-import { GRAVITY, TILE } from '../config.js?v=worm-surface-4';
-import { aabb, dist2 } from '../utils.js?v=worm-surface-4';
+import { GRAVITY, TILE } from '../config.js?v=vespera-surface-5';
+import { aabb, dist2 } from '../utils.js?v=vespera-surface-5';
 
 export class Projectile {
   constructor(opts) {
@@ -40,16 +40,30 @@ export class Projectile {
     this.burstTimer = this.burstDelay;
     this.burstHoming = !!opts.burstHoming;
     this.burstHomingStrength = opts.burstHomingStrength || 2.2;
+    this.burstEffect = opts.burstEffect || null;
     // A timed blast can deal its damage directly in a radius, independently
     // from the older shrapnel burst used by the Diamond Heart spear.
     this.blastRadius = Math.max(0, Number(opts.blastRadius) || 0);
     this.blastDamage = Math.max(0, Number(opts.blastDamage) || 0);
     this.fuseAnchored = false;
     this.visualOnly = !!opts.visualOnly;
+    // A short arming delay supports deliberately paced follow-up hits (such
+    // as Mandible Edge's second slash) without losing them to an enemy's
+    // same-frame damage iframe.
+    this.armingDelay = Math.max(0, Number(opts.armingDelay) || 0);
     // Some boss tells deliberately erupt through stone at a previously marked
     // point. They must not disappear one frame early just because that point is
     // inside a player-built hideout.
     this.ignoreTerrain = !!opts.ignoreTerrain;
+    // A timed boss pod can turn into an encounter hazard or hatch adds. This
+    // remains generic projectile metadata so its terrain collision, fuse, and
+    // cleanup all use the existing projectile lifecycle.
+    this.spawnOnBurst = opts.spawnOnBurst || null;
+    // Persistent areas (for example Vespera's venom pools) need to stay in the
+    // world after the first hit, while still respecting a per-target cadence.
+    this.persistent = !!opts.persistent;
+    this.hitCooldown = Math.max(0.05, Number(opts.hitCooldown) || 0.55);
+    this.hitCooldowns = new Map();
     this.dead = false;
     this.hitSet = new Set();
     this.crit = !!opts.crit;
@@ -58,6 +72,14 @@ export class Projectile {
   }
 
   update(dt, game) {
+    if (this.armingDelay > 0) this.armingDelay = Math.max(0, this.armingDelay - dt);
+    if (this.persistent && this.hitCooldowns.size) {
+      for (const [id, time] of this.hitCooldowns) {
+        const next = time - dt;
+        if (next <= 0) this.hitCooldowns.delete(id);
+        else this.hitCooldowns.set(id, next);
+      }
+    }
     this.life -= dt;
     if (this.burstTimer != null) {
       this.burstTimer -= dt;
@@ -133,7 +155,7 @@ export class Projectile {
       this.fuseAnchored = true;
     }
 
-    if (this.visualOnly) return;
+    if (this.visualOnly || this.armingDelay > 0) return;
 
     if (this.ownerType === 'player' || this.ownerType === 'minion' || this.ownerType === 'npc') {
       this._cutBossProjectiles(game);
@@ -221,9 +243,11 @@ export class Projectile {
     if (this.burstDone || !game) return;
     const hasShrapnel = this.burstCount > 0 && !!this.burstKind;
     const hasBlast = this.blastRadius > 0 && this.blastDamage > 0;
-    if (!hasShrapnel && !hasBlast) return;
+    const hasSpawn = !!this.spawnOnBurst;
+    if (!hasShrapnel && !hasBlast && !hasSpawn) return;
     this.burstDone = true;
     const color = this.burstColor || this.color;
+    if (hasSpawn) this._spawnOnBurst(game, x, y);
     if (hasBlast) this._blastTargets(game, x, y);
     if (hasShrapnel) {
       const n = Math.max(1, Math.floor(this.burstCount));
@@ -245,6 +269,7 @@ export class Projectile {
           life: this.burstLife,
           homing: this.burstHoming,
           homingStrength: this.burstHomingStrength,
+          effect: this.burstEffect || this.effect || null,
           trail: color,
         }), true);
       }
@@ -253,6 +278,27 @@ export class Projectile {
     game.fx?.ring(x, y, color, radius, { life: 0.28, width: 2 });
     game.fx?.burst(x, y, color, hasBlast ? 26 : 20, { speed: 150, life: 0.5, size: 2, glow: true });
     game.fx?.shake?.(hasBlast ? 3.2 : 1.5, hasBlast ? 0.22 : 0.12);
+  }
+
+  _spawnOnBurst(game, x, y) {
+    const spec = this.spawnOnBurst;
+    if (!spec) return;
+    if (spec.hazard) {
+      const h = spec.hazard;
+      const w = h.w || 80, height = h.h || 32;
+      game.addProjectile(new Projectile({
+        x: x - w / 2, y: y - height / 2,
+        vx: 0, vy: 0, w, h: height,
+        damage: h.damage || 6, ownerType: this.ownerType, kind: h.kind || 'venomZone',
+        color: h.color || '#b9e86e', life: h.life || 4,
+        persistent: true, hitCooldown: h.hitCooldown || 0.55, ignoreTerrain: true,
+        effect: { poison: h.poison || 2.2 }, knockback: h.knockback || 1.5,
+      }), true);
+    }
+    if (spec.adds && game.spawnBossAdds) {
+      const adds = spec.adds;
+      game.spawnBossAdds(adds.key, adds.count || 1, x, y, { lifetime: adds.lifetime });
+    }
   }
 
   _blastTargets(game, x, y) {
@@ -313,16 +359,22 @@ export class Projectile {
     for (const p of targets) {
       if (p.alive === false || p.dead) continue;
       const hitId = p.id || p.netId || p;
-      if (this.hitSet.has(hitId)) continue;
+      if (!this.persistent && this.hitSet.has(hitId)) continue;
+      if (this.persistent && (this.hitCooldowns.get(hitId) || 0) > 0) continue;
       if (aabb(box, p)) {
-        this.hitSet.add(hitId);
+        if (!this.persistent) this.hitSet.add(hitId);
         const knockback = Math.sign(this.vx) * this.knockback;
         if (p.isMinion && p.tryDodgeProjectile?.(game)) {
-          this.dead = true;
-          return;
+          if (!this.persistent) { this.dead = true; return; }
+          this.hitCooldowns.set(hitId, this.hitCooldown);
+          continue;
         }
         if (p.kind || p.isMinion) p.takeDamage(this.damage, knockback, game, 'enemy');
         else game.applyEnemyDamageToPlayer(p, this.damage, knockback, this.effect);
+        if (this.persistent) {
+          this.hitCooldowns.set(hitId, this.hitCooldown);
+          continue;
+        }
         if (this.burstTimer == null) this.dead = true;
         return;
       }

@@ -1,8 +1,8 @@
 // Summoner Realms — natural enemy spawning (host only). Biome + day/night aware.
-import { TILE, UNDERGROUND_Y, MAX_ENEMIES, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=worm-surface-4';
-import { ENEMIES } from '../data/enemies.js?v=worm-surface-4';
-import { FAUNA } from '../data/fauna.js?v=worm-surface-4';
-import { aabb, dist2 } from '../utils.js?v=worm-surface-4';
+import { TILE, UNDERGROUND_Y, MAX_ENEMIES, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=vespera-surface-5';
+import { ENEMIES } from '../data/enemies.js?v=vespera-surface-5';
+import { FAUNA } from '../data/fauna.js?v=vespera-surface-5';
+import { aabb, dist2 } from '../utils.js?v=vespera-surface-5';
 
 // Keep spawns off-screen-ish but not so far they never arrive (tiles).
 const MIN_SPAWN_DIST = 13;
@@ -94,7 +94,11 @@ export class Spawner {
       const biome = underground
         ? game.world.biomeAt(sx, pTileY)
         : game.world.biomeAt(sx, 0);
-      const pool = this._poolForBiome(biome, isDay);
+      // Underground biome labels are depth-only, so preserve the surface band
+      // as well. It lets overgrowth creatures belong to forest/jungle caves
+      // rather than bleeding into every underground biome in the realm.
+      const surfaceBiome = game.world.surfaceBiomeAt(sx);
+      const pool = this._poolForBiome(biome, isDay, game, surfaceBiome, underground);
       if (!pool.length) continue;
 
       const key = pool[(Math.random() * pool.length) | 0];
@@ -214,11 +218,13 @@ export class Spawner {
     return false;
   }
 
-  _poolForBiome(biome, isDay) {
+  _poolForBiome(biome, isDay, game, surfaceBiome = biome, underground = false) {
     const pool = [];
     for (const key in ENEMIES) {
       const d = ENEMIES[key];
       if (!d.biomes.includes(biome)) continue;
+      if (d.requiresBoss && !game.progression?.isDefeated(d.requiresBoss)) continue;
+      if (d.overgrowth && (!underground || !['forest', 'jungle'].includes(surfaceBiome))) continue;
       // Preserve intentional time-gating: night-only creatures stay night-only,
       // and any future day-only creatures stay out after dark.
       if (d.time === 'night' && isDay) continue;

@@ -1,15 +1,15 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=worm-surface-4';
-import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=worm-surface-4';
-import { SH } from '../world/shapes.js?v=worm-surface-4';
-import { W, hasWall } from '../world/walls.js?v=worm-surface-4';
-import { BIOMES } from '../world/biomes.js?v=worm-surface-4';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=worm-surface-4';
-import { item as getItem } from '../data/items.js?v=worm-surface-4';
-import { canPlaceAt } from '../systems/combat.js?v=worm-surface-4';
-import { clamp } from '../utils.js?v=worm-surface-4';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=worm-surface-4';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=vespera-surface-5';
+import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=vespera-surface-5';
+import { SH } from '../world/shapes.js?v=vespera-surface-5';
+import { W, hasWall } from '../world/walls.js?v=vespera-surface-5';
+import { BIOMES } from '../world/biomes.js?v=vespera-surface-5';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=vespera-surface-5';
+import { item as getItem } from '../data/items.js?v=vespera-surface-5';
+import { canPlaceAt } from '../systems/combat.js?v=vespera-surface-5';
+import { clamp } from '../utils.js?v=vespera-surface-5';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=vespera-surface-5';
 
 // Fallback appearance for players without a character record (remote players
 // on an older client, or a world loaded before characters existed).
@@ -753,6 +753,92 @@ export class Renderer {
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(pr.rot);
+
+      // Vespera's hazards and ammunition intentionally use their own
+      // silhouettes. They need to stay readable when several layers overlap:
+      // venom pools advertise denied ground, while the gold/black stingers are
+      // visibly distinct from generic magic bolts.
+      if (pr.kind === 'venomZone') {
+        const pulse = 1 + Math.sin(performance.now() * 0.007 + pr.x * 0.03) * 0.06;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.20 * pulse;
+        ctx.fillStyle = '#b9e86e';
+        ctx.beginPath(); ctx.ellipse(0, 0, pr.w * 0.62, pr.h * 0.78, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.52;
+        ctx.strokeStyle = '#d9f590'; ctx.lineWidth = 1.1;
+        for (let i = -1; i <= 1; i++) {
+          ctx.beginPath(); ctx.moveTo(-pr.w * 0.42, i * pr.h * 0.2); ctx.lineTo(pr.w * 0.42, -i * pr.h * 0.2); ctx.stroke();
+        }
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'broodPod') {
+        const bob = Math.sin(performance.now() * 0.008 + pr.y * 0.08) * 0.7;
+        ctx.translate(0, bob);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.24;
+        ctx.fillStyle = '#b9e86e'; ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+        ctx.fillStyle = '#322640'; ctx.beginPath(); ctx.ellipse(0, 0, 7, 9, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#d5ee78'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(-3, -7); ctx.lineTo(1, -1); ctx.lineTo(-2, 6); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(4, -6); ctx.lineTo(1, -1); ctx.lineTo(4, 6); ctx.stroke();
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'venomInjector' || pr.kind === 'venomStinger' || pr.kind === 'venomArrow' || pr.kind === 'waspSting') {
+        const hostile = pr.ownerType === 'boss' || pr.ownerType === 'enemy';
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.18;
+        ctx.fillStyle = hostile ? '#efbb57' : '#c9ee79'; ctx.fillRect(-13, -5, 25, 10);
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+        ctx.fillStyle = '#211923'; ctx.fillRect(-8, -2.5, 13, 5);
+        ctx.fillStyle = '#efbb57'; ctx.fillRect(-5, -2.5, 3, 5); ctx.fillRect(1, -2.5, 3, 5);
+        ctx.fillStyle = '#fff0ae';
+        ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(4, -4); ctx.lineTo(4, 4); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#b9e86e'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(-8, -2); ctx.lineTo(-12, -4); ctx.moveTo(-8, 2); ctx.lineTo(-12, 4); ctx.stroke();
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'vesperaShard') {
+        ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.22;
+        ctx.fillStyle = '#ffd778'; ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+        ctx.fillStyle = '#efbb57';
+        ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(5, 0); ctx.lineTo(0, 8); ctx.lineTo(-4, 1); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#fff0b2'; ctx.fillRect(-1, -3, 2, 6);
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'hiveOrb' || pr.kind === 'venomMote') {
+        const mote = pr.kind === 'venomMote';
+        const pulse = 1 + Math.sin(performance.now() * 0.018 + pr.x * 0.04) * 0.13;
+        ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.24 * pulse;
+        ctx.fillStyle = '#c9ee79'; ctx.beginPath(); ctx.arc(0, 0, (mote ? 8 : 12) * pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+        ctx.fillStyle = mote ? '#8ebd4d' : '#403044'; ctx.beginPath(); ctx.arc(0, 0, mote ? 3.8 : 5.8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#efffbc'; ctx.beginPath(); ctx.arc(1, -1, mote ? 1.6 : 2.4, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'mandibleSlash') {
+        ctx.globalAlpha = pr.armingDelay > 0 ? 0.32 : 0.86;
+        ctx.strokeStyle = '#f5cc73'; ctx.lineWidth = 2.4;
+        ctx.beginPath(); ctx.arc(0, 0, 12, -0.95, 0.95); ctx.stroke();
+        ctx.strokeStyle = '#3b2934'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(0, 0, 8, -0.85, 0.85); ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.restore();
+        continue;
+      }
 
       // Active player weapons and the new pre-Hardmode minions keep a readable,
       // themed silhouette in flight. Before this branch, bows and staff shots
@@ -1833,7 +1919,7 @@ export class Renderer {
       if (m.dead) continue;
       if (m.key === 'aidan') drawAidan(ctx, m);
       else if (m.key === 'diamondHeart') this._drawDiamondHeart(ctx, m);
-      else if (m.key === 'tideSprite' || m.key === 'verdantSprout' || m.key === 'shadowmoth') this._drawPrehardMinion(ctx, m);
+      else if (m.key === 'tideSprite' || m.key === 'verdantSprout' || m.key === 'shadowmoth' || m.key === 'broodWasp') this._drawPrehardMinion(ctx, m);
       else this._blobCreature(ctx, m, m.color, m.color2, m.facing, m.hurtFlash > 0, true);
     }
     // Remote players' minion ghosts.
@@ -1852,12 +1938,14 @@ export class Renderer {
             w: 30, h: 42, color: '#dffcff', color2: '#62c9e8',
             anim: 0, hp: rm.hp, maxHp: rm.maxHp,
           }, rm, { x: rm.x, y: rm.y, facing: rm.f || 1 }));
-        } else if (rm.key === 'tideSprite' || rm.key === 'verdantSprout' || rm.key === 'shadowmoth') {
+        } else if (rm.key === 'tideSprite' || rm.key === 'verdantSprout' || rm.key === 'shadowmoth' || rm.key === 'broodWasp') {
           const remoteDef = rm.key === 'tideSprite'
             ? { w: 12, h: 12, color: '#4eb5d2', color2: '#9defff' }
             : rm.key === 'verdantSprout'
               ? { w: 16, h: 18, color: '#65b957', color2: '#b8f58a' }
-              : { w: 16, h: 12, color: '#6f3d91', color2: '#d7a5ff' };
+              : rm.key === 'broodWasp'
+                ? { w: 16, h: 12, color: '#251d2a', color2: '#efbb57' }
+                : { w: 16, h: 12, color: '#6f3d91', color2: '#d7a5ff' };
           this._drawPrehardMinion(ctx, Object.assign(remoteDef, rm, { x: rm.x, y: rm.y, facing: rm.f || 1 }));
         } else {
           const spr = { x: rm.x, y: rm.y, w: 14, h: 14 };
@@ -1897,6 +1985,18 @@ export class Renderer {
       ctx.strokeStyle = '#9fe875'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(-11, -6); ctx.moveTo(5, 0); ctx.lineTo(11, -6); ctx.stroke();
       ctx.fillStyle = '#e1ffad'; ctx.fillRect(-12, -7, 3, 2); ctx.fillRect(9, -7, 3, 2);
       ctx.fillStyle = '#47713a'; ctx.fillRect(-8, 8, 16, 3);
+    } else if (m.key === 'broodWasp') {
+      const flap = Math.sin(t * 13) * 4;
+      ctx.translate(cx, cy);
+      ctx.globalAlpha = 0.52;
+      ctx.fillStyle = '#d9f0d8';
+      ctx.beginPath(); ctx.moveTo(-2, -2); ctx.quadraticCurveTo(-14, -10 - flap, -11, 4); ctx.quadraticCurveTo(-5, 2, -1, 3); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(2, -2); ctx.quadraticCurveTo(14, -10 + flap, 11, 4); ctx.quadraticCurveTo(5, 2, 1, 3); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#211923'; ctx.beginPath(); ctx.ellipse(0, 0, 5.8, 4.3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#efbb57'; ctx.fillRect(-2.5, -4, 2.5, 8); ctx.fillRect(2, -3.5, 2, 7);
+      ctx.fillStyle = '#b9e86e'; ctx.fillRect(m.facing < 0 ? -5 : 3, -1.5, 2, 2);
+      ctx.strokeStyle = '#efbb57'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(10, 0); ctx.stroke();
     } else {
       const flap = Math.sin(t * 3.2) * 3;
       ctx.translate(cx, cy);
@@ -2366,6 +2466,7 @@ export class Renderer {
       }
       if (b.key === 'theMech') this._drawTheMech(ctx, b);
       else if (b.key === 'theWorm') this._drawTheWorm(ctx, b);
+      else if (b.key === 'vespera') this._drawVespera(ctx, b);
       else if (b.key === 'grovekeeper') this._drawGrovekeeper(ctx, b);
       else if (b.key === 'gravemaw') this._drawGravemaw(ctx, b);
       else this._drawBlightSovereign(ctx, b);
@@ -2792,6 +2893,209 @@ export class Renderer {
   }
 
 
+  // Vespera — an airborne swarm queen. Her silhouette is intentionally built
+  // from a heavy armored abdomen, a small crowned head, a long injector stinger
+  // and two stained-glass-like fractured wings, so she reads immediately as a
+  // wasp apex predator rather than as another generic flying blob.
+  _drawVespera(ctx, b) {
+    const x = b.x, y = b.y, w = b.w, h = b.h;
+    const cx = x + w / 2, cy = y + h / 2;
+    const f = b.facing < 0 ? -1 : 1;
+    const phaseTwo = b.phaseIndex > 0 || b.phaseName === 'Fractured Crown';
+    const frenzy = !!b.vesperaFrenzy;
+    const charge = b.telegraph > 0 ? 1 - b.telegraph / (b.telegraphMax || 0.6) : 0;
+    const dive = !!b.vesperaDive;
+    const beat = b.vesperaWingBeat != null ? b.vesperaWingBeat : b.bob * 4;
+    const glow = frenzy ? '#fff0a3' : '#efbb57';
+    const vein = frenzy ? '#ffe68a' : '#dca650';
+
+    ctx.save();
+    this._bossAura(ctx, b, frenzy ? '#ffe36f' : '#efbb57', 76);
+
+    // High-speed bodies get a short gold after-image, visible enough to read a
+    // dive direction without becoming opaque visual noise.
+    if (dive && Math.hypot(b.vx || 0, b.vy || 0) > 260) {
+      ctx.save();
+      ctx.globalAlpha = 0.12 + (frenzy ? 0.10 : 0);
+      ctx.fillStyle = '#efbb57';
+      for (let i = 1; i <= 3; i++) {
+        ctx.beginPath();
+        ctx.ellipse(cx - (b.vx || 0) * 0.018 * i, cy - (b.vy || 0) * 0.018 * i, 31 - i * 4, 17 - i * 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // Contact shadow is intentionally light: she is airborne, but it still
+    // gives depth whenever she briefly recoils close to the arena floor.
+    ctx.fillStyle = 'rgba(7,5,11,0.24)';
+    ctx.beginPath(); ctx.ellipse(cx, y + h + 8, 38, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Semi-transparent, fractured wings. The silhouette sweeps back from the
+    // thorax while the interior gold fracture lines act as a readable wing tell.
+    ctx.save();
+    ctx.translate(cx, y + 42);
+    for (const side of [-1, 1]) {
+      const flap = Math.sin(beat + side * 0.7) * (frenzy ? 9 : 6);
+      const tipY = -30 - flap;
+      ctx.globalAlpha = 0.26 + charge * 0.16 + (frenzy ? 0.10 : 0);
+      ctx.fillStyle = side < 0 ? '#8b70aa' : '#a27abe';
+      ctx.beginPath();
+      ctx.moveTo(side * 10, -3);
+      ctx.quadraticCurveTo(side * 36, tipY - 14, side * 58, tipY);
+      ctx.quadraticCurveTo(side * 64, -4 - flap * 0.3, side * 43, 14);
+      ctx.quadraticCurveTo(side * 24, 17, side * 9, 8);
+      ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 0.62;
+      ctx.strokeStyle = '#e7c57a'; ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(side * 9, 0); ctx.lineTo(side * 52, tipY + 1);
+      ctx.moveTo(side * 17, 3); ctx.lineTo(side * 38, tipY - 6);
+      ctx.moveTo(side * 23, 5); ctx.lineTo(side * 48, 2 - flap * 0.18);
+      ctx.moveTo(side * 32, tipY - 10); ctx.lineTo(side * 41, 12);
+      ctx.stroke();
+      // A few broken facets prevent the wings from reading as flat triangles.
+      ctx.globalAlpha = 0.22;
+      ctx.fillStyle = '#fff1af';
+      ctx.beginPath();
+      ctx.moveTo(side * 31, tipY - 4); ctx.lineTo(side * 43, tipY - 1); ctx.lineTo(side * 34, tipY + 9); ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(side * 22, -7); ctx.lineTo(side * 35, -12 - flap * 0.2); ctx.lineTo(side * 30, 3); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+
+    // Six folded legs only flare during a close recoil/landing beat. They are
+    // not permanent spider limbs, keeping the normal flying silhouette clean.
+    const legsOut = b.onGround || (b.aiState === 'recover' && !dive);
+    if (legsOut) {
+      ctx.save();
+      ctx.translate(cx, y + 55);
+      ctx.strokeStyle = '#17121b'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      for (let i = 0; i < 3; i++) {
+        const yy = -10 + i * 9;
+        for (const side of [-1, 1]) {
+          ctx.beginPath();
+          ctx.moveTo(side * 11, yy);
+          ctx.lineTo(side * (22 + i * 2), yy + 8);
+          ctx.lineTo(side * (27 + i * 2), yy + 17);
+          ctx.stroke();
+        }
+      }
+      ctx.strokeStyle = '#5b453a'; ctx.lineWidth = 1.3;
+      for (let i = 0; i < 3; i++) {
+        const yy = -10 + i * 9;
+        for (const side of [-1, 1]) {
+          ctx.beginPath(); ctx.moveTo(side * 11, yy); ctx.lineTo(side * (22 + i * 2), yy + 8); ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+
+    // The barbed injector trails from the abdomen opposite Vespera's face.
+    ctx.save();
+    ctx.translate(cx - f * 25, y + 57);
+    ctx.scale(f, 1);
+    ctx.strokeStyle = '#120f16'; ctx.lineWidth = 14; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(-41, 9); ctx.lineTo(-58, 16); ctx.stroke();
+    ctx.strokeStyle = '#33263a'; ctx.lineWidth = 9;
+    ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(-41, 9); ctx.lineTo(-58, 16); ctx.stroke();
+    ctx.strokeStyle = '#9d733b'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-12, 2); ctx.lineTo(-47, 12); ctx.stroke();
+    for (let i = 0; i < 3; i++) {
+      const sx = -20 - i * 12, sy = 4 + i * 3;
+      ctx.fillStyle = '#17121b'; ctx.fillRect(sx - 2, sy - 5, 5, 10);
+      ctx.fillStyle = '#d39c49'; ctx.fillRect(sx - 1, sy - 4, 2, 4);
+    }
+    ctx.fillStyle = '#15111a';
+    ctx.beginPath(); ctx.moveTo(-58, 16); ctx.lineTo(-73, 18); ctx.lineTo(-61, 25); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#efbb57'; ctx.beginPath(); ctx.moveTo(-61, 17); ctx.lineTo(-70, 18); ctx.lineTo(-62, 22); ctx.closePath(); ctx.fill();
+    ctx.restore();
+
+    // Massive armored abdomen with a dark, plated underside and molten-gold
+    // veins that brighten during Frenzy and phase two.
+    ctx.save();
+    ctx.translate(cx - f * 10, y + 55);
+    ctx.scale(f, 1);
+    ctx.fillStyle = '#110e15'; ctx.beginPath(); ctx.ellipse(-7, 4, 36, 26, -0.10, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#25202a'; ctx.beginPath(); ctx.ellipse(-5, 1, 32, 22, -0.10, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#382d3a'; ctx.beginPath(); ctx.ellipse(-5, -1, 28, 17, -0.10, 0, Math.PI * 2); ctx.fill();
+    for (let i = 0; i < 4; i++) {
+      const sx = -29 + i * 14;
+      ctx.fillStyle = i % 2 ? '#211924' : '#2d222f';
+      ctx.beginPath(); ctx.ellipse(sx, 1 + Math.abs(i - 1.5) * 1.4, 9, 18 - Math.abs(i - 1.5) * 2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#120d16'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(sx + 7, -11); ctx.lineTo(sx + 7, 14); ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.35 + charge * 0.30 + (phaseTwo ? 0.12 : 0) + (frenzy ? 0.18 : 0);
+    ctx.strokeStyle = vein; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-28, -4); ctx.lineTo(-15, -8); ctx.lineTo(-5, -1); ctx.lineTo(8, -9); ctx.lineTo(22, -3);
+    ctx.moveTo(-21, 9); ctx.lineTo(-8, 5); ctx.lineTo(5, 11); ctx.lineTo(19, 5);
+    ctx.stroke();
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    ctx.restore();
+
+    // Thorax and head point in the current attack direction. Gold edging gives
+    // the queen a crown-like read without relying on human features.
+    ctx.save();
+    ctx.translate(cx + f * 22, y + 42);
+    ctx.scale(f, 1);
+    ctx.fillStyle = '#120f16'; this._roundRect(ctx, -20, -21, 37, 43, 15); ctx.fill();
+    ctx.fillStyle = '#2b2430'; this._roundRect(ctx, -17, -18, 32, 36, 12); ctx.fill();
+    ctx.fillStyle = '#3c303d'; this._roundRect(ctx, -12, -15, 22, 18, 8); ctx.fill();
+    ctx.fillStyle = '#d69d47'; ctx.fillRect(-10, -14, 5, 2); ctx.fillRect(1, -16, 5, 2); ctx.fillRect(8, -10, 3, 10);
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.30 + charge * 0.35 + (frenzy ? 0.14 : 0);
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(-1, -2, 11 + charge * 4, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = '#17121a';
+    ctx.beginPath(); ctx.moveTo(5, -18); ctx.lineTo(19, -12); ctx.lineTo(25, -3); ctx.lineTo(21, 8); ctx.lineTo(8, 13); ctx.lineTo(-2, 7); ctx.lineTo(-4, -9); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#443646';
+    ctx.beginPath(); ctx.moveTo(7, -15); ctx.lineTo(17, -10); ctx.lineTo(20, -3); ctx.lineTo(16, 5); ctx.lineTo(7, 8); ctx.lineTo(1, 4); ctx.lineTo(0, -8); ctx.closePath(); ctx.fill();
+    // Crown prongs and the single bright eye.
+    ctx.fillStyle = '#dba64f';
+    for (const [px, py, s] of [[5, -18, 4], [11, -22, 5], [17, -17, 4]]) {
+      ctx.beginPath(); ctx.moveTo(px - s, py + 5); ctx.lineTo(px, py - s); ctx.lineTo(px + s, py + 5); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = '#efcf70'; ctx.fillRect(14, -6, 5, 3); ctx.fillStyle = '#1a111a'; ctx.fillRect(17, -6, 1.5, 3);
+
+    // Mandibles click open during a wind-up or dive. The split, pincer shape is
+    // unmistakable even at a distance and doubles as the close-range warning.
+    const jaw = b.vesperaMandible != null ? b.vesperaMandible : 0;
+    ctx.strokeStyle = '#100c12'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    for (const side of [-1, 1]) {
+      ctx.save(); ctx.translate(20, 2 + side * 3); ctx.rotate(side * (0.24 + jaw * 0.34));
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(12, side * 5); ctx.lineTo(17, side * 2); ctx.stroke();
+      ctx.strokeStyle = '#c48d42'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(2, 0); ctx.lineTo(14, side * 4); ctx.stroke();
+      ctx.restore(); ctx.strokeStyle = '#100c12'; ctx.lineWidth = 5;
+    }
+    ctx.restore();
+
+    // Gold motes leak out of phase-two fractures, especially during Frenzy.
+    if (phaseTwo) {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const count = frenzy ? 11 : 6;
+      for (let i = 0; i < count; i++) {
+        const a = beat * 0.45 + i * 1.74;
+        const r = 35 + (i % 3) * 9;
+        ctx.globalAlpha = 0.22 + (i % 2) * 0.12;
+        ctx.fillStyle = i % 3 ? '#efbb57' : '#b9e86e';
+        ctx.fillRect(cx + Math.cos(a) * r - 1, cy + Math.sin(a * 1.3) * (18 + i % 3 * 8) - 1, 2, 2);
+      }
+      ctx.restore();
+    }
+
+    if (b.hurtFlash > 0) {
+      ctx.globalAlpha = 0.38 + b.hurtFlash * 1.5; ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.ellipse(cx, cy, 44, 31, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+    }
+    if (b.invuln > 0) {
+      ctx.strokeStyle = '#fff1ad'; ctx.globalAlpha = 0.42 + 0.22 * Math.sin(beat * 2); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(cx, cy, 57, 43, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+
+
   _drawGrovekeeper(ctx, b) {
     const lean = clamp((b.vx || 0) / 260, -0.5, 0.5);
     const sway = Math.sin(b.bob * 1.25) * 2.2;
@@ -3180,6 +3484,7 @@ export class Renderer {
     // breathes slowly when idle.
     ctx.translate(0, pose.bodyY);
 
+    if (eq?.acc?.some(a => a && a.id === 'vesperaWings')) this._drawVesperaPlayerWings(ctx, p, pose);
     this._drawPlayerLegs(ctx, p, pose, app, eq);
     this._drawPlayerTorso(ctx, p, pose, app, eq);
     this._drawPlayerArms(ctx, p, pose, app, eq, game);
@@ -3199,6 +3504,27 @@ export class Renderer {
       if (!p.isLocal) this._miniHp(ctx, p, p.hp / p.maxHp, p.color);
     }
     ctx.textAlign = 'left';
+  }
+
+  _drawVesperaPlayerWings(ctx, p, pose) {
+    const w = p.w, h = p.h;
+    const flap = Math.sin(performance.now() * 0.018 + p.walkAnim) * (p.wingActive ? 4.8 : 1.5);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const side of [-1, 1]) {
+      ctx.globalAlpha = p.wingActive ? 0.66 : 0.42;
+      ctx.fillStyle = '#dce8da';
+      ctx.beginPath();
+      ctx.moveTo(w / 2 + side * 2, h - 16);
+      ctx.quadraticCurveTo(w / 2 + side * 13, h - 28 - flap * side, w / 2 + side * 18, h - 11);
+      ctx.quadraticCurveTo(w / 2 + side * 8, h - 13, w / 2 + side * 3, h - 9);
+      ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 0.8;
+      ctx.strokeStyle = '#efbb57'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(w / 2 + side * 3, h - 15); ctx.lineTo(w / 2 + side * 14, h - 15 - flap * side * 0.4); ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.restore();
   }
 
   // Derive every animation number from the player's actual state, once.

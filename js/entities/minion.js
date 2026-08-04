@@ -1,12 +1,12 @@
 // Summoner Realms — minion entity. Owned by a player; the owner's client
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
-import { minionDef } from '../data/minions.js?v=worm-surface-4';
-import { initAidanState, updateAidanState } from './aidan.js?v=worm-surface-4';
-import { dist2, aabb, angleTo } from '../utils.js?v=worm-surface-4';
-import { TILE } from '../config.js?v=worm-surface-4';
-import { Projectile } from './projectile.js?v=worm-surface-4';
-import * as AI from '../systems/ai.js?v=worm-surface-4';
+import { minionDef } from '../data/minions.js?v=vespera-surface-5';
+import { initAidanState, updateAidanState } from './aidan.js?v=vespera-surface-5';
+import { dist2, aabb, angleTo } from '../utils.js?v=vespera-surface-5';
+import { TILE } from '../config.js?v=vespera-surface-5';
+import { Projectile } from './projectile.js?v=vespera-surface-5';
+import * as AI from '../systems/ai.js?v=vespera-surface-5';
 
 let MINION_SEQ = 1;
 
@@ -177,7 +177,9 @@ export class Minion {
           game.addProjectile(new Projectile({
             x: cx, y: cy, vx: Math.cos(a) * pj.speed, vy: Math.sin(a) * pj.speed,
             damage, ownerType: 'minion', ownerId: this.ownerId, kind: pj.kind, color: pj.color,
-            homing: !!pj.homing, effect: pj.effect || null, trail: pj.trail || null, life: 2.5,
+            homing: !!pj.homing, homingStrength: pj.homingStrength || 3.5,
+            effect: pj.effect || null, trail: pj.trail || null, life: 2.5,
+            w: pj.w || 6, h: pj.h || 6,
           }), true);
         }
         break;

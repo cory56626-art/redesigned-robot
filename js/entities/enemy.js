@@ -3,12 +3,12 @@
 // Each enemy runs the same loop: perceive (do I know where the player is?),
 // decide (idle / approach / attack / retreat), then act. Perception, pathing and
 // steering live in systems/ai.js so every creature reasons the same way.
-import { TILE, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=worm-surface-4';
-import { ENEMIES } from '../data/enemies.js?v=worm-surface-4';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=worm-surface-4';
-import { aabb } from '../utils.js?v=worm-surface-4';
-import { Projectile } from './projectile.js?v=worm-surface-4';
-import * as AI from '../systems/ai.js?v=worm-surface-4';
+import { TILE, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=vespera-surface-5';
+import { ENEMIES } from '../data/enemies.js?v=vespera-surface-5';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=vespera-surface-5';
+import { aabb } from '../utils.js?v=vespera-surface-5';
+import { Projectile } from './projectile.js?v=vespera-surface-5';
+import * as AI from '../systems/ai.js?v=vespera-surface-5';
 
 export class Enemy {
   constructor(key, x, y, netId, difficulty = 'normal') {
@@ -73,11 +73,19 @@ export class Enemy {
     this.walkAnim = 0;
     this.animTime = Math.random() * Math.PI * 2;
     this.fromBoss = false;
+    // Optional encounter-only lifetime. Natural enemies leave this at zero;
+    // Vespera's drones and hatchlings receive a short timer when spawned so a
+    // player who ignores them is pressured, but the arena never stays clogged.
+    this.lifetime = Math.max(0, Number(d.lifetime) || 0);
   }
 
   center() { return { x: this.x + this.w / 2, y: this.y + this.h / 2 }; }
 
   update(dt, game) {
+    if (this.lifetime > 0) {
+      this.lifetime = Math.max(0, this.lifetime - dt);
+      if (this.lifetime <= 0) { this.dead = true; return; }
+    }
     if (this.iframes > 0) this.iframes -= dt;
     if (this.hurtFlash > 0) this.hurtFlash -= dt;
     if (this.freezeT > 0) {

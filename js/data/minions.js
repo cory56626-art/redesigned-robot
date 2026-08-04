@@ -50,6 +50,15 @@ export const MINIONS = {
     projectile: { kind: 'shadowmote', speed: 295, color: '#d7a5ff', trail: '#d7a5ff', effect: { slow: 0.35 } },
     desc: 'A fragile crystal-winged shooter with strict line-of-sight targeting.',
   },
+  broodWasp: {
+    key: 'broodWasp', name: 'Brood Wasp', behavior: 'shooter', damage: 18, speed: 235, range: 365,
+    color: '#251d2a', color2: '#efbb57', w: 16, h: 12, fireRate: 0.72,
+    projectile: {
+      kind: 'waspSting', speed: 360, color: '#efbb57', trail: '#c9ee79',
+      homing: true, homingStrength: 1.6, effect: { poison: 1.7 },
+    },
+    desc: 'A sharp-winged wasp that keeps a venom sting on targets it can see.',
+  },
   diamondHeart: {
     key: 'diamondHeart', name: 'Diamond Heart', behavior: 'diamondHeart',
     damage: 0, speed: 280, range: 620, color: '#dffcff', color2: '#62c9e8',

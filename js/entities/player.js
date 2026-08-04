@@ -5,14 +5,14 @@ import {
   HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN,
   CAST_REGEN_DELAY, CAST_REGEN_MULT, RESPAWN_DELAY, RESPAWN_DELAY_BOSS,
   SWIM_DRAG, SWIM_STROKE, WIND_PLAYER_PUSH,
-} from '../config.js?v=worm-surface-4';
-import { tileDef } from '../world/tiles.js?v=worm-surface-4';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=worm-surface-4';
-import { Inventory } from '../systems/inventory.js?v=worm-surface-4';
-import { item as getItem } from '../data/items.js?v=worm-surface-4';
-import * as combat from '../systems/combat.js?v=worm-surface-4';
-import * as fishing from '../systems/fishing.js?v=worm-surface-4';
-import { clamp } from '../utils.js?v=worm-surface-4';
+} from '../config.js?v=vespera-surface-5';
+import { tileDef } from '../world/tiles.js?v=vespera-surface-5';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=vespera-surface-5';
+import { Inventory } from '../systems/inventory.js?v=vespera-surface-5';
+import { item as getItem } from '../data/items.js?v=vespera-surface-5';
+import * as combat from '../systems/combat.js?v=vespera-surface-5';
+import * as fishing from '../systems/fishing.js?v=vespera-surface-5';
+import { clamp } from '../utils.js?v=vespera-surface-5';
 
 export class Player {
   constructor(id, opts = {}) {
@@ -26,6 +26,11 @@ export class Player {
     this.onGround = false;
     this.stepHeight = TILE + 2; // auto-climb 1-tile ledges (see physics.moveAndCollide)
     this.jumpsLeft = 0;
+    // Vespera Wings replenish a short, controlled flight reserve on landing.
+    // Keeping the reserve on the player lets the accessory stay declarative in
+    // item data and prevents holding jump from granting unlimited lift.
+    this.flightLeft = 0;
+    this.wingActive = false;
     this.coyoteTimer = 0;
     this.maxHp = BASE_HP; this.hp = BASE_HP;
     this.maxMana = BASE_MANA; this.mana = BASE_MANA;
@@ -129,7 +134,9 @@ export class Player {
 
     // ---- Jump / fly ----
     const extraJumps = st.extraJumps;
+    const jumpMul = st.jumpMul || 1;
     if (this.cheats.fly) {
+      this.wingActive = false;
       this.vy = 0;
       if (input.jumpHeld) this.vy = -260;
       else if (input.moveX === 0 && game.input.keys && game.input.keys.has('s')) this.vy = 220;
@@ -138,7 +145,10 @@ export class Player {
       moveAndCollide(this, game.world, dt);
       clampToWorld(this, game.world);
     } else {
-      if (this.onGround) this.coyoteTimer = 0.1;
+      if (this.onGround) {
+        this.coyoteTimer = 0.1;
+        this.flightLeft = Math.max(0, st.flightTime || 0);
+      }
       else this.coyoteTimer = Math.max(0, this.coyoteTimer - dt);
 
       if (canAct && this.submerged && input.jumpHeld) {
@@ -149,24 +159,43 @@ export class Player {
         game.input.consumeJumpPress();
       } else if (canAct && input.jumpPressed) {
         if (this.onGround || this.coyoteTimer > 0) {
-          this.vy = -JUMP_VELOCITY;
+          this.vy = -JUMP_VELOCITY * jumpMul;
           this.jumpsLeft = extraJumps;
           this.coyoteTimer = 0;
           game.input.consumeJumpPress();
           game.audio?.jump();
         } else if (this.jumpsLeft > 0) {
-          this.vy = -JUMP_VELOCITY * 0.92;
+          this.vy = -JUMP_VELOCITY * 0.92 * jumpMul;
           this.jumpsLeft--;
           game.input.consumeJumpPress();
           game.audio?.jump();
         }
       }
+      // Wings are an air-control tool rather than a second full jump. Holding
+      // jump spends the small reserve at a capped lift speed; letting go
+      // immediately returns to the normal, readable fall arc.
+      const canFly = canAct && !this.submerged && !this.onGround && input.jumpHeld &&
+        (st.flightTime || 0) > 0 && this.flightLeft > 0;
+      this.wingActive = !!canFly;
+      if (canFly) {
+        const lift = st.flightLift || 245;
+        this.vy = Math.min(this.vy, -lift);
+        this.flightLeft = Math.max(0, this.flightLeft - dt);
+      }
       // Variable jump height (out of water only — a swim stroke is not a jump).
       if (!this.submerged && !input.jumpHeld && this.vy < -140) this.vy *= 0.55;
       applyGravity(this, dt, this.submerged);
+      // The same wings make descent predictable when their flight reserve is
+      // spent, without cancelling gravity or allowing permanent hovering.
+      if (!this.submerged && !this.onGround && (st.glideFallSpeed || 0) > 0 && this.vy > 0) {
+        this.vy = Math.min(this.vy, st.glideFallSpeed);
+      }
       moveAndCollide(this, game.world, dt);
       clampToWorld(this, game.world);
-      if (this.onGround) this.jumpsLeft = extraJumps;
+      if (this.onGround) {
+        this.jumpsLeft = extraJumps;
+        this.flightLeft = Math.max(0, st.flightTime || 0);
+      }
     }
 
     if (Math.abs(this.vx) > 5) this.walkAnim += dt * 12; else this.walkAnim = 0;
@@ -365,7 +394,7 @@ export class Player {
     // no longer the cheapest way through a fight.
     const bossActive = game && game.bosses && game.bosses.length > 0;
     this.respawnTimer = bossActive ? RESPAWN_DELAY_BOSS : RESPAWN_DELAY;
-    this.vx = 0; this.vy = 0;
+    this.vx = 0; this.vy = 0; this.wingActive = false; this.flightLeft = 0;
     if (game) {
       game.addHitParticles(this.x + this.w / 2, this.y + this.h / 2, '#ff6b7d', 24);
       if (this.isLocal) game.onLocalDeath(srcName);
@@ -382,7 +411,7 @@ export class Player {
     this.poison = null;
     const sx = game.world.spawnX, sy = game.world.spawnPixelY(Math.floor(game.world.spawnX / TILE), this.h);
     this.x = sx; this.y = sy;
-    this.vx = 0; this.vy = 0;
+    this.vx = 0; this.vy = 0; this.wingActive = false; this.flightLeft = 0;
   }
 
   // Networked state (sent by owner each tick).

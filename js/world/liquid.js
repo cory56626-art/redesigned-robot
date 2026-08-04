@@ -15,9 +15,9 @@
 //      tick, so a change propagates outward until everything settles.
 //
 // Mining into a pool drains it because World.set wakes the tile it changed.
-import { LIQUID_MAX, LIQUID_TICK, LIQUID_BUDGET, TILE } from '../config.js?v=worm-surface-4';
-import { isSolid } from './tiles.js?v=worm-surface-4';
-import { SH, shapeContains } from './shapes.js?v=worm-surface-4';
+import { LIQUID_MAX, LIQUID_TICK, LIQUID_BUDGET, TILE } from '../config.js?v=vespera-surface-5';
+import { isSolid } from './tiles.js?v=vespera-surface-5';
+import { SH, shapeContains } from './shapes.js?v=vespera-surface-5';
 
 export class LiquidGrid {
   constructor(world) {

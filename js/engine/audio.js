@@ -1,7 +1,7 @@
 // Summoner Realms — authored procedural game audio.
 // Uses authored OGG sample assets for the primary sound, with the procedural
 // layers kept as a graceful fallback if a browser blocks asset loading.
-import { Music } from './music.js?v=worm-surface-4';
+import { Music } from './music.js?v=vespera-surface-5';
 
 const AudioContextCtor = () => window.AudioContext || window.webkitAudioContext;
 
@@ -440,6 +440,27 @@ export class AudioManager {
     if (!this._throttle('bossTel', 250)) return;
     this._osc(140, 0.5, { endFreq: 320, volume: 0.06, type: 'sawtooth', attack: 0.08, release: 0.2 });
     this._osc(210, 0.42, { endFreq: 470, volume: 0.03, type: 'triangle', delay: 0.05, attack: 0.06 });
+  }
+
+  // Vespera's close dives advertise themselves with a dry, double mandible
+  // click. It is intentionally brief and high enough to cut through the fight
+  // mix without becoming another alarm tone.
+  mandibleClick() {
+    if (!this._throttle('mandibleClick', 180)) return;
+    this._noise(0.025, 0.045, 4100, { filterType: 'highpass', endFilter: 2400, smooth: 0.22 });
+    this._osc(1260, 0.045, { endFreq: 980, volume: 0.035, type: 'square', attack: 0.001, release: 0.018 });
+    this._noise(0.024, 0.035, 3900, { filterType: 'highpass', endFilter: 2300, smooth: 0.24, delay: 0.095 });
+    this._osc(1180, 0.04, { endFreq: 900, volume: 0.028, type: 'square', attack: 0.001, release: 0.016, delay: 0.095 });
+  }
+
+  // The phase break is a swarm scream rather than a generic impact: a rising
+  // high-frequency layer over a noisy chitin rattle makes the transition clear
+  // even when the arena is visually busy.
+  vesperaScream() {
+    if (!this._throttle('vesperaScream', 850)) return;
+    this._osc(520, 0.68, { endFreq: 1860, volume: 0.075, type: 'sawtooth', attack: 0.035, release: 0.16 });
+    this._osc(780, 0.58, { endFreq: 2140, volume: 0.032, type: 'triangle', attack: 0.05, release: 0.15, delay: 0.03 });
+    this._noise(0.58, 0.045, 2500, { filterType: 'bandpass', endFilter: 5200, smooth: 0.30, attack: 0.02, release: 0.13 });
   }
 
   bossAttack(type) {

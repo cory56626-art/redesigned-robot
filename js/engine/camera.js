@@ -2,8 +2,8 @@
 import {
   TILE, WORLD_W, WORLD_H, TARGET_TILES_V,
   ZOOM_MIN, ZOOM_MAX, ZOOM_DEFAULT, ZOOM_STEP,
-} from '../config.js?v=worm-surface-4';
-import { clamp, lerp } from '../utils.js?v=worm-surface-4';
+} from '../config.js?v=vespera-surface-5';
+import { clamp, lerp } from '../utils.js?v=vespera-surface-5';
 
 export class Camera {
   constructor() {

@@ -1,6 +1,6 @@
 // Summoner Realms — inventory, hotbar, equipment, and derived stats.
-import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=worm-surface-4';
-import { ITEMS, item as getItem, isItemEnabled } from '../data/items.js?v=worm-surface-4';
+import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=vespera-surface-5';
+import { ITEMS, item as getItem, isItemEnabled } from '../data/items.js?v=vespera-surface-5';
 
 export const INV_SIZE = HOTBAR_SIZE + INV_ROWS * INV_COLS;
 
@@ -13,10 +13,12 @@ export const SET_BONUS_DESC = {
   hunter: '+12% ranged damage, +10% move speed',
   blight: '+6 defense',
   fiber: '+10 max health',
+  royalChitin: '+3 defense, +15% move speed, +1 extra jump',
 };
 export const SET_LABEL = {
   thornweave: 'Thornweave', aetherweave: 'Aetherweave', ironvein: 'Ironvein',
   hunter: 'Hunter', blight: 'Blightplate', fiber: 'Fiber',
+  royalChitin: 'Royal Chitin',
 };
 
 export class Inventory {
@@ -171,6 +173,7 @@ export class Inventory {
     const st = {
       defense: 0, meleeMul: 1, rangedMul: 1, mageMul: 1, summonMul: 1,
       maxHpBonus: 0, maxManaBonus: 0, minionCap: 1, speedMul: 1, extraJumps: 0,
+      jumpMul: 1, fallDamageMul: 1, flightTime: 0, flightLift: 0, glideFallSpeed: 0,
     };
     const pieces = [this.equip.head, this.equip.chest, this.equip.legs];
     const setCount = {};
@@ -199,6 +202,7 @@ export class Inventory {
         else if (key === 'hunter') { st.rangedMul += 0.12; st.speedMul += 0.1; }
         else if (key === 'blight') { st.defense += 6; }
         else if (key === 'fiber') { st.maxHpBonus += 10; }
+        else if (key === 'royalChitin') { st.defense += 3; st.speedMul += 0.15; st.extraJumps += 1; }
       }
     }
     for (const a of this.equip.acc) {
@@ -208,6 +212,11 @@ export class Inventory {
       const s = def.accStats;
       st.speedMul += s.speed || 0;
       st.extraJumps += s.extraJumps || 0;
+      st.jumpMul *= s.jumpMul || 1;
+      st.fallDamageMul *= s.fallDamageMul || 1;
+      st.flightTime = Math.max(st.flightTime, s.flightTime || 0);
+      st.flightLift = Math.max(st.flightLift, s.flightLift || 0);
+      st.glideFallSpeed = Math.max(st.glideFallSpeed, s.glideFallSpeed || 0);
       st.maxHpBonus += s.maxHp || 0;
       st.maxManaBonus += s.maxMana || 0;
       st.minionCap += s.minionCap || 0;

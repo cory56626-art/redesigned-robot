@@ -2,50 +2,50 @@
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty, ZOOM_DEFAULT, REACH,
-} from './config.js?v=worm-surface-4';
-import { hashString, mulberry32, dist2, uid } from './utils.js?v=worm-surface-4';
-import { World } from './world/world.js?v=worm-surface-4';
-import { T, tileDef } from './world/tiles.js?v=worm-surface-4';
-import { Sprites } from './art/sprites.js?v=worm-surface-4';
-import { Camera } from './engine/camera.js?v=worm-surface-4';
-import { Input } from './engine/input.js?v=worm-surface-4';
-import { AudioManager } from './engine/audio.js?v=worm-surface-4';
-import { Renderer } from './engine/renderer.js?v=worm-surface-4';
-import { Fx } from './engine/fx.js?v=worm-surface-4';
-import { DayNight } from './systems/daynight.js?v=worm-surface-4';
-import { Weather } from './systems/weather.js?v=worm-surface-4';
-import { Spawner } from './systems/spawner.js?v=worm-surface-4';
-import { Progression } from './systems/progression.js?v=worm-surface-4';
-import { starterInventory } from './systems/inventory.js?v=worm-surface-4';
-import * as craftSys from './systems/crafting.js?v=worm-surface-4';
-import { applyPotion } from './systems/combat.js?v=worm-surface-4';
-import * as fishing from './systems/fishing.js?v=worm-surface-4';
-import { Critter } from './entities/critter.js?v=worm-surface-4';
-import { FAUNA } from './data/fauna.js?v=worm-surface-4';
-import { smartTarget } from './systems/smartcursor.js?v=worm-surface-4';
-import { Player, assignColor } from './entities/player.js?v=worm-surface-4';
-import { Enemy } from './entities/enemy.js?v=worm-surface-4';
-import { Boss } from './entities/boss.js?v=worm-surface-4';
-import { Minion } from './entities/minion.js?v=worm-surface-4';
-import { Npc } from './entities/npc.js?v=worm-surface-4';
-import { Projectile } from './entities/projectile.js?v=worm-surface-4';
-import { DropItem } from './entities/droppeditem.js?v=worm-surface-4';
-import { FallingTree } from './entities/fallingtree.js?v=worm-surface-4';
-import { ThrownItem } from './entities/thrown.js?v=worm-surface-4';
-import { ENEMIES } from './data/enemies.js?v=worm-surface-4';
-import { BOSSES, rollMechSpecialDrop } from './data/bosses.js?v=worm-surface-4';
-import { item as getItem, isItemEnabled } from './data/items.js?v=worm-surface-4';
-import { HUD } from './ui/hud.js?v=worm-surface-4';
-import { Minimap } from './ui/minimap.js?v=worm-surface-4';
-import { Menus } from './ui/menus.js?v=worm-surface-4';
-import { NpcDialog } from './ui/npcdialog.js?v=worm-surface-4';
-import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=worm-surface-4';
-import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=worm-surface-4';
-import { Achievements, craftAchievement } from './systems/achievements.js?v=worm-surface-4';
-import { CommandConsole } from './commands.js?v=worm-surface-4';
-import { Net } from './net/net.js?v=worm-surface-4';
-import { MSG } from './net/protocol.js?v=worm-surface-4';
-import * as sync from './net/sync.js?v=worm-surface-4';
+} from './config.js?v=vespera-surface-5';
+import { hashString, mulberry32, dist2, uid } from './utils.js?v=vespera-surface-5';
+import { World } from './world/world.js?v=vespera-surface-5';
+import { T, tileDef } from './world/tiles.js?v=vespera-surface-5';
+import { Sprites } from './art/sprites.js?v=vespera-surface-5';
+import { Camera } from './engine/camera.js?v=vespera-surface-5';
+import { Input } from './engine/input.js?v=vespera-surface-5';
+import { AudioManager } from './engine/audio.js?v=vespera-surface-5';
+import { Renderer } from './engine/renderer.js?v=vespera-surface-5';
+import { Fx } from './engine/fx.js?v=vespera-surface-5';
+import { DayNight } from './systems/daynight.js?v=vespera-surface-5';
+import { Weather } from './systems/weather.js?v=vespera-surface-5';
+import { Spawner } from './systems/spawner.js?v=vespera-surface-5';
+import { Progression } from './systems/progression.js?v=vespera-surface-5';
+import { starterInventory } from './systems/inventory.js?v=vespera-surface-5';
+import * as craftSys from './systems/crafting.js?v=vespera-surface-5';
+import { applyPotion } from './systems/combat.js?v=vespera-surface-5';
+import * as fishing from './systems/fishing.js?v=vespera-surface-5';
+import { Critter } from './entities/critter.js?v=vespera-surface-5';
+import { FAUNA } from './data/fauna.js?v=vespera-surface-5';
+import { smartTarget } from './systems/smartcursor.js?v=vespera-surface-5';
+import { Player, assignColor } from './entities/player.js?v=vespera-surface-5';
+import { Enemy } from './entities/enemy.js?v=vespera-surface-5';
+import { Boss } from './entities/boss.js?v=vespera-surface-5';
+import { Minion } from './entities/minion.js?v=vespera-surface-5';
+import { Npc } from './entities/npc.js?v=vespera-surface-5';
+import { Projectile } from './entities/projectile.js?v=vespera-surface-5';
+import { DropItem } from './entities/droppeditem.js?v=vespera-surface-5';
+import { FallingTree } from './entities/fallingtree.js?v=vespera-surface-5';
+import { ThrownItem } from './entities/thrown.js?v=vespera-surface-5';
+import { ENEMIES } from './data/enemies.js?v=vespera-surface-5';
+import { BOSSES, rollMechSpecialDrop, rollVesperaWeaponDrop } from './data/bosses.js?v=vespera-surface-5';
+import { item as getItem, isItemEnabled } from './data/items.js?v=vespera-surface-5';
+import { HUD } from './ui/hud.js?v=vespera-surface-5';
+import { Minimap } from './ui/minimap.js?v=vespera-surface-5';
+import { Menus } from './ui/menus.js?v=vespera-surface-5';
+import { NpcDialog } from './ui/npcdialog.js?v=vespera-surface-5';
+import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=vespera-surface-5';
+import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=vespera-surface-5';
+import { Achievements, craftAchievement } from './systems/achievements.js?v=vespera-surface-5';
+import { CommandConsole } from './commands.js?v=vespera-surface-5';
+import { Net } from './net/net.js?v=vespera-surface-5';
+import { MSG } from './net/protocol.js?v=vespera-surface-5';
+import * as sync from './net/sync.js?v=vespera-surface-5';
 
 class Game {
   constructor() {
@@ -1205,8 +1205,13 @@ class Game {
     this.enemies.push(e); this.enemyById.set(e.netId, e);
     return e;
   }
-  spawnBossAdds(key, count, x, y) {
-    for (let i = 0; i < count; i++) { const e = this.spawnEnemy(key, x + (Math.random() - 0.5) * 80, y - 20); if (e) e.fromBoss = true; }
+  spawnBossAdds(key, count, x, y, options = {}) {
+    for (let i = 0; i < count; i++) {
+      const e = this.spawnEnemy(key, x + (Math.random() - 0.5) * 80, y - 20);
+      if (!e) continue;
+      e.fromBoss = true;
+      if (options.lifetime != null) e.lifetime = Math.max(0, Number(options.lifetime) || 0);
+    }
   }
   spawnBossByKey(key) {
     if (!this.isHost) return;
@@ -1223,6 +1228,13 @@ class Game {
       const side = anchor.facing || 1;
       bx = anchor.x + side * (def.spawnDistance || 220);
       by = anchor.y - def.h - 20;
+    }
+    if (def.movement === 'vespera' && anchor) {
+      // Vespera is an aerial surface predator. She enters above and beside the
+      // player instead of materialising on their head or falling into the arena.
+      const side = anchor.facing || 1;
+      bx = anchor.x + side * (def.spawnDistance || 250);
+      by = anchor.y - def.h - 118;
     }
     // Never materialise inside terrain — search outward for clear air first, so
     // a boss summoned in a tight cave doesn't start the fight embedded in rock.
@@ -1264,6 +1276,10 @@ class Game {
         ? (biome === 'underground' || biome === 'cavern')
         : (biome === def.biome);
     if (!okBiome) { this.toast('Must be summoned in the ' + this.biomeLabel(def.biome) + '!', 'bad'); return; }
+    if (def.requiresNight && this.time.isDay) {
+      this.toast(def.name + ' answers only at night.', 'bad');
+      return;
+    }
     if (this.bosses.length) { this.toast('A boss is already present', 'bad'); return; }
     if (!player.inventory.remove(itemId, 1)) { this.toast('You need a ' + getItem(itemId).name, 'bad'); return; }
     if (this.isHost) this.spawnBossByKey(key);
@@ -1284,6 +1300,7 @@ class Game {
     if (!this.isHost) return;
     this.addHitParticles(e.x + e.w / 2, e.y + e.h / 2, e.color, 12);
     const def = ENEMIES[e.key];
+    if (!def || (e.fromBoss && def.noBossLoot)) return;
     for (const drop of def.drops || []) {
       if (Math.random() <= drop.chance) {
         const n = drop.min + ((Math.random() * (drop.max - drop.min + 1)) | 0);
@@ -1303,6 +1320,7 @@ class Game {
     }
     const unlockedHardmode = !!def.unlocksHardmode && !this.progression.hardmodeUnlocked;
     const mechSpecialDrop = b.key === 'theMech' ? rollMechSpecialDrop() : null;
+    const vesperaWeaponDrop = b.key === 'vespera' ? rollVesperaWeaponDrop() : null;
     this.progression.defeatBoss(b.key);
     this.achievements.unlock(b.key);
     for (const drop of def.loot || []) {
@@ -1315,11 +1333,16 @@ class Game {
       this.spawnDrop(b.x + b.w / 2 + (Math.random() - 0.5) * 40, b.y + b.h / 2, mechSpecialDrop, 1);
       this.toast('The Mech dropped ' + getItem(mechSpecialDrop).name + '!', 'good');
     }
+    if (vesperaWeaponDrop) {
+      this.spawnDrop(b.x + b.w / 2 + (Math.random() - 0.5) * 40, b.y + b.h / 2, vesperaWeaponDrop, 1);
+      this.toast('Vespera dropped ' + getItem(vesperaWeaponDrop).name + '!', 'good');
+    }
     // clear boss adds
     this.enemies = this.enemies.filter(e => { if (e.fromBoss) { this.enemyById.delete(e.netId); return false; } return true; });
     this.toast(def.name + ' defeated!', 'good');
     if (unlockedHardmode) this.toast('The Mech Core stabilizes — the realm is now Hardmode-ready.', 'good');
     if (b.key === 'theMech') this.toast('The Surface trembles — a Worm Lure can now call The Worm into an open arena.', 'info');
+    if (b.key === 'theWorm') this.toast('Overgrowth caverns stir — hunt Swarm enemies for a Hive Resonance Core.', 'info');
     if (this.net && this.isHost) { this.net.broadcast({ t: MSG.EVENT, kind: 'bossDefeat', key: b.key, name: def.name }); }
     this.markDirty();
     this.saveGame(false);
