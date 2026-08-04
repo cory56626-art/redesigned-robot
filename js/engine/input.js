@@ -2,7 +2,7 @@
 // Produces a platform-agnostic InputState so PC and mobile drive gameplay and
 // networking identically. Keyboard/mouse and touch joysticks both feed the same
 // intents: move, jump, aim, primary-use, mine, place, consume.
-import { REACH, TILE } from '../config.js?v=worm-surface-2';
+import { REACH, TILE } from '../config.js?v=worm-surface-3';
 
 export class Input {
   constructor(canvas) {

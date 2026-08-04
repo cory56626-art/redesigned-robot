@@ -3,12 +3,12 @@
 // Each enemy runs the same loop: perceive (do I know where the player is?),
 // decide (idle / approach / attack / retreat), then act. Perception, pathing and
 // steering live in systems/ai.js so every creature reasons the same way.
-import { TILE, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=worm-surface-2';
-import { ENEMIES } from '../data/enemies.js?v=worm-surface-2';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=worm-surface-2';
-import { aabb } from '../utils.js?v=worm-surface-2';
-import { Projectile } from './projectile.js?v=worm-surface-2';
-import * as AI from '../systems/ai.js?v=worm-surface-2';
+import { TILE, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=worm-surface-3';
+import { ENEMIES } from '../data/enemies.js?v=worm-surface-3';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=worm-surface-3';
+import { aabb } from '../utils.js?v=worm-surface-3';
+import { Projectile } from './projectile.js?v=worm-surface-3';
+import * as AI from '../systems/ai.js?v=worm-surface-3';
 
 export class Enemy {
   constructor(key, x, y, netId, difficulty = 'normal') {

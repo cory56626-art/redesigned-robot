@@ -9,9 +9,9 @@
 // top, a shadowed underside and rimmed sides. That neighbour awareness — plus
 // grass fringing down onto dirt and trunk/canopy shading — is most of what makes
 // terrain read as terrain instead of a grid of coloured squares.
-import { T, TILES, tileMat, isTree, isLeaf } from '../world/tiles.js?v=worm-surface-2';
-import { W, WALLS } from '../world/walls.js?v=worm-surface-2';
-import { mulberry32 } from '../utils.js?v=worm-surface-2';
+import { T, TILES, tileMat, isTree, isLeaf } from '../world/tiles.js?v=worm-surface-3';
+import { W, WALLS } from '../world/walls.js?v=worm-surface-3';
+import { mulberry32 } from '../utils.js?v=worm-surface-3';
 
 function makeCanvas(w, h) {
   const c = document.createElement('canvas');
