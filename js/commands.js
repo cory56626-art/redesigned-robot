@@ -1,11 +1,11 @@
 // Summoner Realms — Demo Commands console (testing only).
-import { ITEMS, DEMO_GIVE_ALL, allItemIds, isItemEnabled } from './data/items.js?v=worm-breach-1';
-import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=worm-breach-1';
-import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=worm-breach-1';
-import { TRACKS } from './engine/music.js?v=worm-breach-1';
-import { FAUNA } from './data/fauna.js?v=worm-breach-1';
-import { ACHIEVEMENTS } from './systems/achievements.js?v=worm-breach-1';
-import { TILE, LIQUID_MAX } from './config.js?v=worm-breach-1';
+import { ITEMS, DEMO_GIVE_ALL, allItemIds, isItemEnabled } from './data/items.js?v=worm-surface-1';
+import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=worm-surface-1';
+import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=worm-surface-1';
+import { TRACKS } from './engine/music.js?v=worm-surface-1';
+import { FAUNA } from './data/fauna.js?v=worm-surface-1';
+import { ACHIEVEMENTS } from './systems/achievements.js?v=worm-surface-1';
+import { TILE, LIQUID_MAX } from './config.js?v=worm-surface-1';
 
 const $ = (id) => document.getElementById(id);
 

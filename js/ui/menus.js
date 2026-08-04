@@ -1,14 +1,14 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=worm-breach-1';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=worm-breach-1';
-import { Sprites } from '../art/sprites.js?v=worm-breach-1';
-import { item as getItem } from '../data/items.js?v=worm-breach-1';
-import { availableRecipes } from '../systems/crafting.js?v=worm-breach-1';
-import { claudeNotesHTML } from './claude-notes.js?v=worm-breach-1';
-import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=worm-breach-1';
-import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=worm-breach-1';
-import { drawCharacterPreview } from '../art/charpreview.js?v=worm-breach-1';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=worm-surface-1';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=worm-surface-1';
+import { Sprites } from '../art/sprites.js?v=worm-surface-1';
+import { item as getItem } from '../data/items.js?v=worm-surface-1';
+import { availableRecipes } from '../systems/crafting.js?v=worm-surface-1';
+import { claudeNotesHTML } from './claude-notes.js?v=worm-surface-1';
+import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=worm-surface-1';
+import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=worm-surface-1';
+import { drawCharacterPreview } from '../art/charpreview.js?v=worm-surface-1';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [
@@ -605,7 +605,7 @@ export class Menus {
       <h4>Tips</h4>
       <ul>
         <li>You start with only a <b>pickaxe</b>, an <b>axe</b>, a <b>sword</b>, and Emberlight. Chop trees with the axe (they topple and drop wood — leaves only give twigs), then mine stone with the pickaxe.</li>
-        <li><b>Boss path:</b> at a Forge, craft a <b>Mech Beacon</b> from 5 Starsteel Bars, 4 Storm Bars, and 6 Ember Dust, then use it on the Surface. The Mech always drops a Core. After beating it, forge a <b>Worm Lure</b> from 1 Mech Core, 6 Shadowglass Bars, and 8 Ember Dust; use it Underground or in a Cavern. Talk to Vesper and choose <b>Boss summoning &amp; progression</b> for the exact instructions for every active boss.</li>
+        <li><b>Boss path:</b> at a Forge, craft a <b>Mech Beacon</b> from 5 Starsteel Bars, 4 Storm Bars, and 6 Ember Dust, then use it on the Surface. The Mech always drops a Core. After beating it, forge a <b>Worm Lure</b> from 1 Mech Core, 6 Shadowglass Bars, and 8 Ember Dust; use it on the Surface in an open arena. Talk to Vesper and choose <b>Boss summoning &amp; progression</b> for the exact instructions for every active boss.</li>
         <li>Caves run mostly <b>sideways</b> and open up the deeper you go. Look for a sinkhole on the surface, and take torches — or catch a <b>Glowmoth</b>, which lights the way on its own.</li>
         <li>The <b>wind</b> changes through the day and pushes you a little on the surface. It stops entirely underground.</li>
         <li><b>Bombs</b> are a mining tool as much as a weapon — they arc, bounce, and blow craters in dirt and stone. Stand clear: the blast hurts you too.</li>

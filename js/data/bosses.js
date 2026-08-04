@@ -129,11 +129,11 @@ export const BOSSES = Object.freeze({
     contactBase: 29,
     color: '#24182e',
     color2: '#c383ff',
-    biome: 'underground',
+    biome: 'surface',
     summonItem: 'wormLure',
     requiresBoss: 'theMech',
     summonGuide: {
-      prep: 'A roomy horizontal tunnel or chamber is best. The Worm burrows out of blocked paths, and hiding behind sealed blocks triggers a marked seismic breach at your last spot.',
+      prep: 'Build a wide Surface arena. The Worm can pressure cover with a marked seismic breach, so do not try to box yourself in.',
       reward: 'It always drops a Worm Core.',
     },
     loot: [
