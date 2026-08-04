@@ -1,12 +1,12 @@
 // Summoner Realms — minion entity. Owned by a player; the owner's client
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
-import { minionDef } from '../data/minions.js?v=worm-surface-3';
-import { initAidanState, updateAidanState } from './aidan.js?v=worm-surface-3';
-import { dist2, aabb, angleTo } from '../utils.js?v=worm-surface-3';
-import { TILE } from '../config.js?v=worm-surface-3';
-import { Projectile } from './projectile.js?v=worm-surface-3';
-import * as AI from '../systems/ai.js?v=worm-surface-3';
+import { minionDef } from '../data/minions.js?v=worm-surface-4';
+import { initAidanState, updateAidanState } from './aidan.js?v=worm-surface-4';
+import { dist2, aabb, angleTo } from '../utils.js?v=worm-surface-4';
+import { TILE } from '../config.js?v=worm-surface-4';
+import { Projectile } from './projectile.js?v=worm-surface-4';
+import * as AI from '../systems/ai.js?v=worm-surface-4';
 
 let MINION_SEQ = 1;
 

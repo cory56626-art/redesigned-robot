@@ -5,7 +5,7 @@
 // `Renderer._drawPlayer` reads and hands it to the *same* code the game uses,
 // so the preview cannot drift from what you actually see in the world — which
 // is the entire point of a customisation screen.
-import { PLAYER_W, PLAYER_H } from '../config.js?v=worm-surface-3';
+import { PLAYER_W, PLAYER_H } from '../config.js?v=worm-surface-4';
 
 /**
  * @param ctx        a 2D context to draw into

@@ -1,12 +1,12 @@
 // Summoner Realms — runtime world: tile grid, wall grid, collision, mining,
 // lighting, and the edit diffs that get saved.
-import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=worm-surface-3';
-import { T, tileDef, isSolid, tileLight, isLegacyOreTile } from './tiles.js?v=worm-surface-3';
-import { W, hasWall, wallBlastResist } from './walls.js?v=worm-surface-3';
-import { SH, shapeContains, surfaceOffset, fillsTop } from './shapes.js?v=worm-surface-3';
-import { LiquidGrid } from './liquid.js?v=worm-surface-3';
-import { BIOME_ORDER } from './biomes.js?v=worm-surface-3';
-import { generateWorld } from './worldgen.js?v=worm-surface-3';
+import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=worm-surface-4';
+import { T, tileDef, isSolid, tileLight, isLegacyOreTile } from './tiles.js?v=worm-surface-4';
+import { W, hasWall, wallBlastResist } from './walls.js?v=worm-surface-4';
+import { SH, shapeContains, surfaceOffset, fillsTop } from './shapes.js?v=worm-surface-4';
+import { LiquidGrid } from './liquid.js?v=worm-surface-4';
+import { BIOME_ORDER } from './biomes.js?v=worm-surface-4';
+import { generateWorld } from './worldgen.js?v=worm-surface-4';
 
 export class World {
   constructor(seed) {

@@ -1,8 +1,8 @@
 // Summoner Realms — crafting logic.
-import { TILE } from '../config.js?v=worm-surface-3';
-import { RECIPES } from '../data/recipes.js?v=worm-surface-3';
-import { tileDef } from '../world/tiles.js?v=worm-surface-3';
-import { item as getItem } from '../data/items.js?v=worm-surface-3';
+import { TILE } from '../config.js?v=worm-surface-4';
+import { RECIPES } from '../data/recipes.js?v=worm-surface-4';
+import { tileDef } from '../world/tiles.js?v=worm-surface-4';
+import { item as getItem } from '../data/items.js?v=worm-surface-4';
 
 // Which crafting stations are within reach of the player? (null = by hand)
 export function nearbyStations(game, player) {

@@ -5,14 +5,14 @@ import {
   HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN,
   CAST_REGEN_DELAY, CAST_REGEN_MULT, RESPAWN_DELAY, RESPAWN_DELAY_BOSS,
   SWIM_DRAG, SWIM_STROKE, WIND_PLAYER_PUSH,
-} from '../config.js?v=worm-surface-3';
-import { tileDef } from '../world/tiles.js?v=worm-surface-3';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=worm-surface-3';
-import { Inventory } from '../systems/inventory.js?v=worm-surface-3';
-import { item as getItem } from '../data/items.js?v=worm-surface-3';
-import * as combat from '../systems/combat.js?v=worm-surface-3';
-import * as fishing from '../systems/fishing.js?v=worm-surface-3';
-import { clamp } from '../utils.js?v=worm-surface-3';
+} from '../config.js?v=worm-surface-4';
+import { tileDef } from '../world/tiles.js?v=worm-surface-4';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=worm-surface-4';
+import { Inventory } from '../systems/inventory.js?v=worm-surface-4';
+import { item as getItem } from '../data/items.js?v=worm-surface-4';
+import * as combat from '../systems/combat.js?v=worm-surface-4';
+import * as fishing from '../systems/fishing.js?v=worm-surface-4';
+import { clamp } from '../utils.js?v=worm-surface-4';
 
 export class Player {
   constructor(id, opts = {}) {
@@ -307,7 +307,13 @@ export class Player {
         // One throw per press: holding the button should not empty the stack.
         if (input.primaryPressed) combat.throwItem(game, this, sel);
       } else if (sel.category === 'summonitem') {
-        if (input.primaryPressed) combat.useSummonItem(game, this, sel);
+        // The quick-click queue remains active for a few fixed steps. Give
+        // summon items a short use lock so one click cannot produce a valid
+        // summon followed by an immediate "A boss is already present" toast.
+        if (input.primaryPressed && this.useTimer <= 0) {
+          combat.useSummonItem(game, this, sel);
+          this.useTimer = 0.22;
+        }
       }
     }
   }

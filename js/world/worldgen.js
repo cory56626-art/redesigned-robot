@@ -17,11 +17,11 @@
 //
 // Deterministic from a numeric seed. `tools/worldgen-check.mjs` asserts the
 // invariants this file is responsible for.
-import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE, LIQUID_MAX } from '../config.js?v=worm-surface-3';
-import { T, isSolid, isFlora } from './tiles.js?v=worm-surface-3';
-import { W } from './walls.js?v=worm-surface-3';
-import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=worm-surface-3';
-import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep, lerp } from '../utils.js?v=worm-surface-3';
+import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE, LIQUID_MAX } from '../config.js?v=worm-surface-4';
+import { T, isSolid, isFlora } from './tiles.js?v=worm-surface-4';
+import { W } from './walls.js?v=worm-surface-4';
+import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=worm-surface-4';
+import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep, lerp } from '../utils.js?v=worm-surface-4';
 
 // Half-width of the guaranteed flat, cave-free plain the player spawns on.
 const SPAWN_PLAIN = 13;

@@ -1,12 +1,12 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
-import { MSG } from './protocol.js?v=worm-surface-3';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=worm-surface-3';
-import { Player, assignColor } from '../entities/player.js?v=worm-surface-3';
-import { Projectile } from '../entities/projectile.js?v=worm-surface-3';
-import { ThrownItem } from '../entities/thrown.js?v=worm-surface-3';
-import { ITEMS, isItemEnabled } from '../data/items.js?v=worm-surface-3';
-import { ENEMIES } from '../data/enemies.js?v=worm-surface-3';
-import { BOSSES } from '../data/bosses.js?v=worm-surface-3';
+import { MSG } from './protocol.js?v=worm-surface-4';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=worm-surface-4';
+import { Player, assignColor } from '../entities/player.js?v=worm-surface-4';
+import { Projectile } from '../entities/projectile.js?v=worm-surface-4';
+import { ThrownItem } from '../entities/thrown.js?v=worm-surface-4';
+import { ITEMS, isItemEnabled } from '../data/items.js?v=worm-surface-4';
+import { ENEMIES } from '../data/enemies.js?v=worm-surface-4';
+import { BOSSES } from '../data/bosses.js?v=worm-surface-4';
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 

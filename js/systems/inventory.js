@@ -1,6 +1,6 @@
 // Summoner Realms — inventory, hotbar, equipment, and derived stats.
-import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=worm-surface-3';
-import { ITEMS, item as getItem, isItemEnabled } from '../data/items.js?v=worm-surface-3';
+import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=worm-surface-4';
+import { ITEMS, item as getItem, isItemEnabled } from '../data/items.js?v=worm-surface-4';
 
 export const INV_SIZE = HOTBAR_SIZE + INV_ROWS * INV_COLS;
 

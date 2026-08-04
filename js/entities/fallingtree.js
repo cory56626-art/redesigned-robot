@@ -4,7 +4,7 @@
 // so a felled tree reads as toppling from the point of impact rather than
 // blinking out. Multiplayer note: the animation is client-local; the tile
 // removals themselves replicate to everyone.
-import { TILE } from '../config.js?v=worm-surface-3';
+import { TILE } from '../config.js?v=worm-surface-4';
 
 export class FallingTree {
   // cells: [{x,y,id,trunk,mask,variant}] world-tile cells; pivot at the cut
