@@ -1,7 +1,7 @@
 // Summoner Realms — crafting recipes.
 // station: null (hand) | 'bench' | 'smeltery' | 'forge' | 'altar'
 // requiresBoss: optional active-boss progression gate.
-import { isItemEnabled } from './items.js?v=worm-pathing-1';
+import { isItemEnabled } from './items.js?v=worm-breach-1';
 
 const ALL_RECIPES = [
   // --- Hand ---

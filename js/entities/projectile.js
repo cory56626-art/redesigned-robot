@@ -1,6 +1,6 @@
 // Summoner Realms — projectiles for ranged/mage weapons, minions, enemies, bosses.
-import { GRAVITY, TILE } from '../config.js?v=worm-pathing-1';
-import { aabb, dist2 } from '../utils.js?v=worm-pathing-1';
+import { GRAVITY, TILE } from '../config.js?v=worm-breach-1';
+import { aabb, dist2 } from '../utils.js?v=worm-breach-1';
 
 export class Projectile {
   constructor(opts) {
@@ -46,6 +46,10 @@ export class Projectile {
     this.blastDamage = Math.max(0, Number(opts.blastDamage) || 0);
     this.fuseAnchored = false;
     this.visualOnly = !!opts.visualOnly;
+    // Some boss tells deliberately erupt through stone at a previously marked
+    // point. They must not disappear one frame early just because that point is
+    // inside a player-built hideout.
+    this.ignoreTerrain = !!opts.ignoreTerrain;
     this.dead = false;
     this.hitSet = new Set();
     this.crit = !!opts.crit;
@@ -89,7 +93,7 @@ export class Projectile {
         this.x += this.vx * sdt;
         this.y += this.vy * sdt;
         const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
-        if (game.world.isSolidAt(Math.floor(cx / TILE), Math.floor(cy / TILE))) {
+        if (!this.ignoreTerrain && game.world.isSolidAt(Math.floor(cx / TILE), Math.floor(cy / TILE))) {
           if (this.burstTimer != null) {
             // Stick to the wall, but honor the full fuse instead of detonating
             // on the first collision.

@@ -1,15 +1,15 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=worm-pathing-1';
-import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=worm-pathing-1';
-import { SH } from '../world/shapes.js?v=worm-pathing-1';
-import { W, hasWall } from '../world/walls.js?v=worm-pathing-1';
-import { BIOMES } from '../world/biomes.js?v=worm-pathing-1';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=worm-pathing-1';
-import { item as getItem } from '../data/items.js?v=worm-pathing-1';
-import { canPlaceAt } from '../systems/combat.js?v=worm-pathing-1';
-import { clamp } from '../utils.js?v=worm-pathing-1';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=worm-pathing-1';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=worm-breach-1';
+import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=worm-breach-1';
+import { SH } from '../world/shapes.js?v=worm-breach-1';
+import { W, hasWall } from '../world/walls.js?v=worm-breach-1';
+import { BIOMES } from '../world/biomes.js?v=worm-breach-1';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=worm-breach-1';
+import { item as getItem } from '../data/items.js?v=worm-breach-1';
+import { canPlaceAt } from '../systems/combat.js?v=worm-breach-1';
+import { clamp } from '../utils.js?v=worm-breach-1';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=worm-breach-1';
 
 // Fallback appearance for players without a character record (remote players
 // on an older client, or a world loaded before characters existed).
@@ -1001,6 +1001,24 @@ export class Renderer {
         ctx.fillStyle = '#4b2a5e';
         ctx.beginPath(); ctx.moveTo(-11, 4); ctx.lineTo(-5, -6); ctx.lineTo(0, 1); ctx.lineTo(6, -7); ctx.lineTo(12, 4); ctx.closePath(); ctx.fill();
         ctx.fillStyle = '#edceff'; ctx.beginPath(); ctx.moveTo(-5, 2); ctx.lineTo(-1, -3); ctx.lineTo(3, 1); ctx.lineTo(6, -2); ctx.lineTo(8, 2); ctx.closePath(); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'wormFissure') {
+        const pulse = 1 + Math.sin(performance.now() * 0.026 + pr.x * 0.04) * 0.13;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.22 * pulse;
+        ctx.fillStyle = '#dba8ff'; ctx.beginPath(); ctx.ellipse(0, 0, 23 * pulse, 28 * pulse, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.92;
+        ctx.fillStyle = '#3b214c';
+        ctx.beginPath();
+        ctx.moveTo(-12, 18); ctx.lineTo(-7, -12); ctx.lineTo(0, -22); ctx.lineTo(8, -10); ctx.lineTo(14, 18);
+        ctx.lineTo(5, 10); ctx.lineTo(0, 21); ctx.lineTo(-5, 9); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#c383ff';
+        ctx.beginPath(); ctx.moveTo(-4, 16); ctx.lineTo(0, -16); ctx.lineTo(6, 14); ctx.lineTo(1, 8); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#f1ddff'; ctx.beginPath(); ctx.moveTo(0, -15); ctx.lineTo(3, 9); ctx.lineTo(0, 5); ctx.closePath(); ctx.fill();
         ctx.globalCompositeOperation = 'source-over';
         ctx.restore();
         continue;
@@ -2363,6 +2381,41 @@ export class Renderer {
     if (!b.warnAt || b.warnTime <= 0) return;
     const k = 1 - b.warnTime / (b.warnMax || 0.6);
     ctx.save();
+    if (b.warnKind === 'wormBreach') {
+      // A fixed, jagged marker makes it clear that this is not a normal
+      // emerge point. It renders above terrain so a sealed player can see the
+      // exact tile they need to leave before the fissure breaks through.
+      const pulse = 0.5 + 0.5 * Math.sin(k * Math.PI * 10);
+      const radius = 13 + k * 17;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.2 + pulse * 0.28;
+      ctx.fillStyle = '#c383ff';
+      ctx.beginPath(); ctx.arc(b.warnAt.x, b.warnAt.y, radius + 6, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.78;
+      ctx.strokeStyle = '#f0d2ff';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const a = i * Math.PI / 2 + k * 0.5;
+        const x0 = b.warnAt.x + Math.cos(a) * (radius + 6);
+        const y0 = b.warnAt.y + Math.sin(a) * (radius + 6);
+        const x1 = b.warnAt.x + Math.cos(a + 0.42) * 4;
+        const y1 = b.warnAt.y + Math.sin(a + 0.42) * 4;
+        ctx.moveTo(x0, y0); ctx.lineTo(x1, y1);
+      }
+      ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = '#4a285d';
+      ctx.beginPath();
+      ctx.moveTo(b.warnAt.x, b.warnAt.y - 13 - k * 4);
+      ctx.lineTo(b.warnAt.x + 7, b.warnAt.y + 10);
+      ctx.lineTo(b.warnAt.x, b.warnAt.y + 4);
+      ctx.lineTo(b.warnAt.x - 7, b.warnAt.y + 10);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+      return;
+    }
     ctx.globalAlpha = 0.35 + 0.45 * Math.sin(k * Math.PI * 8);
     ctx.strokeStyle = b.color2 || '#ffcf6b';
     ctx.lineWidth = 2;
@@ -2622,44 +2675,90 @@ export class Renderer {
       ctx.restore();
     }
 
-    // The blocky head is intentionally bigger than any plate so the dangerous
-    // end reads instantly when The Worm comes out of a dark tunnel.
+    // The head is a tapered armored skull rather than another rectangle: a
+    // collar joins it to the plates, the brow and snout taper toward the bite,
+    // and the lower jaw has its own motion during every wind-up.
     ctx.save();
     ctx.translate(headX, headY + crouch * 2);
     ctx.scale(f, 1);
-    ctx.fillStyle = '#17111f'; this._roundRect(ctx, -17, -16, 36, 31, 10); ctx.fill();
-    ctx.fillStyle = phaseTwo ? '#49295b' : '#3c2948'; this._roundRect(ctx, -15, -15, 32, 26, 8); ctx.fill();
-    ctx.fillStyle = phaseTwo ? '#754186' : '#633875'; this._roundRect(ctx, -12, -14, 27, 8, 5); ctx.fill();
-    ctx.fillStyle = 'rgba(239,199,255,0.40)'; this._roundRect(ctx, -9, -13, 20, 3, 2); ctx.fill();
-    // Front drill-plates make the charge silhouette read before impact.
-    ctx.fillStyle = '#24182d'; ctx.beginPath(); ctx.moveTo(13, -10); ctx.lineTo(23, -4); ctx.lineTo(17, 2); ctx.lineTo(22, 7); ctx.lineTo(12, 10); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = ridge; ctx.beginPath(); ctx.moveTo(15, -7); ctx.lineTo(20, -3); ctx.lineTo(15, -1); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(15, 3); ctx.lineTo(20, 6); ctx.lineTo(14, 8); ctx.closePath(); ctx.fill();
-    // Jaw opens during every telegraph, then snaps closed on the committed hit.
-    const jaw = b.jaw != null ? b.jaw : 0;
-    ctx.save(); ctx.translate(-10, 1); ctx.rotate(jaw * 0.56);
-    ctx.fillStyle = '#120d18'; this._roundRect(ctx, 0, 0, 28, 13, 5); ctx.fill();
-    ctx.fillStyle = '#f2ddc0';
-    for (let i = 0; i < 5; i++) {
-      const tx = 3 + i * 4.8;
-      ctx.beginPath(); ctx.moveTo(tx, 1); ctx.lineTo(tx + 1.8, 6.5); ctx.lineTo(tx + 3.5, 1); ctx.closePath(); ctx.fill();
+
+    // Neck collar so the head grows out of the segmented body instead of
+    // looking pasted onto it.
+    ctx.fillStyle = '#16101d'; ctx.beginPath(); ctx.ellipse(-15, 0, 12, 15, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = phaseTwo ? '#382047' : '#2e2038'; ctx.beginPath(); ctx.ellipse(-14, 0, 9, 12, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#8550a5'; ctx.globalAlpha = 0.5; ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.moveTo(-21, -7); ctx.lineTo(-8, -5); ctx.moveTo(-22, 2); ctx.lineTo(-8, 4); ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // Outer skull silhouette. The sloped nose and split cheek plates make the
+    // dangerous end clear without turning it into a square block.
+    ctx.fillStyle = '#15101d';
+    ctx.beginPath();
+    ctx.moveTo(-18, -11); ctx.quadraticCurveTo(-12, -19, -3, -21);
+    ctx.quadraticCurveTo(9, -21, 18, -13); ctx.lineTo(27, -7);
+    ctx.lineTo(32, -1); ctx.lineTo(27, 8); ctx.quadraticCurveTo(19, 17, 5, 18);
+    ctx.quadraticCurveTo(-9, 17, -18, 8); ctx.lineTo(-22, -3); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = phaseTwo ? '#4d2a5e' : '#3d2949';
+    ctx.beginPath();
+    ctx.moveTo(-16, -10); ctx.quadraticCurveTo(-9, -16, -2, -18);
+    ctx.quadraticCurveTo(8, -18, 16, -11); ctx.lineTo(25, -5);
+    ctx.lineTo(28, -1); ctx.lineTo(23, 6); ctx.quadraticCurveTo(15, 13, 5, 14);
+    ctx.quadraticCurveTo(-7, 13, -15, 6); ctx.lineTo(-18, -3); ctx.closePath(); ctx.fill();
+
+    // Layered brow, crown spines, and cheek plating give the skull texture.
+    ctx.fillStyle = phaseTwo ? '#79438c' : '#633875';
+    ctx.beginPath();
+    ctx.moveTo(-11, -12); ctx.quadraticCurveTo(1, -18, 14, -10); ctx.lineTo(20, -5);
+    ctx.lineTo(5, -5); ctx.lineTo(-10, -7); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(244,211,255,0.38)';
+    ctx.beginPath(); ctx.moveTo(-7, -12); ctx.quadraticCurveTo(1, -15, 10, -10); ctx.lineTo(5, -9); ctx.lineTo(-7, -10); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = ridge;
+    for (const [sx, sy, size] of [[-7, -17, 4], [1, -20, 5], [10, -16, 4]]) {
+      ctx.beginPath(); ctx.moveTo(sx - size, sy + 4); ctx.lineTo(sx, sy - size); ctx.lineTo(sx + size, sy + 4); ctx.closePath(); ctx.fill();
     }
-    ctx.restore();
+    ctx.fillStyle = '#26182f';
+    ctx.beginPath(); ctx.moveTo(-13, 1); ctx.lineTo(-1, -2); ctx.lineTo(2, 5); ctx.lineTo(-7, 10); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = phaseTwo ? '#6c3c80' : '#573267';
+    ctx.beginPath(); ctx.moveTo(-10, 2); ctx.lineTo(-1, 0); ctx.lineTo(-1, 5); ctx.lineTo(-7, 8); ctx.closePath(); ctx.fill();
+
+    // Forward snout and a fixed upper mandible.
+    ctx.fillStyle = '#211529';
+    ctx.beginPath(); ctx.moveTo(10, -10); ctx.lineTo(27, -7); ctx.lineTo(35, -1); ctx.lineTo(29, 4); ctx.lineTo(13, 6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = phaseTwo ? '#6b3d7e' : '#573167';
+    ctx.beginPath(); ctx.moveTo(13, -8); ctx.lineTo(27, -5); ctx.lineTo(31, -1); ctx.lineTo(17, 0); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#1a101f'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(13, 0); ctx.lineTo(30, 0); ctx.stroke();
     ctx.fillStyle = '#f6e6c7';
     for (let i = 0; i < 4; i++) {
-      const tx = -7 + i * 5.5;
-      ctx.beginPath(); ctx.moveTo(tx, 2); ctx.lineTo(tx + 1.8, 7.5); ctx.lineTo(tx + 3.6, 2); ctx.closePath(); ctx.fill();
+      const tx = 14 + i * 4.2;
+      ctx.beginPath(); ctx.moveTo(tx, 1); ctx.lineTo(tx + 1.6, 5); ctx.lineTo(tx + 3.2, 1); ctx.closePath(); ctx.fill();
     }
+
+    // Jaw opens during every telegraph, then snaps closed on the committed hit.
+    const jaw = b.jaw != null ? b.jaw : 0;
+    ctx.save(); ctx.translate(8, 5); ctx.rotate(jaw * 0.58);
+    ctx.fillStyle = '#120d18';
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(25, -2); ctx.lineTo(30, 5); ctx.lineTo(20, 12); ctx.lineTo(4, 10); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = phaseTwo ? '#5e3570' : '#4c2b5b';
+    ctx.beginPath(); ctx.moveTo(3, 2); ctx.lineTo(23, 1); ctx.lineTo(25, 5); ctx.lineTo(18, 9); ctx.lineTo(6, 8); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#f2ddc0';
+    for (let i = 0; i < 4; i++) {
+      const tx = 6 + i * 4.4;
+      ctx.beginPath(); ctx.moveTo(tx, 2); ctx.lineTo(tx + 1.6, 6.8); ctx.lineTo(tx + 3.2, 2); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
 
     // Core eye and cheek sac brighten differently: the eye warns of any move,
     // the cheek sac specifically signals the arcing spit volley.
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = 0.28 + charge * 0.45;
-    ctx.fillStyle = phaseTwo ? '#ffb36d' : '#d493ff'; ctx.beginPath(); ctx.arc(7, -7, 10 + charge * 5, 0, Math.PI * 2); ctx.fill();
-    if (spitTell) { ctx.globalAlpha = 0.28 + charge * 0.36; ctx.fillStyle = '#dba8ff'; ctx.beginPath(); ctx.arc(-8, 1, 11 + charge * 4, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = phaseTwo ? '#ffb36d' : '#d493ff'; ctx.beginPath(); ctx.arc(10, -7, 10 + charge * 5, 0, Math.PI * 2); ctx.fill();
+    if (spitTell) { ctx.globalAlpha = 0.28 + charge * 0.36; ctx.fillStyle = '#dba8ff'; ctx.beginPath(); ctx.arc(-4, 4, 11 + charge * 4, 0, Math.PI * 2); ctx.fill(); }
     ctx.globalAlpha = 1;
-    ctx.fillStyle = glow; ctx.fillRect(5, -9, 6, 4); ctx.fillStyle = '#25152e'; ctx.fillRect(8, -8, 2, 3);
-    if (spitTell) { ctx.fillStyle = '#c383ff'; ctx.beginPath(); ctx.arc(-8, 1, 4, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#f4d7ff'; ctx.beginPath(); ctx.arc(-9.4, -0.8, 1.4, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.moveTo(5, -10); ctx.lineTo(14, -9); ctx.lineTo(11, -4); ctx.lineTo(6, -5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#25152e'; ctx.beginPath(); ctx.moveTo(10, -8); ctx.lineTo(12, -8); ctx.lineTo(10, -5); ctx.closePath(); ctx.fill();
+    if (spitTell) { ctx.fillStyle = '#c383ff'; ctx.beginPath(); ctx.arc(-4, 4, 4, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#f4d7ff'; ctx.beginPath(); ctx.arc(-5.4, 2.2, 1.4, 0, Math.PI * 2); ctx.fill(); }
     ctx.globalCompositeOperation = 'source-over';
     ctx.restore();
 

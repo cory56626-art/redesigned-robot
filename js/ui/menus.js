@@ -1,14 +1,14 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=worm-pathing-1';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=worm-pathing-1';
-import { Sprites } from '../art/sprites.js?v=worm-pathing-1';
-import { item as getItem } from '../data/items.js?v=worm-pathing-1';
-import { availableRecipes } from '../systems/crafting.js?v=worm-pathing-1';
-import { claudeNotesHTML } from './claude-notes.js?v=worm-pathing-1';
-import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=worm-pathing-1';
-import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=worm-pathing-1';
-import { drawCharacterPreview } from '../art/charpreview.js?v=worm-pathing-1';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=worm-breach-1';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=worm-breach-1';
+import { Sprites } from '../art/sprites.js?v=worm-breach-1';
+import { item as getItem } from '../data/items.js?v=worm-breach-1';
+import { availableRecipes } from '../systems/crafting.js?v=worm-breach-1';
+import { claudeNotesHTML } from './claude-notes.js?v=worm-breach-1';
+import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=worm-breach-1';
+import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=worm-breach-1';
+import { drawCharacterPreview } from '../art/charpreview.js?v=worm-breach-1';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [

@@ -11,12 +11,12 @@
 // distance, phase and line of sight. Animation fields (squash, jaw, segment
 // lag, shard spin) are updated here rather than in the renderer, so they are
 // driven by the simulation and stay frame-rate independent.
-import { TILE, normalizeDifficulty } from '../config.js?v=worm-pathing-1';
-import { BOSSES } from '../data/bosses.js?v=worm-pathing-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=worm-pathing-1';
-import { aabb, angleTo, randRange, clamp } from '../utils.js?v=worm-pathing-1';
-import { Projectile } from './projectile.js?v=worm-pathing-1';
-import * as AI from '../systems/ai.js?v=worm-pathing-1';
+import { TILE, normalizeDifficulty } from '../config.js?v=worm-breach-1';
+import { BOSSES } from '../data/bosses.js?v=worm-breach-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=worm-breach-1';
+import { aabb, angleTo, randRange, clamp } from '../utils.js?v=worm-breach-1';
+import { Projectile } from './projectile.js?v=worm-breach-1';
+import * as AI from '../systems/ai.js?v=worm-breach-1';
 
 const PROJ_COLOR = {
   thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff',
@@ -113,6 +113,12 @@ export class Boss {
     this.wormBlockedTime = 0;
     this.wormNoSightTime = 0;
     this.wormBurrowCooldown = 0;
+    // A target that seals itself into a one-tile bunker has no body-sized
+    // pocket for the Worm to emerge from. In that specific situation it uses
+    // a warned seismic strike instead of endlessly failing a burrow attempt.
+    this.wormBreach = null;
+    this.wormBreachSeen = false;
+    this.warnKind = null;
 
     // ---- Enrage / leash ----
     this.awayTimer = 0;
@@ -341,7 +347,10 @@ export class Boss {
         this.movement === 'gravemaw' ? '#8a7358' : this.movement === 'worm' ? '#513463' : this.color2,
         2, { speed: 40, life: 0.4, gravity: 90 });
     }
-    if (this.warnTime <= 0) this._emerge(game, target);
+    if (this.warnTime <= 0) {
+      if (this.movement === 'worm' && this.wormBreach) this._resolveWormBreach(game);
+      else this._emerge(game, target);
+    }
   }
 
   _emerge(game, target) {
@@ -358,6 +367,7 @@ export class Boss {
       if (retry) {
         this.x = before.x; this.y = before.y;
         this.warnAt = retry;
+        this.warnKind = 'emerge';
         this.warnMax = 0.58;
         this.warnTime = this.warnMax;
         return;
@@ -367,6 +377,7 @@ export class Boss {
       // warning while it tries again on the next emerge frame.
       this.x = before.x; this.y = before.y;
       this.warnAt = { x: before.x + this.w / 2, y: before.y + this.h / 2 };
+      this.warnKind = 'emerge';
       this.warnMax = 0.5;
       this.warnTime = this.warnMax;
       return;
@@ -374,6 +385,8 @@ export class Boss {
     this.hidden = false;
     this.warnAt = null;
     this.warnTime = 0;
+    this.warnKind = null;
+    this.wormBreach = null;
     this.aiState = 'recover';
     this.recover = 0.5;
     this.vx = 0; this.vy = 0;
@@ -480,11 +493,24 @@ export class Boss {
     else if (this.wormNoSightTime >= 1.35) reason = 'hidden';
     if (!reason) return false;
 
+    // Being unable to see the player is no longer a safe bunker strategy.
+    // The strike locks onto the warned *location*, not the player, so stepping
+    // or mining out before it erupts is a real dodge. It deliberately does
+    // not delete blocks or force the Worm's large collision body into a tiny
+    // player tunnel.
+    if (reason === 'hidden') {
+      return this._beginWormBreach(game, target, {
+        warnTime: this.phaseIndex > 0 ? 0.78 : 0.96,
+        cooldown: this.phaseIndex > 0 ? 3.05 : 3.45,
+        damage: this.phaseIndex > 0 ? 22 : 18,
+      });
+    }
+
     const side = Math.sign(tc.x - c.x) || this.facing || 1;
     return this._beginWormBurrow(game, target, {
       side,
-      preferredDistance: reason === 'blocked' ? 132 : 168,
-      warnTime: reason === 'blocked' ? 0.78 : 0.92,
+      preferredDistance: 132,
+      warnTime: 0.78,
       cooldown: 2.25,
     });
   }
@@ -545,8 +571,10 @@ export class Boss {
     this.telegraph = 0;
     this.vx = 0; this.vy = 0;
     this.warnAt = at;
+    this.warnKind = 'emerge';
     this.warnMax = options.warnTime || 0.92;
     this.warnTime = this.warnMax;
+    this.wormBreach = null;
     this.wormBurrowCooldown = options.cooldown != null ? options.cooldown : 1.35;
     this.wormBlockedTime = 0;
     this.wormNoSightTime = 0;
@@ -556,6 +584,69 @@ export class Boss {
     game.fx.burst(c.x, this.y + this.h, '#513463', 20, { speed: 130, gravity: 400 });
     game.fx.shake(3, 0.3);
     return true;
+  }
+
+  // The anti-bunker answer. The marker is deliberately placed on the current
+  // target location and remains fixed during the warning, which means an open
+  // player can step away while a 1x1 hideout is no longer free damage.
+  _beginWormBreach(game, target, options = {}) {
+    if (!target || !target.center) return false;
+    const c = this.center();
+    const tc = target.center();
+    const at = { x: tc.x, y: tc.y };
+    this.hidden = true;
+    this.charge = null;
+    this.telegraph = 0;
+    this.vx = 0; this.vy = 0;
+    this.warnAt = at;
+    this.warnKind = 'wormBreach';
+    this.warnMax = options.warnTime || 0.96;
+    this.warnTime = this.warnMax;
+    this.wormBreach = {
+      x: at.x,
+      y: at.y,
+      damage: Math.max(1, Math.round(options.damage || (this.phaseIndex > 0 ? 22 : 18))),
+    };
+    this.wormBurrowCooldown = options.cooldown != null ? options.cooldown : 3.35;
+    this.wormBlockedTime = 0;
+    this.wormNoSightTime = 0;
+    this.aiState = 'recover';
+    this.stateTime = 0;
+    this.recover = options.recover != null ? options.recover : 0.7;
+    if (!this.wormBreachSeen) {
+      game.toast?.('The Worm senses you through the stone!', 'bad');
+      this.wormBreachSeen = true;
+    }
+    game.fx.ring(at.x, at.y, '#dba8ff', 36, { life: this.warnMax, from: 14, width: 2.5 });
+    game.fx.burst(c.x, this.y + this.h, '#513463', 16, { speed: 118, gravity: 400 });
+    game.fx.shake(2.6, 0.22);
+    return true;
+  }
+
+  _resolveWormBreach(game) {
+    const breach = this.wormBreach;
+    if (!breach) return;
+    // This is a short-lived, terrain-ignoring hitbox. It exists only at the
+    // warned fissure, so it cannot chase or hit a player who escaped the mark.
+    game.addProjectile(new Projectile({
+      x: breach.x - 18, y: breach.y - 23,
+      vx: 0, vy: 0, w: 36, h: 46,
+      damage: breach.damage, ownerType: 'boss', kind: 'wormFissure', color: '#e8c7ff',
+      life: 0.16, knockback: 0, ignoreTerrain: true,
+    }), true);
+    game.fx.ring(breach.x, breach.y, '#efd5ff', 48, { life: 0.3, width: 3 });
+    game.fx.burst(breach.x, breach.y, ['#e8c7ff', '#a75edb', '#45245b'], 22, {
+      speed: 165, life: 0.44, size: 2.4, glow: true,
+    });
+    game.fx.shake(4.4, 0.28);
+    this.hidden = false;
+    this.warnAt = null;
+    this.warnTime = 0;
+    this.warnKind = null;
+    this.wormBreach = null;
+    this.aiState = 'recover';
+    this.recover = Math.max(this.recover || 0, 0.72);
+    this.vx = 0; this.vy = 0;
   }
 
   // Flying bosses used to integrate position directly with no collision at all,
@@ -1128,11 +1219,20 @@ export class Boss {
   }
 
   netState() {
+    const warn = this.warnAt && this.warnTime > 0
+      ? {
+          x: Math.round(this.warnAt.x), y: Math.round(this.warnAt.y),
+          t: Math.round(this.warnTime * 100) / 100,
+          m: Math.round(this.warnMax * 100) / 100,
+          k: this.warnKind || null,
+        }
+      : null;
     return {
       key: this.key, name: this.name, difficulty: this.difficulty, x: Math.round(this.x), y: Math.round(this.y),
       hp: Math.round(this.hp), maxHp: this.maxHp, phase: this.phaseIndex, facing: this.facing,
       state: this.aiState, hidden: this.hidden ? 1 : 0, tel: this.telegraph > 0 ? 1 : 0, frz: Math.round((this.freezeT || 0) * 100) / 100,
       mr: this.mechRay ? { a: Math.round(this.mechRay.angle * 1000) / 1000, t: Math.round(this.mechRay.time * 100) / 100 } : null,
+      warn,
     };
   }
 }

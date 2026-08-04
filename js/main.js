@@ -2,50 +2,50 @@
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty, ZOOM_DEFAULT, REACH,
-} from './config.js?v=worm-pathing-1';
-import { hashString, mulberry32, dist2, uid } from './utils.js?v=worm-pathing-1';
-import { World } from './world/world.js?v=worm-pathing-1';
-import { T, tileDef } from './world/tiles.js?v=worm-pathing-1';
-import { Sprites } from './art/sprites.js?v=worm-pathing-1';
-import { Camera } from './engine/camera.js?v=worm-pathing-1';
-import { Input } from './engine/input.js?v=worm-pathing-1';
-import { AudioManager } from './engine/audio.js?v=worm-pathing-1';
-import { Renderer } from './engine/renderer.js?v=worm-pathing-1';
-import { Fx } from './engine/fx.js?v=worm-pathing-1';
-import { DayNight } from './systems/daynight.js?v=worm-pathing-1';
-import { Weather } from './systems/weather.js?v=worm-pathing-1';
-import { Spawner } from './systems/spawner.js?v=worm-pathing-1';
-import { Progression } from './systems/progression.js?v=worm-pathing-1';
-import { starterInventory } from './systems/inventory.js?v=worm-pathing-1';
-import * as craftSys from './systems/crafting.js?v=worm-pathing-1';
-import { applyPotion } from './systems/combat.js?v=worm-pathing-1';
-import * as fishing from './systems/fishing.js?v=worm-pathing-1';
-import { Critter } from './entities/critter.js?v=worm-pathing-1';
-import { FAUNA } from './data/fauna.js?v=worm-pathing-1';
-import { smartTarget } from './systems/smartcursor.js?v=worm-pathing-1';
-import { Player, assignColor } from './entities/player.js?v=worm-pathing-1';
-import { Enemy } from './entities/enemy.js?v=worm-pathing-1';
-import { Boss } from './entities/boss.js?v=worm-pathing-1';
-import { Minion } from './entities/minion.js?v=worm-pathing-1';
-import { Npc } from './entities/npc.js?v=worm-pathing-1';
-import { Projectile } from './entities/projectile.js?v=worm-pathing-1';
-import { DropItem } from './entities/droppeditem.js?v=worm-pathing-1';
-import { FallingTree } from './entities/fallingtree.js?v=worm-pathing-1';
-import { ThrownItem } from './entities/thrown.js?v=worm-pathing-1';
-import { ENEMIES } from './data/enemies.js?v=worm-pathing-1';
-import { BOSSES, rollMechSpecialDrop } from './data/bosses.js?v=worm-pathing-1';
-import { item as getItem, isItemEnabled } from './data/items.js?v=worm-pathing-1';
-import { HUD } from './ui/hud.js?v=worm-pathing-1';
-import { Minimap } from './ui/minimap.js?v=worm-pathing-1';
-import { Menus } from './ui/menus.js?v=worm-pathing-1';
-import { NpcDialog } from './ui/npcdialog.js?v=worm-pathing-1';
-import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=worm-pathing-1';
-import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=worm-pathing-1';
-import { Achievements, craftAchievement } from './systems/achievements.js?v=worm-pathing-1';
-import { CommandConsole } from './commands.js?v=worm-pathing-1';
-import { Net } from './net/net.js?v=worm-pathing-1';
-import { MSG } from './net/protocol.js?v=worm-pathing-1';
-import * as sync from './net/sync.js?v=worm-pathing-1';
+} from './config.js?v=worm-breach-1';
+import { hashString, mulberry32, dist2, uid } from './utils.js?v=worm-breach-1';
+import { World } from './world/world.js?v=worm-breach-1';
+import { T, tileDef } from './world/tiles.js?v=worm-breach-1';
+import { Sprites } from './art/sprites.js?v=worm-breach-1';
+import { Camera } from './engine/camera.js?v=worm-breach-1';
+import { Input } from './engine/input.js?v=worm-breach-1';
+import { AudioManager } from './engine/audio.js?v=worm-breach-1';
+import { Renderer } from './engine/renderer.js?v=worm-breach-1';
+import { Fx } from './engine/fx.js?v=worm-breach-1';
+import { DayNight } from './systems/daynight.js?v=worm-breach-1';
+import { Weather } from './systems/weather.js?v=worm-breach-1';
+import { Spawner } from './systems/spawner.js?v=worm-breach-1';
+import { Progression } from './systems/progression.js?v=worm-breach-1';
+import { starterInventory } from './systems/inventory.js?v=worm-breach-1';
+import * as craftSys from './systems/crafting.js?v=worm-breach-1';
+import { applyPotion } from './systems/combat.js?v=worm-breach-1';
+import * as fishing from './systems/fishing.js?v=worm-breach-1';
+import { Critter } from './entities/critter.js?v=worm-breach-1';
+import { FAUNA } from './data/fauna.js?v=worm-breach-1';
+import { smartTarget } from './systems/smartcursor.js?v=worm-breach-1';
+import { Player, assignColor } from './entities/player.js?v=worm-breach-1';
+import { Enemy } from './entities/enemy.js?v=worm-breach-1';
+import { Boss } from './entities/boss.js?v=worm-breach-1';
+import { Minion } from './entities/minion.js?v=worm-breach-1';
+import { Npc } from './entities/npc.js?v=worm-breach-1';
+import { Projectile } from './entities/projectile.js?v=worm-breach-1';
+import { DropItem } from './entities/droppeditem.js?v=worm-breach-1';
+import { FallingTree } from './entities/fallingtree.js?v=worm-breach-1';
+import { ThrownItem } from './entities/thrown.js?v=worm-breach-1';
+import { ENEMIES } from './data/enemies.js?v=worm-breach-1';
+import { BOSSES, rollMechSpecialDrop } from './data/bosses.js?v=worm-breach-1';
+import { item as getItem, isItemEnabled } from './data/items.js?v=worm-breach-1';
+import { HUD } from './ui/hud.js?v=worm-breach-1';
+import { Minimap } from './ui/minimap.js?v=worm-breach-1';
+import { Menus } from './ui/menus.js?v=worm-breach-1';
+import { NpcDialog } from './ui/npcdialog.js?v=worm-breach-1';
+import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=worm-breach-1';
+import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=worm-breach-1';
+import { Achievements, craftAchievement } from './systems/achievements.js?v=worm-breach-1';
+import { CommandConsole } from './commands.js?v=worm-breach-1';
+import { Net } from './net/net.js?v=worm-breach-1';
+import { MSG } from './net/protocol.js?v=worm-breach-1';
+import * as sync from './net/sync.js?v=worm-breach-1';
 
 class Game {
   constructor() {
@@ -990,7 +990,12 @@ class Game {
     if (this.projectiles.length > MAX_PROJECTILES) this.projectiles.shift();
     this.projectiles.push(proj);
     if (broadcast && this.net && this.net.status === 'connected') {
-      this.net.relay({ t: MSG.PROJFX, x: Math.round(proj.x), y: Math.round(proj.y), vx: Math.round(proj.vx), vy: Math.round(proj.vy), kind: proj.kind, color: proj.color, gravity: proj.gravity, life: proj.life });
+      this.net.relay({
+        t: MSG.PROJFX, x: Math.round(proj.x), y: Math.round(proj.y),
+        vx: Math.round(proj.vx), vy: Math.round(proj.vy), kind: proj.kind,
+        color: proj.color, gravity: proj.gravity, life: proj.life,
+        w: proj.w, h: proj.h, ignoreTerrain: proj.ignoreTerrain,
+      });
     }
   }
 

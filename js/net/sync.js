@@ -1,12 +1,12 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
-import { MSG } from './protocol.js?v=worm-pathing-1';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=worm-pathing-1';
-import { Player, assignColor } from '../entities/player.js?v=worm-pathing-1';
-import { Projectile } from '../entities/projectile.js?v=worm-pathing-1';
-import { ThrownItem } from '../entities/thrown.js?v=worm-pathing-1';
-import { ITEMS, isItemEnabled } from '../data/items.js?v=worm-pathing-1';
-import { ENEMIES } from '../data/enemies.js?v=worm-pathing-1';
-import { BOSSES } from '../data/bosses.js?v=worm-pathing-1';
+import { MSG } from './protocol.js?v=worm-breach-1';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=worm-breach-1';
+import { Player, assignColor } from '../entities/player.js?v=worm-breach-1';
+import { Projectile } from '../entities/projectile.js?v=worm-breach-1';
+import { ThrownItem } from '../entities/thrown.js?v=worm-breach-1';
+import { ITEMS, isItemEnabled } from '../data/items.js?v=worm-breach-1';
+import { ENEMIES } from '../data/enemies.js?v=worm-breach-1';
+import { BOSSES } from '../data/bosses.js?v=worm-breach-1';
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 
@@ -159,6 +159,13 @@ function applyEntitySnapshot(game, msg) {
     if (b.ghost) {
       b.hidden = !!bs.hidden;
       b.aiState = bs.state || '';
+      const warn = bs.warn;
+      b.warnAt = warn && Number.isFinite(Number(warn.x)) && Number.isFinite(Number(warn.y))
+        ? { x: Number(warn.x), y: Number(warn.y) }
+        : null;
+      b.warnTime = warn ? Math.max(0, Number(warn.t) || 0) : 0;
+      b.warnMax = warn ? Math.max(0.1, Number(warn.m) || b.warnTime || 0.6) : 0.6;
+      b.warnKind = warn && warn.k ? String(warn.k) : null;
       // Replicate the wind-up so clients see the same tell the host does.
       b.telegraph = bs.tel ? b.telegraphMax : 0;
       // The chassis itself is intentionally stable during Plasma Ray, but its
@@ -225,7 +232,7 @@ function makeGhostBoss(bs) {
     movement: def.movement,
     vx: 0, vy: 0,
     hidden: !!bs.hidden, telegraph: 0, telegraphMax: 0.6, attackPulse: 0,
-    warnAt: null, warnTime: 0, warnMax: 0.6,
+    warnAt: null, warnTime: 0, warnMax: 0.6, warnKind: null,
     squashX: 1, squashY: 1, jaw: 0, shardSpin: 0, segments, ghostTrail: [],
     walkCycle: 0, mechArmOpen: 0, mechRayCharge: 0, mechJumpCharge: 0,
     mechHeat: 0, mechLanding: 0, mechRay: null,
@@ -376,7 +383,12 @@ export function handleMessage(game, fromId, msg, conn) {
       break;
     }
     case MSG.PROJFX: {
-      game.projectiles.push(new Projectile({ x: msg.x, y: msg.y, vx: msg.vx, vy: msg.vy, kind: msg.kind, color: msg.color, gravity: msg.gravity, life: msg.life || 2, visualOnly: true }));
+      game.projectiles.push(new Projectile({
+        x: msg.x, y: msg.y, vx: msg.vx, vy: msg.vy,
+        w: msg.w, h: msg.h, kind: msg.kind, color: msg.color,
+        gravity: msg.gravity, life: msg.life || 2,
+        ignoreTerrain: msg.ignoreTerrain, visualOnly: true,
+      }));
       if (net.isHost) net.broadcast(msg, fromId);
       break;
     }

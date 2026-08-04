@@ -133,7 +133,7 @@ export const BOSSES = Object.freeze({
     summonItem: 'wormLure',
     requiresBoss: 'theMech',
     summonGuide: {
-      prep: 'A roomy horizontal tunnel or chamber is best. The Worm will burrow out of blocked paths, then show an emerge marker before it returns.',
+      prep: 'A roomy horizontal tunnel or chamber is best. The Worm burrows out of blocked paths, and hiding behind sealed blocks triggers a marked seismic breach at your last spot.',
       reward: 'It always drops a Worm Core.',
     },
     loot: [
