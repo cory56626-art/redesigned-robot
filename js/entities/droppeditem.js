@@ -1,6 +1,6 @@
 // Summoner Realms — dropped ground item. Host-authoritative physics + pickup.
-import { GRAVITY, TILE } from '../config.js?v=worm-surface-1';
-import { dist2 } from '../utils.js?v=worm-surface-1';
+import { GRAVITY, TILE } from '../config.js?v=worm-surface-2';
+import { dist2 } from '../utils.js?v=worm-surface-2';
 
 // How close a player has to be before a drop starts flying toward them, and how
 // close before it is collected.

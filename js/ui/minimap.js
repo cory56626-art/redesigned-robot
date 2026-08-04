@@ -11,9 +11,9 @@
 //
 // Everything is pointer-event driven rather than mouse-specific, so drag, pan
 // and pinch all work under touch without a second code path.
-import { TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=worm-surface-1';
-import { T, isSolid, tileDef } from '../world/tiles.js?v=worm-surface-1';
-import { hasWall } from '../world/walls.js?v=worm-surface-1';
+import { TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=worm-surface-2';
+import { T, isSolid, tileDef } from '../world/tiles.js?v=worm-surface-2';
+import { hasWall } from '../world/walls.js?v=worm-surface-2';
 
 // Radius around the player, in tiles, that counts as explored.
 const REVEAL_RADIUS = 26;

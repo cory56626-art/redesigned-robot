@@ -1,6 +1,6 @@
 // Summoner Realms — projectiles for ranged/mage weapons, minions, enemies, bosses.
-import { GRAVITY, TILE } from '../config.js?v=worm-surface-1';
-import { aabb, dist2 } from '../utils.js?v=worm-surface-1';
+import { GRAVITY, TILE } from '../config.js?v=worm-surface-2';
+import { aabb, dist2 } from '../utils.js?v=worm-surface-2';
 
 export class Projectile {
   constructor(opts) {

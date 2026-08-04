@@ -5,14 +5,14 @@ import {
   HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN,
   CAST_REGEN_DELAY, CAST_REGEN_MULT, RESPAWN_DELAY, RESPAWN_DELAY_BOSS,
   SWIM_DRAG, SWIM_STROKE, WIND_PLAYER_PUSH,
-} from '../config.js?v=worm-surface-1';
-import { tileDef } from '../world/tiles.js?v=worm-surface-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=worm-surface-1';
-import { Inventory } from '../systems/inventory.js?v=worm-surface-1';
-import { item as getItem } from '../data/items.js?v=worm-surface-1';
-import * as combat from '../systems/combat.js?v=worm-surface-1';
-import * as fishing from '../systems/fishing.js?v=worm-surface-1';
-import { clamp } from '../utils.js?v=worm-surface-1';
+} from '../config.js?v=worm-surface-2';
+import { tileDef } from '../world/tiles.js?v=worm-surface-2';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=worm-surface-2';
+import { Inventory } from '../systems/inventory.js?v=worm-surface-2';
+import { item as getItem } from '../data/items.js?v=worm-surface-2';
+import * as combat from '../systems/combat.js?v=worm-surface-2';
+import * as fishing from '../systems/fishing.js?v=worm-surface-2';
+import { clamp } from '../utils.js?v=worm-surface-2';
 
 export class Player {
   constructor(id, opts = {}) {
