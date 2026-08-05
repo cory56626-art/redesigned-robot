@@ -1,7 +1,0 @@
-# Node dependencies (installed by `npm install`; Render runs this on deploy).
-node_modules/
-
-# Logs / local env
-*.log
-.env
-.env.*
