@@ -1,3 +1,9 @@
+# Dookie Branch
+
+> This is the **dookie** branch of redesigned-robot.
+
+---
+
 # Summoner Realms
 
 A polished, original **2D sandbox-survival vertical slice** that runs entirely in
@@ -164,7 +170,7 @@ they make testing fast:
 ```
 
 Item and enemy names are matched loosely — `/give plantfiber`, `/give plant fiber`
-and `/give fiber` all work, and `/spawn slime` maps to the Slugling. Every command
+and `/give fiber` all work, and `/spawn slime` maps to the slugling. Every command
 prints a success or error message, and names autocomplete (Tab) as you type.
 
 ---
