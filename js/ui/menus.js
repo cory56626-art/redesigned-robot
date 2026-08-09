@@ -1,14 +1,15 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=boss-redesign-1';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=boss-redesign-1';
-import { Sprites } from '../art/sprites.js?v=boss-redesign-1';
-import { item as getItem } from '../data/items.js?v=boss-redesign-1';
-import { availableRecipes } from '../systems/crafting.js?v=boss-redesign-1';
-import { claudeNotesHTML } from './claude-notes.js?v=boss-redesign-1';
-import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=boss-redesign-1';
-import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=boss-redesign-1';
-import { drawCharacterPreview } from '../art/charpreview.js?v=boss-redesign-1';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=title-screen-1';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=title-screen-1';
+import { Sprites } from '../art/sprites.js?v=title-screen-1';
+import { item as getItem } from '../data/items.js?v=title-screen-1';
+import { availableRecipes } from '../systems/crafting.js?v=title-screen-1';
+import { claudeNotesHTML } from './claude-notes.js?v=title-screen-1';
+import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=title-screen-1';
+import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=title-screen-1';
+import { drawCharacterPreview } from '../art/charpreview.js?v=title-screen-1';
+import { TitleScreen } from './titlescreen.js?v=title-screen-1';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [
@@ -38,7 +39,12 @@ export class Menus {
     this._slotsBuilt = false;
     this._craftSig = '';
     this._deathWasBossFight = false;
+    this.titleScene = null;
     this._wire();
+    // The main menu is already on screen at boot (index.html ships it visible),
+    // so nothing calls showMainMenu() for the first paint — kick the scene off
+    // here instead.
+    if (this.isOpen('mainMenu')) this.startTitleScene();
   }
 
   _wire() {
@@ -58,6 +64,12 @@ export class Menus {
     $('controlModeSeg').querySelectorAll('.seg-btn').forEach(b => {
       b.onclick = () => g.setControlMode(b.dataset.mode);
     });
+    const timeBtn = $('btnTitleTime');
+    if (timeBtn) timeBtn.onclick = () => {
+      if (!this.titleScene) return;
+      this.titleScene.skipTime();
+      this._tickTitleClock();
+    };
     // ---- Characters ----
     $('btnCharacters').onclick = () => this.openCharacterSelect();
     $('btnEditCharacter').onclick = () => this.openCharacterEditor(g.character);
@@ -484,8 +496,37 @@ export class Menus {
   }
 
   // ---- Main menu / pause visibility ----
-  showMainMenu() { this.refreshContinue(); this.show('mainMenu'); }
-  hideMainMenu() { this.hide('mainMenu'); }
+  showMainMenu() { this.refreshContinue(); this.show('mainMenu'); this.startTitleScene(); }
+  hideMainMenu() { this.hide('mainMenu'); this.stopTitleScene(); }
+
+  // The animated title backdrop only runs while the main menu is actually on
+  // screen — there is no point burning a rAF on a scene nobody can see, and a
+  // failure to build it must never stop the menu from working.
+  startTitleScene() {
+    try {
+      if (!this.titleScene) {
+        const cv = $('titleCanvas');
+        if (!cv) return;
+        this.titleScene = new TitleScreen(cv);
+      }
+      this.titleScene.start();
+      this._tickTitleClock();
+    } catch (err) {
+      console.error('[title screen] failed to start', err);
+      this.titleScene = null;
+    }
+  }
+  stopTitleScene() {
+    if (this.titleScene) this.titleScene.start && this.titleScene.stop();
+    clearTimeout(this._titleClockT);
+  }
+  _tickTitleClock() {
+    clearTimeout(this._titleClockT);
+    if (!this.titleScene || !this.titleScene.running) return;
+    const el = $('titleClockLabel');
+    if (el) el.textContent = this.titleScene.label;
+    this._titleClockT = setTimeout(() => this._tickTitleClock(), 900);
+  }
   // Show "Continue" only when there's at least one save to resume.
   refreshContinue() {
     const btn = $('btnContinue');

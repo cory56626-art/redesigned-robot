@@ -1,15 +1,15 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=boss-redesign-1';
-import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=boss-redesign-1';
-import { SH } from '../world/shapes.js?v=boss-redesign-1';
-import { W, hasWall } from '../world/walls.js?v=boss-redesign-1';
-import { BIOMES } from '../world/biomes.js?v=boss-redesign-1';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=boss-redesign-1';
-import { item as getItem } from '../data/items.js?v=boss-redesign-1';
-import { canPlaceAt } from '../systems/combat.js?v=boss-redesign-1';
-import { clamp } from '../utils.js?v=boss-redesign-1';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=boss-redesign-1';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=title-screen-1';
+import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=title-screen-1';
+import { SH } from '../world/shapes.js?v=title-screen-1';
+import { W, hasWall } from '../world/walls.js?v=title-screen-1';
+import { BIOMES } from '../world/biomes.js?v=title-screen-1';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=title-screen-1';
+import { item as getItem } from '../data/items.js?v=title-screen-1';
+import { canPlaceAt } from '../systems/combat.js?v=title-screen-1';
+import { clamp } from '../utils.js?v=title-screen-1';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=title-screen-1';
 
 // Fallback appearance for players without a character record (remote players
 // on an older client, or a world loaded before characters existed).

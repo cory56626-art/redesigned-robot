@@ -8,8 +8,8 @@
 // no check at all when it is fired by an explicit event (`unlock(id)` from the
 // place that knows it happened). Polling is deliberately throttled — none of
 // these need to be noticed the same frame they become true.
-import { item as getItem } from '../data/items.js?v=boss-redesign-1';
-import { UNDERGROUND_Y, CAVERN_Y, TILE } from '../config.js?v=boss-redesign-1';
+import { item as getItem } from '../data/items.js?v=title-screen-1';
+import { UNDERGROUND_Y, CAVERN_Y, TILE } from '../config.js?v=title-screen-1';
 
 const POLL_INTERVAL = 1.0;
 

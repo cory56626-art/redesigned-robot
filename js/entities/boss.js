@@ -11,12 +11,12 @@
 // distance, phase and line of sight. Animation fields (squash, jaw, segment
 // lag, shard spin) are updated here rather than in the renderer, so they are
 // driven by the simulation and stay frame-rate independent.
-import { TILE, normalizeDifficulty } from '../config.js?v=boss-redesign-1';
-import { BOSSES } from '../data/bosses.js?v=boss-redesign-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=boss-redesign-1';
-import { aabb, angleTo, randRange, clamp } from '../utils.js?v=boss-redesign-1';
-import { Projectile } from './projectile.js?v=boss-redesign-1';
-import * as AI from '../systems/ai.js?v=boss-redesign-1';
+import { TILE, normalizeDifficulty } from '../config.js?v=title-screen-1';
+import { BOSSES } from '../data/bosses.js?v=title-screen-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=title-screen-1';
+import { aabb, angleTo, randRange, clamp } from '../utils.js?v=title-screen-1';
+import { Projectile } from './projectile.js?v=title-screen-1';
+import * as AI from '../systems/ai.js?v=title-screen-1';
 
 const PROJ_COLOR = {
   thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff',

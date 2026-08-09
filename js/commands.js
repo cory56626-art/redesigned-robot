@@ -1,11 +1,11 @@
 // Summoner Realms — Demo Commands console (testing only).
-import { ITEMS, DEMO_GIVE_ALL, allItemIds, isItemEnabled } from './data/items.js?v=boss-redesign-1';
-import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=boss-redesign-1';
-import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=boss-redesign-1';
-import { TRACKS } from './engine/music.js?v=boss-redesign-1';
-import { FAUNA } from './data/fauna.js?v=boss-redesign-1';
-import { ACHIEVEMENTS } from './systems/achievements.js?v=boss-redesign-1';
-import { TILE, LIQUID_MAX } from './config.js?v=boss-redesign-1';
+import { ITEMS, DEMO_GIVE_ALL, allItemIds, isItemEnabled } from './data/items.js?v=title-screen-1';
+import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=title-screen-1';
+import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=title-screen-1';
+import { TRACKS } from './engine/music.js?v=title-screen-1';
+import { FAUNA } from './data/fauna.js?v=title-screen-1';
+import { ACHIEVEMENTS } from './systems/achievements.js?v=title-screen-1';
+import { TILE, LIQUID_MAX } from './config.js?v=title-screen-1';
 
 const $ = (id) => document.getElementById(id);
 

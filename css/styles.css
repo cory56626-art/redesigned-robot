@@ -146,8 +146,8 @@ canvas#game {
 .dialog-panel.narrow { width: min(380px, 94vw); }
 
 .game-title {
-  /* Capped so "SummonerRealms" (one long word) always fits the panel and is
-     never clipped at the viewport edge; wraps to two lines on narrow screens. */
+  /* Capped so the title always fits the panel and is never clipped at the
+     viewport edge; the two words are separate spans so it stacks cleanly. */
   font-size: clamp(30px, 6vw, 46px);
   letter-spacing: 0.5px;
   line-height: 1.02;
@@ -157,9 +157,8 @@ canvas#game {
   overflow-wrap: break-word;
   text-shadow: 0 3px 0 #0a3a30, 0 0 22px rgba(126, 224, 192, 0.35);
 }
-/* inline-block keeps "Realms" whole; the <wbr> before it is the only break
-   point, so the title splits cleanly as "Summoner" / "Realms" when it wraps. */
-.game-title span { display: inline-block; color: var(--violet); text-shadow: 0 3px 0 #3a1a5a, 0 0 22px rgba(197, 139, 255, 0.35); }
+.game-title .t1 { display: block; }
+.game-title .t2 { display: block; color: var(--violet); text-shadow: 0 3px 0 #3a1a5a, 0 0 22px rgba(197, 139, 255, 0.35); }
 .tagline { color: var(--muted); margin-bottom: var(--s5); font-size: 14px; }
 .version { color: var(--faint); font-size: 12px; margin-top: var(--s4); text-align: center; }
 
@@ -726,4 +725,297 @@ input[type="range"]::-moz-range-thumb {
 @media (max-width: 720px) {
   .char-editor, .mp-cards { flex-direction: column; }
   .char-row { flex-wrap: wrap; }
+}
+
+/* ===================================================================
+   TITLE SCREEN
+   The main menu sits on a live procedural scene (js/ui/titlescreen.js)
+   instead of a flat gradient, so it gets the full-bleed key-art treatment:
+   no panel chrome, a ribbon banner at the top and a bracketed pixel menu
+   over the artwork. Everything here is scoped to #mainMenu so the pause
+   menu — which shares .overlay.menu — is completely unaffected.
+   =================================================================== */
+
+:root {
+  --title-font: Georgia, 'Palatino Linotype', 'Book Antiqua', 'Times New Roman', serif;
+  --menu-font: 'Courier New', 'DejaVu Sans Mono', 'Lucida Console', monospace;
+  --gold: #ffcf6b;
+  --gold-hi: #ffe9a8;
+  --gold-lo: #e09b39;
+  --ink-deep: #1d0f36;
+}
+
+#mainMenu {
+  /* The canvas paints the background; this is only what shows for the frame
+     or two before the first draw lands. */
+  background: #05060f;
+  padding: 0;
+  align-items: stretch;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.title-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  z-index: 0;
+}
+
+#mainMenu .menu-panel {
+  position: relative;
+  z-index: 1;
+  background: none;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  width: min(760px, 100vw);
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+  padding:
+    max(var(--s3), env(safe-area-inset-top))
+    var(--s4)
+    max(var(--s3), env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ---- Ribbon banner ----
+   Two stacked clip-paths: the outer one is the gold rule, the inner one the
+   dark field, so the border follows the notched ribbon tails without needing
+   an image. */
+/* The gem has to live outside the ribbon, because clip-path would cut it off
+   at the banner's top edge. */
+.title-head {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(560px, 92vw);
+  margin-top: clamp(10px, 3.2vh, 34px);
+  flex-shrink: 0;
+}
+.title-banner {
+  --ribbon: polygon(
+    12% 0%, 88% 0%, 88% 26%, 100% 26%, 94% 50%, 100% 74%, 88% 74%, 88% 100%,
+    12% 100%, 12% 74%, 0% 74%, 6% 50%, 0% 26%, 12% 26%
+  );
+  clip-path: var(--ribbon);
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold-lo));
+  padding: 3px;
+  width: 100%;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.6));
+}
+.title-gem {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translateX(-50%) rotate(45deg);
+  background: linear-gradient(135deg, #cffaff 0%, #5fd8f0 55%, #2b83c4 100%);
+  border: 2px solid var(--gold);
+  animation: title-gem-pulse 3.4s ease-in-out infinite;
+}
+@keyframes title-gem-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(120, 230, 255, 0.45); }
+  50% { box-shadow: 0 0 20px rgba(140, 240, 255, 0.95); }
+}
+.title-banner > .game-title {
+  clip-path: var(--ribbon);
+  background: linear-gradient(180deg, #3b2470 0%, #2a1550 55%, #1c0e3a 100%);
+  margin: 0;
+  padding: clamp(12px, 2.6vh, 24px) clamp(30px, 9vw, 74px) clamp(14px, 2.8vh, 26px);
+  font-family: var(--title-font);
+  font-weight: 700;
+  font-size: clamp(24px, 6.4vw, 54px);
+  line-height: 0.98;
+  letter-spacing: clamp(1px, 0.5vw, 5px);
+  text-transform: uppercase;
+  color: var(--gold);
+  /* Hard 2px outline built from eight offsets, then a warm drop and a glow —
+     the chunky pixel-poster treatment the scene behind it is drawn in. */
+  text-shadow:
+    -2px 0 var(--ink-deep), 2px 0 var(--ink-deep), 0 -2px var(--ink-deep), 0 2px var(--ink-deep),
+    -2px -2px var(--ink-deep), 2px -2px var(--ink-deep), -2px 2px var(--ink-deep), 2px 2px var(--ink-deep),
+    0 4px 0 #8a4a12, 0 0 20px rgba(255, 190, 90, 0.5);
+}
+#mainMenu .game-title .t1,
+#mainMenu .game-title .t2 {
+  display: block;
+  color: inherit;
+  text-shadow: inherit;
+}
+#mainMenu .game-title .t2 { font-size: 0.9em; letter-spacing: clamp(2px, 0.9vw, 10px); }
+
+#mainMenu .tagline {
+  font-family: var(--menu-font);
+  color: #f0eaff;
+  font-size: clamp(12px, 1.9vh, 18px);
+  letter-spacing: clamp(0.5px, 0.35vw, 3px);
+  margin: clamp(8px, 1.8vh, 18px) 0 0;
+  text-shadow: 0 2px 0 rgba(10, 6, 24, 0.9), 0 0 14px rgba(0, 0, 0, 0.85);
+  flex-shrink: 0;
+}
+
+/* ---- Bracketed menu ---- */
+#mainMenu .menu-buttons {
+  margin: auto 0 0;
+  padding-top: clamp(6px, 1.6vh, 20px);
+  gap: 0;
+  align-items: center;
+  width: auto;
+}
+#mainMenu .menu-buttons .btn,
+#mainMenu .menu-buttons .btn.primary {
+  width: auto;
+  min-height: 0;
+  line-height: 1.12;
+  padding: clamp(2px, 0.42vh, 5px) 12px;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  font-family: var(--menu-font);
+  font-weight: 700;
+  font-size: clamp(13px, 2.1vh, 20px);
+  letter-spacing: clamp(1px, 0.35vw, 3px);
+  text-transform: uppercase;
+  color: #f6efdc;
+  text-shadow: 0 2px 0 rgba(10, 6, 24, 0.95), 0 0 12px rgba(0, 0, 0, 0.9);
+  transition: color 0.14s ease, transform 0.1s ease, text-shadow 0.14s ease;
+}
+#mainMenu .menu-buttons .btn::before { content: '[ '; color: var(--gold); }
+#mainMenu .menu-buttons .btn::after { content: ' ]'; color: var(--gold); }
+#mainMenu .menu-buttons .btn:hover,
+#mainMenu .menu-buttons .btn:focus-visible {
+  color: var(--gold-hi);
+  transform: translateY(-1px);
+  text-shadow: 0 2px 0 rgba(10, 6, 24, 0.95), 0 0 16px rgba(255, 200, 110, 0.75);
+  outline: none;
+}
+#mainMenu .menu-buttons .btn:hover::before,
+#mainMenu .menu-buttons .btn:focus-visible::before { color: var(--gold-hi); }
+#mainMenu .menu-buttons .btn:hover::after,
+#mainMenu .menu-buttons .btn:focus-visible::after { color: var(--gold-hi); }
+#mainMenu .menu-buttons .btn:active { transform: translateY(1px) scale(0.99); }
+#mainMenu .menu-buttons .btn.primary { color: #fff4d2; }
+
+/* ---- Footer rows sit quietly under the menu ---- */
+#mainMenu .menu-row {
+  justify-content: center;
+  margin: clamp(3px, 0.7vh, 8px) 0 0;
+  font-family: var(--menu-font);
+  gap: var(--s2);
+}
+#mainMenu .menu-row label {
+  min-width: 0;
+  font-size: clamp(10px, 1.4vh, 13px);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #b9b2d8;
+  text-shadow: 0 1px 0 rgba(8, 5, 20, 0.9);
+}
+#mainMenu .active-char { color: var(--gold); text-shadow: 0 1px 0 rgba(8, 5, 20, 0.9); font-size: clamp(11px, 1.5vh, 14px); }
+#mainMenu .seg {
+  background: rgba(10, 8, 26, 0.55);
+  border-color: rgba(255, 207, 107, 0.35);
+  border-radius: 3px;
+}
+#mainMenu .seg-btn {
+  background: transparent;
+  font-family: var(--menu-font);
+  font-size: clamp(10px, 1.4vh, 13px);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  min-height: 0;
+  color: #b9b2d8;
+}
+#mainMenu .seg-btn.active { background: var(--gold); color: #2a1140; }
+#mainMenu .seg-btn:hover { color: var(--gold-hi); }
+#mainMenu .seg-btn.active:hover { color: #2a1140; }
+#mainMenu .btn.tiny {
+  background: rgba(12, 9, 28, 0.6);
+  border-color: rgba(255, 207, 107, 0.4);
+  border-radius: 3px;
+  color: #f2e6c8;
+  font-family: var(--menu-font);
+  font-size: clamp(10px, 1.4vh, 12px);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+#mainMenu .btn.tiny:hover { border-color: var(--gold-hi); color: #fff; box-shadow: none; }
+#mainMenu .version {
+  font-family: var(--menu-font);
+  color: #9d96bd;
+  font-size: clamp(9px, 1.2vh, 12px);
+  letter-spacing: 1.5px;
+  margin-top: clamp(4px, 1.2vh, 12px);
+  text-shadow: 0 1px 0 rgba(8, 5, 20, 0.9);
+}
+
+/* ---- Time-of-day readout ---- */
+.title-clock {
+  position: absolute;
+  z-index: 2;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(10px, env(safe-area-inset-right));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 207, 107, 0.3);
+  border-radius: var(--radius-sm);
+  background: rgba(10, 8, 24, 0.5);
+  backdrop-filter: blur(3px);
+  font-family: var(--menu-font);
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #e8dfc4;
+  pointer-events: auto;
+}
+.title-clock-btn {
+  appearance: none;
+  border: none;
+  background: none;
+  color: var(--gold);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 3px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.title-clock-btn:hover { color: var(--gold-hi); background: rgba(255, 207, 107, 0.14); }
+
+/* Short screens: drop the banner padding and tighten the stack so the whole
+   menu still fits without scrolling. */
+@media (max-height: 560px) {
+  .title-head { margin-top: 4px; width: min(420px, 86vw); }
+  .title-gem { width: 12px; height: 12px; top: -6px; }
+  .title-banner > .game-title { padding: 8px 30px 9px; font-size: clamp(20px, 5vw, 32px); }
+  #mainMenu .tagline { margin-top: 6px; }
+  #mainMenu .menu-buttons { padding-top: 8px; }
+}
+@media (max-width: 560px) {
+  .title-banner > .game-title { letter-spacing: 1px; }
+  #mainMenu .menu-buttons .btn { letter-spacing: 1px; }
+  .title-clock { font-size: 10px; letter-spacing: 1px; }
+}
+
+/* Respect a reduced-motion preference: the scene still renders and the sky
+   still turns, but the per-frame jitter is what this mostly affects. */
+@media (prefers-reduced-motion: reduce) {
+  #mainMenu .menu-buttons .btn { transition: none; }
 }

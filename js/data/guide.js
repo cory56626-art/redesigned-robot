@@ -13,11 +13,11 @@
 //                the recipe list and boss loot tables, so a new item is
 //                explained correctly the day it's added without anyone writing
 //                a paragraph for it.
-import { ITEMS, item as getItem } from './items.js?v=boss-redesign-1';
-import { RECIPES } from './recipes.js?v=boss-redesign-1';
-import { BOSSES } from './bosses.js?v=boss-redesign-1';
-import { ENEMIES } from './enemies.js?v=boss-redesign-1';
-import { TILE } from '../config.js?v=boss-redesign-1';
+import { ITEMS, item as getItem } from './items.js?v=title-screen-1';
+import { RECIPES } from './recipes.js?v=title-screen-1';
+import { BOSSES } from './bosses.js?v=title-screen-1';
+import { ENEMIES } from './enemies.js?v=title-screen-1';
+import { TILE } from '../config.js?v=title-screen-1';
 
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
 

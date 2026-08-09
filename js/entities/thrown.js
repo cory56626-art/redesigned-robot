@@ -5,11 +5,11 @@
 // terrain with restitution and friction. What differs is what happens on
 // contact — explode on a fuse, stick and then explode, or damage and drop as a
 // recoverable pickup.
-import { GRAVITY, TILE } from '../config.js?v=boss-redesign-1';
-import { aabb } from '../utils.js?v=boss-redesign-1';
-import { explode } from '../systems/explosions.js?v=boss-redesign-1';
-import { Sprites } from '../art/sprites.js?v=boss-redesign-1';
-import { item as getItem } from '../data/items.js?v=boss-redesign-1';
+import { GRAVITY, TILE } from '../config.js?v=title-screen-1';
+import { aabb } from '../utils.js?v=title-screen-1';
+import { explode } from '../systems/explosions.js?v=title-screen-1';
+import { Sprites } from '../art/sprites.js?v=title-screen-1';
+import { item as getItem } from '../data/items.js?v=title-screen-1';
 
 export class ThrownItem {
   /**
