@@ -1,13 +1,13 @@
 // Summoner Realms — combat & interaction resolution (weapons, mining, placing).
-import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=title-screen-1';
-import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=title-screen-1';
-import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=title-screen-1';
-import { SH, nextShape } from '../world/shapes.js?v=title-screen-1';
-import { W } from '../world/walls.js?v=title-screen-1';
-import { item as getItem } from '../data/items.js?v=title-screen-1';
-import { Projectile } from '../entities/projectile.js?v=title-screen-1';
-import { ThrownItem } from '../entities/thrown.js?v=title-screen-1';
-import { angleTo, aabb, clamp } from '../utils.js?v=title-screen-1';
+import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=hivewrought-1';
+import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=hivewrought-1';
+import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=hivewrought-1';
+import { SH, nextShape } from '../world/shapes.js?v=hivewrought-1';
+import { W } from '../world/walls.js?v=hivewrought-1';
+import { item as getItem } from '../data/items.js?v=hivewrought-1';
+import { Projectile } from '../entities/projectile.js?v=hivewrought-1';
+import { ThrownItem } from '../entities/thrown.js?v=hivewrought-1';
+import { angleTo, aabb, clamp } from '../utils.js?v=hivewrought-1';
 
 const MINE_RATE = 95;
 const MINE_SOUND_INTERVAL = 0.32;
@@ -139,8 +139,17 @@ export function useWeapon(game, player, item) {
     // tooltip). Ones that use ammo must have it, and the useTimer below prevents
     // a rapid click from consuming several arrows in one frame.
     if (item.ammo) {
+      // A weapon naming ammunition that is not in the live item set would
+      // otherwise throw here every frame the trigger is held, which reads as the
+      // whole game stuttering rather than as one bad weapon.
+      const ammoDef = getItem(item.ammo);
+      if (!ammoDef) {
+        game.toast(item.name + ' has no usable ammunition.', 'bad');
+        player.useTimer = 0.35;
+        return;
+      }
       if (player.inventory.count(item.ammo) <= 0) {
-        game.toast('Out of ' + getItem(item.ammo).name + '!', 'bad');
+        game.toast('Out of ' + ammoDef.name + '!', 'bad');
         player.floatText && game.floatText(pc.x, pc.y - 10, 'No ammo', '#ff6b7d');
         player.useTimer = 0.25;
         return;
@@ -296,6 +305,53 @@ function swingFx(game, player, item, angle, dmg, crit) {
       player.swing.color = 'rgba(180,230,255,0.95)';
       break;
     }
+    case 'guillotine': {
+      // The heavy swing throws its edge forward as a real, damaging crescent.
+      // That projectile is what pays for the Guillotine's slow use time, so it
+      // is deliberately wide and piercing rather than a cosmetic flourish.
+      const speed = 260;
+      game.addProjectile(new Projectile({
+        x: pc.x, y: pc.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        damage: Math.max(1, Math.round(dmg * 0.5)), ownerType: 'player', ownerId: player.id,
+        kind: 'guillotineCrescent', color: '#f0d489', w: 24, h: 24,
+        pierce: 2, life: 0.62, crit, trail: '#c9a227', knockback: item.knockback || 9,
+      }), true);
+      for (let i = 0; i < 10; i++) {
+        const a = angle + (Math.random() - 0.5) * (item.arc || 2.1);
+        const r = reach * (0.45 + Math.random() * 0.6);
+        game.fx.streak(pc.x + Math.cos(a) * r, pc.y + Math.sin(a) * r, a, i % 2 ? '#f7e6a8' : '#c9a227', 2, {
+          speed: 130, spread: 0.3, life: 0.26, size: 2, glow: true,
+        });
+      }
+      game.fx.ring(tipX, tipY, 'rgba(240,212,137,0.72)', 22, { life: 0.2, width: 2.6 });
+      game.fx.shake(2.2, 0.14);
+      player.swing.color = 'rgba(246,222,150,0.95)';
+      break;
+    }
+    case 'halberd': {
+      // A long, narrow venom thrust: streaks run along the shaft rather than
+      // across an arc, so the reach reads before the damage does.
+      for (let i = 0; i < 7; i++) {
+        const r = reach * (0.35 + i * 0.1);
+        game.fx.streak(pc.x + Math.cos(angle) * r, pc.y + Math.sin(angle) * r, angle, i % 2 ? '#d9ff9e' : '#8fd44e', 2, {
+          speed: 120, spread: 0.18, life: 0.24, size: 1.6, glow: true,
+        });
+      }
+      game.fx.ring(tipX, tipY, 'rgba(185,232,110,0.7)', 14, { life: 0.18, width: 2 });
+      player.swing.color = 'rgba(185,232,110,0.92)';
+      break;
+    }
+    case 'shear': {
+      // Two crossing cuts, to sell "paired blades" on a swing this fast.
+      for (const side of [-1, 1]) {
+        game.fx.streak(tipX, tipY, angle + side * 0.3, side < 0 ? '#f6e2ad' : '#e0c169', 3, {
+          speed: 185, spread: 0.2, life: 0.16, size: 1.5, glow: true,
+        });
+      }
+      game.fx.ring(tipX, tipY, 'rgba(224,193,105,0.6)', 12, { life: 0.12, width: 1.6 });
+      player.swing.color = 'rgba(240,214,140,0.9)';
+      break;
+    }
     case 'mandible': {
       for (const side of [-1, 1]) {
         game.fx.streak(tipX, tipY, angle + side * 0.22, side < 0 ? '#f7df9b' : '#d99c3e', 5, {
@@ -381,6 +437,38 @@ function castFx(game, player, item, angle) {
       game.fx.streak(hx, hy, angle, '#d7a5ff', 7, { speed: 140, spread: 0.8, life: 0.3, size: 2, gravity: -20 });
       break;
     }
+    case 'hivemind': {
+      // Four shards leaving at once, so the fan is visible before they converge.
+      for (let i = 0; i < 4; i++) {
+        game.fx.streak(hx, hy, angle + (i - 1.5) * 0.22, i % 2 ? '#e6ffb0' : '#c9ee79', 3, {
+          speed: 150, spread: 0.15, life: 0.3, size: 1.8, glow: true,
+        });
+      }
+      game.fx.ring(hx, hy, 'rgba(201,238,121,0.7)', 22, { life: 0.22, width: 2 });
+      break;
+    }
+    case 'venomarch': {
+      // One heavy cast: light pulled in, then a single hard flash.
+      for (let i = 0; i < 10; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = 18 + Math.random() * 14;
+        game.fx.push({
+          x: hx + Math.cos(a) * r, y: hy + Math.sin(a) * r,
+          vx: -Math.cos(a) * 105, vy: -Math.sin(a) * 105,
+          life: 0.28, max: 0.28, size: 2.4, color: '#b9e86e',
+          gravity: 0, drag: 0.5, glow: true, shrink: true,
+        });
+      }
+      game.fx.ring(hx, hy, 'rgba(127,201,63,0.8)', 26, { life: 0.24, width: 2.4 });
+      game.fx.shake(1.4, 0.1);
+      break;
+    }
+    case 'resonate': {
+      // Cheap and rapid, so the tell is a small clean pulse and nothing more.
+      game.fx.ring(hx, hy, 'rgba(232,211,138,0.65)', 15, { life: 0.16, width: 1.8 });
+      game.fx.streak(hx, hy, angle, '#f2e3af', 4, { speed: 120, spread: 0.5, life: 0.18, size: 1.4 });
+      break;
+    }
     case 'hive': {
       for (let i = 0; i < 8; i++) {
         game.fx.streak(hx, hy, angle + (Math.random() - 0.5) * 1.1, i % 2 ? '#c9ee79' : '#efc15a', 1, {
@@ -427,6 +515,17 @@ function shotFx(game, player, item, angle) {
     case 'stinger':
       game.fx.streak(mx, my, angle, '#f7df9b', 6, { speed: 220, spread: 0.28, life: 0.22, size: 1.6, glow: true });
       game.fx.ring(mx, my, 'rgba(239,187,87,0.58)', 15, { life: 0.14, width: 1.8 });
+      break;
+    case 'hivebore':
+      // Deliberately small: this fires ~7 times a second and a big flash per
+      // shot would bury the screen.
+      game.fx.streak(mx, my, angle, '#f4ce76', 2, { speed: 165, spread: 0.22, life: 0.12, size: 1.2 });
+      break;
+    case 'ballista':
+      game.fx.streak(mx, my, angle, '#b9e86e', 7, { speed: 280, spread: 0.2, life: 0.26, size: 2, glow: true });
+      game.fx.ring(mx, my, 'rgba(143,212,78,0.66)', 20, { life: 0.18, width: 2.2 });
+      player.vx -= Math.cos(angle) * 34;
+      game.fx.shake(1.8, 0.12);
       break;
   }
 }

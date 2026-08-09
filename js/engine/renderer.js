@@ -1,15 +1,15 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=title-screen-1';
-import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=title-screen-1';
-import { SH } from '../world/shapes.js?v=title-screen-1';
-import { W, hasWall } from '../world/walls.js?v=title-screen-1';
-import { BIOMES } from '../world/biomes.js?v=title-screen-1';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=title-screen-1';
-import { item as getItem } from '../data/items.js?v=title-screen-1';
-import { canPlaceAt } from '../systems/combat.js?v=title-screen-1';
-import { clamp } from '../utils.js?v=title-screen-1';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=title-screen-1';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=hivewrought-1';
+import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=hivewrought-1';
+import { SH } from '../world/shapes.js?v=hivewrought-1';
+import { W, hasWall } from '../world/walls.js?v=hivewrought-1';
+import { BIOMES } from '../world/biomes.js?v=hivewrought-1';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=hivewrought-1';
+import { item as getItem } from '../data/items.js?v=hivewrought-1';
+import { canPlaceAt } from '../systems/combat.js?v=hivewrought-1';
+import { clamp } from '../utils.js?v=hivewrought-1';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=hivewrought-1';
 
 // Fallback appearance for players without a character record (remote players
 // on an older client, or a world loaded before characters existed).
@@ -29,6 +29,9 @@ const PROJ_GLOW = {
   arcwave: '#bfe9ff', frostbolt: '#9cecff', diamondSpear: '#dffcff', miniDiamondSpear: '#8be9ff', aidanPulse: '#8feaff', aidanNova: '#d8a7ff', aidanFreeze: '#61eaff',
   mechMissile: '#ffad55', mechPlasma: '#78e9ff', mechShock: '#ffd36d',
   playerMissile: '#ffbd69', wormSpit: '#ca8cff', wormQuake: '#d8a6ff',
+  guillotineCrescent: '#f0d489', hiveboreBolt: '#f4ce76', venomLance: '#b9e86e',
+  royalSting: '#efbb57', prismShard: '#c9ee79', venomarchBolt: '#a5e86b',
+  resonantPulse: '#f2e3af', droneLance: '#efbb57',
 };
 
 // Background colour anchors by depth, in tile rows. `colorAtDepth` interpolates
@@ -836,6 +839,127 @@ export class Renderer {
         ctx.strokeStyle = '#3b2934'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.arc(0, 0, 8, -0.85, 0.85); ctx.stroke();
         ctx.globalAlpha = 1;
+        ctx.restore();
+        continue;
+      }
+
+      // ---- Hivewrought tier (post-Vespera) ----
+      // Each of these has to stay legible next to the others: the tier fires a
+      // lot of gold-and-green at once, so silhouette does the work that colour
+      // alone cannot.
+      if (pr.kind === 'guillotineCrescent') {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.26;
+        ctx.fillStyle = '#f0d489';
+        ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+        ctx.strokeStyle = '#f7e6a8'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(0, 0, 12, -1.15, 1.15); ctx.stroke();
+        ctx.strokeStyle = '#c9a227'; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.arc(0, 0, 8.5, -1.0, 1.0); ctx.stroke();
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'hiveboreBolt') {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.2;
+        ctx.fillStyle = '#efbb57'; ctx.fillRect(-7, -3, 15, 6);
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+        ctx.fillStyle = '#2a222d'; ctx.fillRect(-5, -1.5, 8, 3);
+        ctx.fillStyle = '#f4ce76';
+        ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(1, -2.5); ctx.lineTo(1, 2.5); ctx.closePath(); ctx.fill();
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'venomLance') {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.22;
+        ctx.fillStyle = '#8fd44e'; ctx.fillRect(-14, -4, 30, 8);
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+        ctx.fillStyle = '#4a6b2a'; ctx.fillRect(-12, -1.2, 20, 2.4);
+        ctx.fillStyle = '#b9e86e';
+        ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(6, -4); ctx.lineTo(6, 4); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#e6ffc0'; ctx.fillRect(7, -0.8, 5, 1.6);
+        ctx.fillStyle = '#5f8a34';
+        ctx.beginPath(); ctx.moveTo(-12, -1); ctx.lineTo(-15, -5); ctx.lineTo(-9, -1); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-12, 1); ctx.lineTo(-15, 5); ctx.lineTo(-9, 1); ctx.closePath(); ctx.fill();
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'royalSting') {
+        const pulse = 1 + Math.sin(performance.now() * 0.02 + pr.x * 0.05) * 0.14;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.24 * pulse;
+        ctx.fillStyle = '#efbb57';
+        ctx.beginPath(); ctx.arc(0, 0, 11 * pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+        ctx.fillStyle = '#211923';
+        ctx.beginPath(); ctx.ellipse(-1, 0, 7, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#efbb57';
+        ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(2, -3.5); ctx.lineTo(2, 3.5); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#c9ee79'; ctx.fillRect(-6, -1, 4, 2);
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'prismShard') {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.26;
+        ctx.fillStyle = '#c9ee79';
+        ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#c9ee79';
+        ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(0, -3.5); ctx.lineTo(-5, 0); ctx.lineTo(0, 3.5); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#f2ffd0'; ctx.fillRect(-1, -1.2, 3.5, 2.4);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'venomarchBolt') {
+        const pulse = 1 + Math.sin(performance.now() * 0.015 + pr.y * 0.05) * 0.12;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.28 * pulse;
+        ctx.fillStyle = '#7fc93f';
+        ctx.beginPath(); ctx.arc(0, 0, 13 * pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#7fc93f';
+        ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(0, -6); ctx.lineTo(-8, 0); ctx.lineTo(0, 6); ctx.closePath(); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = '#1f3312';
+        ctx.beginPath(); ctx.ellipse(0, 0, 4, 2.6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#e6ffc0'; ctx.fillRect(-1.5, -1, 4, 2);
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'resonantPulse') {
+        const pulse = 1 + Math.sin(performance.now() * 0.026 + pr.x * 0.06) * 0.2;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.24;
+        ctx.fillStyle = '#f2e3af';
+        ctx.beginPath(); ctx.arc(0, 0, 8 * pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = '#f2e3af'; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.arc(0, 0, 4.5 * pulse, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = '#e8d38a';
+        ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        continue;
+      }
+
+      if (pr.kind === 'droneLance') {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.2;
+        ctx.fillStyle = '#efbb57'; ctx.fillRect(-9, -3, 19, 6);
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+        ctx.fillStyle = '#2a222d'; ctx.fillRect(-7, -1.4, 11, 2.8);
+        ctx.fillStyle = '#c9ee79';
+        ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(3, -3); ctx.lineTo(3, 3); ctx.closePath(); ctx.fill();
         ctx.restore();
         continue;
       }

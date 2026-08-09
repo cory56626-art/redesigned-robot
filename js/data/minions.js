@@ -59,6 +59,30 @@ export const MINIONS = {
     },
     desc: 'A sharp-winged wasp that keeps a venom sting on targets it can see.',
   },
+  // ---- Hivewrought minions (post-Vespera, tier 11) ----
+  // Brood Wasp, the Vespera drop these follow, works out to roughly 25 DPS.
+  // These land between 32 and 42, and each one pays for the increase somewhere:
+  // the drone with reach it must keep, the hiveguard with a leash, the shade
+  // with having to be in contact to matter at all.
+  royalDrone: {
+    key: 'royalDrone', name: 'Royal Drone', behavior: 'shooter', damage: 22, speed: 255, range: 400,
+    color: '#2a222d', color2: '#efbb57', w: 18, h: 13, fireRate: 0.68,
+    projectile: {
+      kind: 'droneLance', speed: 400, color: '#efbb57', trail: '#c9ee79',
+      homing: true, homingStrength: 1.9, effect: { poison: 2.0 },
+    },
+    desc: 'A royal drone that keeps its distance and lands seeking venom lances through clear sight lines.',
+  },
+  hiveguard: {
+    key: 'hiveguard', name: 'Hiveguard', behavior: 'guard', damage: 26, speed: 115, range: 165,
+    color: '#a8873a', color2: '#f0d489', w: 20, h: 24, attackRate: 0.62,
+    desc: 'A heavy bodyguard that keeps station at your side and strikes anything that closes on you.',
+  },
+  vesperShade: {
+    key: 'vesperShade', name: 'Vesper Shade', behavior: 'fastmelee', damage: 13, speed: 330, range: 380,
+    color: '#3d3348', color2: '#c9a7ff', w: 15, h: 19, attackRate: 0.34, flying: true,
+    desc: 'A restless shade of the queen that flies down onto a target and cuts without pause.',
+  },
   diamondHeart: {
     key: 'diamondHeart', name: 'Diamond Heart', behavior: 'diamondHeart',
     damage: 0, speed: 280, range: 620, color: '#dffcff', color2: '#62c9e8',

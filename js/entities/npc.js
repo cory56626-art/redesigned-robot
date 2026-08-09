@@ -5,9 +5,9 @@
 // to for advice or to have an item explained (see ui/npcdialog.js). Nivara
 // Frostbell uses the same saveable entity with a snow-biome home, but is also a
 // real combatant who can be targeted, hurt, and eventually defeated.
-import { TILE, GRAVITY } from '../config.js?v=title-screen-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=title-screen-1';
-import { Projectile } from './projectile.js?v=title-screen-1';
+import { TILE, GRAVITY } from '../config.js?v=hivewrought-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=hivewrought-1';
+import { Projectile } from './projectile.js?v=hivewrought-1';
 
 const NPC_PRESETS = {
   guide: {

@@ -9,9 +9,9 @@
 // top, a shadowed underside and rimmed sides. That neighbour awareness — plus
 // grass fringing down onto dirt and trunk/canopy shading — is most of what makes
 // terrain read as terrain instead of a grid of coloured squares.
-import { T, TILES, tileMat, isTree, isLeaf } from '../world/tiles.js?v=title-screen-1';
-import { W, WALLS } from '../world/walls.js?v=title-screen-1';
-import { mulberry32 } from '../utils.js?v=title-screen-1';
+import { T, TILES, tileMat, isTree, isLeaf } from '../world/tiles.js?v=hivewrought-1';
+import { W, WALLS } from '../world/walls.js?v=hivewrought-1';
+import { mulberry32 } from '../utils.js?v=hivewrought-1';
 
 function makeCanvas(w, h) {
   const c = document.createElement('canvas');
@@ -797,6 +797,33 @@ class SpriteBank {
       ctx.fillStyle = '#a9efff'; ctx.beginPath(); ctx.moveTo(9, 6); ctx.lineTo(16, 3); ctx.lineTo(12, 10); ctx.lineTo(10, 10); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#ffcf72'; ctx.beginPath(); ctx.arc(7, 14, 2.5, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#e9ffff'; ctx.fillRect(10, 7, 2, 3);
       ctx.strokeStyle = '#7fdcf4'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(5, 13); ctx.lineTo(10, 18); ctx.stroke();
+    } else if (id === 'royalGuillotine') {
+      // A cleaver-heavy head on a short haft: the silhouette should read as
+      // "slow and enormous" at 20px, before the tooltip says so.
+      ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 3.2; ctx.beginPath(); ctx.moveTo(4, 18); ctx.lineTo(9, 11); ctx.stroke();
+      ctx.fillStyle = '#8a6f1c'; ctx.beginPath(); ctx.moveTo(7, 12); ctx.lineTo(9, 3); ctx.lineTo(18, 5); ctx.lineTo(16, 13); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#f0d489'; ctx.beginPath(); ctx.moveTo(9, 4); ctx.lineTo(17, 6); ctx.lineTo(15, 10); ctx.lineTo(10, 8); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#fff5c8'; ctx.fillRect(11, 5.5, 4, 1.6);
+      ctx.fillStyle = '#2c2333'; ctx.fillRect(6, 11, 5, 2.4);
+      ctx.fillStyle = '#c9a227'; ctx.beginPath(); ctx.arc(6.5, 12.2, 1.7, 0, Math.PI * 2); ctx.fill();
+    } else if (id === 'hivewardenHalberd') {
+      // Longest reach in the tier, so the haft runs corner to corner.
+      ctx.strokeStyle = '#4a6b2a'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(2, 18); ctx.lineTo(15, 4); ctx.stroke();
+      ctx.strokeStyle = '#7c9c4a'; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(3, 17); ctx.lineTo(14, 5); ctx.stroke();
+      ctx.fillStyle = '#b9e86e'; ctx.beginPath(); ctx.moveTo(13, 6); ctx.lineTo(19, 0); ctx.lineTo(17, 8); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#e6ffc0'; ctx.beginPath(); ctx.moveTo(15, 4); ctx.lineTo(18, 1); ctx.lineTo(16, 6); ctx.closePath(); ctx.fill();
+      // The side axe-blade that makes it a halberd rather than a spear.
+      ctx.fillStyle = '#8fd44e'; ctx.beginPath(); ctx.moveTo(11, 7); ctx.lineTo(8, 3); ctx.lineTo(13, 4); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#5f8a34'; ctx.beginPath(); ctx.moveTo(12, 9); ctx.lineTo(16, 11); ctx.lineTo(11, 12); ctx.closePath(); ctx.fill();
+    } else if (id === 'chitinshearTwinblades') {
+      // Two crossed blades, so it never reads as one more sword.
+      ctx.strokeStyle = '#4b3a22'; ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.moveTo(4, 16); ctx.lineTo(7, 13); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(8, 18); ctx.lineTo(11, 15); ctx.stroke();
+      ctx.fillStyle = '#e0c169'; ctx.beginPath(); ctx.moveTo(6, 14); ctx.lineTo(11, 4); ctx.lineTo(14, 6); ctx.lineTo(9, 15); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#c39d3f'; ctx.beginPath(); ctx.moveTo(10, 16); ctx.lineTo(16, 7); ctx.lineTo(18, 10); ctx.lineTo(13, 17); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#f6e2ad'; ctx.beginPath(); ctx.moveTo(8, 12); ctx.lineTo(11, 6); ctx.lineTo(12, 7); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#2a222d'; ctx.fillRect(5, 14.5, 3, 2); ctx.fillRect(9.5, 16, 3, 2);
     } else {
       ctx.fillStyle = '#5288ac'; ctx.beginPath(); ctx.moveTo(3, 17); ctx.lineTo(8, 5); ctx.lineTo(17, 2); ctx.lineTo(13, 13); ctx.lineTo(7, 18); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#d6fbff'; ctx.beginPath(); ctx.moveTo(8, 6); ctx.lineTo(16, 3); ctx.lineTo(11, 12); ctx.closePath(); ctx.fill();
@@ -844,6 +871,33 @@ class SpriteBank {
       ctx.fillStyle = '#ffb35b'; ctx.beginPath(); ctx.moveTo(18, 11); ctx.lineTo(13, 8); ctx.lineTo(13, 14); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#fff0bd'; ctx.fillRect(14, 10, 3, 2); ctx.fill();
       ctx.fillStyle = '#3c2b25'; ctx.fillRect(5, 13, 4, 5); ctx.fill(); ctx.fillStyle = '#ffcf72'; ctx.fillRect(9, 12, 2, 2);
+    } else if (id === 'hiveboreRepeater') {
+      // Boxy magazine-fed body — reads as the rapid one of the three.
+      ctx.fillStyle = '#2a222d'; ctx.fillRect(2, 9, 15, 4);
+      ctx.fillStyle = '#a8873a'; ctx.fillRect(5, 6, 8, 4);
+      ctx.fillStyle = '#d7a34c'; ctx.fillRect(13, 9, 5, 2);
+      ctx.fillStyle = '#f4ce76'; ctx.fillRect(6, 7, 5, 1.4); ctx.fillRect(16, 9.4, 2, 1.2);
+      ctx.fillStyle = '#3d3348'; ctx.fillRect(4, 12, 3, 5);
+      ctx.fillStyle = '#c9ee79'; ctx.fillRect(9, 12, 3, 3);
+    } else if (id === 'venomlanceBallista') {
+      // Crossbow limbs plus a loaded lance: heavy, braced, slow.
+      ctx.strokeStyle = '#4a6b2a'; ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.moveTo(6, 3); ctx.quadraticCurveTo(9, 10, 6, 17); ctx.stroke();
+      ctx.strokeStyle = '#dff5c0'; ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.moveTo(6, 3); ctx.lineTo(6, 17); ctx.stroke();
+      ctx.fillStyle = '#3d3d2a'; ctx.fillRect(2, 9, 12, 3);
+      ctx.fillStyle = '#8fd44e'; ctx.fillRect(7, 9.5, 9, 2);
+      ctx.fillStyle = '#b9e86e'; ctx.beginPath(); ctx.moveTo(19, 10.5); ctx.lineTo(14, 7.5); ctx.lineTo(14, 13.5); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#2e4419'; ctx.fillRect(3, 12, 3, 5);
+    } else if (id === 'royalStingLauncher') {
+      // A wide-mouthed tube with a stinger already in it.
+      ctx.fillStyle = '#211923'; ctx.fillRect(2, 8, 14, 6);
+      ctx.fillStyle = '#a8873a'; ctx.fillRect(4, 7, 12, 4);
+      ctx.fillStyle = '#efbb57'; ctx.beginPath(); ctx.moveTo(19, 11); ctx.lineTo(13, 7); ctx.lineTo(13, 15); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#c9ee79'; ctx.fillRect(14, 10, 4, 2);
+      ctx.fillStyle = '#f4ce76'; ctx.fillRect(6, 8, 6, 1.5);
+      ctx.fillStyle = '#3d3348'; ctx.fillRect(5, 13, 4, 5);
+      ctx.fillStyle = '#efbb57'; ctx.beginPath(); ctx.arc(10, 12.5, 1.8, 0, Math.PI * 2); ctx.fill();
     } else {
       ctx.strokeStyle = '#7dc4e8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(3, 16); ctx.lineTo(16, 4); ctx.stroke();
       ctx.fillStyle = '#dffbff'; ctx.beginPath(); ctx.moveTo(16, 2); ctx.lineTo(19, 5); ctx.lineTo(15, 6); ctx.closePath(); ctx.fill();
@@ -898,6 +952,36 @@ class SpriteBank {
       ctx.fillStyle = '#25152f'; ctx.beginPath(); ctx.arc(13, 5, 5, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#9d65d1'; ctx.beginPath(); ctx.arc(12, 4, 3, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#f0cfff'; ctx.fillRect(11, 3, 2, 2); ctx.fillStyle = '#d7a5ff'; ctx.fillRect(14, 6, 2, 2);
+    } else if (id === 'hivemindPrism') {
+      // A faceted prism throwing four points, matching the four-shard cast.
+      ctx.strokeStyle = '#3b4a26'; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(5, 18); ctx.lineTo(11, 9); ctx.stroke();
+      ctx.fillStyle = '#5f8a34'; ctx.beginPath(); ctx.moveTo(13, 1); ctx.lineTo(18, 6); ctx.lineTo(13, 11); ctx.lineTo(8, 6); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#c9ee79'; ctx.beginPath(); ctx.moveTo(13, 3); ctx.lineTo(16.5, 6); ctx.lineTo(13, 9); ctx.lineTo(9.5, 6); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#f2ffd0'; ctx.fillRect(12, 5, 2, 2);
+      ctx.fillStyle = '#a5e86b';
+      for (const [dx, dy] of [[-6, -4], [6, -4], [-6, 4], [6, 4]]) {
+        ctx.beginPath(); ctx.arc(13 + dx * 0.55, 6 + dy * 0.55, 1.1, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (id === 'venomarchCodex') {
+      // A tome, not a staff — it is the one mage weapon here that is mageKind
+      // 'tome', and the icon should say so before the tooltip does.
+      ctx.fillStyle = '#25381a'; ctx.fillRect(3, 3, 12, 14);
+      ctx.fillStyle = '#4a6b2a'; ctx.fillRect(4, 4, 10, 12);
+      ctx.fillStyle = '#1a2612'; ctx.fillRect(14, 4, 2, 12);
+      ctx.fillStyle = '#7fc93f'; ctx.beginPath(); ctx.arc(9, 10, 3.4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#d9ff9e'; ctx.beginPath(); ctx.arc(9, 10, 1.7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#b9e86e'; ctx.fillRect(6, 5.5, 6, 1.2);
+      ctx.fillStyle = '#e6ffc0'; ctx.fillRect(8.2, 8.5, 1.6, 1.6);
+    } else if (id === 'chitinResonator') {
+      // Tuning-fork head: the cheap, steady, utility caster.
+      ctx.strokeStyle = '#6b5a32'; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(6, 18); ctx.lineTo(10, 11); ctx.stroke();
+      ctx.strokeStyle = '#e8d38a'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(10, 11); ctx.lineTo(7, 3); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(10, 11); ctx.lineTo(14, 3); ctx.stroke();
+      ctx.fillStyle = '#f2e3af'; ctx.beginPath(); ctx.arc(7, 2.5, 1.7, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(14, 2.5, 1.7, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(242,227,175,0.8)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(10.5, 7, 4.2, -2.5, -0.6); ctx.stroke();
     } else {
       ctx.strokeStyle = '#382947'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(5, 18); ctx.lineTo(12, 8); ctx.stroke();
       ctx.fillStyle = '#612d8f'; ctx.beginPath(); ctx.moveTo(11, 8); ctx.lineTo(13, 1); ctx.lineTo(17, 4); ctx.lineTo(15, 10); ctx.closePath(); ctx.fill();
@@ -935,6 +1019,33 @@ class SpriteBank {
       ctx.fillStyle = '#2d1b3b'; ctx.fillRect(4, 3, 11, 14); ctx.fillStyle = '#6f3d91'; ctx.fillRect(5, 4, 9, 12);
       ctx.fillStyle = '#d7a5ff'; ctx.beginPath(); ctx.moveTo(10, 6); ctx.lineTo(14, 9); ctx.lineTo(10, 13); ctx.lineTo(6, 9); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#301743'; ctx.fillRect(9, 7, 2, 6); ctx.fillStyle = '#f0cfff'; ctx.fillRect(8, 8, 1, 1); ctx.fillRect(11, 8, 1, 1);
+    } else if (id === 'royalDroneScepter') {
+      // A winged drone crest on a scepter — the ranged, mobile summon.
+      ctx.strokeStyle = '#3a2f22'; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(5, 18); ctx.lineTo(10, 10); ctx.stroke();
+      ctx.fillStyle = '#2a222d'; ctx.beginPath(); ctx.ellipse(11, 7, 4, 2.6, -0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#efbb57'; ctx.fillRect(9, 6.2, 4, 1.4);
+      ctx.strokeStyle = '#f4ce76'; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.moveTo(9, 5); ctx.lineTo(5, 1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(13, 5); ctx.lineTo(17, 1); ctx.stroke();
+      ctx.fillStyle = '#c9ee79'; ctx.beginPath(); ctx.moveTo(15, 8); ctx.lineTo(12, 7); ctx.lineTo(14, 10); ctx.closePath(); ctx.fill();
+    } else if (id === 'hiveguardTotem') {
+      // A planted totem: broad, footed, immovable.
+      ctx.fillStyle = '#6b5423'; ctx.beginPath(); ctx.moveTo(10, 1); ctx.lineTo(16, 6); ctx.lineTo(15, 16); ctx.lineTo(5, 16); ctx.lineTo(4, 6); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#a8873a'; ctx.fillRect(7, 6, 6, 7);
+      ctx.fillStyle = '#f0d489'; ctx.beginPath(); ctx.moveTo(10, 4); ctx.lineTo(13, 7); ctx.lineTo(10, 10); ctx.lineTo(7, 7); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#2a222d'; ctx.fillRect(8, 6.5, 1.4, 1.4); ctx.fillRect(10.8, 6.5, 1.4, 1.4);
+      ctx.fillStyle = '#c9a227'; ctx.fillRect(3, 16, 14, 2.6);
+      ctx.fillStyle = '#efbb57'; ctx.fillRect(8.5, 11, 3, 2);
+    } else if (id === 'vesperShadeBell') {
+      // A hanging bell trailing shade — the aggressive melee summon.
+      ctx.strokeStyle = '#5c4f6b'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(10, 1); ctx.lineTo(10, 4); ctx.stroke();
+      ctx.fillStyle = '#3d3348'; ctx.beginPath();
+      ctx.moveTo(5, 14); ctx.quadraticCurveTo(5, 4, 10, 4); ctx.quadraticCurveTo(15, 4, 15, 14); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#6a5a80'; ctx.beginPath();
+      ctx.moveTo(7, 13); ctx.quadraticCurveTo(7, 6, 10, 6); ctx.quadraticCurveTo(12, 6, 12, 13); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#2a2333'; ctx.fillRect(4, 14, 12, 2);
+      ctx.fillStyle = '#c9a7ff'; ctx.beginPath(); ctx.arc(10, 17, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#e6d4ff'; ctx.fillRect(9, 8, 2, 3);
     } else {
       ctx.strokeStyle = '#4a3a5f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(10, 3); ctx.lineTo(10, 13); ctx.stroke();
       ctx.fillStyle = '#7653a8'; ctx.beginPath(); ctx.moveTo(5, 10); ctx.quadraticCurveTo(10, 15, 15, 10); ctx.lineTo(14, 16); ctx.quadraticCurveTo(10, 19, 6, 16); ctx.closePath(); ctx.fill();

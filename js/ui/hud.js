@@ -1,7 +1,7 @@
 // Summoner Realms — in-game HUD (bars, hotbar, boss bar, clock, indicators).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN } from '../config.js?v=title-screen-1';
-import { Sprites } from '../art/sprites.js?v=title-screen-1';
-import { item as getItem } from '../data/items.js?v=title-screen-1';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN } from '../config.js?v=hivewrought-1';
+import { Sprites } from '../art/sprites.js?v=hivewrought-1';
+import { item as getItem } from '../data/items.js?v=hivewrought-1';
 
 const BUFF_ICON = { regen: '♥', ironskin: '🛡', swift: '»' };
 
@@ -183,7 +183,7 @@ export class HUD {
 
   _updateAmmo(p) {
     const sel = p.inventory.selectedItem();
-    if (sel && sel.category === 'weapon' && sel.weaponClass === 'ranged' && sel.ammo) {
+    if (sel && sel.category === 'weapon' && sel.weaponClass === 'ranged' && sel.ammo && getItem(sel.ammo)) {
       const n = p.inventory.count(sel.ammo);
       const ammoName = getItem(sel.ammo).name;
       this.el.ammo.classList.remove('hidden');

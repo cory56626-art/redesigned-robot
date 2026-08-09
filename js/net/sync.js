@@ -1,12 +1,12 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
-import { MSG } from './protocol.js?v=title-screen-1';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=title-screen-1';
-import { Player, assignColor } from '../entities/player.js?v=title-screen-1';
-import { Projectile } from '../entities/projectile.js?v=title-screen-1';
-import { ThrownItem } from '../entities/thrown.js?v=title-screen-1';
-import { ITEMS, isItemEnabled } from '../data/items.js?v=title-screen-1';
-import { ENEMIES } from '../data/enemies.js?v=title-screen-1';
-import { BOSSES } from '../data/bosses.js?v=title-screen-1';
+import { MSG } from './protocol.js?v=hivewrought-1';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=hivewrought-1';
+import { Player, assignColor } from '../entities/player.js?v=hivewrought-1';
+import { Projectile } from '../entities/projectile.js?v=hivewrought-1';
+import { ThrownItem } from '../entities/thrown.js?v=hivewrought-1';
+import { ITEMS, isItemEnabled } from '../data/items.js?v=hivewrought-1';
+import { ENEMIES } from '../data/enemies.js?v=hivewrought-1';
+import { BOSSES } from '../data/bosses.js?v=hivewrought-1';
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 

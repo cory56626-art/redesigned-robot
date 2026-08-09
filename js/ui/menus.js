@@ -1,15 +1,15 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=title-screen-1';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=title-screen-1';
-import { Sprites } from '../art/sprites.js?v=title-screen-1';
-import { item as getItem } from '../data/items.js?v=title-screen-1';
-import { availableRecipes } from '../systems/crafting.js?v=title-screen-1';
-import { claudeNotesHTML } from './claude-notes.js?v=title-screen-1';
-import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=title-screen-1';
-import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=title-screen-1';
-import { drawCharacterPreview } from '../art/charpreview.js?v=title-screen-1';
-import { TitleScreen } from './titlescreen.js?v=title-screen-1';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=hivewrought-1';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=hivewrought-1';
+import { Sprites } from '../art/sprites.js?v=hivewrought-1';
+import { item as getItem } from '../data/items.js?v=hivewrought-1';
+import { availableRecipes } from '../systems/crafting.js?v=hivewrought-1';
+import { claudeNotesHTML } from './claude-notes.js?v=hivewrought-1';
+import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=hivewrought-1';
+import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=hivewrought-1';
+import { drawCharacterPreview } from '../art/charpreview.js?v=hivewrought-1';
+import { TitleScreen } from './titlescreen.js?v=hivewrought-1';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [

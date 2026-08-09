@@ -5,14 +5,14 @@ import {
   HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN,
   CAST_REGEN_DELAY, CAST_REGEN_MULT, RESPAWN_DELAY, RESPAWN_DELAY_BOSS,
   SWIM_DRAG, SWIM_STROKE, WIND_PLAYER_PUSH,
-} from '../config.js?v=title-screen-1';
-import { tileDef } from '../world/tiles.js?v=title-screen-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=title-screen-1';
-import { Inventory } from '../systems/inventory.js?v=title-screen-1';
-import { item as getItem } from '../data/items.js?v=title-screen-1';
-import * as combat from '../systems/combat.js?v=title-screen-1';
-import * as fishing from '../systems/fishing.js?v=title-screen-1';
-import { clamp } from '../utils.js?v=title-screen-1';
+} from '../config.js?v=hivewrought-1';
+import { tileDef } from '../world/tiles.js?v=hivewrought-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=hivewrought-1';
+import { Inventory } from '../systems/inventory.js?v=hivewrought-1';
+import { item as getItem } from '../data/items.js?v=hivewrought-1';
+import * as combat from '../systems/combat.js?v=hivewrought-1';
+import * as fishing from '../systems/fishing.js?v=hivewrought-1';
+import { clamp } from '../utils.js?v=hivewrought-1';
 
 export class Player {
   constructor(id, opts = {}) {

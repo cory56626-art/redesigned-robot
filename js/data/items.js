@@ -1,7 +1,7 @@
 // Summoner Realms — item catalogue. All original names/designs.
 // Categories: weapon (melee/ranged/mage/summon), tool, armor, accessory,
 // potion, ammo, material, block, station, summonitem.
-import { T } from '../world/tiles.js?v=title-screen-1';
+import { T } from '../world/tiles.js?v=hivewrought-1';
 
 export const ITEMS = {};
 
@@ -46,6 +46,14 @@ export const PREHARDMODE_ITEM_IDS = new Set([
   'missileLauncher', 'mechanicalSword',
   'stingerBow', 'mandibleEdge', 'hiveCatalyst', 'broodStaff',
   'waspEmblem', 'vesperaWings',
+  // Post-Vespera "Hivewrought" tier (tier 11). Twelve weapons — three per class
+  // — forged from the queen's remains plus the deep-ore alloys. This is the
+  // bridge tier between the third boss and the fights that follow it, so every
+  // entry is a sidegrade-with-a-specialty rather than a flat stat bump.
+  'royalGuillotine', 'hivewardenHalberd', 'chitinshearTwinblades',
+  'hiveboreRepeater', 'venomlanceBallista', 'royalStingLauncher',
+  'hivemindPrism', 'venomarchCodex', 'chitinResonator',
+  'royalDroneScepter', 'hiveguardTotem', 'vesperShadeBell',
 ]);
 
 // Raw terrain materials are also placeable blocks, so they remain available
@@ -131,6 +139,27 @@ melee('mandibleEdge', 'Mandible Edge', '#efbb57', 22, 0.34, 10, {
   desc: 'Vespera drop. Twin obsidian-gold blades land a fast second slash and leave a brief toxin.',
 });
 
+// ---------- Hivewrought melee (post-Vespera, tier 11) ----------
+// Three answers to the same question, so the choice is a playstyle and not a
+// number. Mandible Edge (the Vespera drop these follow) lands ~120 DPS; each of
+// these sits close to that and buys its edge with a real cost — the Guillotine
+// with commitment, the Halberd with a narrow line, the Twinblades with range.
+melee('royalGuillotine', 'Royal Guillotine', '#c9a227', 48, 0.62, 11, {
+  meleeKind: 'heavy', reach: 46, arc: 2.15, knockback: 11, crit: 0.10,
+  fx: { swing: 'guillotine' },
+  desc: 'The heaviest pre-Hardmode swing in the realm. Slow to bring down, but each fall throws a falling crescent that cuts through a crowd.',
+});
+melee('hivewardenHalberd', 'Hivewarden Halberd', '#b9e86e', 29, 0.38, 11, {
+  meleeKind: 'spear', reach: 58, arc: 0.62, knockback: 7, crit: 0.09,
+  doubleStrike: 0.45, effect: { poison: 3.0 }, fx: { swing: 'halberd' },
+  desc: 'The longest reach of any blade here. Every thrust drives a venom-slick second point home and leaves a lasting toxin.',
+});
+melee('chitinshearTwinblades', 'Chitinshear Twinblades', '#e0c169', 21, 0.19, 11, {
+  reach: 33, arc: 1.5, knockback: 3, crit: 0.18, effect: { poison: 1.2 },
+  fx: { swing: 'shear' },
+  desc: 'Paired shears that strike faster than anything else in the realm and bite deep when they land. You have to stand in the fight to use them.',
+});
+
 // ---------- Ranged weapons (8) ----------
 const ranged = (id, name, color, dmg, useTime, tier, extra = {}) =>
   def(Object.assign({ id, name, category: 'weapon', weaponClass: 'ranged', color, damage: dmg, useTime, tier, knockback: 3, crit: 0.06, projSpeed: 480, projColor: color, rangedKind: 'bow', desc: `${name} — ${dmg} ranged damage.` }, extra));
@@ -153,6 +182,38 @@ ranged('stingerBow', 'Stinger Bow', '#d89d3e', 30, 0.32, 10, {
   ammo: 'flintArrow', gravity: true, projSpeed: 700, projColor: '#f4ce76', projectileKind: 'venomArrow',
   effect: { poison: 3.2 }, trail: '#e7bb58', fx: { shot: 'stinger' },
   desc: 'Vespera drop. Fires venom-coated arrows that keep poison pressure on anything they strike.',
+});
+
+// ---------- Hivewrought ranged (post-Vespera, tier 11) ----------
+// The three classic ranged shapes: sustained, sniper, and ordnance. The
+// Repeater needs no ammo and pays for it in per-shot damage; the other two hit
+// far harder but spend from the ammo economy every trigger pull.
+ranged('hiveboreRepeater', 'Hivebore Repeater', '#d7a34c', 15, 0.15, 11, {
+  projSpeed: 780, pierce: 1, crit: 0.07, projectileKind: 'hiveboreBolt',
+  projColor: '#f4ce76', trail: '#efbb57', projectileW: 8, projectileH: 4,
+  fx: { shot: 'hivebore' },
+  desc: 'A self-feeding barrel of chitin drills. No ammunition needed, and every bolt bores through one enemy into the next.',
+});
+// Flint Arrows are the realm's only live ammunition — Bolts and Shot are
+// defined but not enabled, so a weapon asking for them would find no such item.
+ranged('venomlanceBallista', 'Venomlance Ballista', '#8fd44e', 62, 0.75, 11, {
+  ammo: 'flintArrow', rangedKind: 'bow', projSpeed: 900, pierce: 3, crit: 0.12,
+  knockback: 8, effect: { poison: 3.5 }, projectileKind: 'venomLance',
+  projColor: '#b9e86e', trail: '#8fd44e', projectileW: 20, projectileH: 5,
+  fx: { shot: 'ballista' },
+  desc: 'A shoulder-braced ballista. Slow to crank, but the lance spits three enemies on one shot and leaves every one of them poisoned.',
+});
+// Self-powered, like the Missile Launcher it follows: the stinger *is* the
+// ammunition. Losing the per-shot ammo cost is paid for in the blast numbers.
+ranged('royalStingLauncher', 'Royal Sting Launcher', '#efbb57', 32, 0.62, 11, {
+  rangedKind: 'launcher', projSpeed: 560, knockback: 7,
+  projectileKind: 'royalSting', projColor: '#f4ce76', trail: '#efbb57',
+  projectileW: 14, projectileH: 8, blastRadius: 54, blastDamage: 24,
+  burstCount: 4, burstDamage: 10, burstKind: 'venomMote', burstColor: '#c9ee79',
+  burstSpeed: 240, burstLife: 1.0, burstHoming: true, burstHomingStrength: 2.6,
+  burstEffect: { poison: 2.0 }, effect: { poison: 2.0 },
+  fx: { shot: 'launcher' },
+  desc: 'Launches a detached royal stinger that bursts on impact and scatters four homing venom motes. Carries its own stingers — no ammunition needed.',
 });
 
 // ---------- Mage weapons (8) ----------
@@ -188,6 +249,34 @@ mage('hiveCatalyst', 'Hive Catalyst', '#d7a34c', 24, 0.46, 10, 18, {
   desc: 'Vespera drop. A guided venom orb splits into three smaller homing motes on impact.',
 });
 
+// ---------- Hivewrought magic (post-Vespera, tier 11) ----------
+// Aether is the real balance lever here, not damage. The Prism out-damages
+// everything in the tier and empties the pool doing it; the Codex trades rate
+// for reach and efficiency; the Resonator is the one you can actually hold down.
+// Deliberately NOT homing. Two engine facts drive this: homing steers every
+// shard at the single nearest enemy, and an enemy is invulnerable for 50ms after
+// a hit (entities/enemy.js), so a homing fan converges on one target and then
+// throws away three quarters of itself. An unguided wide fan is what actually
+// makes four projectiles worth four projectiles — it spreads across a group, and
+// each shard punches through one foe into whatever is behind it.
+mage('hivemindPrism', 'Hivemind Prism', '#c9ee79', 24, 0.42, 11, 12, {
+  multishot: 3, spread: 0.34, pierce: 3,
+  projSpeed: 560, effect: { poison: 2.0 }, projectileKind: 'prismShard',
+  trail: '#c9ee79', fx: { cast: 'hivemind' },
+  desc: 'Splits each cast into three piercing shards on slightly different lines, each punching through four foes. The cheapest cast in the tier to sustain — the one you can keep firing when the swarm arrives.',
+});
+mage('venomarchCodex', 'Venomarch Codex', '#7fc93f', 58, 0.62, 11, 22, {
+  mageKind: 'tome', pierce: 2, projSpeed: 700, effect: { poison: 4 },
+  projectileKind: 'venomarchBolt', trail: '#b9e86e', projectileW: 12, projectileH: 8,
+  fx: { cast: 'venomarch' },
+  desc: 'A single heavy bolt of distilled venom that runs through three foes before it spends itself. Costly per cast, but generous for what it does.',
+});
+mage('chitinResonator', 'Chitin Resonator', '#e8d38a', 19, 0.22, 11, 8, {
+  projSpeed: 620, effect: { slow: 1.4 }, projectileKind: 'resonantPulse',
+  trail: '#f2e3af', fx: { cast: 'resonate' },
+  desc: 'A cheap, steady pulse that rattles chitin and bone. It will not out-damage the Prism, but it slows what it hits and you can cast it all day.',
+});
+
 // ---------- Summoner weapons (6) ----------
 const summon = (id, name, color, useTime, tier, mana, minion, extra = {}) =>
   def(Object.assign({ id, name, category: 'weapon', weaponClass: 'summon', color, useTime, tier, manaCost: mana, summonMinion: minion, desc: `Summons a ${minion}. Costs ${mana} Aether.` }, extra));
@@ -208,6 +297,21 @@ summon('shadowmothTome', 'Shadowmoth Tome', '#9d65d1', 0.5, 7, 18, 'shadowmoth',
 });
 summon('broodStaff', 'Brood Staff', '#d7a34c', 0.5, 10, 20, 'broodWasp', {
   desc: 'Vespera drop. Summons a quick wasp that fires toxin stings through clear sight lines.',
+});
+
+// ---------- Hivewrought summons (post-Vespera, tier 11) ----------
+// Minion capacity is one, so these do not stack — each staff is a commitment to
+// one way of fighting. They are balanced as damage *on top of* whatever you are
+// swinging, which is why their output sits below the melee tier rather than
+// alongside it.
+summon('royalDroneScepter', 'Royal Drone Scepter', '#efbb57', 0.5, 11, 22, 'royalDrone', {
+  desc: 'Calls a royal drone that shadows you at range and fires seeking venom lances. The safe pick: it fights from wherever you are standing.',
+});
+summon('hiveguardTotem', 'Hiveguard Totem', '#a8873a', 0.5, 11, 24, 'hiveguard', {
+  desc: 'Calls a hiveguard that keeps station at your side. It hits harder than anything else you can summon, but only reaches what closes on you.',
+});
+summon('vesperShadeBell', 'Vesper Shade Bell', '#3d3348', 0.5, 11, 26, 'vesperShade', {
+  desc: 'Rings up a shade of the fallen queen that closes and cuts without pause. Fast and relentless, but it must reach a target to do anything at all.',
 });
 summon('diamondHeart', 'Diamond Heart', '#dffcff', 0.78, 5, 30, 'diamondHeart', {
   maxStack: 1,

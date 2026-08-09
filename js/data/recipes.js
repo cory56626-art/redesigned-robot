@@ -1,7 +1,7 @@
 // Summoner Realms — crafting recipes.
 // station: null (hand) | 'bench' | 'smeltery' | 'forge' | 'altar'
 // requiresBoss: optional active-boss progression gate.
-import { isItemEnabled } from './items.js?v=title-screen-1';
+import { isItemEnabled } from './items.js?v=hivewrought-1';
 
 const ALL_RECIPES = [
   // --- Hand ---
@@ -122,6 +122,27 @@ const ALL_RECIPES = [
   { out: { item: 'royalChitinCrown', count: 1 }, in: [{ item: 'royalChitinPlate', count: 12 }, { item: 'venomCore', count: 1 }], station: 'forge', requiresBoss: 'vespera' },
   { out: { item: 'royalChitinCarapace', count: 1 }, in: [{ item: 'royalChitinPlate', count: 18 }, { item: 'venomCore', count: 2 }], station: 'forge', requiresBoss: 'vespera' },
   { out: { item: 'royalChitinTreads', count: 1 }, in: [{ item: 'royalChitinPlate', count: 14 }, { item: 'venomCore', count: 1 }], station: 'forge', requiresBoss: 'vespera' },
+  // --- Hivewrought tier: the twelve post-Vespera weapons ---
+  // All twelve sit at the Forge rather than the Altar, because the Altar is not
+  // part of the live item set — its ingredients are disabled, so an Altar recipe
+  // would be filtered out below and the weapon would be uncraftable.
+  //
+  // Costs are read against one Vespera clear (8-12 Royal Chitin Plates, 3-5
+  // Venom Cores): a single kill buys roughly one weapon, and the deep-ore bar in
+  // each recipe means you still have to have mined the tier you are standing in.
+  { out: { item: 'royalGuillotine', count: 1 }, in: [{ item: 'royalChitinPlate', count: 10 }, { item: 'venomCore', count: 2 }, { item: 'starsteelBar', count: 12 }], station: 'forge', requiresBoss: 'vespera' },
+  { out: { item: 'hivewardenHalberd', count: 1 }, in: [{ item: 'royalChitinPlate', count: 8 }, { item: 'venomCore', count: 3 }, { item: 'verdantBar', count: 10 }], station: 'forge', requiresBoss: 'vespera' },
+  { out: { item: 'chitinshearTwinblades', count: 1 }, in: [{ item: 'royalChitinPlate', count: 9 }, { item: 'venomCore', count: 1 }, { item: 'shadowglassBar', count: 10 }], station: 'forge', requiresBoss: 'vespera' },
+  { out: { item: 'hiveboreRepeater', count: 1 }, in: [{ item: 'royalChitinPlate', count: 8 }, { item: 'venomCore', count: 1 }, { item: 'stormBar', count: 12 }], station: 'forge', requiresBoss: 'vespera' },
+  { out: { item: 'venomlanceBallista', count: 1 }, in: [{ item: 'royalChitinPlate', count: 9 }, { item: 'venomCore', count: 3 }, { item: 'starsteelBar', count: 12 }], station: 'forge', requiresBoss: 'vespera' },
+  { out: { item: 'royalStingLauncher', count: 1 }, in: [{ item: 'royalChitinPlate', count: 10 }, { item: 'venomCore', count: 2 }, { item: 'emberBar', count: 10 }, { item: 'emberDust', count: 6 }], station: 'forge', requiresBoss: 'vespera' },
+  { out: { item: 'hivemindPrism', count: 1 }, in: [{ item: 'royalChitinPlate', count: 8 }, { item: 'venomCore', count: 2 }, { item: 'shadowglassBar', count: 10 }], station: 'forge', requiresBoss: 'vespera' },
+  { out: { item: 'venomarchCodex', count: 1 }, in: [{ item: 'royalChitinPlate', count: 9 }, { item: 'venomCore', count: 3 }, { item: 'verdantBar', count: 10 }], station: 'forge', requiresBoss: 'vespera' },
+  { out: { item: 'chitinResonator', count: 1 }, in: [{ item: 'royalChitinPlate', count: 7 }, { item: 'venomCore', count: 1 }, { item: 'amberBar', count: 8 }], station: 'forge', requiresBoss: 'vespera' },
+  { out: { item: 'royalDroneScepter', count: 1 }, in: [{ item: 'royalChitinPlate', count: 8 }, { item: 'venomCore', count: 2 }, { item: 'starsteelBar', count: 8 }], station: 'forge', requiresBoss: 'vespera' },
+  { out: { item: 'hiveguardTotem', count: 1 }, in: [{ item: 'royalChitinPlate', count: 9 }, { item: 'venomCore', count: 1 }, { item: 'emberBar', count: 10 }], station: 'forge', requiresBoss: 'vespera' },
+  { out: { item: 'vesperShadeBell', count: 1 }, in: [{ item: 'royalChitinPlate', count: 8 }, { item: 'venomCore', count: 3 }, { item: 'shadowglassBar', count: 10 }], station: 'forge', requiresBoss: 'vespera' },
+
   { out: { item: 'cupritePick', count: 1 }, in: [{ item: 'cupriteBar', count: 8 }], station: 'forge' },
   { out: { item: 'cupriteAxe', count: 1 }, in: [{ item: 'cupriteBar', count: 7 }, { item: 'wood', count: 2 }], station: 'forge' },
   { out: { item: 'cupriteSword', count: 1 }, in: [{ item: 'cupriteBar', count: 8 }], station: 'forge' },

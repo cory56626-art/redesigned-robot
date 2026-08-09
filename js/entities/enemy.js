@@ -3,12 +3,12 @@
 // Each enemy runs the same loop: perceive (do I know where the player is?),
 // decide (idle / approach / attack / retreat), then act. Perception, pathing and
 // steering live in systems/ai.js so every creature reasons the same way.
-import { TILE, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=title-screen-1';
-import { ENEMIES } from '../data/enemies.js?v=title-screen-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=title-screen-1';
-import { aabb } from '../utils.js?v=title-screen-1';
-import { Projectile } from './projectile.js?v=title-screen-1';
-import * as AI from '../systems/ai.js?v=title-screen-1';
+import { TILE, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=hivewrought-1';
+import { ENEMIES } from '../data/enemies.js?v=hivewrought-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=hivewrought-1';
+import { aabb } from '../utils.js?v=hivewrought-1';
+import { Projectile } from './projectile.js?v=hivewrought-1';
+import * as AI from '../systems/ai.js?v=hivewrought-1';
 
 export class Enemy {
   constructor(key, x, y, netId, difficulty = 'normal') {
