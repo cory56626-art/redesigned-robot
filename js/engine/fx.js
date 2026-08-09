@@ -7,7 +7,7 @@
 //
 // A particle is a plain object so it stays cheap to allocate in bulk:
 //   { x, y, vx, vy, life, max, size, color, gravity, drag, glow, shrink, spin }
-import { MAX_PARTICLES } from '../config.js?v=vespera-surface-5';
+import { MAX_PARTICLES } from '../config.js?v=boss-redesign-1';
 
 export class Fx {
   constructor(game) {

@@ -1,14 +1,14 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=vespera-surface-5';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=vespera-surface-5';
-import { Sprites } from '../art/sprites.js?v=vespera-surface-5';
-import { item as getItem } from '../data/items.js?v=vespera-surface-5';
-import { availableRecipes } from '../systems/crafting.js?v=vespera-surface-5';
-import { claudeNotesHTML } from './claude-notes.js?v=vespera-surface-5';
-import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=vespera-surface-5';
-import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=vespera-surface-5';
-import { drawCharacterPreview } from '../art/charpreview.js?v=vespera-surface-5';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=boss-redesign-1';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=boss-redesign-1';
+import { Sprites } from '../art/sprites.js?v=boss-redesign-1';
+import { item as getItem } from '../data/items.js?v=boss-redesign-1';
+import { availableRecipes } from '../systems/crafting.js?v=boss-redesign-1';
+import { claudeNotesHTML } from './claude-notes.js?v=boss-redesign-1';
+import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=boss-redesign-1';
+import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=boss-redesign-1';
+import { drawCharacterPreview } from '../art/charpreview.js?v=boss-redesign-1';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [

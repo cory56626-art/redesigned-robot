@@ -1,15 +1,15 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=vespera-surface-5';
-import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=vespera-surface-5';
-import { SH } from '../world/shapes.js?v=vespera-surface-5';
-import { W, hasWall } from '../world/walls.js?v=vespera-surface-5';
-import { BIOMES } from '../world/biomes.js?v=vespera-surface-5';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=vespera-surface-5';
-import { item as getItem } from '../data/items.js?v=vespera-surface-5';
-import { canPlaceAt } from '../systems/combat.js?v=vespera-surface-5';
-import { clamp } from '../utils.js?v=vespera-surface-5';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=vespera-surface-5';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=boss-redesign-1';
+import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=boss-redesign-1';
+import { SH } from '../world/shapes.js?v=boss-redesign-1';
+import { W, hasWall } from '../world/walls.js?v=boss-redesign-1';
+import { BIOMES } from '../world/biomes.js?v=boss-redesign-1';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=boss-redesign-1';
+import { item as getItem } from '../data/items.js?v=boss-redesign-1';
+import { canPlaceAt } from '../systems/combat.js?v=boss-redesign-1';
+import { clamp } from '../utils.js?v=boss-redesign-1';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=boss-redesign-1';
 
 // Fallback appearance for players without a character record (remote players
 // on an older client, or a world loaded before characters existed).
@@ -2528,32 +2528,122 @@ export class Renderer {
     ctx.restore();
   }
 
+  // ---------------------------------------------------------------------
+  // Shared boss shading helpers.
+  //
+  // All three bosses are lit from the upper left. Every major form is built
+  // the same way: a dark silhouette stroke, a vertical value ramp, a bright
+  // bevel along the top edge, and a dark contact edge underneath. That is what
+  // stops a flat canvas fill from reading as a paper cutout against the sky.
+
+  // Gradients are painted through the current transform, so one built in a
+  // part's *local* coordinates stays correct frame to frame and can be cached
+  // on the context. Every boss below translates to its own origin first, which
+  // is what makes those local coordinates stable. Pass a key only for stops
+  // that never change; ramps that follow live values pass null and rebuild.
+  _lin(ctx, key, x0, y0, x1, y1, stops) {
+    const cache = key ? (ctx.__srGrad || (ctx.__srGrad = new Map())) : null;
+    if (cache) { const hit = cache.get(key); if (hit) return hit; }
+    const g = ctx.createLinearGradient(x0, y0, x1, y1);
+    for (const s of stops) g.addColorStop(s[0], s[1]);
+    if (cache) cache.set(key, g);
+    return g;
+  }
+
+  _rgba(hex, a) {
+    let s = hex.charCodeAt(0) === 35 ? hex.slice(1) : hex;
+    if (s.length === 3) s = s[0] + s[0] + s[1] + s[1] + s[2] + s[2];
+    const n = parseInt(s, 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+  }
+
+  // A bloom that falls off to nothing. The previous art additively filled flat
+  // discs, which clipped to a hard bright rim and erased whatever sat beneath
+  // them — the Worm's skull used to vanish behind its own eye glow.
+  _glow(ctx, x, y, r, color, alpha = 1) {
+    if (!(r > 0) || alpha <= 0) return;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, this._rgba(color, 0.85 * alpha));
+    g.addColorStop(0.38, this._rgba(color, 0.26 * alpha));
+    g.addColorStop(1, this._rgba(color, 0));
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  // Outline-then-fill. The dark stroke sits under the fill, so every form keeps
+  // a clean edge against sky, foliage or cave stone without the outline eating
+  // into its own detail.
+  _shell(ctx, path, outline, fill, width = 5) {
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    path();
+    ctx.strokeStyle = outline; ctx.lineWidth = width; ctx.stroke();
+    ctx.fillStyle = fill; ctx.fill();
+  }
+
+  // The Worm's segment angles run head-to-tail, so they sit near PI whenever it
+  // travels to the right. Rotating a plate by that raw angle turns its local
+  // "down" into world "up" and stands the legs and dorsal ridge on their heads.
+  // Mirroring the angle into the right half-plane keeps the creature's back up
+  // whichever way it is heading; the plates are symmetric across that axis, so
+  // nothing else about them changes.
+  _segTilt(angle) {
+    const a = angle || 0;
+    return Math.cos(a) < 0 ? a + Math.PI : a;
+  }
+
   _bossAura(ctx, b, color, radius) {
     const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
-    ctx.fillStyle = color;
-    ctx.globalAlpha = 0.13 + 0.06 * Math.sin(b.bob * 2);
+    // Soft radial falloff rather than a flat disc, so the aura fades out
+    // instead of ending on a visible circular edge.
+    const a = 0.15 + 0.05 * Math.sin(b.bob * 2);
+    const g = ctx.createRadialGradient(cx, cy, radius * 0.2, cx, cy, radius);
+    g.addColorStop(0, this._rgba(color, a));
+    g.addColorStop(0.6, this._rgba(color, a * 0.45));
+    g.addColorStop(1, this._rgba(color, 0));
+    ctx.fillStyle = g;
     ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.fill();
-    ctx.globalAlpha = 1;
-    // Charging tell: a ring that tightens onto the boss during the wind-up.
+
+    // Charging tell: a dashed ring that spins and tightens onto the boss over
+    // the wind-up. It stays close to the body — the old ring swelled far past
+    // the sprite and dominated the whole screen during The Worm's telegraphs.
     if (b.telegraph > 0) {
       const k = b.telegraph / (b.telegraphMax || 0.6);
+      ctx.save();
       ctx.strokeStyle = color;
-      ctx.globalAlpha = 0.35 + 0.4 * (1 - k);
-      ctx.lineWidth = 2 + (1 - k) * 2;
-      ctx.beginPath(); ctx.arc(cx, cy, radius + k * 34, 0, Math.PI * 2); ctx.stroke();
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = 0.26 + 0.4 * (1 - k);
+      ctx.lineWidth = 1.6 + (1 - k) * 2;
+      ctx.setLineDash([9, 7]);
+      ctx.lineDashOffset = -b.bob * 16;
+      ctx.beginPath(); ctx.arc(cx, cy, radius * 0.66 + k * 24, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
     }
     if (b.attackPulse > 0) {
-      ctx.strokeStyle = color; ctx.globalAlpha = b.attackPulse / 0.22;
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(cx, cy, radius + (0.22 - b.attackPulse) * 30, 0, Math.PI * 2); ctx.stroke();
-      ctx.globalAlpha = 1;
+      const k = b.attackPulse / 0.22;
+      ctx.save();
+      ctx.strokeStyle = color; ctx.globalAlpha = k * 0.8;
+      ctx.lineWidth = 2.5 * k;
+      ctx.beginPath(); ctx.arc(cx, cy, radius * 0.6 + (1 - k) * 34, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
     }
   }
 
   // The Mech — an enormous, grounded siege machine. Its body is deliberately
   // broad and heavy; the only free-tracking silhouette during Plasma Ray is
   // the pair of arms plus their shared cannon.
+  // The Mech — a grounded siege walker. It is built as machined hardware:
+  // hard-edged armour with top bevels and dark contact edges, hazard-striped
+  // shoulder pylons, hydraulic legs with exposed chrome pistons, and a recessed
+  // reactor that irises shut as it charges. Every weapon keeps a local tell,
+  // and the pod and cannon sit exactly on the muzzle points boss.js fires from.
+  // The Mech — a grounded siege walker. It is built as machined hardware:
+  // hard-edged armour with top bevels and dark contact edges, hazard-striped
+  // shoulder pylons, digitigrade hydraulic legs with exposed chrome pistons,
+  // and a recessed reactor that irises shut as it charges. Every weapon keeps a
+  // local tell, and the pod and cannon sit exactly on the muzzle points that
+  // boss.js actually fires from.
   _drawTheMech(ctx, b) {
     const x = b.x, y = b.y, w = b.w, h = b.h;
     const cx = x + w / 2;
@@ -2561,166 +2651,354 @@ export class Renderer {
     const walk = b.walkCycle || b.bob || 0;
     const heat = clamp(b.mechHeat || 0, 0, 1);
     const phaseTwo = heat > 0.3 || b.phaseName === 'Overdrive';
-    const coreColor = phaseTwo ? '#ffb35d' : '#72ddff';
-    const coreBright = phaseTwo ? '#fff0b3' : '#e7ffff';
     const charge = b.telegraph > 0 ? 1 - b.telegraph / (b.telegraphMax || 0.6) : 0;
     const ray = b.mechRay;
 
+    // Cold gunmetal lit from the upper left; the energy colour shifts cyan to
+    // orange as the reactor overheats into Overdrive.
+    const VOID = '#0d131a';   // silhouette stroke and deepest recesses
+    const HAZ = '#e0a833', HAZD = '#241d12';
+    const core = phaseTwo ? '#ffae4f' : '#72ddff';
+    const coreHot = phaseTwo ? '#fff1c6' : '#e8ffff';
+
     ctx.save();
-    this._bossAura(ctx, b, phaseTwo ? '#ffbd68' : '#72ddff', 76);
+    this._bossAura(ctx, b, phaseTwo ? '#ffbd68' : '#72ddff', 80);
 
-    // Anchoring shadow and overdrive exhaust.
-    ctx.fillStyle = 'rgba(5,10,16,0.30)';
-    ctx.beginPath(); ctx.ellipse(cx, y + h + 3, w * 0.47, 7, 0, 0, Math.PI * 2); ctx.fill();
-    if (phaseTwo) {
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.12 + Math.sin(b.bob * 8) * 0.04;
-      ctx.fillStyle = '#ff8d4c';
-      ctx.beginPath(); ctx.arc(cx, y + 47, 51, 0, Math.PI * 2); ctx.fill();
-      ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = 'source-over';
+    // Contact shadow: tight and dark under the feet, fading outward.
+    const sg = ctx.createRadialGradient(cx, y + h + 2, 3, cx, y + h + 2, w * 0.5);
+    sg.addColorStop(0, 'rgba(4,8,12,0.45)');
+    sg.addColorStop(1, 'rgba(4,8,12,0)');
+    ctx.fillStyle = sg;
+    ctx.beginPath(); ctx.ellipse(cx, y + h + 2, w * 0.5, 9, 0, 0, Math.PI * 2); ctx.fill();
+
+    // ---- local space: origin at the boss corner, 0..w by 0..h ----
+    ctx.translate(x, y);
+    const C = w / 2;
+
+    // Exhaust stacks rake backward off the rear deck, well clear of the head so
+    // they read as engine hardware rather than as ears.
+    ctx.save();
+    ctx.translate(C - f * 30, 40); ctx.scale(f, 1); ctx.rotate(0.30);
+    for (let i = 0; i < 3; i++) {
+      const t = (b.bob * 0.42 + i * 0.34) % 1;
+      ctx.globalAlpha = (1 - t) * (0.12 + heat * 0.20);
+      ctx.fillStyle = phaseTwo ? '#c9702f' : '#5b6b7a';
+      ctx.beginPath(); ctx.arc(-2 - t * 8, -20 - t * 28, 4 + t * 9, 0, Math.PI * 2); ctx.fill();
     }
-
-    // Pistoned legs sit behind the torso. Opposite stride offsets make the
-    // machine read as walking even at its intentionally slow pace.
+    ctx.globalAlpha = 1;
     for (let i = 0; i < 2; i++) {
-      const side = i ? 1 : -1;
-      const stride = Math.sin(walk + i * Math.PI) * 5.5;
-      const hipX = cx + side * 28;
-      const hipY = y + 73;
-      const kneeX = hipX + side * 5 + stride * 0.45;
-      const kneeY = y + 91 - Math.max(0, stride) * 0.28;
-      const footX = hipX + stride;
-      const footY = y + h - 5;
-      ctx.strokeStyle = '#1f2a37'; ctx.lineWidth = 13; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(kneeX, kneeY); ctx.lineTo(footX, footY); ctx.stroke();
-      ctx.strokeStyle = '#50677a'; ctx.lineWidth = 7;
-      ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(kneeX, kneeY); ctx.lineTo(footX, footY); ctx.stroke();
-      ctx.strokeStyle = '#a9c1cf'; ctx.globalAlpha = 0.55; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(hipX - side, hipY + 2); ctx.lineTo(kneeX - side, kneeY - 1); ctx.stroke();
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = '#263442'; this._roundRect(ctx, footX - 14, footY - 4, 28, 9, 3); ctx.fill();
-      ctx.fillStyle = '#8097a7'; this._roundRect(ctx, footX - 11, footY - 4, 18, 3, 1); ctx.fill();
-      ctx.fillStyle = '#b8d2db'; ctx.beginPath(); ctx.arc(kneeX, kneeY, 4, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#334353'; ctx.beginPath(); ctx.arc(kneeX, kneeY, 2, 0, Math.PI * 2); ctx.fill();
+      const sx = -6 + i * 12;
+      ctx.fillStyle = VOID; this._roundRect(ctx, sx - 6, -22, 12, 26, 4); ctx.fill();
+      ctx.fillStyle = this._lin(ctx, 'mechStack' + i, sx - 6, 0, sx + 6, 0,
+        [[0, '#182029'], [0.45, '#44586b'], [1, '#1d2732']]);
+      this._roundRect(ctx, sx - 4.5, -21, 9, 24, 3); ctx.fill();
+      this._glow(ctx, sx, -20, 6 + heat * 6, phaseTwo ? '#ff9640' : '#5f7d92', 0.3 + heat * 0.5);
+      ctx.fillStyle = phaseTwo ? '#ffb463' : '#26333f';
+      ctx.beginPath(); ctx.ellipse(sx, -20, 4, 2, 0, 0, Math.PI * 2); ctx.fill();
     }
-
-    // Back vents, shoulder pylons, and the large arm sockets.
-    ctx.fillStyle = '#1f2d3a'; this._roundRect(ctx, x + 8, y + 28, w - 16, 57, 15); ctx.fill();
-    ctx.fillStyle = '#3d5366'; this._roundRect(ctx, x + 11, y + 25, w - 22, 58, 13); ctx.fill();
-    ctx.fillStyle = '#6b8494'; this._roundRect(ctx, x + 16, y + 28, w - 32, 15, 7); ctx.fill();
-    ctx.fillStyle = 'rgba(219,242,246,0.44)'; this._roundRect(ctx, x + 20, y + 30, w - 41, 4, 2); ctx.fill();
-    for (const side of [-1, 1]) {
-      const sx = cx + side * 47;
-      ctx.fillStyle = '#23313f'; this._roundRect(ctx, sx - 11, y + 34, 22, 31, 6); ctx.fill();
-      ctx.fillStyle = '#60788a'; this._roundRect(ctx, sx - 8, y + 37, 16, 22, 4); ctx.fill();
-      ctx.fillStyle = phaseTwo ? '#ff9e57' : '#69cce7'; ctx.fillRect(sx - 3, y + 40, 6, 3);
-    }
-
-    // Central armor, chest plate and glowing reactor.
-    ctx.fillStyle = '#314556'; this._roundRect(ctx, x + 25, y + 39, w - 50, 47, 10); ctx.fill();
-    ctx.fillStyle = '#536b7b'; this._roundRect(ctx, x + 29, y + 43, w - 58, 38, 8); ctx.fill();
-    ctx.fillStyle = '#273744'; this._roundRect(ctx, cx - 18, y + 50, 36, 27, 6); ctx.fill();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = 0.28 + charge * 0.20 + heat * 0.10;
-    ctx.fillStyle = coreColor; ctx.beginPath(); ctx.arc(cx, y + 63, 21 + charge * 6, 0, Math.PI * 2); ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = coreColor; ctx.beginPath(); ctx.arc(cx, y + 63, 10 + Math.sin(b.bob * 6) * 1.2, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = coreBright; ctx.beginPath(); ctx.arc(cx - 3, y + 60, 4.2, 0, Math.PI * 2); ctx.fill();
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = '#14222d'; ctx.fillRect(cx - 2, y + 60, 4, 7);
-    ctx.fillStyle = '#b3cbd7'; ctx.fillRect(x + 32, y + 48, 11, 2); ctx.fillRect(x + w - 43, y + 48, 11, 2);
-    ctx.fillStyle = '#20313f'; ctx.fillRect(x + 34, y + 75, 13, 3); ctx.fillRect(x + w - 47, y + 75, 13, 3);
-
-    // Cockpit / head is a fixed armored crown; the bright visor is the best
-    // long-distance read on the machine's current facing.
-    ctx.save();
-    ctx.translate(cx, y + 28); ctx.scale(f, 1);
-    ctx.fillStyle = '#202f3c'; this._roundRect(ctx, -25, -15, 50, 26, 9); ctx.fill();
-    ctx.fillStyle = '#627b8d'; this._roundRect(ctx, -21, -13, 42, 13, 6); ctx.fill();
-    ctx.fillStyle = '#a8c3cf'; this._roundRect(ctx, -16, -11, 27, 4, 2); ctx.fill();
-    ctx.fillStyle = '#162430'; this._roundRect(ctx, -15, -4, 30, 8, 3); ctx.fill();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = 0.30 + charge * 0.35;
-    ctx.fillStyle = coreColor; ctx.fillRect(1, -6, 22, 12);
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = coreBright; ctx.fillRect(5, -3, 13, 3);
-    ctx.fillStyle = '#20303c'; ctx.fillRect(13, -3, 3, 3);
-    ctx.globalCompositeOperation = 'source-over';
     ctx.restore();
 
-    // A missile pod only opens on the leading arm. Its split hatch is a
-    // direct animation tell before the homing missile launches.
+    // Digitigrade legs: hip, a knee that breaks forward, a rear-set ankle, then
+    // a splayed foot. The back leg is drawn first and darker so the pair reads
+    // as depth instead of two flat sticks side by side.
+    for (let i = 0; i < 2; i++) {
+      const back = i === 0;
+      const stride = Math.sin(walk + (back ? Math.PI : 0));
+      const hipX = C + (back ? -14 : 14);
+      const hipY = 68;
+      const swing = stride * 8;
+      const lift = Math.max(0, stride) * 4;
+      const kneeX = hipX + f * 13 + swing * 0.5;
+      const kneeY = 85;
+      const ankleX = hipX - f * 3 + swing * 0.9;
+      const ankleY = 99 - lift * 0.5;
+      const footX = ankleX + f * 3 + swing * 0.4;
+      const footY = h - 3 - lift;
+      const dk = back ? '#0f1720' : VOID;
+      const md = back ? '#2c3b4a' : '#455c72';
+      const lt = back ? '#5b7085' : '#8fa8ba';
+
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      // Thigh and shin housings, thickest at the thigh.
+      ctx.strokeStyle = dk; ctx.lineWidth = 17;
+      ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(kneeX, kneeY); ctx.stroke();
+      ctx.lineWidth = 13;
+      ctx.beginPath(); ctx.moveTo(kneeX, kneeY); ctx.lineTo(ankleX, ankleY); ctx.stroke();
+      ctx.strokeStyle = md; ctx.lineWidth = 11;
+      ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(kneeX, kneeY); ctx.stroke();
+      ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.moveTo(kneeX, kneeY); ctx.lineTo(ankleX, ankleY); ctx.stroke();
+      // Exposed chrome pistons along the limb.
+      ctx.strokeStyle = lt; ctx.globalAlpha = 0.9; ctx.lineWidth = 2.6;
+      ctx.beginPath(); ctx.moveTo(kneeX - f * 3, kneeY + 2); ctx.lineTo(ankleX - f * 2, ankleY - 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(hipX + f * 3, hipY + 3); ctx.lineTo(kneeX + f * 2, kneeY - 3); ctx.stroke();
+      ctx.globalAlpha = 1;
+      // Knee and ankle actuators.
+      for (const joint of [[kneeX, kneeY, 7], [ankleX, ankleY, 5]]) {
+        const jx = joint[0], jy = joint[1], jr = joint[2];
+        ctx.fillStyle = dk; ctx.beginPath(); ctx.arc(jx, jy, jr, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = lt; ctx.beginPath(); ctx.arc(jx, jy, jr * 0.58, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = dk; ctx.beginPath(); ctx.arc(jx, jy, jr * 0.24, 0, Math.PI * 2); ctx.fill();
+      }
+      // Splayed foot with forward claws and a heel spur.
+      ctx.save(); ctx.translate(footX, footY); ctx.scale(f, 1);
+      ctx.fillStyle = dk;
+      ctx.beginPath();
+      ctx.moveTo(-14, -7); ctx.lineTo(13, -7); ctx.lineTo(17, 1); ctx.lineTo(12, 5);
+      ctx.lineTo(-12, 5); ctx.lineTo(-17, 0); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = md; this._roundRect(ctx, -12, -6, 24, 6, 2); ctx.fill();
+      ctx.fillStyle = lt; ctx.globalAlpha = 0.75; ctx.fillRect(-10, -6, 15, 1.6); ctx.globalAlpha = 1;
+      ctx.fillStyle = dk;
+      for (let t = 0; t < 3; t++) { ctx.beginPath(); ctx.moveTo(3 + t * 5, 4); ctx.lineTo(7 + t * 5, 4); ctx.lineTo(4.5 + t * 5, 8); ctx.closePath(); ctx.fill(); }
+      ctx.restore();
+    }
+
+    // Pelvis block ties the legs into the chassis.
+    ctx.fillStyle = VOID; this._roundRect(ctx, C - 25, 58, 50, 18, 7); ctx.fill();
+    ctx.fillStyle = this._lin(ctx, 'mechHip', 0, 58, 0, 76, [[0, '#4b6076'], [0.5, '#33465a'], [1, '#1c2632']]);
+    this._roundRect(ctx, C - 22, 60, 44, 14, 5); ctx.fill();
+    ctx.fillStyle = '#0f161d'; this._roundRect(ctx, C - 8, 62, 16, 10, 3); ctx.fill();
+
+    // Main chassis: broad shoulders tapering into the pelvis. The dark stroke
+    // under the fill is what keeps it separated from a bright sky.
+    const chassis = () => {
+      ctx.beginPath();
+      ctx.moveTo(C - 30, 22); ctx.lineTo(C - 36, 34); ctx.lineTo(C - 31, 56);
+      ctx.lineTo(C - 20, 64); ctx.lineTo(C + 20, 64); ctx.lineTo(C + 31, 56);
+      ctx.lineTo(C + 36, 34); ctx.lineTo(C + 30, 22);
+      ctx.closePath();
+    };
+    this._shell(ctx, chassis, VOID,
+      this._lin(ctx, 'mechTorso', 0, 20, 0, 64,
+        [[0, '#6b8499'], [0.28, '#48607a'], [0.62, '#2f4054'], [1, '#18222e']]), 6);
+
+    // Upper deck plate, seams and rivets: machined detail rather than a blank
+    // slab, and the highlight along the top edge sells the light direction.
+    ctx.fillStyle = this._lin(ctx, 'mechDeck', 0, 22, 0, 34, [[0, '#89a3b5'], [1, '#3d5266']]);
+    this._roundRect(ctx, C - 28, 23, 56, 11, 4); ctx.fill();
+    ctx.fillStyle = 'rgba(226,242,248,0.5)'; this._roundRect(ctx, C - 25, 24, 50, 2.2, 1); ctx.fill();
+    ctx.strokeStyle = 'rgba(10,16,22,0.55)'; ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(C - 32, 37); ctx.lineTo(C + 32, 37);
+    ctx.moveTo(C - 26, 58); ctx.lineTo(C + 26, 58);
+    ctx.stroke();
+    for (let i = -1; i <= 1; i += 2) {
+      for (let j = 0; j < 3; j++) {
+        const rvx = C + i * (26 - j), rvy = 42 + j * 6;
+        ctx.fillStyle = '#131c25'; ctx.beginPath(); ctx.arc(rvx, rvy, 1.8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(190,214,226,0.6)'; ctx.beginPath(); ctx.arc(rvx - 0.5, rvy - 0.7, 0.85, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    // Side heat vents crack open and glow as the machine overheats.
+    for (const side of [-1, 1]) {
+      const vx = C + side * 27;
+      for (let j = 0; j < 3; j++) {
+        const vy = 44 + j * 5.5;
+        ctx.fillStyle = '#0e151c'; this._roundRect(ctx, vx - 6, vy, 12, 3, 1.3); ctx.fill();
+        if (heat > 0.05) {
+          ctx.fillStyle = this._rgba('#ff9a3c', 0.25 + heat * 0.6);
+          this._roundRect(ctx, vx - 5, vy + 0.6, 10, 1.8, 0.9); ctx.fill();
+        }
+      }
+    }
+
+    // Recessed reactor: dark housing, spinning containment arcs, and thin iris
+    // blades that wind in from the rim over the wind-up.
+    const rx = C, ry = 44;
+    ctx.fillStyle = VOID; ctx.beginPath(); ctx.arc(rx, ry, 17, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = this._lin(ctx, 'mechRing', 0, ry - 17, 0, ry + 17, [[0, '#5f7789'], [1, '#202c39']]);
+    ctx.beginPath(); ctx.arc(rx, ry, 15.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#0a1016'; ctx.beginPath(); ctx.arc(rx, ry, 12.5, 0, Math.PI * 2); ctx.fill();
+    ctx.save();
+    ctx.translate(rx, ry); ctx.rotate(b.bob * 0.85);
+    ctx.strokeStyle = '#93aec0'; ctx.globalAlpha = 0.5; ctx.lineWidth = 2; ctx.lineCap = 'butt';
+    for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(0, 0, 10.5, i * 2.094, i * 2.094 + 1.15); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+    this._glow(ctx, rx, ry, 21 + charge * 12 + heat * 7, core, 0.5 + charge * 0.45);
+    ctx.fillStyle = core;
+    ctx.beginPath(); ctx.arc(rx, ry, 6.2 + Math.sin(b.bob * 6) * 0.6 + charge * 2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = coreHot; ctx.beginPath(); ctx.arc(rx - 2, ry - 2, 2.5, 0, Math.PI * 2); ctx.fill();
+    if (charge > 0.02) {
+      ctx.save(); ctx.translate(rx, ry);
+      ctx.fillStyle = 'rgba(12,18,25,0.92)';
+      for (let i = 0; i < 6; i++) {
+        ctx.save(); ctx.rotate(i * Math.PI / 3 + charge * 0.45);
+        ctx.beginPath();
+        ctx.moveTo(-4.5, -12.5); ctx.lineTo(4.5, -12.5);
+        ctx.lineTo(2.5, -12.5 + charge * 8); ctx.lineTo(-2.5, -12.5 + charge * 8);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+
+    // Shoulder pylons with hazard chevrons — the fastest "military hardware"
+    // read on the whole silhouette.
+    for (const side of [-1, 1]) {
+      const sx = C + side * 39;
+      ctx.save(); ctx.translate(sx, 33);
+      ctx.fillStyle = VOID; this._roundRect(ctx, -13, -14, 26, 34, 7); ctx.fill();
+      ctx.fillStyle = this._lin(ctx, 'mechPylon', 0, -14, 0, 20, [[0, '#7f99ac'], [0.45, '#41566b'], [1, '#1a242f']]);
+      this._roundRect(ctx, -11, -12, 22, 30, 5); ctx.fill();
+      ctx.fillStyle = 'rgba(224,240,247,0.45)'; this._roundRect(ctx, -8.5, -11, 17, 2.2, 1); ctx.fill();
+      ctx.save();
+      this._roundRect(ctx, -9.5, -6, 19, 10, 2); ctx.clip();
+      for (let i = -3; i < 5; i++) {
+        ctx.fillStyle = (i & 1) ? HAZ : HAZD;
+        ctx.beginPath();
+        ctx.moveTo(-9.5 + i * 6, -6); ctx.lineTo(-9.5 + i * 6 + 5, -6);
+        ctx.lineTo(-9.5 + i * 6 - 1, 4); ctx.lineTo(-9.5 + i * 6 - 6, 4);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+      ctx.fillStyle = '#0f161d'; this._roundRect(ctx, -7, 7, 14, 8, 2); ctx.fill();
+      this._glow(ctx, 0, 11, 8, core, 0.3 + heat * 0.3);
+      ctx.fillStyle = phaseTwo ? '#ffa54f' : '#5fc6e2';
+      ctx.fillRect(-3.5, 9, 7, 2.6);
+      ctx.restore();
+    }
+
+    // Head: an armoured cowl on a short neck, jutting toward the target. The
+    // visor is the clearest facing read at distance, and a highlight sweeps
+    // across it so the machine always looks like it is scanning.
+    ctx.save();
+    ctx.translate(C + f * 7, 14); ctx.scale(f, 1);
+    ctx.fillStyle = VOID; this._roundRect(ctx, -8, 3, 16, 14, 5); ctx.fill();
+    const skull = () => {
+      ctx.beginPath();
+      ctx.moveTo(-18, -4); ctx.lineTo(-12, -14); ctx.lineTo(9, -14);
+      ctx.lineTo(20, -5); ctx.lineTo(20, 3); ctx.lineTo(10, 10);
+      ctx.lineTo(-12, 10); ctx.lineTo(-18, 3);
+      ctx.closePath();
+    };
+    this._shell(ctx, skull, VOID,
+      this._lin(ctx, 'mechHead', 0, -14, 0, 10, [[0, '#87a1b4'], [0.42, '#4a5f74'], [1, '#1d2733']]), 5);
+    ctx.fillStyle = 'rgba(228,243,249,0.5)';
+    ctx.beginPath(); ctx.moveTo(-11, -12.5); ctx.lineTo(8, -12.5); ctx.lineTo(10, -10.5); ctx.lineTo(-12, -10.5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#080d12'; this._roundRect(ctx, -13, -5, 31, 9, 3); ctx.fill();
+    this._glow(ctx, 4, -0.5, 14 + charge * 8, core, 0.45 + charge * 0.4);
+    ctx.fillStyle = this._rgba(core, 0.9);
+    this._roundRect(ctx, -11, -3.8, 27, 6.4, 2.2); ctx.fill();
+    ctx.save();
+    this._roundRect(ctx, -11, -3.8, 27, 6.4, 2.2); ctx.clip();
+    const scan = ((b.bob * 0.5) % 1) * 38 - 15;
+    ctx.fillStyle = this._rgba(coreHot, 0.85);
+    ctx.beginPath(); ctx.moveTo(scan, -5); ctx.lineTo(scan + 5, -5); ctx.lineTo(scan + 1, 3); ctx.lineTo(scan - 4, 3); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#131c25'; ctx.fillRect(-14, -6.6, 33, 1.9);
+    // Sensor antenna with a blinking tip.
+    ctx.strokeStyle = '#2b3a49'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-9, -13); ctx.lineTo(-15, -24); ctx.stroke();
+    const blink = Math.sin(b.bob * 5) > 0.4;
+    ctx.fillStyle = blink ? '#ff6b6b' : '#4a2a2a';
+    ctx.beginPath(); ctx.arc(-15, -25, 2, 0, Math.PI * 2); ctx.fill();
+    if (blink) this._glow(ctx, -15, -25, 7, '#ff6b6b', 0.6);
+    ctx.restore();
+
+    // Missile pod on the leading shoulder, centred exactly on the muzzle point
+    // boss.js launches from. Its hatch splits open as the tell.
     const podOpen = clamp(b.mechArmOpen || 0, 0, 1);
     ctx.save();
-    ctx.translate(cx + f * 46, y + 47); ctx.scale(f, 1);
-    ctx.fillStyle = '#1d2a35'; this._roundRect(ctx, -10, -11, 25, 22, 5); ctx.fill();
-    ctx.fillStyle = '#587083'; this._roundRect(ctx, -7, -8, 19, 16, 3); ctx.fill();
+    ctx.translate(C + f * 47, 37); ctx.scale(f, 1);
+    ctx.fillStyle = VOID; this._roundRect(ctx, -14, -13, 28, 26, 6); ctx.fill();
+    ctx.fillStyle = this._lin(ctx, 'mechPod', 0, -13, 0, 13, [[0, '#7c94a8'], [0.5, '#3d5266'], [1, '#1a242f']]);
+    this._roundRect(ctx, -12, -11, 24, 22, 5); ctx.fill();
+    ctx.fillStyle = 'rgba(220,238,246,0.45)'; this._roundRect(ctx, -10, -10, 18, 2, 1); ctx.fill();
     if (podOpen > 0.04) {
-      ctx.save(); ctx.translate(4, -5); ctx.rotate(-podOpen * 0.95); ctx.fillStyle = '#2d4050'; this._roundRect(ctx, -4, -13, 12, 8, 2); ctx.fill(); ctx.restore();
-      ctx.save(); ctx.translate(4, 5); ctx.rotate(podOpen * 0.95); ctx.fillStyle = '#2d4050'; this._roundRect(ctx, -4, 5, 12, 8, 2); ctx.fill(); ctx.restore();
-      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.30 + podOpen * 0.35; ctx.fillStyle = '#ffad55'; ctx.beginPath(); ctx.arc(8, 0, 11, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = '#ffb15a'; ctx.fillRect(3, -3, 9, 6); ctx.fillStyle = '#fff0bd'; ctx.fillRect(9, -2, 3, 3);
+      ctx.save(); ctx.translate(5, -6); ctx.rotate(-podOpen * 1.0);
+      ctx.fillStyle = '#25333f'; this._roundRect(ctx, -6, -13, 13, 8, 2); ctx.fill(); ctx.restore();
+      ctx.save(); ctx.translate(5, 6); ctx.rotate(podOpen * 1.0);
+      ctx.fillStyle = '#25333f'; this._roundRect(ctx, -6, 5, 13, 8, 2); ctx.fill(); ctx.restore();
+      this._glow(ctx, 7, 0, 13 + podOpen * 5, '#ffad55', 0.4 + podOpen * 0.5);
+      ctx.fillStyle = '#3a2a1c'; this._roundRect(ctx, -3, -5, 13, 10, 2); ctx.fill();
+      ctx.fillStyle = '#ffb15a'; this._roundRect(ctx, -1, -3.5, 10, 7, 2); ctx.fill();
+      ctx.fillStyle = '#fff0bd'; ctx.beginPath(); ctx.arc(7, 0, 2.2, 0, Math.PI * 2); ctx.fill();
     } else {
-      ctx.fillStyle = '#9bb5c1'; ctx.fillRect(4, -5, 7, 3); ctx.fillRect(4, 2, 7, 3);
+      ctx.fillStyle = '#0f161d'; this._roundRect(ctx, -3, -8, 13, 16, 2); ctx.fill();
+      ctx.fillStyle = '#8fa8ba'; ctx.fillRect(0, -6, 7, 2.6); ctx.fillRect(0, -0.5, 7, 2.6); ctx.fillRect(0, 5, 7, 2.6);
     }
     ctx.restore();
 
     if (ray) {
-      // Both arms move as a linked mount. The chassis above stays still while
-      // the wrists, cannon and muzzle sweep toward the player's position.
+      // Both arms drive one shared cannon mount. The barrel tip lands on the
+      // ray's real muzzle point, so the beam leaves the metal it comes from.
       const a = ray.angle || 0;
-      const wristX = cx + Math.cos(a) * 23;
-      const wristY = y + 43 + Math.sin(a) * 23;
+      const px = C, py = 42;
+      const wristX = px + Math.cos(a) * 20, wristY = py + Math.sin(a) * 20;
       for (const side of [-1, 1]) {
-        const sx = cx + side * 37, sy = y + 43;
-        ctx.strokeStyle = '#1c2935'; ctx.lineWidth = 12; ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(wristX, wristY); ctx.stroke();
-        ctx.strokeStyle = '#7490a2'; ctx.lineWidth = 6;
-        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(wristX, wristY); ctx.stroke();
-        ctx.fillStyle = '#d1e2e5'; ctx.beginPath(); ctx.arc(sx, sy, 4, 0, Math.PI * 2); ctx.fill();
+        const sxx = C + side * 36, syy = 36;
+        ctx.strokeStyle = VOID; ctx.lineWidth = 13; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(sxx, syy); ctx.lineTo(wristX, wristY); ctx.stroke();
+        ctx.strokeStyle = '#42586d'; ctx.lineWidth = 7.5;
+        ctx.beginPath(); ctx.moveTo(sxx, syy); ctx.lineTo(wristX, wristY); ctx.stroke();
+        ctx.strokeStyle = '#93aec0'; ctx.globalAlpha = 0.8; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(sxx, syy - 2.5); ctx.lineTo(wristX, wristY - 2.5); ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#101821'; ctx.beginPath(); ctx.arc(sxx, syy, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#8fa8ba'; ctx.beginPath(); ctx.arc(sxx, syy, 3.2, 0, Math.PI * 2); ctx.fill();
       }
-      ctx.save(); ctx.translate(cx + Math.cos(a) * 34, y + 43 + Math.sin(a) * 34); ctx.rotate(a);
-      ctx.fillStyle = '#172531'; this._roundRect(ctx, -12, -9, 43, 18, 5); ctx.fill();
-      ctx.fillStyle = '#5f8195'; this._roundRect(ctx, -8, -6, 32, 12, 3); ctx.fill();
-      ctx.fillStyle = '#b2d5df'; ctx.fillRect(-5, -5, 19, 3);
-      ctx.fillStyle = '#20313d'; this._roundRect(ctx, 21, -12, 14, 24, 3); ctx.fill();
-      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35 + (b.mechRayCharge || 0) * 0.35; ctx.fillStyle = '#75e8ff'; ctx.beginPath(); ctx.arc(32, 0, 13, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
-      ctx.fillStyle = '#e9ffff'; ctx.fillRect(28, -3, 7, 6); ctx.globalCompositeOperation = 'source-over';
+      ctx.save();
+      ctx.translate(px, py); ctx.rotate(a);
+      ctx.fillStyle = VOID; this._roundRect(ctx, -13, -11, 54, 22, 6); ctx.fill();
+      ctx.fillStyle = this._lin(ctx, 'mechGun', 0, -11, 0, 11, [[0, '#7f99ac'], [0.45, '#3f5468'], [1, '#18222e']]);
+      this._roundRect(ctx, -11, -9, 49, 18, 4); ctx.fill();
+      ctx.fillStyle = 'rgba(224,240,247,0.5)'; this._roundRect(ctx, -8, -8, 38, 2.2, 1); ctx.fill();
+      for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = '#121b24'; this._roundRect(ctx, 4 + i * 10, -12, 5, 24, 2); ctx.fill();
+        ctx.fillStyle = this._rgba(core, 0.35 + (b.mechRayCharge || 0) * 0.6);
+        this._roundRect(ctx, 5 + i * 10, -10, 3, 20, 1.5); ctx.fill();
+      }
+      ctx.fillStyle = '#0d141b'; this._roundRect(ctx, 35, -9, 9, 18, 3); ctx.fill();
+      this._glow(ctx, 45, 0, 12 + (b.mechRayCharge || 0) * 12, core, 0.45 + (b.mechRayCharge || 0) * 0.5);
+      ctx.fillStyle = coreHot; ctx.beginPath(); ctx.arc(43, 0, 3.2, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     } else {
-      // Stowed hands retain a visible silhouette outside of the ray attack.
+      // Stowed arms: a real upper arm, a blocky forearm and a clenched fist, so
+      // the machine keeps a heavy silhouette between attacks.
       for (const side of [-1, 1]) {
-        const sx = cx + side * 39, sy = y + 55;
-        ctx.strokeStyle = '#22313e'; ctx.lineWidth = 10; ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.moveTo(sx, y + 43); ctx.lineTo(sx + side * 7, sy); ctx.stroke();
-        ctx.strokeStyle = '#7892a3'; ctx.lineWidth = 4;
-        ctx.beginPath(); ctx.moveTo(sx, y + 43); ctx.lineTo(sx + side * 7, sy); ctx.stroke();
-        ctx.fillStyle = '#bcced4'; ctx.beginPath(); ctx.arc(sx + side * 7, sy, 4, 0, Math.PI * 2); ctx.fill();
+        const sxx = C + side * 36, syy = 36;
+        const droop = Math.sin(walk + (side < 0 ? Math.PI : 0)) * 2.5;
+        const elbowX = sxx + side * 5, elbowY = 50 + droop * 0.5;
+        const handX = elbowX + side * 2, handY = 64 + droop;
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = VOID; ctx.lineWidth = 14;
+        ctx.beginPath(); ctx.moveTo(sxx, syy); ctx.lineTo(elbowX, elbowY); ctx.stroke();
+        ctx.strokeStyle = '#3a4f63'; ctx.lineWidth = 9;
+        ctx.beginPath(); ctx.moveTo(sxx, syy); ctx.lineTo(elbowX, elbowY); ctx.stroke();
+        ctx.fillStyle = VOID; this._roundRect(ctx, elbowX - 8, elbowY - 3, 16, 20, 5); ctx.fill();
+        ctx.fillStyle = this._lin(ctx, 'mechArm', 0, 47, 0, 67, [[0, '#7089a0'], [0.5, '#3c5165'], [1, '#18222e']]);
+        this._roundRect(ctx, elbowX - 6.5, elbowY - 2, 13, 18, 4); ctx.fill();
+        ctx.fillStyle = 'rgba(210,232,242,0.4)'; ctx.fillRect(elbowX - 5, elbowY - 1, 9, 1.8);
+        ctx.fillStyle = '#101821'; ctx.beginPath(); ctx.arc(handX, handY, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#54697e'; ctx.beginPath(); ctx.arc(handX, handY, 4.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#93aec0'; ctx.beginPath(); ctx.arc(handX - 1.4, handY - 1.6, 1.7, 0, Math.PI * 2); ctx.fill();
       }
     }
 
-    // Every major move has a local, readable tell: braced feet for the leap,
-    // bright pod for missiles, and a charged core/cannon for the Plasma Ray.
+    // Move tells: braced feet before a leap, a shockwave ring on landing.
     if (b.mechJumpCharge > 0.06) {
       const k = b.mechJumpCharge;
-      ctx.strokeStyle = '#ffd36d'; ctx.globalAlpha = 0.35 + k * 0.45; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.ellipse(cx, y + h - 1, 37 + k * 20, 8 + k * 4, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = '#ffd36d'; ctx.globalAlpha = 0.3 + k * 0.45; ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.ellipse(C, h - 1, 38 + k * 20, 8 + k * 4, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.globalAlpha = 1;
     }
     if (b.mechLanding > 0.02) {
       ctx.strokeStyle = '#ffdf8d'; ctx.globalAlpha = b.mechLanding * 0.8; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.ellipse(cx, y + h, 54 - b.mechLanding * 12, 10, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(C, h, 56 - b.mechLanding * 12, 11, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.globalAlpha = 1;
     }
     if (b.hurtFlash > 0) {
-      ctx.globalAlpha = 0.36 + b.hurtFlash * 2;
-      ctx.fillStyle = '#ffffff'; this._roundRect(ctx, x + 8, y + 13, w - 16, h - 17, 15); ctx.fill();
-      ctx.globalAlpha = 1;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = Math.min(0.6, b.hurtFlash * 2.4);
+      ctx.fillStyle = '#9fc4d8';
+      chassis(); ctx.fill();
+      this._roundRect(ctx, C - 25, 58, 50, 18, 7); ctx.fill();
+      ctx.restore();
     }
     if (b.invuln > 0) {
-      ctx.strokeStyle = '#e9ffff'; ctx.globalAlpha = 0.6; ctx.lineWidth = 2;
-      this._roundRect(ctx, x + 4, y + 5, w - 8, h - 3, 17); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.strokeStyle = '#e9ffff'; ctx.globalAlpha = 0.45 + 0.2 * Math.sin(b.bob * 7); ctx.lineWidth = 2;
+      this._roundRect(ctx, 4, 4, w - 8, h - 6, 16); ctx.stroke(); ctx.globalAlpha = 1;
     }
     ctx.restore();
   }
@@ -2729,6 +3007,21 @@ export class Renderer {
   // The Worm — a cavern-scale armored predator. Its whole body is drawn from
   // the simulated segment chain, tail first, so it stays visibly connected
   // while it charges, turns, or erupts from a burrow warning.
+  // The Worm — a burrowing armoured predator. The body is a chain of
+  // overlapping chitin plates with glowing membrane between them; a pulse runs
+  // head-to-tail along that membrane so the creature reads as one connected
+  // animal even in a pitch-black cavern. Legs skitter in a wave underneath, and
+  // the head is a layered skull with spreading mandibles rather than a blob.
+  // The Worm — a burrowing armoured predator. The body is a chain of
+  // overlapping chitin plates with glowing membrane between them; a pulse runs
+  // head-to-tail along that membrane so the creature reads as one connected
+  // animal even in a pitch-black cavern. Legs skitter in a wave underneath, and
+  // the head is a layered skull with spreading mandibles rather than a blob.
+  // The Worm — a burrowing armoured predator. The body is a chain of
+  // overlapping chitin plates with glowing membrane between them; a pulse runs
+  // head-to-tail along that membrane so the creature reads as one connected
+  // animal even in a pitch-black cavern. Legs skitter in a wave underneath, and
+  // the head is a layered skull with spreading mandibles rather than a blob.
   _drawTheWorm(ctx, b) {
     const x = b.x, y = b.y, w = b.w, h = b.h;
     const seg = b.segments || [];
@@ -2740,154 +3033,266 @@ export class Renderer {
     const rush = b.charge?.kind === 'wormCharge';
     const spitTell = b.chosen?.type === 'wormSpit' && b.telegraph > 0;
     const crouch = b.crouch || 0;
-    const ridge = phaseTwo ? '#d58cff' : '#b36ee7';
-    const glow = phaseTwo ? '#ffd0a8' : '#e7c1ff';
+    const jaw = b.jaw != null ? b.jaw : 0;
+
+    // Phase two bakes the shell darker and pushes the glow from violet toward
+    // a hot ember, so the fight visibly escalates.
+    const P = phaseTwo ? 'b' : 'a';
+    const INK = '#0b0711';
+    const membrane = phaseTwo ? '#ff9a5c' : '#c383ff';
+    const eyeGlow = phaseTwo ? '#ffcf9a' : '#e3b6ff';
+    const crest = phaseTwo ? '#c76540' : '#8d55bb';
 
     ctx.save();
-    this._bossAura(ctx, b, phaseTwo ? '#df96ff' : '#bd79ef', 58);
+    this._bossAura(ctx, b, phaseTwo ? '#ff9f66' : '#bd79ef', 52);
 
-    // A long soft shadow glues the segmented body to the cavern floor.
-    ctx.fillStyle = 'rgba(5,3,12,0.34)';
-    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h + 3, w * 0.52, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+    // A long, soft shadow glues the whole chain to the cavern floor.
+    const bodyLen = 30 + seg.length * 17;
+    const shg = ctx.createRadialGradient(x + w / 2, y + h + 3, 4, x + w / 2, y + h + 3, bodyLen * 0.6);
+    shg.addColorStop(0, 'rgba(4,2,9,0.40)');
+    shg.addColorStop(1, 'rgba(4,2,9,0)');
+    ctx.fillStyle = shg;
+    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h + 3, bodyLen * 0.6, 7, 0, 0, Math.PI * 2); ctx.fill();
 
-    // Tail first: every front plate overlaps the one behind it, giving the
-    // creature a single heavy spine rather than a row of detached circles.
+    // Legs, as their own pass behind every plate: two per segment, phase
+    // offset down the body so the whole chain skitters instead of sliding.
     for (let i = seg.length - 1; i >= 0; i--) {
       const s = seg[i];
-      const r = Math.max(8.5, 15.5 - i * 1.05);
-      const plate = phaseTwo
-        ? (i % 2 ? '#3c234d' : '#47295a')
-        : (i % 2 ? '#302039' : '#3a2745');
+      const r = Math.max(9, 16 - i * 1.1);
       ctx.save();
-      ctx.translate(s.x, s.y);
-      ctx.rotate(s.angle || 0);
-      ctx.fillStyle = '#17121f'; this._roundRect(ctx, -r - 1, -r * 0.9 - 1, r * 2 + 2, r * 1.8 + 2, r * 0.54); ctx.fill();
-      ctx.fillStyle = plate; this._roundRect(ctx, -r, -r * 0.9, r * 2, r * 1.8, r * 0.5); ctx.fill();
-      ctx.fillStyle = 'rgba(12,8,18,0.36)'; this._roundRect(ctx, -r + 2, r * 0.05, r * 2 - 4, r * 0.72, r * 0.34); ctx.fill();
-      ctx.fillStyle = phaseTwo ? 'rgba(255,196,234,0.38)' : 'rgba(225,178,255,0.30)';
-      this._roundRect(ctx, -r + 3, -r * 0.72, r * 2 - 6, r * 0.38, r * 0.24); ctx.fill();
-      ctx.strokeStyle = '#140d1b'; ctx.lineWidth = 1.2;
-      ctx.beginPath(); ctx.moveTo(-r + 1, -r * 0.05); ctx.lineTo(r - 1, -r * 0.05); ctx.stroke();
-      ctx.fillStyle = ridge;
-      ctx.beginPath(); ctx.moveTo(-3, -r * 0.86); ctx.lineTo(0, -r * (1.48 + (rush ? 0.12 : 0))); ctx.lineTo(3, -r * 0.86); ctx.closePath(); ctx.fill();
-      if (i < seg.length - 1) {
-        ctx.fillStyle = '#8c51ba'; ctx.fillRect(-r * 0.46, -r * 0.62, r * 0.42, 1.6);
+      ctx.translate(s.x, s.y); ctx.rotate(this._segTilt(s.angle));
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (let L = 0; L < 2; L++) {
+        const kick = Math.sin(b.bob * 5.5 - i * 0.85 + L * 2.4) * 3.4;
+        const far = L === 0;
+        ctx.strokeStyle = far ? '#130d1c' : '#2b1c3c';
+        ctx.lineWidth = far ? 2.8 : 3.4;
+        ctx.beginPath();
+        ctx.moveTo(-1 + L * 3, r * 0.42);
+        ctx.lineTo(-5 + L * 3 + kick, r * 1.05 + 3);
+        ctx.lineTo(-2 + L * 3 + kick * 1.8, r * 1.5 + 8);
+        ctx.stroke();
       }
       ctx.restore();
     }
 
-    // The head is a tapered armored skull rather than another rectangle: a
-    // collar joins it to the plates, the brow and snout taper toward the bite,
-    // and the lower jaw has its own motion during every wind-up.
+    // Plates, tail first so every plate overlaps the one behind it. The glowing
+    // membrane is painted on each plate's rear edge, where it sits directly
+    // over the segment behind — that is what makes the joints read.
+    for (let i = seg.length - 1; i >= 0; i--) {
+      const s = seg[i];
+      const r = Math.max(9, 16 - i * 1.1);
+      const pulse = 0.5 + 0.5 * Math.sin(b.bob * 4.5 - i * 0.9);
+      // `flip` is +1 when local +x still points down the body toward the tail
+      // and -1 once the tilt has been mirrored, so tail-ward details stay put.
+      const flip = Math.cos(s.angle || 0) < 0 ? -1 : 1;
+      ctx.save();
+      ctx.translate(s.x, s.y);
+      ctx.rotate(this._segTilt(s.angle));
+
+      // Dark under-shell, then the lit plate on top of it.
+      ctx.fillStyle = INK;
+      this._roundRect(ctx, -r - 1.5, -r * 0.86, r * 2 + 3, r * 1.7, r * 0.5); ctx.fill();
+      ctx.fillStyle = this._lin(ctx, 'wormPlate' + i + P, 0, -r * 0.85, 0, r * 0.85,
+        phaseTwo
+          ? [[0, '#5f3c46'], [0.26, '#3d2236'], [0.62, '#241428'], [1, '#0f0914']]
+          : [[0, '#5b3c7e'], [0.26, '#382152'], [0.62, '#221434'], [1, '#0f0918']]);
+      this._roundRect(ctx, -r, -r * 0.8, r * 2, r * 1.5, r * 0.45); ctx.fill();
+
+      // Top bevel and dark contact edge: the two strokes that give a flat fill
+      // its volume.
+      ctx.fillStyle = phaseTwo ? 'rgba(255,214,196,0.18)' : 'rgba(213,183,250,0.17)';
+      this._roundRect(ctx, -r + 2.5, -r * 0.76, r * 2 - 5, r * 0.3, r * 0.15); ctx.fill();
+      ctx.fillStyle = 'rgba(6,3,12,0.45)';
+      this._roundRect(ctx, -r + 2, r * 0.34, r * 2 - 4, r * 0.34, r * 0.17); ctx.fill();
+
+      // Glowing membrane at the joint, pulsing head-to-tail.
+      this._glow(ctx, flip * r * 0.86, 0, r * 0.95, membrane, 0.28 + pulse * 0.4);
+      ctx.fillStyle = this._rgba(membrane, 0.42 + pulse * 0.45);
+      this._roundRect(ctx, flip * r * 0.6 - (flip < 0 ? r * 0.42 : 0), -r * 0.55, r * 0.42, r * 1.1, r * 0.2); ctx.fill();
+
+      // Dorsal ridge: a keeled spine plus a pair of swept barbs per segment.
+      ctx.fillStyle = crest;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.34, -r * 0.72);
+      ctx.lineTo(0, -r * (1.42 + (rush ? 0.16 : 0)));
+      ctx.lineTo(r * 0.34, -r * 0.72);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.22)';
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.12, -r * 0.75); ctx.lineTo(0, -r * (1.36 + (rush ? 0.16 : 0))); ctx.lineTo(r * 0.06, -r * 0.75);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = phaseTwo ? '#7a3f36' : '#54306f';
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(side * r * 0.62 * flip, -r * 0.5);
+        ctx.lineTo(side * r * 1.05 * flip, -r * 0.15);
+        ctx.lineTo(side * r * 0.6 * flip, -r * 0.02);
+        ctx.closePath(); ctx.fill();
+      }
+
+      // Hairline chitin cracks that glow once the shell is failing.
+      if (phaseTwo) {
+        ctx.strokeStyle = this._rgba('#ffb271', 0.30 + pulse * 0.22);
+        ctx.lineWidth = 1.1;
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.5, -r * 0.4); ctx.lineTo(-r * 0.1, -r * 0.05); ctx.lineTo(-r * 0.3, r * 0.35);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // ---- Head: a layered skull, drawn last so it sits above the chain. ----
     ctx.save();
     ctx.translate(headX, headY + crouch * 2);
     ctx.scale(f, 1);
 
-    // Neck collar so the head grows out of the segmented body instead of
-    // looking pasted onto it.
-    ctx.fillStyle = '#16101d'; ctx.beginPath(); ctx.ellipse(-15, 0, 12, 15, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = phaseTwo ? '#382047' : '#2e2038'; ctx.beginPath(); ctx.ellipse(-14, 0, 9, 12, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#8550a5'; ctx.globalAlpha = 0.5; ctx.lineWidth = 1.3;
-    ctx.beginPath(); ctx.moveTo(-21, -7); ctx.lineTo(-8, -5); ctx.moveTo(-22, 2); ctx.lineTo(-8, 4); ctx.stroke();
-    ctx.globalAlpha = 1;
+    // Neck collar, so the skull grows out of the body instead of floating.
+    ctx.fillStyle = INK;
+    ctx.beginPath(); ctx.ellipse(-16, 1, 13, 16, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = this._lin(ctx, 'wormCollar' + P, 0, -14, 0, 15,
+      phaseTwo ? [[0, '#5c3945'], [1, '#1c1020']] : [[0, '#5a3d7c'], [1, '#1c1230']]);
+    ctx.beginPath(); ctx.ellipse(-15, 1, 10.5, 13, 0, 0, Math.PI * 2); ctx.fill();
 
-    // Outer skull silhouette. The sloped nose and split cheek plates make the
-    // dangerous end clear without turning it into a square block.
-    ctx.fillStyle = '#15101d';
-    ctx.beginPath();
-    ctx.moveTo(-18, -11); ctx.quadraticCurveTo(-12, -19, -3, -21);
-    ctx.quadraticCurveTo(9, -21, 18, -13); ctx.lineTo(27, -7);
-    ctx.lineTo(32, -1); ctx.lineTo(27, 8); ctx.quadraticCurveTo(19, 17, 5, 18);
-    ctx.quadraticCurveTo(-9, 17, -18, 8); ctx.lineTo(-22, -3); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = phaseTwo ? '#4d2a5e' : '#3d2949';
-    ctx.beginPath();
-    ctx.moveTo(-16, -10); ctx.quadraticCurveTo(-9, -16, -2, -18);
-    ctx.quadraticCurveTo(8, -18, 16, -11); ctx.lineTo(25, -5);
-    ctx.lineTo(28, -1); ctx.lineTo(23, 6); ctx.quadraticCurveTo(15, 13, 5, 14);
-    ctx.quadraticCurveTo(-7, 13, -15, 6); ctx.lineTo(-18, -3); ctx.closePath(); ctx.fill();
-
-    // Layered brow, crown spines, and cheek plating give the skull texture.
-    ctx.fillStyle = phaseTwo ? '#79438c' : '#633875';
-    ctx.beginPath();
-    ctx.moveTo(-11, -12); ctx.quadraticCurveTo(1, -18, 14, -10); ctx.lineTo(20, -5);
-    ctx.lineTo(5, -5); ctx.lineTo(-10, -7); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = 'rgba(244,211,255,0.38)';
-    ctx.beginPath(); ctx.moveTo(-7, -12); ctx.quadraticCurveTo(1, -15, 10, -10); ctx.lineTo(5, -9); ctx.lineTo(-7, -10); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = ridge;
-    for (const [sx, sy, size] of [[-7, -17, 4], [1, -20, 5], [10, -16, 4]]) {
-      ctx.beginPath(); ctx.moveTo(sx - size, sy + 4); ctx.lineTo(sx, sy - size); ctx.lineTo(sx + size, sy + 4); ctx.closePath(); ctx.fill();
-    }
-    ctx.fillStyle = '#26182f';
-    ctx.beginPath(); ctx.moveTo(-13, 1); ctx.lineTo(-1, -2); ctx.lineTo(2, 5); ctx.lineTo(-7, 10); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = phaseTwo ? '#6c3c80' : '#573267';
-    ctx.beginPath(); ctx.moveTo(-10, 2); ctx.lineTo(-1, 0); ctx.lineTo(-1, 5); ctx.lineTo(-7, 8); ctx.closePath(); ctx.fill();
-
-    // Forward snout and a fixed upper mandible.
-    ctx.fillStyle = '#211529';
-    ctx.beginPath(); ctx.moveTo(10, -10); ctx.lineTo(27, -7); ctx.lineTo(35, -1); ctx.lineTo(29, 4); ctx.lineTo(13, 6); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = phaseTwo ? '#6b3d7e' : '#573167';
-    ctx.beginPath(); ctx.moveTo(13, -8); ctx.lineTo(27, -5); ctx.lineTo(31, -1); ctx.lineTo(17, 0); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#1a101f'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(13, 0); ctx.lineTo(30, 0); ctx.stroke();
-    ctx.fillStyle = '#f6e6c7';
-    for (let i = 0; i < 4; i++) {
-      const tx = 14 + i * 4.2;
-      ctx.beginPath(); ctx.moveTo(tx, 1); ctx.lineTo(tx + 1.6, 5); ctx.lineTo(tx + 3.2, 1); ctx.closePath(); ctx.fill();
-    }
-
-    // Jaw opens during every telegraph, then snaps closed on the committed hit.
-    const jaw = b.jaw != null ? b.jaw : 0;
-    ctx.save(); ctx.translate(8, 5); ctx.rotate(jaw * 0.58);
-    ctx.fillStyle = '#120d18';
-    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(25, -2); ctx.lineTo(30, 5); ctx.lineTo(20, 12); ctx.lineTo(4, 10); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = phaseTwo ? '#5e3570' : '#4c2b5b';
-    ctx.beginPath(); ctx.moveTo(3, 2); ctx.lineTo(23, 1); ctx.lineTo(25, 5); ctx.lineTo(18, 9); ctx.lineTo(6, 8); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#f2ddc0';
-    for (let i = 0; i < 4; i++) {
-      const tx = 6 + i * 4.4;
-      ctx.beginPath(); ctx.moveTo(tx, 2); ctx.lineTo(tx + 1.6, 6.8); ctx.lineTo(tx + 3.2, 2); ctx.closePath(); ctx.fill();
-    }
-    ctx.restore();
-
-    // Core eye and cheek sac brighten differently: the eye warns of any move,
-    // the cheek sac specifically signals the arcing spit volley.
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = 0.28 + charge * 0.45;
-    ctx.fillStyle = phaseTwo ? '#ffb36d' : '#d493ff'; ctx.beginPath(); ctx.arc(10, -7, 10 + charge * 5, 0, Math.PI * 2); ctx.fill();
-    if (spitTell) { ctx.globalAlpha = 0.28 + charge * 0.36; ctx.fillStyle = '#dba8ff'; ctx.beginPath(); ctx.arc(-4, 4, 11 + charge * 4, 0, Math.PI * 2); ctx.fill(); }
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = glow;
-    ctx.beginPath(); ctx.moveTo(5, -10); ctx.lineTo(14, -9); ctx.lineTo(11, -4); ctx.lineTo(6, -5); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#25152e'; ctx.beginPath(); ctx.moveTo(10, -8); ctx.lineTo(12, -8); ctx.lineTo(10, -5); ctx.closePath(); ctx.fill();
-    if (spitTell) { ctx.fillStyle = '#c383ff'; ctx.beginPath(); ctx.arc(-4, 4, 4, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#f4d7ff'; ctx.beginPath(); ctx.arc(-5.4, 2.2, 1.4, 0, Math.PI * 2); ctx.fill(); }
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.restore();
-
-    // Small root-spurs keep it grounded and flare out while it braces to rush.
-    if (b.onGround) {
-      ctx.strokeStyle = '#26182f'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    // Cranial shell. One dark silhouette pass under a top-lit gradient.
+    const skull = () => {
       ctx.beginPath();
-      for (const s of seg) {
-        const spread = 5 + crouch * 4 + (rush ? 2 : 0);
-        ctx.moveTo(s.x - 4, s.y + 10); ctx.lineTo(s.x - spread, s.y + 17);
-        ctx.moveTo(s.x + 4, s.y + 10); ctx.lineTo(s.x + spread, s.y + 17);
-      }
-      ctx.stroke();
+      ctx.moveTo(-17, -8);
+      ctx.quadraticCurveTo(-14, -19, -2, -21);
+      ctx.quadraticCurveTo(10, -21, 16, -13);
+      ctx.lineTo(21, -6);
+      ctx.quadraticCurveTo(23, 0, 19, 6);
+      ctx.quadraticCurveTo(12, 15, 0, 16);
+      ctx.quadraticCurveTo(-12, 15, -17, 7);
+      ctx.closePath();
+    };
+    this._shell(ctx, skull, INK,
+      this._lin(ctx, 'wormSkull' + P, 0, -21, 0, 16,
+        phaseTwo
+          ? [[0, '#714652'], [0.30, '#48293c'], [0.66, '#2b1a2f'], [1, '#120a16']]
+          : [[0, '#6d4b92'], [0.30, '#432a60'], [0.66, '#2a1a3e'], [1, '#120b1b']]), 5);
+
+    // Brow plate and a crown of three horns — the read that says "front end".
+    ctx.fillStyle = phaseTwo ? '#603c43' : '#523471';
+    ctx.beginPath();
+    ctx.moveTo(-12, -11); ctx.quadraticCurveTo(0, -19, 14, -10);
+    ctx.lineTo(17, -5); ctx.lineTo(-2, -5); ctx.lineTo(-11, -7);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(240,220,255,0.26)';
+    ctx.beginPath();
+    ctx.moveTo(-8, -12); ctx.quadraticCurveTo(0, -16, 9, -10); ctx.lineTo(4, -9); ctx.lineTo(-8, -10);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = crest;
+    for (const horn of [[-8, -18, 4.5], [1, -22, 6], [11, -17, 4.5]]) {
+      const hx = horn[0], hy = horn[1], hs = horn[2];
+      ctx.beginPath();
+      ctx.moveTo(hx - hs, hy + 5); ctx.lineTo(hx + hs * 0.25, hy - hs); ctx.lineTo(hx + hs, hy + 5);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.22)';
+      ctx.beginPath();
+      ctx.moveTo(hx - hs * 0.4, hy + 4); ctx.lineTo(hx + hs * 0.2, hy - hs * 0.8); ctx.lineTo(hx + hs * 0.15, hy + 4);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = crest;
     }
 
+    // Cheek plate and the venom sac that swells before an arcing spit volley.
+    ctx.fillStyle = '#1e1226';
+    ctx.beginPath(); ctx.moveTo(-13, 2); ctx.lineTo(-2, -1); ctx.lineTo(1, 6); ctx.lineTo(-7, 11); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = phaseTwo ? '#5f3644' : '#54306f';
+    ctx.beginPath(); ctx.moveTo(-11, 3); ctx.lineTo(-3, 1); ctx.lineTo(-2, 5); ctx.lineTo(-8, 9); ctx.closePath(); ctx.fill();
+    if (spitTell) {
+      this._glow(ctx, -6, 5, 12 + charge * 6, membrane, 0.4 + charge * 0.4);
+      ctx.fillStyle = this._rgba(membrane, 0.75);
+      ctx.beginPath(); ctx.ellipse(-6, 5, 5 + charge * 1.6, 4.2 + charge * 1.4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#f6e2ff';
+      ctx.beginPath(); ctx.arc(-7.4, 3.4, 1.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Eye cluster: four small lenses instead of one blown-out disc, so the
+    // skull stays readable while still glowing brighter during a wind-up.
+    const eyeA = 0.55 + charge * 0.45;
+    this._glow(ctx, 6, -8, 13 + charge * 7, eyeGlow, 0.32 + charge * 0.4);
+    for (const eye of [[4, -10.5, 3.4, -0.34], [10, -8.5, 2.6, -0.30], [5, -5, 2.2, -0.26], [11.5, -4.4, 1.7, -0.22]]) {
+      const ex = eye[0], ey = eye[1], er = eye[2], tilt = eye[3];
+      ctx.fillStyle = '#100818';
+      ctx.beginPath(); ctx.ellipse(ex, ey, er + 1.1, er * 0.62 + 1, tilt, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = this._rgba(eyeGlow, eyeA);
+      ctx.beginPath(); ctx.ellipse(ex, ey, er, er * 0.55, tilt, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff4ff';
+      ctx.beginPath(); ctx.ellipse(ex - er * 0.3, ey - er * 0.22, er * 0.3, er * 0.16, tilt, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Upper jaw: a short armoured snout ending in a tooth row. The mouth the
+    // spit actually launches from sits just inside these jaws.
+    ctx.fillStyle = INK;
+    ctx.beginPath(); ctx.moveTo(8, -8); ctx.lineTo(20, -6); ctx.lineTo(24, 1); ctx.lineTo(18, 6); ctx.lineTo(8, 6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = this._lin(ctx, 'wormSnout' + P, 0, -8, 0, 6,
+      phaseTwo ? [[0, '#7f545e'], [1, '#3a2131']] : [[0, '#7c5aa2'], [1, '#36204e']]);
+    ctx.beginPath(); ctx.moveTo(9, -6.5); ctx.lineTo(19, -4.5); ctx.lineTo(22, 0.5); ctx.lineTo(17, 4); ctx.lineTo(9, 4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#f4e6ca';
+    for (let i = 0; i < 4; i++) {
+      const tx = 10 + i * 3.4;
+      ctx.beginPath(); ctx.moveTo(tx, 3); ctx.lineTo(tx + 1.5, 7.4); ctx.lineTo(tx + 3, 3); ctx.closePath(); ctx.fill();
+    }
+
+    // Lower jaw drops open through every telegraph, then snaps shut on commit.
+    ctx.save();
+    ctx.translate(6, 6); ctx.rotate(jaw * 0.62);
+    ctx.fillStyle = INK;
+    ctx.beginPath(); ctx.moveTo(-1, -3); ctx.lineTo(16, -2); ctx.lineTo(20, 4); ctx.lineTo(12, 10); ctx.lineTo(0, 8); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = this._lin(ctx, 'wormJaw' + P, 0, -3, 0, 10,
+      phaseTwo ? [[0, '#653c46'], [1, '#281724']] : [[0, '#634284'], [1, '#241638']]);
+    ctx.beginPath(); ctx.moveTo(0, -1.5); ctx.lineTo(14.5, -0.5); ctx.lineTo(17, 3.5); ctx.lineTo(11, 8); ctx.lineTo(1, 6.5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#f0dcc0';
+    for (let i = 0; i < 4; i++) {
+      const tx = 2 + i * 3.6;
+      ctx.beginPath(); ctx.moveTo(tx, -0.5); ctx.lineTo(tx + 1.5, -5); ctx.lineTo(tx + 3, -0.5); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+
+    // Mandibles: a pair of curved tusks that spread wide with the jaw. They are
+    // the clearest close-range warning on the whole creature.
+    for (const side of [-1, 1]) {
+      ctx.save();
+      ctx.translate(8, 2 + side * 4);
+      ctx.rotate(side * (0.18 + jaw * 0.44));
+      ctx.fillStyle = INK;
+      ctx.beginPath();
+      ctx.moveTo(-1, -3.2);
+      ctx.quadraticCurveTo(11, side * 3 - 1.2, 18, side * 7);
+      ctx.quadraticCurveTo(9, side * 3 + 2.2, -1, 3.2);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = phaseTwo ? '#7d4a3c' : '#573a75';
+      ctx.beginPath();
+      ctx.moveTo(0, -1.7);
+      ctx.quadraticCurveTo(10, side * 2.6 - 0.7, 15.6, side * 5.9);
+      ctx.quadraticCurveTo(8.6, side * 2.8 + 1, 0, 1.7);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+
+    // Bracing tell: a tight ring under the head as it winds up a rush.
     if (rush || b.telegraph > 0) {
-      ctx.strokeStyle = phaseTwo ? '#ffd0a8' : '#dca5ff'; ctx.globalAlpha = 0.38 + charge * 0.42; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.ellipse(headX, y + h - 1, 31 + charge * 14, 7 + charge * 3, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = phaseTwo ? '#ffc39a' : '#dca5ff';
+      ctx.globalAlpha = 0.32 + charge * 0.4; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(headX, y + h - 1, 26 + charge * 12, 6 + charge * 3, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.globalAlpha = 1;
     }
     if (b.hurtFlash > 0) {
-      ctx.globalAlpha = 0.42; ctx.fillStyle = '#ffffff';
-      for (const s of seg) { ctx.beginPath(); ctx.arc(s.x, s.y, 13, 0, Math.PI * 2); ctx.fill(); }
-      ctx.beginPath(); ctx.arc(headX, headY, 17, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = Math.min(0.5, b.hurtFlash * 1.8);
+      ctx.fillStyle = '#d9b6ff';
+      for (let i = 0; i < seg.length; i++) {
+        const s = seg[i], r = Math.max(9, 16 - i * 1.1);
+        ctx.beginPath(); ctx.ellipse(s.x, s.y, r, r * 0.85, this._segTilt(s.angle), 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.beginPath(); ctx.ellipse(headX, headY, 19, 16, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
     }
     if (b.invuln > 0) {
-      ctx.strokeStyle = '#f3dcff'; ctx.globalAlpha = 0.7; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(headX, headY, 18, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.strokeStyle = '#f3dcff'; ctx.globalAlpha = 0.45 + 0.22 * Math.sin(b.bob * 7); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(headX, headY, 22, 19, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
     }
     ctx.restore();
   }
@@ -2897,6 +3302,16 @@ export class Renderer {
   // from a heavy armored abdomen, a small crowned head, a long injector stinger
   // and two stained-glass-like fractured wings, so she reads immediately as a
   // wasp apex predator rather than as another generic flying blob.
+  // Vespera — the swarm queen. Everything here is aimed at one silhouette read:
+  // wasp. A banded black-and-gold abdomen on a narrow petiole, a fuzzy thorax,
+  // four iridescent wings that blur on the downbeat, a compound eye with real
+  // facets, dangling tarsal legs, and a long curved injector. Frenzy and phase
+  // two heat the gold and crack the chitin rather than changing the shape.
+  // Vespera — the swarm queen. Everything here is aimed at one silhouette read:
+  // wasp. A banded black-and-gold abdomen on a narrow petiole, a fuzzy thorax,
+  // four iridescent wings that blur on the downbeat, a compound eye with real
+  // facets, dangling tarsal legs, and a long curved injector. Frenzy and phase
+  // two heat the gold and crack the chitin rather than changing the shape.
   _drawVespera(ctx, b) {
     const x = b.x, y = b.y, w = b.w, h = b.h;
     const cx = x + w / 2, cy = y + h / 2;
@@ -2906,191 +3321,347 @@ export class Renderer {
     const charge = b.telegraph > 0 ? 1 - b.telegraph / (b.telegraphMax || 0.6) : 0;
     const dive = !!b.vesperaDive;
     const beat = b.vesperaWingBeat != null ? b.vesperaWingBeat : b.bob * 4;
-    const glow = frenzy ? '#fff0a3' : '#efbb57';
-    const vein = frenzy ? '#ffe68a' : '#dca650';
+    const jaw = b.vesperaMandible != null ? b.vesperaMandible : 0;
+
+    const INK = '#0a0810';
+    const GOLD = frenzy ? '#ffd76a' : '#efbb57';
+    const GOLD_D = frenzy ? '#c98a2c' : '#a8762a';
+    const GOLD_L = frenzy ? '#fff6c9' : '#ffe9a8';
+    const VENOM = phaseTwo ? '#c8f06a' : '#9be871';
 
     ctx.save();
-    this._bossAura(ctx, b, frenzy ? '#ffe36f' : '#efbb57', 76);
+    this._bossAura(ctx, b, frenzy ? '#ffe36f' : '#efbb57', 74);
 
-    // High-speed bodies get a short gold after-image, visible enough to read a
-    // dive direction without becoming opaque visual noise.
+    // Dive after-image, enough to read the attack line without smearing.
     if (dive && Math.hypot(b.vx || 0, b.vy || 0) > 260) {
       ctx.save();
-      ctx.globalAlpha = 0.12 + (frenzy ? 0.10 : 0);
-      ctx.fillStyle = '#efbb57';
       for (let i = 1; i <= 3; i++) {
+        ctx.globalAlpha = (0.13 + (frenzy ? 0.07 : 0)) * (1 - i * 0.22);
+        ctx.fillStyle = GOLD;
         ctx.beginPath();
-        ctx.ellipse(cx - (b.vx || 0) * 0.018 * i, cy - (b.vy || 0) * 0.018 * i, 31 - i * 4, 17 - i * 2, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx - (b.vx || 0) * 0.017 * i, cy - (b.vy || 0) * 0.017 * i, 30 - i * 4, 16 - i * 2, 0, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.restore();
     }
 
-    // Contact shadow is intentionally light: she is airborne, but it still
-    // gives depth whenever she briefly recoils close to the arena floor.
-    ctx.fillStyle = 'rgba(7,5,11,0.24)';
-    ctx.beginPath(); ctx.ellipse(cx, y + h + 8, 38, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+    // Faint ground shadow — she is airborne, but it still gives depth.
+    ctx.fillStyle = 'rgba(7,5,11,0.20)';
+    ctx.beginPath(); ctx.ellipse(cx, y + h + 10, 34, 5, 0, 0, Math.PI * 2); ctx.fill();
 
-    // Semi-transparent, fractured wings. The silhouette sweeps back from the
-    // thorax while the interior gold fracture lines act as a readable wing tell.
+    // ---- local space: origin at her centre-front, +x is the way she faces ---
     ctx.save();
-    ctx.translate(cx, y + 42);
-    for (const side of [-1, 1]) {
-      const flap = Math.sin(beat + side * 0.7) * (frenzy ? 9 : 6);
-      const tipY = -30 - flap;
-      ctx.globalAlpha = 0.26 + charge * 0.16 + (frenzy ? 0.10 : 0);
-      ctx.fillStyle = side < 0 ? '#8b70aa' : '#a27abe';
+    ctx.translate(cx, y);
+    ctx.scale(f, 1);
+
+    // One wing: a translucent iridescent membrane with a hard leading edge and
+    // branching venation. Drawn as its own routine so the blurred ghost copies
+    // on the downbeat are literally the same shape at lower alpha.
+    const wing = (rx, ry, len, wid, rot, alpha) => {
+      ctx.save();
+      ctx.translate(rx, ry); ctx.rotate(rot);
+      const g = ctx.createLinearGradient(0, 0, -len, wid * 0.3);
+      g.addColorStop(0, this._rgba('#eef4ff', 0.55 * alpha));
+      g.addColorStop(0.40, this._rgba('#bda4ec', 0.42 * alpha));
+      g.addColorStop(0.74, this._rgba('#93dcef', 0.34 * alpha));
+      g.addColorStop(1, this._rgba(GOLD, 0.24 * alpha));
+      ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.moveTo(side * 10, -3);
-      ctx.quadraticCurveTo(side * 36, tipY - 14, side * 58, tipY);
-      ctx.quadraticCurveTo(side * 64, -4 - flap * 0.3, side * 43, 14);
-      ctx.quadraticCurveTo(side * 24, 17, side * 9, 8);
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(-len * 0.42, -wid * 0.92, -len, -wid * 0.10);
+      ctx.quadraticCurveTo(-len * 0.52, wid * 0.62, 0, wid * 0.24);
       ctx.closePath(); ctx.fill();
-      ctx.globalAlpha = 0.62;
-      ctx.strokeStyle = '#e7c57a'; ctx.lineWidth = 1.2;
+      ctx.strokeStyle = this._rgba('#f6efff', 0.68 * alpha); ctx.lineWidth = 1.4;
       ctx.beginPath();
-      ctx.moveTo(side * 9, 0); ctx.lineTo(side * 52, tipY + 1);
-      ctx.moveTo(side * 17, 3); ctx.lineTo(side * 38, tipY - 6);
-      ctx.moveTo(side * 23, 5); ctx.lineTo(side * 48, 2 - flap * 0.18);
-      ctx.moveTo(side * 32, tipY - 10); ctx.lineTo(side * 41, 12);
+      ctx.moveTo(0, 0); ctx.quadraticCurveTo(-len * 0.42, -wid * 0.92, -len, -wid * 0.10);
       ctx.stroke();
-      // A few broken facets prevent the wings from reading as flat triangles.
-      ctx.globalAlpha = 0.22;
-      ctx.fillStyle = '#fff1af';
+      ctx.strokeStyle = this._rgba('#d8c2f7', 0.44 * alpha); ctx.lineWidth = 0.9;
       ctx.beginPath();
-      ctx.moveTo(side * 31, tipY - 4); ctx.lineTo(side * 43, tipY - 1); ctx.lineTo(side * 34, tipY + 9); ctx.closePath(); ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(side * 22, -7); ctx.lineTo(side * 35, -12 - flap * 0.2); ctx.lineTo(side * 30, 3); ctx.closePath(); ctx.fill();
+      for (let i = 1; i <= 3; i++) {
+        const t = i / 4;
+        ctx.moveTo(-len * t * 0.2, wid * 0.14);
+        ctx.quadraticCurveTo(-len * t * 0.75, -wid * 0.2, -len * (0.35 + t * 0.6), -wid * 0.28);
+      }
+      ctx.moveTo(-len * 0.08, wid * 0.05); ctx.lineTo(-len * 0.86, -wid * 0.06);
+      ctx.stroke();
+      ctx.restore();
+    };
+
+    // Four wings, swept up and back off the thorax. Each pass draws two ghost
+    // copies lagging the downbeat first, so fast flight reads as a blur rather
+    // than as four rigid blades.
+    const wingPass = (mul, dy) => {
+      for (let ghost = 2; ghost >= 0; ghost--) {
+        const lag = ghost * 0.40;
+        const fore = 0.62 + Math.sin(beat - lag) * (frenzy ? 0.5 : 0.34);
+        const hind = 0.30 + Math.sin(beat - lag - 0.5) * (frenzy ? 0.44 : 0.3);
+        const al = (ghost === 0 ? 1 : (ghost === 1 ? 0.32 : 0.16)) * mul;
+        wing(2, 34 + dy, 64, 30, fore, al);
+        wing(-3, 40 + dy, 47, 22, hind, al * 0.85);
+      }
+    };
+    // Far pair, dimmed and sitting slightly low, behind the body.
+    wingPass(0.5, 5);
+
+    // Six dangling legs: femur, tibia and a hooked tarsus. Wasps trail their
+    // legs in flight, and they tuck up tight into a dive.
+    const tuck = dive ? 0.55 : 0;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (let i = 0; i < 3; i++) {
+      const bx = 18 - i * 12;
+      const sway = Math.sin(beat * 0.5 + i * 0.9) * 2;
+      for (let L = 0; L < 2; L++) {
+        const far = L === 0;
+        const kx = bx - 6 - i * 1.5 + sway;
+        const ky = 62 + i * 2 - tuck * 8;
+        const tx = kx - 5 - i;
+        const ty = 76 + i * 2.5 - tuck * 18 + sway;
+        ctx.strokeStyle = far ? '#0d0a12' : '#241d2c';
+        ctx.lineWidth = far ? 2.6 : 3.1;
+        ctx.beginPath();
+        ctx.moveTo(bx + (far ? -2 : 1), 54);
+        ctx.lineTo(kx + (far ? -2 : 1), ky);
+        ctx.lineTo(tx + (far ? -2 : 1), ty);
+        ctx.stroke();
+        if (!far) {
+          ctx.strokeStyle = GOLD_D; ctx.lineWidth = 1.1;
+          ctx.beginPath(); ctx.moveTo(bx + 1, 55); ctx.lineTo(kx + 1, ky - 1); ctx.stroke();
+          ctx.strokeStyle = '#241d2c'; ctx.lineWidth = 2.4;
+          ctx.beginPath(); ctx.moveTo(tx + 1, ty); ctx.lineTo(tx - 3, ty + 4); ctx.stroke();
+        }
+      }
+    }
+
+    // Injector: a long curved barb off the abdomen tip, venom-lit and dripping
+    // harder during a wind-up.
+    ctx.save();
+    ctx.translate(-44, 58);
+    ctx.strokeStyle = INK; ctx.lineWidth = 11;
+    ctx.beginPath(); ctx.moveTo(2, -2); ctx.quadraticCurveTo(-12, 4, -22, 13); ctx.stroke();
+    ctx.strokeStyle = this._lin(ctx, 'vespStinger', 0, -6, 0, 16, [[0, '#4a3d52'], [1, '#1a1420']]);
+    ctx.lineWidth = 6.5;
+    ctx.beginPath(); ctx.moveTo(2, -2); ctx.quadraticCurveTo(-12, 4, -22, 13); ctx.stroke();
+    // Barbs along the shaft.
+    ctx.fillStyle = '#120e18';
+    for (let i = 0; i < 3; i++) {
+      const t = 0.25 + i * 0.24;
+      const px = 2 - 24 * t, py = -2 + 15 * t * t + 4 * t;
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + 3, py + 5.5); ctx.lineTo(px + 5, py + 0.5); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = INK;
+    ctx.beginPath(); ctx.moveTo(-19, 10); ctx.lineTo(-34, 20); ctx.lineTo(-18, 17); ctx.closePath(); ctx.fill();
+    this._glow(ctx, -30, 18, 9 + charge * 7, VENOM, 0.35 + charge * 0.45);
+    ctx.fillStyle = VENOM;
+    ctx.beginPath(); ctx.moveTo(-20, 12); ctx.lineTo(-31, 19); ctx.lineTo(-19, 16); ctx.closePath(); ctx.fill();
+    if (charge > 0.25) {
+      ctx.fillStyle = this._rgba(VENOM, 0.8);
+      ctx.beginPath(); ctx.arc(-32, 22 + charge * 5, 1.8 + charge, 0, Math.PI * 2); ctx.fill();
     }
     ctx.restore();
 
-    // Six folded legs only flare during a close recoil/landing beat. They are
-    // not permanent spider limbs, keeping the normal flying silhouette clean.
-    const legsOut = b.onGround || (b.aiState === 'recover' && !dive);
-    if (legsOut) {
+    // Abdomen: the banded gaster. This is the single strongest wasp cue, so the
+    // bands are hard-edged and high contrast rather than subtle veining.
+    ctx.save();
+    ctx.translate(-24, 54); ctx.rotate(0.16);
+    const gaster = () => {
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 23, 17, 0, 0, Math.PI * 2);
+    };
+    this._shell(ctx, gaster, INK,
+      this._lin(ctx, 'vespGaster', 0, -19, 0, 19,
+        [[0, '#4b4152'], [0.4, '#241d2c'], [1, '#0d0a12']]), 4);
+    // Gold bands, clipped to the gaster so they wrap its silhouette.
+    ctx.save();
+    gaster(); ctx.clip();
+    for (let i = 0; i < 4; i++) {
+      const bx = 16 - i * 12;
+      ctx.fillStyle = this._lin(ctx, 'vespBand' + i + (frenzy ? 'f' : 'n'), 0, -19, 0, 19,
+        [[0, GOLD_L], [0.35, GOLD], [1, GOLD_D]]);
+      ctx.beginPath();
+      ctx.moveTo(bx + 4, -20); ctx.lineTo(bx + 9, -20);
+      ctx.lineTo(bx + 4, 20); ctx.lineTo(bx - 1, 20);
+      ctx.closePath(); ctx.fill();
+    }
+    // Shadowed underside keeps the bands from flattening the form.
+    const ug = ctx.createLinearGradient(0, -4, 0, 20);
+    ug.addColorStop(0, 'rgba(6,4,10,0)');
+    ug.addColorStop(1, 'rgba(6,4,10,0.62)');
+    ctx.fillStyle = ug; ctx.fillRect(-28, -4, 56, 26);
+    // Phase-two fractures leak light from inside the shell.
+    if (phaseTwo) {
+      ctx.strokeStyle = this._rgba(GOLD_L, 0.34 + (frenzy ? 0.25 : 0));
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.moveTo(-18, -10); ctx.lineTo(-8, -2); ctx.lineTo(-14, 8);
+      ctx.moveTo(6, -13); ctx.lineTo(12, -4); ctx.lineTo(5, 5);
+      ctx.stroke();
+    }
+    ctx.restore();
+    // Venom sac glowing through the base of the gaster.
+    this._glow(ctx, -14, 6, 15 + charge * 6, VENOM, 0.22 + charge * 0.3 + (frenzy ? 0.15 : 0));
+    ctx.restore();
+
+    // Petiole: the narrow waist that separates gaster from thorax. Without it
+    // the two masses merge into one peanut, which is exactly how she used to
+    // read.
+    ctx.fillStyle = INK;
+    ctx.beginPath(); ctx.moveTo(-8, 44); ctx.lineTo(-2, 43); ctx.lineTo(-4, 56); ctx.lineTo(-12, 57); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#2b2333';
+    ctx.beginPath(); ctx.moveTo(-7.5, 45.5); ctx.lineTo(-3.5, 45); ctx.lineTo(-5.5, 54.5); ctx.lineTo(-10.5, 55); ctx.closePath(); ctx.fill();
+
+    // Thorax: a compact, fuzzy block. The hair tufts along its edge are what
+    // make her read as an insect rather than as moulded plastic.
+    ctx.save();
+    ctx.translate(10, 46);
+    ctx.strokeStyle = '#3a2f2a'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (let i = 0; i < 14; i++) {
+      const a = -Math.PI * 0.95 + i * 0.16;
+      const hx = Math.cos(a) * 17, hy = Math.sin(a) * 15;
+      ctx.moveTo(hx, hy); ctx.lineTo(hx * 1.32, hy * 1.34);
+    }
+    ctx.stroke();
+    const thorax = () => { ctx.beginPath(); ctx.ellipse(0, 0, 18, 16, -0.12, 0, Math.PI * 2); };
+    this._shell(ctx, thorax, INK,
+      this._lin(ctx, 'vespThorax', 0, -16, 0, 16, [[0, '#544858'], [0.42, '#2a2331'], [1, '#0e0b14']]), 4);
+    ctx.fillStyle = this._rgba(GOLD, 0.85);
+    ctx.beginPath(); ctx.moveTo(-13, -8); ctx.quadraticCurveTo(0, -14, 13, -6); ctx.lineTo(11, -2); ctx.quadraticCurveTo(0, -9, -12, -4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.16)';
+    ctx.beginPath(); ctx.ellipse(-3, -8, 9, 4, -0.3, 0, Math.PI * 2); ctx.fill();
+    // Wing sockets.
+    ctx.fillStyle = '#0c0912';
+    ctx.beginPath(); ctx.ellipse(-5, -11, 4, 2.6, -0.4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-9, -6, 3.4, 2.2, -0.4, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    // Head: compound eye with real facets, elbowed antennae, mandibles and the
+    // gold crown that marks her as the queen.
+    ctx.save();
+    ctx.translate(34, 41);
+
+    // Antennae, elbowed the way a wasp's are, drifting with the wingbeat.
+    for (let i = 0; i < 2; i++) {
+      const drift = Math.sin(beat * 0.6 + i * 1.5) * 2.4;
+      ctx.strokeStyle = INK; ctx.lineWidth = 2.8;
+      ctx.beginPath();
+      ctx.moveTo(4, -6 - i * 3);
+      ctx.quadraticCurveTo(16, -16 - i * 4 + drift, 21 + i * 3, -6 + drift * 1.4);
+      ctx.stroke();
+      ctx.strokeStyle = '#3b3142'; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(4, -6 - i * 3);
+      ctx.quadraticCurveTo(16, -16 - i * 4 + drift, 21 + i * 3, -6 + drift * 1.4);
+      ctx.stroke();
+      ctx.fillStyle = GOLD_D;
+      ctx.beginPath(); ctx.arc(21 + i * 3, -6 + drift * 1.4, 1.9, 0, Math.PI * 2); ctx.fill();
+    }
+
+    const head = () => {
+      ctx.beginPath();
+      ctx.moveTo(-8, -13); ctx.lineTo(9, -12); ctx.quadraticCurveTo(17, -7, 17, 1);
+      ctx.quadraticCurveTo(15, 10, 6, 13); ctx.lineTo(-8, 12);
+      ctx.quadraticCurveTo(-13, 0, -8, -13);
+      ctx.closePath();
+    };
+    this._shell(ctx, head, INK,
+      this._lin(ctx, 'vespHead', 0, -13, 0, 13, [[0, '#4e4354'], [0.45, '#28212f'], [1, '#100d17']]), 4);
+
+    // Compound eye: a big kidney-shaped lens with a facet lattice inside it and
+    // one specular hit, so it catches the light like a real insect eye.
+    const eye = () => {
+      ctx.beginPath();
+      ctx.moveTo(1, -11); ctx.quadraticCurveTo(13, -8, 13, 0);
+      ctx.quadraticCurveTo(12, 8, 3, 10); ctx.quadraticCurveTo(-1, 0, 1, -11);
+      ctx.closePath();
+    };
+    eye();
+    ctx.fillStyle = this._lin(ctx, 'vespEye', 0, -11, 0, 10,
+      [[0, '#8e6a2e'], [0.4, '#5d3f18'], [1, '#241606']]);
+    ctx.fill();
+    ctx.save();
+    eye(); ctx.clip();
+    ctx.strokeStyle = 'rgba(10,7,3,0.55)'; ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    for (let i = -4; i <= 7; i++) { ctx.moveTo(-2 + i * 2.1, -13); ctx.lineTo(-6 + i * 2.1, 12); }
+    for (let i = -1; i <= 6; i++) { ctx.moveTo(-4, -12 + i * 3.6); ctx.lineTo(15, -13 + i * 3.6); }
+    ctx.stroke();
+    this._glow(ctx, 7, -3, 11, frenzy ? '#ffd76a' : '#c98f34', 0.5);
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,246,214,0.8)';
+    ctx.beginPath(); ctx.ellipse(4.5, -6.5, 2.6, 1.7, -0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,246,214,0.35)';
+    ctx.beginPath(); ctx.ellipse(9, 4, 1.6, 1.1, -0.4, 0, Math.PI * 2); ctx.fill();
+
+    // Three ocelli across the brow — small, but unmistakably insect.
+    for (const o of [[-1, -12, 1.5], [3, -13.5, 1.7], [7, -12, 1.5]]) {
+      ctx.fillStyle = this._rgba(GOLD_L, 0.85);
+      ctx.beginPath(); ctx.arc(o[0], o[1], o[2], 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Mandibles click open through every wind-up and dive.
+    for (const side of [-1, 1]) {
       ctx.save();
-      ctx.translate(cx, y + 55);
-      ctx.strokeStyle = '#17121b'; ctx.lineWidth = 4; ctx.lineCap = 'round';
-      for (let i = 0; i < 3; i++) {
-        const yy = -10 + i * 9;
-        for (const side of [-1, 1]) {
-          ctx.beginPath();
-          ctx.moveTo(side * 11, yy);
-          ctx.lineTo(side * (22 + i * 2), yy + 8);
-          ctx.lineTo(side * (27 + i * 2), yy + 17);
-          ctx.stroke();
-        }
-      }
-      ctx.strokeStyle = '#5b453a'; ctx.lineWidth = 1.3;
-      for (let i = 0; i < 3; i++) {
-        const yy = -10 + i * 9;
-        for (const side of [-1, 1]) {
-          ctx.beginPath(); ctx.moveTo(side * 11, yy); ctx.lineTo(side * (22 + i * 2), yy + 8); ctx.stroke();
-        }
-      }
+      ctx.translate(10, 8 + side * 2.5);
+      ctx.rotate(side * (0.2 + jaw * 0.5));
+      ctx.fillStyle = INK;
+      ctx.beginPath();
+      ctx.moveTo(-1, -2.4);
+      ctx.quadraticCurveTo(7, side * 2.4, 12, side * 5.4);
+      ctx.quadraticCurveTo(6, side * 2.6 + 1.6, -1, 2.4);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = GOLD_D;
+      ctx.beginPath();
+      ctx.moveTo(0, -1.2);
+      ctx.quadraticCurveTo(6.4, side * 2.1, 10.4, side * 4.6);
+      ctx.quadraticCurveTo(5.6, side * 2.4 + 0.7, 0, 1.2);
+      ctx.closePath(); ctx.fill();
       ctx.restore();
     }
 
-    // The barbed injector trails from the abdomen opposite Vespera's face.
-    ctx.save();
-    ctx.translate(cx - f * 25, y + 57);
-    ctx.scale(f, 1);
-    ctx.strokeStyle = '#120f16'; ctx.lineWidth = 14; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(-41, 9); ctx.lineTo(-58, 16); ctx.stroke();
-    ctx.strokeStyle = '#33263a'; ctx.lineWidth = 9;
-    ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(-41, 9); ctx.lineTo(-58, 16); ctx.stroke();
-    ctx.strokeStyle = '#9d733b'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(-12, 2); ctx.lineTo(-47, 12); ctx.stroke();
-    for (let i = 0; i < 3; i++) {
-      const sx = -20 - i * 12, sy = 4 + i * 3;
-      ctx.fillStyle = '#17121b'; ctx.fillRect(sx - 2, sy - 5, 5, 10);
-      ctx.fillStyle = '#d39c49'; ctx.fillRect(sx - 1, sy - 4, 2, 4);
+    // The crown: three gold prongs and a venom gem. Purely heraldic, and the
+    // fastest way to tell her apart from her own swarm adds at a glance.
+    ctx.fillStyle = GOLD;
+    for (const p of [[-4, -14, 4.5], [3, -18, 6], [10, -13, 4.5]]) {
+      const px = p[0], py = p[1], ps = p[2];
+      ctx.beginPath();
+      ctx.moveTo(px - ps * 0.6, py + 5); ctx.lineTo(px, py - ps); ctx.lineTo(px + ps * 0.6, py + 5);
+      ctx.closePath(); ctx.fill();
     }
-    ctx.fillStyle = '#15111a';
-    ctx.beginPath(); ctx.moveTo(-58, 16); ctx.lineTo(-73, 18); ctx.lineTo(-61, 25); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#efbb57'; ctx.beginPath(); ctx.moveTo(-61, 17); ctx.lineTo(-70, 18); ctx.lineTo(-62, 22); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = GOLD_L;
+    ctx.beginPath(); ctx.moveTo(2.4, -17.4); ctx.lineTo(3, -18); ctx.lineTo(3.6, -14); ctx.lineTo(2.6, -14); ctx.closePath(); ctx.fill();
+    this._glow(ctx, 3, -13, 7 + charge * 4, VENOM, 0.4 + charge * 0.35);
+    ctx.fillStyle = VENOM;
+    ctx.beginPath(); ctx.arc(3, -13, 2.2, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
 
-    // Massive armored abdomen with a dark, plated underside and molten-gold
-    // veins that brighten during Frenzy and phase two.
-    ctx.save();
-    ctx.translate(cx - f * 10, y + 55);
-    ctx.scale(f, 1);
-    ctx.fillStyle = '#110e15'; ctx.beginPath(); ctx.ellipse(-7, 4, 36, 26, -0.10, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#25202a'; ctx.beginPath(); ctx.ellipse(-5, 1, 32, 22, -0.10, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#382d3a'; ctx.beginPath(); ctx.ellipse(-5, -1, 28, 17, -0.10, 0, Math.PI * 2); ctx.fill();
-    for (let i = 0; i < 4; i++) {
-      const sx = -29 + i * 14;
-      ctx.fillStyle = i % 2 ? '#211924' : '#2d222f';
-      ctx.beginPath(); ctx.ellipse(sx, 1 + Math.abs(i - 1.5) * 1.4, 9, 18 - Math.abs(i - 1.5) * 2, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#120d16'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(sx + 7, -11); ctx.lineTo(sx + 7, 14); ctx.stroke();
-    }
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = 0.35 + charge * 0.30 + (phaseTwo ? 0.12 : 0) + (frenzy ? 0.18 : 0);
-    ctx.strokeStyle = vein; ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(-28, -4); ctx.lineTo(-15, -8); ctx.lineTo(-5, -1); ctx.lineTo(8, -9); ctx.lineTo(22, -3);
-    ctx.moveTo(-21, 9); ctx.lineTo(-8, 5); ctx.lineTo(5, 11); ctx.lineTo(19, 5);
-    ctx.stroke();
-    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-    ctx.restore();
+    // Near pair, over the body — the overlap is what gives her depth.
+    wingPass(1, 0);
 
-    // Thorax and head point in the current attack direction. Gold edging gives
-    // the queen a crown-like read without relying on human features.
-    ctx.save();
-    ctx.translate(cx + f * 22, y + 42);
-    ctx.scale(f, 1);
-    ctx.fillStyle = '#120f16'; this._roundRect(ctx, -20, -21, 37, 43, 15); ctx.fill();
-    ctx.fillStyle = '#2b2430'; this._roundRect(ctx, -17, -18, 32, 36, 12); ctx.fill();
-    ctx.fillStyle = '#3c303d'; this._roundRect(ctx, -12, -15, 22, 18, 8); ctx.fill();
-    ctx.fillStyle = '#d69d47'; ctx.fillRect(-10, -14, 5, 2); ctx.fillRect(1, -16, 5, 2); ctx.fillRect(8, -10, 3, 10);
-    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.30 + charge * 0.35 + (frenzy ? 0.14 : 0);
-    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(-1, -2, 11 + charge * 4, 0, Math.PI * 2); ctx.fill();
-    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = '#17121a';
-    ctx.beginPath(); ctx.moveTo(5, -18); ctx.lineTo(19, -12); ctx.lineTo(25, -3); ctx.lineTo(21, 8); ctx.lineTo(8, 13); ctx.lineTo(-2, 7); ctx.lineTo(-4, -9); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#443646';
-    ctx.beginPath(); ctx.moveTo(7, -15); ctx.lineTo(17, -10); ctx.lineTo(20, -3); ctx.lineTo(16, 5); ctx.lineTo(7, 8); ctx.lineTo(1, 4); ctx.lineTo(0, -8); ctx.closePath(); ctx.fill();
-    // Crown prongs and the single bright eye.
-    ctx.fillStyle = '#dba64f';
-    for (const [px, py, s] of [[5, -18, 4], [11, -22, 5], [17, -17, 4]]) {
-      ctx.beginPath(); ctx.moveTo(px - s, py + 5); ctx.lineTo(px, py - s); ctx.lineTo(px + s, py + 5); ctx.closePath(); ctx.fill();
-    }
-    ctx.fillStyle = '#efcf70'; ctx.fillRect(14, -6, 5, 3); ctx.fillStyle = '#1a111a'; ctx.fillRect(17, -6, 1.5, 3);
+    ctx.restore();  // undo the facing flip before drawing screen-space effects
 
-    // Mandibles click open during a wind-up or dive. The split, pincer shape is
-    // unmistakable even at a distance and doubles as the close-range warning.
-    const jaw = b.vesperaMandible != null ? b.vesperaMandible : 0;
-    ctx.strokeStyle = '#100c12'; ctx.lineWidth = 5; ctx.lineCap = 'round';
-    for (const side of [-1, 1]) {
-      ctx.save(); ctx.translate(20, 2 + side * 3); ctx.rotate(side * (0.24 + jaw * 0.34));
-      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(12, side * 5); ctx.lineTo(17, side * 2); ctx.stroke();
-      ctx.strokeStyle = '#c48d42'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(2, 0); ctx.lineTo(14, side * 4); ctx.stroke();
-      ctx.restore(); ctx.strokeStyle = '#100c12'; ctx.lineWidth = 5;
-    }
-    ctx.restore();
-
-    // Gold motes leak out of phase-two fractures, especially during Frenzy.
+    // Gold motes leak from the fractures in phase two, more of them in Frenzy.
     if (phaseTwo) {
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
-      const count = frenzy ? 11 : 6;
+      const count = frenzy ? 12 : 7;
       for (let i = 0; i < count; i++) {
-        const a = beat * 0.45 + i * 1.74;
-        const r = 35 + (i % 3) * 9;
-        ctx.globalAlpha = 0.22 + (i % 2) * 0.12;
-        ctx.fillStyle = i % 3 ? '#efbb57' : '#b9e86e';
-        ctx.fillRect(cx + Math.cos(a) * r - 1, cy + Math.sin(a * 1.3) * (18 + i % 3 * 8) - 1, 2, 2);
+        const a = beat * 0.4 + i * 1.74;
+        const r = 32 + (i % 3) * 10;
+        ctx.globalAlpha = 0.20 + (i % 2) * 0.14;
+        ctx.fillStyle = (i % 3) ? GOLD : VENOM;
+        ctx.fillRect(cx + Math.cos(a) * r - 1, cy + Math.sin(a * 1.3) * (16 + (i % 3) * 8) - 1, 2, 2);
       }
       ctx.restore();
     }
-
     if (b.hurtFlash > 0) {
-      ctx.globalAlpha = 0.38 + b.hurtFlash * 1.5; ctx.fillStyle = '#ffffff';
-      ctx.beginPath(); ctx.ellipse(cx, cy, 44, 31, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = Math.min(0.55, b.hurtFlash * 1.9);
+      ctx.fillStyle = '#ffe7a8';
+      ctx.beginPath(); ctx.ellipse(cx, cy + 4, 42, 26, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
     }
     if (b.invuln > 0) {
-      ctx.strokeStyle = '#fff1ad'; ctx.globalAlpha = 0.42 + 0.22 * Math.sin(beat * 2); ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.ellipse(cx, cy, 57, 43, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.strokeStyle = '#fff1ad'; ctx.globalAlpha = 0.38 + 0.2 * Math.sin(beat * 2); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(cx, cy, 58, 42, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
     }
     ctx.restore();
   }

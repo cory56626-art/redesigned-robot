@@ -1,12 +1,12 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
-import { MSG } from './protocol.js?v=vespera-surface-5';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=vespera-surface-5';
-import { Player, assignColor } from '../entities/player.js?v=vespera-surface-5';
-import { Projectile } from '../entities/projectile.js?v=vespera-surface-5';
-import { ThrownItem } from '../entities/thrown.js?v=vespera-surface-5';
-import { ITEMS, isItemEnabled } from '../data/items.js?v=vespera-surface-5';
-import { ENEMIES } from '../data/enemies.js?v=vespera-surface-5';
-import { BOSSES } from '../data/bosses.js?v=vespera-surface-5';
+import { MSG } from './protocol.js?v=boss-redesign-1';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=boss-redesign-1';
+import { Player, assignColor } from '../entities/player.js?v=boss-redesign-1';
+import { Projectile } from '../entities/projectile.js?v=boss-redesign-1';
+import { ThrownItem } from '../entities/thrown.js?v=boss-redesign-1';
+import { ITEMS, isItemEnabled } from '../data/items.js?v=boss-redesign-1';
+import { ENEMIES } from '../data/enemies.js?v=boss-redesign-1';
+import { BOSSES } from '../data/bosses.js?v=boss-redesign-1';
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 

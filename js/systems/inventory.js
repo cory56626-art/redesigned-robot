@@ -1,6 +1,6 @@
 // Summoner Realms — inventory, hotbar, equipment, and derived stats.
-import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=vespera-surface-5';
-import { ITEMS, item as getItem, isItemEnabled } from '../data/items.js?v=vespera-surface-5';
+import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=boss-redesign-1';
+import { ITEMS, item as getItem, isItemEnabled } from '../data/items.js?v=boss-redesign-1';
 
 export const INV_SIZE = HOTBAR_SIZE + INV_ROWS * INV_COLS;
 

@@ -8,10 +8,10 @@
 //
 // Bugs are the same entity with `kind: 'bug'`: smaller, flightier, and caught by
 // clicking them rather than by killing them.
-import { TILE, GRAVITY } from '../config.js?v=vespera-surface-5';
-import { FAUNA } from '../data/fauna.js?v=vespera-surface-5';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=vespera-surface-5';
-import { dist2 } from '../utils.js?v=vespera-surface-5';
+import { TILE, GRAVITY } from '../config.js?v=boss-redesign-1';
+import { FAUNA } from '../data/fauna.js?v=boss-redesign-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=boss-redesign-1';
+import { dist2 } from '../utils.js?v=boss-redesign-1';
 
 export class Critter {
   constructor(key, x, y, netId) {

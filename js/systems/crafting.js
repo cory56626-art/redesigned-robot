@@ -1,8 +1,8 @@
 // Summoner Realms — crafting logic.
-import { TILE } from '../config.js?v=vespera-surface-5';
-import { RECIPES } from '../data/recipes.js?v=vespera-surface-5';
-import { tileDef } from '../world/tiles.js?v=vespera-surface-5';
-import { item as getItem } from '../data/items.js?v=vespera-surface-5';
+import { TILE } from '../config.js?v=boss-redesign-1';
+import { RECIPES } from '../data/recipes.js?v=boss-redesign-1';
+import { tileDef } from '../world/tiles.js?v=boss-redesign-1';
+import { item as getItem } from '../data/items.js?v=boss-redesign-1';
 
 // Which crafting stations are within reach of the player? (null = by hand)
 export function nearbyStations(game, player) {

@@ -13,11 +13,11 @@
 //                the recipe list and boss loot tables, so a new item is
 //                explained correctly the day it's added without anyone writing
 //                a paragraph for it.
-import { ITEMS, item as getItem } from './items.js?v=vespera-surface-5';
-import { RECIPES } from './recipes.js?v=vespera-surface-5';
-import { BOSSES } from './bosses.js?v=vespera-surface-5';
-import { ENEMIES } from './enemies.js?v=vespera-surface-5';
-import { TILE } from '../config.js?v=vespera-surface-5';
+import { ITEMS, item as getItem } from './items.js?v=boss-redesign-1';
+import { RECIPES } from './recipes.js?v=boss-redesign-1';
+import { BOSSES } from './bosses.js?v=boss-redesign-1';
+import { ENEMIES } from './enemies.js?v=boss-redesign-1';
+import { TILE } from '../config.js?v=boss-redesign-1';
 
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
 
