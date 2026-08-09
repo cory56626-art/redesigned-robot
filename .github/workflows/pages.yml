@@ -12,7 +12,6 @@ on:
       - claude/terraria-game-bugfix-jnptcy
       - claude/summoners-realm-improvements-he8127
       - claude/summoners-realm-improvements-tpvps8
-      - claude/summoners-realm-calamity-weapons-qnbzzo
   workflow_dispatch:
 
 permissions:
