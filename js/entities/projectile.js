@@ -1,6 +1,6 @@
 // Summoner Realms — projectiles for ranged/mage weapons, minions, enemies, bosses.
-import { GRAVITY, TILE } from '../config.js?v=realms-qor-48';
-import { aabb, dist2 } from '../utils.js?v=realms-qor-48';
+import { GRAVITY, TILE } from '../config.js?v=realms-qor-49';
+import { aabb, dist2 } from '../utils.js?v=realms-qor-49';
 
 export class Projectile {
   constructor(opts) {
@@ -43,6 +43,8 @@ export class Projectile {
     this.hitSet = new Set();
     this.crit = !!opts.crit;
     this.trail = opts.trail || null; // colour of the trailing streak, if any
+    // Beams / bone storms ignore solid tiles so they can fill the arena.
+    this.phasing = !!opts.phasing;
     this.rot = Math.atan2(this.vy, this.vx);
   }
 
@@ -81,6 +83,7 @@ export class Projectile {
       for (let i = 0; i < steps; i++) {
         this.x += this.vx * sdt;
         this.y += this.vy * sdt;
+        if (this.phasing) continue;
         const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
         if (game.world.isSolidAt(Math.floor(cx / TILE), Math.floor(cy / TILE))) {
           if (this.burstTimer != null) {
@@ -240,13 +243,14 @@ export class Projectile {
     const box = { x: this.x, y: this.y, w: this.w, h: this.h };
     const targets = [...game.players.values()];
     if (game.npc && game.npc.alive) targets.push(game.npc);
+    if (game.grunfunder && game.grunfunder.alive) targets.push(game.grunfunder);
     for (const m of (game.minions || [])) {
       if (m.alive !== false && !m.dead && m.maxHp != null) targets.push(m);
     }
 
     for (const p of targets) {
       if (p.alive === false || p.dead) continue;
-      const hitId = p.id || p.netId || p;
+      const hitId = p.id || p.netId || p.key || p;
       if (this.hitSet.has(hitId)) continue;
       if (aabb(box, p)) {
         this.hitSet.add(hitId);
@@ -255,8 +259,18 @@ export class Projectile {
           this.dead = true;
           return;
         }
-        if (p === game.npc || p.isMinion) p.takeDamage(this.damage, knockback, game, 'enemy');
-        else game.applyEnemyDamageToPlayer(p, this.damage, knockback);
+        const srcName = this.kind === 'bonefrag' ? 'Bone Fragment'
+          : this.kind === 'rotbeam' ? 'Death Beam' : 'enemy';
+        if (p === game.npc || p === game.grunfunder || p.isMinion) {
+          p.takeDamage(this.damage, knockback, game, srcName);
+        } else {
+          game.applyEnemyDamageToPlayer(p, this.damage, knockback, srcName);
+        }
+        // Bone storms keep flying after a graze so the arena stays lethal.
+        if (this.kind === 'bonefrag' && this.phasing) {
+          // Brief per-target immunity only (already in hitSet).
+          continue;
+        }
         this.dead = true;
         return;
       }

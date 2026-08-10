@@ -1,7 +1,7 @@
 // Summoner Realms — item catalogue. All original names/designs.
 // Categories: weapon (melee/ranged/mage/summon), tool, armor, accessory,
 // potion, ammo, material, block, station, summonitem.
-import { T, SHAPE, packTile } from '../world/tiles.js?v=realms-qor-48';
+import { T, SHAPE, packTile } from '../world/tiles.js?v=realms-qor-49';
 
 export const ITEMS = {};
 
@@ -218,6 +218,7 @@ mat('blightBar', 'Blight Bar', '#a06bd0', 'bar', 4);
 mat('groveHeart', 'Grove Heart', '#7ee08a', 'drop', 1, 'Beats with forest life. Dropped by the Grovekeeper.');
 mat('marrow', 'Ancient Marrow', '#e9e2c8', 'drop', 2, 'Dropped by the Gravemaw.');
 mat('sovereignCore', "Sovereign's Core", '#c58bff', 'drop', 4, 'Pulsing heart of corruption. Dropped by the Blight Sovereign.');
+mat('rottenCrown', 'Rotten Crown', '#e9e2c8', 'drop', 3, 'A cracked bone circlet. Proof that The Rotten One was truly slain.');
 mat('emberDust', 'Ember Dust', '#ff8c3b', 'drop', 1, 'Warm to the touch.');
 mat('aetherShard', 'Aether Shard', '#8ad9ff', 'drop', 2, 'Crystalized Aether.');
 

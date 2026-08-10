@@ -9,9 +9,9 @@
 // Fog of war is the point: the map starts black and fills in as you travel, so
 // the layout of the caverns is something you earn rather than something you are
 // handed at world creation.
-import { TILE, WORLD_W, WORLD_H } from '../config.js?v=realms-qor-48';
-import { T, TILES } from '../world/tiles.js?v=realms-qor-48';
-import { WALLS } from '../world/walls.js?v=realms-qor-48';
+import { TILE, WORLD_W, WORLD_H } from '../config.js?v=realms-qor-49';
+import { T, TILES } from '../world/tiles.js?v=realms-qor-49';
+import { WALLS } from '../world/walls.js?v=realms-qor-49';
 
 // Tiles per chunk edge. 32 keeps the repaint budget small while making the
 // dirty set cheap to iterate (a 700x260 world is only ~198 chunks).

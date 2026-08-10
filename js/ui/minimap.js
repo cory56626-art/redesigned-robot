@@ -6,7 +6,7 @@
 //
 // The HUD root is `pointer-events: none`, so anything interactive here has to
 // opt back in — same as `.icon-btn` and `.hotbar` already do.
-import { TILE } from '../config.js?v=realms-qor-48';
+import { TILE } from '../config.js?v=realms-qor-49';
 
 const WIDGET_W = 168, WIDGET_H = 104;
 // Zoom limits for the expanded view, in screen pixels per world tile.
@@ -164,6 +164,7 @@ export class MinimapUI {
       ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2); ctx.fill();
     };
     if (game.npc && game.npc.alive) dot(game.npc.x, game.npc.y, '#7ee0c0', compact ? 2 : 3);
+    if (game.grunfunder && game.grunfunder.alive) dot(game.grunfunder.x, game.grunfunder.y, '#e9e2c8', compact ? 2 : 3);
     for (const b of game.bosses) if (!b.hidden) dot(b.x, b.y, '#ff6b7d', compact ? 3 : 5);
     for (const pl of game.players.values()) {
       if (!pl.alive) continue;

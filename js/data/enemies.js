@@ -104,6 +104,13 @@ export const ENEMIES = {
     projectile: { kind: 'blight', damage: 10, speed: 220, color: '#c58bff' },
     drops: [{ item: 'blightoreOre', chance: 0.2, min: 1, max: 1 }, { item: 'aetherShard', chance: 0.06, min: 1, max: 1 }],
   },
+  // Summoned only by The Rotten One — pale walking bones that rush the player.
+  cursedSkeleton: {
+    key: 'cursedSkeleton', name: 'Cursed Skeleton', hp: 48, damage: 14, speed: 54, behavior: 'walker',
+    biomes: ['corrupt', 'cavern', 'underground'], time: 'any', color: '#e9e2c8', color2: '#8a7a5a', w: 14, h: 24, kbResist: 0.3,
+    aggroRange: 22, loseRange: 36, memory: 8, telegraph: 0.3,
+    drops: [{ item: 'marrow', chance: 0.08, min: 1, max: 1 }],
+  },
 };
 
 export function enemyDef(key) { return ENEMIES[key]; }

@@ -1,7 +1,7 @@
 // Summoner Realms — authored procedural game audio.
 // Uses authored OGG sample assets for the primary sound, with the procedural
 // layers kept as a graceful fallback if a browser blocks asset loading.
-import { Music } from './music.js?v=realms-qor-48';
+import { Music } from './music.js?v=realms-qor-49';
 
 const AudioContextCtor = () => window.AudioContext || window.webkitAudioContext;
 

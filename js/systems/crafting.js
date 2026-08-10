@@ -1,8 +1,8 @@
 // Summoner Realms — crafting logic.
-import { TILE } from '../config.js?v=realms-qor-48';
-import { RECIPES } from '../data/recipes.js?v=realms-qor-48';
-import { tileDef } from '../world/tiles.js?v=realms-qor-48';
-import { item as getItem } from '../data/items.js?v=realms-qor-48';
+import { TILE } from '../config.js?v=realms-qor-49';
+import { RECIPES } from '../data/recipes.js?v=realms-qor-49';
+import { tileDef } from '../world/tiles.js?v=realms-qor-49';
+import { item as getItem } from '../data/items.js?v=realms-qor-49';
 
 // Which crafting stations are within reach of the player? (null = by hand)
 export function nearbyStations(game, player) {

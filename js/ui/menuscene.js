@@ -10,10 +10,10 @@
 // It is not a generated world. Full worldgen is ~2s and ~450KB of typed arrays,
 // which is far too much to spend before the player has pressed a button; the
 // ridges here are a couple of layered sine sums over a seeded hash.
-import { TILE } from '../config.js?v=realms-qor-48';
-import { T } from '../world/tiles.js?v=realms-qor-48';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=realms-qor-48';
-import { mulberry32 } from '../utils.js?v=realms-qor-48';
+import { TILE } from '../config.js?v=realms-qor-49';
+import { T } from '../world/tiles.js?v=realms-qor-49';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=realms-qor-49';
+import { mulberry32 } from '../utils.js?v=realms-qor-49';
 
 // One full dawn→dusk→night cycle behind the menu, in seconds. Slow enough that
 // it reads as ambience rather than as a clock.
