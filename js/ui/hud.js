@@ -1,7 +1,7 @@
 // Summoner Realms — in-game HUD (bars, hotbar, boss bar, clock, indicators).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN } from '../config.js?v=hivewrought-1';
-import { Sprites } from '../art/sprites.js?v=hivewrought-1';
-import { item as getItem } from '../data/items.js?v=hivewrought-1';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN } from '../config.js?v=runeframe-1';
+import { Sprites } from '../art/sprites.js?v=runeframe-1';
+import { item as getItem } from '../data/items.js?v=runeframe-1';
 
 const BUFF_ICON = { regen: '♥', ironskin: '🛡', swift: '»' };
 
@@ -90,9 +90,11 @@ export class HUD {
     const p = g.localPlayer;
     if (!p) return;
 
-    this.el.hpFill.style.width = Math.max(0, (p.hp / p.maxHp) * 100) + '%';
+    // The bars are vials now: they drain downward, so the fill is driven by
+    // height off the bottom edge rather than width off the left one.
+    this.el.hpFill.style.height = Math.max(0, (p.hp / p.maxHp) * 100) + '%';
     this.el.hpText.textContent = `${Math.max(0, Math.ceil(p.hp))}/${p.maxHp}`;
-    this.el.manaFill.style.width = Math.max(0, (p.mana / p.maxMana) * 100) + '%';
+    this.el.manaFill.style.height = Math.max(0, (p.mana / p.maxMana) * 100) + '%';
     this.el.manaText.textContent = `${Math.floor(p.mana)}/${p.maxMana}`;
     this.el.clock.textContent = g.time.label;
 

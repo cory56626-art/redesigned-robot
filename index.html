@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1020" />
   <title>Summoner Realms</title>
-  <link rel="stylesheet" href="css/styles.css?v=hivewrought-1" />
+  <link rel="stylesheet" href="css/styles.css?v=runeframe-1" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230b1020'/%3E%3Crect x='5' y='2' width='6' height='6' fill='%237ee0c0'/%3E%3Crect x='6' y='9' width='4' height='5' fill='%23c58bff'/%3E%3C/svg%3E" />
 </head>
 <body>
@@ -14,10 +14,26 @@
 
   <!-- ============ HUD (in-game overlay) ============ -->
   <div id="hud" class="hud hidden">
+    <!-- Life and mana read as two carved vials rather than two flat strips:
+         the fill runs bottom-up, so a glance at the liquid level says as much
+         as the numbers under it do. #hpFill / #manaFill keep their ids; the
+         HUD drives their `height` instead of their `width`. -->
     <div class="hud-top-left">
       <div class="bar-group">
-        <div class="bar hp"><div class="bar-fill" id="hpFill"></div><span class="bar-text" id="hpText">100/100</span></div>
-        <div class="bar mana"><div class="bar-fill" id="manaFill"></div><span class="bar-text" id="manaText">60/60</span></div>
+        <div class="vial hp">
+          <div class="vial-tube"><div class="bar-fill" id="hpFill"></div><span class="vial-gloss" aria-hidden="true"></span></div>
+          <span class="vial-emblem" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false"><path d="M12 20.5S3.6 15.2 3.6 9.7a4.4 4.4 0 0 1 8.4-1.8 4.4 4.4 0 0 1 8.4 1.8c0 5.5-8.4 10.8-8.4 10.8z"/></svg>
+          </span>
+          <span class="bar-text" id="hpText">100/100</span>
+        </div>
+        <div class="vial mana">
+          <div class="vial-tube"><div class="bar-fill" id="manaFill"></div><span class="vial-gloss" aria-hidden="true"></span></div>
+          <span class="vial-emblem" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false" class="stroked"><path d="M7 2.5v19M7 2.5h6.2a4 4 0 0 1 0 8H7M12 10.5l6 11"/></svg>
+          </span>
+          <span class="bar-text" id="manaText">60/60</span>
+        </div>
       </div>
       <div id="buffBar" class="buff-bar"></div>
     </div>
@@ -60,24 +76,80 @@
 
     <!-- Hotbar -->
     <div id="hotbar" class="hotbar"></div>
+
+    <!-- Quick actions. The keyboard shortcuts still work; these just stop the
+         bag and the guide from being invisible knowledge. Hidden in mobile
+         control mode, where the on-screen pad already carries a Bag button. -->
+    <div class="hud-actions" id="hudActions">
+      <span class="hud-spark" aria-hidden="true"></span>
+      <button class="hud-act" id="hudBagBtn" title="Inventory (E)" aria-label="Inventory">
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <path d="M5 9h14l-1.4 11.2a1 1 0 0 1-1 .8H7.4a1 1 0 0 1-1-.8z"/>
+          <path class="ln" d="M8.6 9V6.6a3.4 3.4 0 0 1 6.8 0V9"/>
+        </svg>
+      </button>
+      <button class="hud-act" id="hudCraftBtn" title="Crafting (E)" aria-label="Crafting">
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <path d="M13.6 3.4a5 5 0 0 1 6.6 6.4l-2.3-2.3-2.3.6-.6 2.3 2.3 2.3a5 5 0 0 1-6.4-6.6z"/>
+          <path class="ln" d="M11.4 11.4 4.2 18.6a2 2 0 0 0 2.8 2.8l7.2-7.2"/>
+        </svg>
+      </button>
+      <button class="hud-act" id="hudGuideBtn" title="How to Play" aria-label="How to play">
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <path d="M4 4.5h6a2.5 2.5 0 0 1 2 1 2.5 2.5 0 0 1 2-1h6v14h-6a2.5 2.5 0 0 0-2 1 2.5 2.5 0 0 0-2-1H4z"/>
+          <path class="ln" d="M12 5.5v14"/>
+        </svg>
+      </button>
+    </div>
   </div>
 
   <!-- ============ MOBILE CONTROLS ============ -->
+  <!-- Every button keeps its id and its class hooks (`held` / `on`) — only the
+       inner markup is new, and all of it is pointer-transparent so the press
+       handlers still see the button itself as the event target. -->
   <div id="mobileControls" class="mobile-controls hidden">
-    <div id="joyMove" class="joystick"><div class="joy-knob"></div></div>
-    <div id="joyAim" class="joystick right"><div class="joy-knob"></div></div>
+    <div id="joyMove" class="joystick">
+      <span class="joy-ring" aria-hidden="true"></span>
+      <div class="joy-knob"></div>
+    </div>
+    <div id="joyAim" class="joystick right">
+      <span class="joy-ring" aria-hidden="true"></span>
+      <div class="joy-knob"></div>
+    </div>
     <div class="mobile-buttons">
-      <button class="mbtn" id="mbJump" data-act="jump">Jump</button>
-      <button class="mbtn" id="mbAttack" data-act="attack">Use</button>
-      <button class="mbtn" id="mbMine" data-act="mine">Mine</button>
-      <button class="mbtn" id="mbPlace" data-act="place">Place</button>
+      <button class="mbtn" id="mbJump" data-act="jump">
+        <svg class="mb-ico" viewBox="0 0 24 24" aria-hidden="true"><path class="ln" d="M12 20V5M12 5 6.5 10.5M12 5l5.5 5.5"/></svg>
+        <span class="mb-lbl">Jump</span>
+      </button>
+      <button class="mbtn" id="mbAttack" data-act="attack">
+        <svg class="mb-ico" viewBox="0 0 24 24" aria-hidden="true"><path class="ln" d="M20 4 10.5 13.5M7 17l-2.5 2.5M6 14l4 4M9.5 12.5 11 11"/></svg>
+        <span class="mb-lbl">Use</span>
+      </button>
+      <button class="mbtn" id="mbMine" data-act="mine">
+        <svg class="mb-ico" viewBox="0 0 24 24" aria-hidden="true"><path class="ln" d="M4 7c5-3.5 11-3.5 16 0M12 5.6V20"/></svg>
+        <span class="mb-lbl">Mine</span>
+      </button>
+      <button class="mbtn" id="mbPlace" data-act="place">
+        <svg class="mb-ico" viewBox="0 0 24 24" aria-hidden="true"><path class="ln" d="M5 8.5 12 5l7 3.5-7 3.5zM5 8.5v7l7 3.5v-7M19 8.5v7L12 19"/></svg>
+        <span class="mb-lbl">Place</span>
+      </button>
     </div>
     <div class="mobile-buttons-top">
-      <button class="mbtn small" id="mbInv" data-act="inv">Bag</button>
-      <button class="mbtn small" id="mbUseItem" data-act="useitem">Item</button>
-      <button class="mbtn small" id="mbSmart" data-act="smart" title="Smart Cursor">◎</button>
-      <button class="mbtn small" id="mbMap" data-act="map" title="Map">🗺</button>
-      <button class="mbtn small" id="mbPause" data-act="pause">☰</button>
+      <button class="mbtn small" id="mbInv" data-act="inv" title="Bag" aria-label="Bag">
+        <svg class="mb-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9h14l-1.4 11.2a1 1 0 0 1-1 .8H7.4a1 1 0 0 1-1-.8z"/><path class="ln" d="M8.6 9V6.6a3.4 3.4 0 0 1 6.8 0V9"/></svg>
+      </button>
+      <button class="mbtn small" id="mbUseItem" data-act="useitem" title="Use item" aria-label="Use item">
+        <svg class="mb-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 3h5v3.6l2.6 4.2V20a1 1 0 0 1-1 1h-8.2a1 1 0 0 1-1-1v-9.2L9.5 6.6z"/><path class="ln" d="M6.9 13.4h10.2"/></svg>
+      </button>
+      <button class="mbtn small" id="mbSmart" data-act="smart" title="Smart Cursor" aria-label="Smart cursor">
+        <svg class="mb-ico" viewBox="0 0 24 24" aria-hidden="true"><path class="ln" d="M12 2.5v3.2M12 18.3v3.2M2.5 12h3.2M18.3 12h3.2"/><circle class="ln" cx="12" cy="12" r="5.4"/><circle cx="12" cy="12" r="2"/></svg>
+      </button>
+      <button class="mbtn small" id="mbMap" data-act="map" title="Map" aria-label="Map">
+        <svg class="mb-ico" viewBox="0 0 24 24" aria-hidden="true"><path class="ln" d="M9 4.5 3.5 6.7v12.8L9 17.3l6 2.2 5.5-2.2V4.5L15 6.7zM9 4.5v12.8M15 6.7v12.8"/></svg>
+      </button>
+      <button class="mbtn small" id="mbPause" data-act="pause" title="Menu" aria-label="Menu">
+        <svg class="mb-ico" viewBox="0 0 24 24" aria-hidden="true"><path class="ln" d="M4.5 7.5h15M4.5 12h15M4.5 16.5h15"/></svg>
+      </button>
     </div>
     <button class="mbtn talk hidden" id="mbTalk" data-act="talk">Talk</button>
   </div>
@@ -190,9 +262,14 @@
     </div>
   </div>
 
-  <!-- ============ NEW WORLD DIALOG ============ -->
+  <!-- ============ NEW WORLD DIALOG ============
+       Dressed to match the title screen: a carved rune frame, a banner header
+       and a rune rail for difficulty. The <input type="range"> is still the
+       one source of truth for the difficulty value — the rune buttons only
+       write to it and re-dispatch `input`, so every existing listener and the
+       shared _syncDifficultySlider() keep working untouched. -->
   <div id="newWorldDialog" class="overlay dialog hidden">
-    <div class="dialog-panel">
+    <div class="dialog-panel runic">
       <h2>New World</h2>
       <label>World name</label>
       <input type="text" id="newWorldName" maxlength="20" placeholder="Realm One" />
@@ -200,15 +277,16 @@
       <input type="text" id="newWorldSeed" maxlength="20" placeholder="e.g. summoner" />
       <label for="newWorldDifficulty">Difficulty</label>
       <div class="difficulty-picker">
-        <div class="difficulty-picker-head">
-          <output id="newWorldDifficultyLabel">Normal</output>
-          <span id="newWorldDifficultyTier">Buffed baseline</span>
-        </div>
-        <input type="range" id="newWorldDifficulty" min="0" max="3" step="1" value="0" aria-label="World difficulty" />
+        <div class="rune-picker" id="newWorldDifficultyRunes" role="radiogroup" aria-label="World difficulty"></div>
+        <input type="range" id="newWorldDifficulty" class="diff-range" min="0" max="3" step="1" value="0" aria-label="World difficulty" />
         <div class="difficulty-picker-scale" aria-hidden="true">
           <span>Normal</span><span>Hard</span><span>Master</span><span>Masochist</span>
         </div>
-        <p class="hint small" id="newWorldDifficultyHint">Bosses are tougher than the old baseline, with readable attack tells.</p>
+        <div class="parchment">
+          <span class="parch-tier" id="newWorldDifficultyTier">Buffed baseline</span>
+          <p class="parch-body"><b id="newWorldDifficultyLabel">Normal</b><span class="parch-colon">:</span>
+            <span id="newWorldDifficultyHint">Bosses are tougher than the old baseline, with readable attack tells.</span></p>
+        </div>
       </div>
       <div class="dialog-buttons">
         <button class="btn" id="newWorldCancel">Cancel</button>
@@ -306,15 +384,16 @@
           <input type="text" id="mpWorldSeed" maxlength="20" placeholder="blank = random" />
           <label for="mpDifficulty">Difficulty</label>
           <div class="difficulty-picker">
-            <div class="difficulty-picker-head">
-              <output id="mpDifficultyLabel">Normal</output>
-              <span id="mpDifficultyTier">Buffed baseline</span>
-            </div>
-            <input type="range" id="mpDifficulty" min="0" max="3" step="1" value="0" aria-label="World difficulty" />
+            <div class="rune-picker" id="mpDifficultyRunes" role="radiogroup" aria-label="World difficulty"></div>
+            <input type="range" id="mpDifficulty" class="diff-range" min="0" max="3" step="1" value="0" aria-label="World difficulty" />
             <div class="difficulty-picker-scale" aria-hidden="true">
               <span>Normal</span><span>Hard</span><span>Master</span><span>Masochist</span>
             </div>
-            <p class="hint small" id="mpDifficultyHint"></p>
+            <div class="parchment">
+              <span class="parch-tier" id="mpDifficultyTier">Buffed baseline</span>
+              <p class="parch-body"><b id="mpDifficultyLabel">Normal</b><span class="parch-colon">:</span>
+                <span id="mpDifficultyHint"></span></p>
+            </div>
           </div>
           <label class="check-row">
             <input type="checkbox" id="mpUseCurrent" />
@@ -547,6 +626,6 @@
   <!-- The ?v= stamp is applied to every module by tools/stamp-build.mjs, driven
        by the BUILD constant in js/config.js, so a release can never ship a
        half-updated module graph out of the browser cache. -->
-  <script type="module" src="js/main.js?v=hivewrought-1"></script>
+  <script type="module" src="js/main.js?v=runeframe-1"></script>
 </body>
 </html>

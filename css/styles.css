@@ -1019,3 +1019,1061 @@ input[type="range"]::-moz-range-thumb {
 @media (prefers-reduced-motion: reduce) {
   #mainMenu .menu-buttons .btn { transition: none; }
 }
+
+/* ===================================================================
+   ARCANE FRAME — the ornament layer
+   -------------------------------------------------------------------
+   The title screen got the full pixel-poster treatment (carved gold
+   rules, a ribbon banner, serif caps with a hard outline) while every
+   other surface stayed a flat dark rounded rectangle. This section
+   carries that same language into the dialogs, the in-game HUD and the
+   touch controls, so the game stops changing visual identity the moment
+   you leave the menu.
+
+   Everything here is presentation only. No id changes, no handler
+   changes: each rule dresses markup that already existed, or markup
+   whose hooks (ids, `held`/`on`/`active` classes) are preserved.
+
+   Two motifs do the work:
+     · a carved frame — dark field, gold rule, inner bevel, and L-shaped
+       corner brackets drawn from gradients so they stay crisp at any
+       size and need no image asset;
+     · runes — the ᚱ mark from the title banner, used as field caps,
+       header flourishes and the difficulty tiers.
+   =================================================================== */
+
+:root {
+  --gold-dk: #8a5a1c;
+  --gold-dim: rgba(255, 207, 107, 0.32);
+  --arc-field: linear-gradient(180deg, #241a4c 0%, #1a1138 52%, #120b28 100%);
+  --arc-field-lo: linear-gradient(180deg, #150e30, #0d0822);
+  --arc-ink: 0 2px 0 rgba(8, 4, 20, 0.95);
+  --parch: #efdcae;
+  --parch-lo: #d6bd88;
+  --parch-ink: #4a3620;
+  /* Referenced by .minimap-wrap, which predated this file's radius scale. */
+  --r2: 10px;
+
+  --rune-teal: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 2.5v19M7 2.5h6.2a4 4 0 0 1 0 8H7M12 10.5l6 11' fill='none' stroke='%237ee0c0' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --rune-teal-flip: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg transform='translate(24,0) scale(-1,1)'%3E%3Cpath d='M7 2.5v19M7 2.5h6.2a4 4 0 0 1 0 8H7M12 10.5l6 11' fill='none' stroke='%237ee0c0' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E");
+  --rune-gold: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 2.5v19M7 2.5h6.2a4 4 0 0 1 0 8H7M12 10.5l6 11' fill='none' stroke='%23ffcf6b' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --rune-gold-flip: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg transform='translate(24,0) scale(-1,1)'%3E%3Cpath d='M7 2.5v19M7 2.5h6.2a4 4 0 0 1 0 8H7M12 10.5l6 11' fill='none' stroke='%23ffcf6b' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* ---- Corner brackets ----
+   Eight 1-D gradients: two per corner, drawn as a background on whatever
+   element carries `.arc-corners` (or on a pseudo-element for surfaces that
+   already use their background for something else). --arc-c sets the colour,
+   --arc-l the arm length. */
+.arc-corners {
+  background-image:
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c)),
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c)),
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c)),
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c));
+  background-size:
+    var(--arc-l) 2px, 2px var(--arc-l),
+    var(--arc-l) 2px, 2px var(--arc-l),
+    var(--arc-l) 2px, 2px var(--arc-l),
+    var(--arc-l) 2px, 2px var(--arc-l);
+  background-position:
+    left top, left top,
+    right top, right top,
+    left bottom, left bottom,
+    right bottom, right bottom;
+  background-repeat: no-repeat;
+}
+
+/* ===================================================================
+   DIALOGS — carved rune frames
+   =================================================================== */
+
+.overlay.dialog { background: rgba(3, 4, 11, 0.78); }
+
+.overlay.dialog .dialog-panel {
+  position: relative;
+  background: var(--arc-field);
+  border: 2px solid #0a0618;
+  border-radius: 6px;
+  padding: 0 22px 20px;
+  /* Outer gold rule, a dark gutter, then the inner hairline: the same
+     double-rule the title banner uses, built from insets so it follows the
+     panel at any size. */
+  box-shadow:
+    inset 0 0 0 2px var(--gold-lo),
+    inset 0 0 0 5px #150c30,
+    inset 0 0 0 6px var(--gold-dim),
+    inset 0 8px 26px rgba(0, 0, 0, 0.45),
+    0 18px 50px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+}
+
+/* Corner brackets, inset far enough to sit inside the double rule. They ride
+   above the content (z-index) so the banner does not bury the top pair, and
+   they scroll with a long panel because they are anchored to its padding box. */
+.overlay.dialog .dialog-panel::before {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  z-index: 2;
+  pointer-events: none;
+  --arc-c: var(--gold);
+  --arc-l: 18px;
+  opacity: 0.9;
+  background-image:
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c)),
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c)),
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c)),
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c));
+  background-size:
+    var(--arc-l) 2px, 2px var(--arc-l), var(--arc-l) 2px, 2px var(--arc-l),
+    var(--arc-l) 2px, 2px var(--arc-l), var(--arc-l) 2px, 2px var(--arc-l);
+  background-position:
+    left top, left top, right top, right top,
+    left bottom, left bottom, right bottom, right bottom;
+  background-repeat: no-repeat;
+}
+
+/* The gem that caps the title banner, repeated on every dialog. It sits just
+   inside the top edge rather than straddling it: a long panel scrolls, and a
+   scroll box would clip anything hung outside it. */
+.overlay.dialog .dialog-panel::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  z-index: 3;
+  width: 12px;
+  height: 12px;
+  transform: translateX(-50%) rotate(45deg);
+  background: linear-gradient(135deg, #cffaff 0%, #5fd8f0 55%, #2b83c4 100%);
+  border: 2px solid var(--gold);
+  animation: title-gem-pulse 3.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ---- Banner header ----
+   Bleeds to the panel's inner rule so it reads as a plaque set into the
+   frame rather than a paragraph that happens to be bold. */
+.overlay.dialog .dialog-panel > h2 {
+  position: relative;
+  margin: 0 -22px 16px;
+  padding: 17px 44px 14px;
+  border-top: 2px solid var(--gold-lo);
+  border-bottom: 2px solid var(--gold-lo);
+  background: linear-gradient(180deg, #4a2f86 0%, #331c60 55%, #22114a 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 233, 168, 0.28),
+    inset 0 -1px 0 rgba(255, 233, 168, 0.18),
+    0 6px 18px rgba(0, 0, 0, 0.45);
+  font-family: var(--title-font);
+  font-size: clamp(17px, 2.4vw, 24px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: clamp(1.5px, 0.5vw, 4px);
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--gold);
+  text-shadow:
+    -2px 0 var(--ink-deep), 2px 0 var(--ink-deep), 0 -2px var(--ink-deep), 0 2px var(--ink-deep),
+    -2px -2px var(--ink-deep), 2px -2px var(--ink-deep), -2px 2px var(--ink-deep), 2px 2px var(--ink-deep),
+    0 3px 0 #7a3f10, 0 0 18px rgba(255, 190, 90, 0.45);
+}
+/* Rune flourishes either side of the title. */
+.overlay.dialog .dialog-panel > h2::before,
+.overlay.dialog .dialog-panel > h2::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 17px;
+  height: 17px;
+  margin-top: -9px;
+  background: var(--rune-gold) center/contain no-repeat;
+  filter: drop-shadow(0 1px 0 rgba(8, 4, 20, 0.9));
+  opacity: 0.95;
+}
+.overlay.dialog .dialog-panel > h2::before { left: 16px; }
+.overlay.dialog .dialog-panel > h2::after { right: 16px; background-image: var(--rune-gold-flip); }
+/* Sub-notes inside a heading stay quiet and lower-case. */
+.overlay.dialog .dialog-panel > h2 .hint {
+  display: block;
+  margin: 4px 0 0;
+  font-family: var(--menu-font);
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-transform: none;
+  color: #b6a9dd;
+  text-shadow: var(--arc-ink);
+}
+
+/* ---- Field labels ---- */
+.overlay.dialog .dialog-panel label {
+  font-family: var(--menu-font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: #cbbdf2;
+  text-shadow: var(--arc-ink);
+  margin: var(--s4) 0 var(--s2);
+}
+
+/* ---- Rune-capped inputs ---- */
+.overlay.dialog .dialog-panel input[type="text"],
+.overlay.dialog .dialog-panel input[type="number"] {
+  padding: 11px 34px;
+  border: 2px solid var(--gold-dk);
+  border-radius: 5px;
+  font-family: var(--menu-font);
+  font-size: 14px;
+  letter-spacing: 0.6px;
+  color: #f3ecff;
+  background:
+    var(--rune-teal) left 9px center / 15px 15px no-repeat,
+    var(--rune-teal-flip) right 9px center / 15px 15px no-repeat,
+    var(--arc-field-lo);
+  box-shadow:
+    inset 0 2px 7px rgba(0, 0, 0, 0.75),
+    inset 0 0 0 1px rgba(255, 207, 107, 0.14);
+}
+.overlay.dialog .dialog-panel input[type="text"]::placeholder { color: #6e6699; }
+.overlay.dialog .dialog-panel input[type="text"]:focus,
+.overlay.dialog .dialog-panel input[type="number"]:focus {
+  border-color: var(--gold);
+  box-shadow:
+    inset 0 2px 7px rgba(0, 0, 0, 0.75),
+    inset 0 0 0 1px rgba(255, 233, 168, 0.4),
+    0 0 14px rgba(255, 207, 107, 0.3);
+}
+
+/* ---- Difficulty: a rune rail instead of a slider ----
+   The <input type="range"> is still present and still the value that gets
+   read on Create — it is only taken out of the visual flow. Keeping it
+   focusable means the rail stays keyboard- and screen-reader-operable. */
+.diff-range {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.difficulty-picker .difficulty-picker-scale { display: none; }
+
+.difficulty-picker {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-top: var(--s2);
+}
+.rune-picker {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 7px;
+  border: 2px solid #0a0618;
+  border-radius: 8px;
+  background: var(--arc-field-lo);
+  box-shadow:
+    inset 0 0 0 1px var(--gold-dim),
+    inset 0 3px 10px rgba(0, 0, 0, 0.7);
+}
+.rune-opt {
+  appearance: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 2px 5px;
+  border: 2px solid transparent;
+  border-radius: 5px;
+  background: linear-gradient(180deg, rgba(70, 56, 120, 0.4), rgba(14, 9, 32, 0.5));
+  color: #9c93c4;
+  font: inherit;
+  font-family: var(--menu-font);
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease, transform 0.08s ease;
+}
+.rune-opt svg { width: 24px; height: 24px; display: block; }
+.rune-opt svg path, .rune-opt svg circle {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.rune-opt .rune-name {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #8d85b4;
+  transition: color 0.14s ease;
+}
+.rune-opt:hover { color: #d8d0f5; transform: translateY(-1px); }
+.rune-opt:hover .rune-name { color: #cfc7ee; }
+.rune-opt:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+/* Each tier owns a colour, so the rail reads as a heat scale at a glance. */
+.rune-opt[data-diff="normal"].active    { --tier: #7ee0c0; }
+.rune-opt[data-diff="hard"].active      { --tier: #79b8ff; }
+.rune-opt[data-diff="master"].active    { --tier: #c58bff; }
+.rune-opt[data-diff="masochist"].active { --tier: #ff6b7d; }
+.rune-opt.active {
+  color: var(--tier);
+  border-color: var(--tier);
+  background:
+    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--tier) 26%, transparent), transparent 70%),
+    linear-gradient(180deg, rgba(24, 16, 52, 0.9), rgba(10, 6, 26, 0.95));
+  box-shadow: 0 0 14px -2px var(--tier), inset 0 0 12px -6px var(--tier);
+}
+.rune-opt.active .rune-name { color: var(--tier); }
+.rune-opt.active svg { filter: drop-shadow(0 0 5px currentColor); }
+
+/* ---- Parchment note ----
+   A warm scroll under the rail: it is the one place in the dialog that is
+   not dark, which is exactly why the description reads first. */
+.parchment {
+  position: relative;
+  margin-top: 10px;
+  padding: 11px 14px 12px;
+  border-radius: 3px;
+  background:
+    radial-gradient(120% 140% at 50% 0%, rgba(255, 255, 255, 0.4), transparent 60%),
+    linear-gradient(180deg, var(--parch) 0%, #e6d29f 60%, var(--parch-lo) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(122, 92, 42, 0.4),
+    inset 0 -8px 16px -10px rgba(90, 66, 26, 0.7),
+    0 5px 14px rgba(0, 0, 0, 0.45);
+  color: var(--parch-ink);
+}
+/* Rolled ends, top and bottom. */
+.parchment::before, .parchment::after {
+  content: '';
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  height: 7px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #c8ad78, #a98d5c);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 2px 5px rgba(0, 0, 0, 0.4);
+}
+.parchment::before { top: -4px; }
+.parchment::after { bottom: -4px; }
+.parch-tier {
+  float: right;
+  margin: 1px 0 0 10px;
+  font-family: var(--menu-font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #7d6538;
+}
+.parch-body {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--parch-ink);
+}
+.parch-body b { font-weight: 800; color: #33240f; }
+.parch-colon { font-weight: 800; color: #33240f; }
+
+/* ---- Stone buttons ---- */
+.overlay.dialog .dialog-panel .btn {
+  border: 2px solid var(--gold-dk);
+  border-radius: 5px;
+  padding: 11px 22px;
+  background: linear-gradient(180deg, #4a3a78 0%, #2e2054 52%, #1d1340 100%);
+  font-family: var(--menu-font);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: #efe6ff;
+  text-shadow: var(--arc-ink);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 233, 168, 0.28),
+    inset 0 -3px 8px rgba(0, 0, 0, 0.45),
+    0 4px 12px rgba(0, 0, 0, 0.5);
+}
+.overlay.dialog .dialog-panel .btn:hover {
+  border-color: var(--gold);
+  color: #fff6df;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 233, 168, 0.45),
+    inset 0 -3px 8px rgba(0, 0, 0, 0.4),
+    0 0 16px rgba(255, 207, 107, 0.35);
+}
+.overlay.dialog .dialog-panel .btn:active { transform: translateY(2px); box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6); }
+.overlay.dialog .dialog-panel .btn.primary {
+  background: linear-gradient(180deg, #2f8a6a 0%, #1e6249 52%, #144534 100%);
+  border-color: var(--gold-lo);
+  color: #eafff5;
+}
+.overlay.dialog .dialog-panel .btn.primary:hover { border-color: var(--gold-hi); box-shadow: inset 0 1px 0 rgba(255, 233, 168, 0.45), 0 0 18px rgba(126, 224, 192, 0.4); }
+.overlay.dialog .dialog-panel .btn.danger {
+  background: linear-gradient(180deg, #8a2f3f 0%, #5f1f2c 52%, #421520 100%);
+  color: #ffe4e8;
+}
+.overlay.dialog .dialog-panel .btn.tiny { padding: 4px 9px; font-size: 10px; letter-spacing: 1px; border-width: 1px; }
+.overlay.dialog .dialog-panel .btn.small { padding: 7px 12px; font-size: 11px; }
+.overlay.dialog .dialog-buttons { margin-top: var(--s4); gap: 10px; }
+
+/* Sliders get the same metal, so Settings does not read as a different app
+   from the panel it sits in. */
+.overlay.dialog .dialog-panel input[type="range"] {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--gold-lo) var(--fill, 50%), #0d0822 var(--fill, 50%));
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 207, 107, 0.2);
+}
+.overlay.dialog .dialog-panel input[type="range"]::-webkit-slider-thumb {
+  width: 15px; height: 15px;
+  background: radial-gradient(circle at 38% 32%, var(--gold-hi), var(--gold-lo));
+  border: 2px solid #4a2f0c;
+  box-shadow: 0 0 8px rgba(255, 207, 107, 0.5);
+}
+.overlay.dialog .dialog-panel input[type="range"]::-moz-range-thumb {
+  width: 13px; height: 13px;
+  background: radial-gradient(circle at 38% 32%, var(--gold-hi), var(--gold-lo));
+  border: 2px solid #4a2f0c;
+}
+.overlay.dialog .dialog-panel .set-row output { color: var(--gold); font-family: var(--menu-font); }
+.overlay.dialog .dialog-panel h3 { color: var(--gold); font-family: var(--menu-font); letter-spacing: 1.6px; }
+
+/* Segmented controls inside dialogs pick up the same metal. */
+.overlay.dialog .dialog-panel .seg { border-color: var(--gold-dk); border-radius: 5px; background: var(--arc-field-lo); }
+.overlay.dialog .dialog-panel .seg-btn {
+  background: transparent;
+  font-family: var(--menu-font);
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #9c93c4;
+}
+.overlay.dialog .dialog-panel .seg-btn.active { background: var(--gold); color: #2a1140; font-weight: 800; }
+
+/* ===================================================================
+   HUD
+   =================================================================== */
+
+/* ---- Chips: small carved plates ---- */
+.chip {
+  background: linear-gradient(180deg, rgba(46, 33, 84, 0.86), rgba(13, 8, 30, 0.9));
+  border: 1px solid var(--gold-dk);
+  border-radius: 4px;
+  padding: 5px 9px;
+  font-family: var(--menu-font);
+  font-size: 11px;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  text-shadow: var(--arc-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 233, 168, 0.16), 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.hud .icon-btn {
+  border: 1px solid var(--gold-dk);
+  border-radius: 4px;
+  background: linear-gradient(180deg, rgba(46, 33, 84, 0.86), rgba(13, 8, 30, 0.9));
+  color: var(--gold);
+  box-shadow: inset 0 1px 0 rgba(255, 233, 168, 0.16), 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.hud .icon-btn:hover { color: var(--gold-hi); border-color: var(--gold); }
+
+/* ---- Life / mana vials ---- */
+.bar-group { flex-direction: row; gap: 10px; align-items: flex-start; }
+/* Fixed column width: the readout underneath is the widest thing in here, and
+   letting it size the column would make the whole cluster grow when you gain
+   max life — and shove whatever sits beside it off the screen. */
+.vial { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 40px; }
+.vial-tube {
+  position: relative;
+  width: 22px;
+  height: clamp(84px, 17vh, 124px);
+  border: 2px solid #a8721f;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #0b0718, #16102e);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 207, 107, 0.34),
+    inset 0 3px 8px rgba(0, 0, 0, 0.8),
+    0 0 0 1px rgba(10, 6, 24, 0.9),
+    0 3px 12px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+/* The fill is anchored to the floor of the tube and driven by height. */
+.vial .bar-fill {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  width: auto;
+  height: 100%;
+  transition: height 0.18s ease;
+}
+.vial.hp .bar-fill { background: linear-gradient(180deg, #ff8a99 0%, #e8354c 45%, #8e1425 100%); }
+.vial.mana .bar-fill { background: linear-gradient(180deg, #9ec3ff 0%, #5566ee 45%, #22267f 100%); }
+/* Meniscus: a bright line on the surface of the liquid, so the level reads
+   as a level and not as the edge of a bar. */
+.vial .bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 1px 5px rgba(255, 255, 255, 0.45);
+}
+/* A single specular streak down the left of the glass. */
+.vial-gloss {
+  position: absolute;
+  top: 3px; bottom: 3px; left: 3px;
+  width: 4px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.05));
+  pointer-events: none;
+}
+.vial-emblem {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--gold-dk);
+  background: radial-gradient(circle at 50% 30%, rgba(70, 52, 120, 0.9), rgba(10, 6, 26, 0.95));
+  box-shadow: inset 0 1px 0 rgba(255, 233, 168, 0.2), 0 2px 6px rgba(0, 0, 0, 0.55);
+}
+.vial-emblem svg { width: 14px; height: 14px; }
+.vial.hp .vial-emblem svg path { fill: #ff6b7d; }
+.vial.mana .vial-emblem svg.stroked path { fill: none; stroke: #9ec3ff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.vial .bar-text {
+  position: static;
+  display: block;
+  white-space: nowrap;
+  font-family: var(--menu-font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: #d8cfa6;
+  text-shadow: 0 1px 0 #000, 0 0 5px #000;
+}
+.buff-bar { margin-top: 10px; }
+.buff-icon { border-color: var(--gold-dk); border-radius: 4px; background: linear-gradient(180deg, #34255f, #150d33); }
+
+/* ---- Minimap: framed like a chart on the wall ---- */
+.minimap-wrap {
+  border: 2px solid var(--gold-dk);
+  border-radius: 5px;
+  background: rgba(8, 5, 20, 0.88);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 207, 107, 0.22),
+    inset 0 0 26px rgba(0, 0, 0, 0.7),
+    0 6px 20px rgba(0, 0, 0, 0.6);
+  overflow: visible;
+}
+.minimap-wrap canvas { border-radius: 2px; }
+/* Brackets sit outside the frame so they never crop the map itself. */
+.minimap-wrap::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  pointer-events: none;
+  --arc-c: var(--gold);
+  --arc-l: 13px;
+  background-image:
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c)),
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c)),
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c)),
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c));
+  background-size:
+    var(--arc-l) 2px, 2px var(--arc-l), var(--arc-l) 2px, 2px var(--arc-l),
+    var(--arc-l) 2px, 2px var(--arc-l), var(--arc-l) 2px, 2px var(--arc-l);
+  background-position:
+    left top, left top, right top, right top,
+    left bottom, left bottom, right bottom, right bottom;
+  background-repeat: no-repeat;
+}
+
+/* ---- Hotbar: carved slots ---- */
+.hotbar { gap: 5px; }
+.slot {
+  width: 52px; height: 52px;
+  border: 2px solid #5d3f13;
+  border-radius: 5px;
+  background: linear-gradient(180deg, rgba(64, 48, 108, 0.72) 0%, rgba(22, 14, 46, 0.9) 55%, rgba(11, 7, 26, 0.94) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 207, 107, 0.14),
+    inset 0 1px 0 rgba(255, 233, 168, 0.16),
+    inset 0 -4px 9px rgba(0, 0, 0, 0.5),
+    0 3px 10px rgba(0, 0, 0, 0.5);
+}
+.slot::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  pointer-events: none;
+  --arc-c: rgba(255, 207, 107, 0.4);
+  --arc-l: 7px;
+  background-image:
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c)),
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c)),
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c)),
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c));
+  background-size:
+    var(--arc-l) 1px, 1px var(--arc-l), var(--arc-l) 1px, 1px var(--arc-l),
+    var(--arc-l) 1px, 1px var(--arc-l), var(--arc-l) 1px, 1px var(--arc-l);
+  background-position:
+    left top, left top, right top, right top,
+    left bottom, left bottom, right bottom, right bottom;
+  background-repeat: no-repeat;
+}
+.slot.active {
+  border-color: var(--gold);
+  transform: translateY(-4px);
+  box-shadow:
+    inset 0 0 0 1px var(--gold-hi),
+    inset 0 -4px 12px rgba(255, 176, 60, 0.2),
+    0 0 18px rgba(255, 207, 107, 0.55),
+    0 6px 14px rgba(0, 0, 0, 0.55);
+}
+.slot.active::before { --arc-c: var(--gold-hi); }
+/* The select key moves to the top centre. It used to sit in the corner, which
+   is exactly where the slot's corner bracket now is, and it keeps the key
+   visibly distinct from the stack count in the opposite corner. */
+.slot .slot-key {
+  top: 2px; left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--menu-font);
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255, 207, 107, 0.6);
+  text-shadow: 0 1px 0 #000, 0 0 3px #000;
+}
+.slot.active .slot-key { color: var(--gold-hi); }
+.slot .slot-count {
+  bottom: 2px; right: 4px;
+  font-family: var(--menu-font);
+  font-size: 11px;
+  color: #fff3d6;
+  text-shadow: 0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000;
+}
+.slot canvas, .slot .slot-icon { width: 36px; height: 36px; }
+.slot .slot-cd { border-radius: 0 0 3px 3px; }
+
+.ammo-indicator {
+  border: 1px solid var(--gold-dk);
+  border-radius: 4px;
+  background: linear-gradient(180deg, rgba(46, 33, 84, 0.9), rgba(13, 8, 30, 0.92));
+  font-family: var(--menu-font);
+  font-size: 12px;
+  letter-spacing: 0.8px;
+  text-shadow: var(--arc-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 233, 168, 0.16), 0 3px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* ---- Boss bar ---- */
+.boss-name { font-family: var(--title-font); letter-spacing: 3px; text-shadow: -2px 0 var(--ink-deep), 2px 0 var(--ink-deep), 0 -2px var(--ink-deep), 0 2px var(--ink-deep), 0 3px 10px #000; }
+.boss-hp {
+  height: 20px;
+  border: 2px solid var(--gold-dk);
+  border-radius: 4px;
+  background: linear-gradient(180deg, #0b0718, #16102e);
+  box-shadow: inset 0 0 0 1px rgba(255, 107, 125, 0.3), inset 0 2px 7px rgba(0, 0, 0, 0.8), 0 4px 14px rgba(0, 0, 0, 0.6);
+}
+.boss-hp-text { font-family: var(--menu-font); letter-spacing: 1px; }
+.boss-phase { font-family: var(--menu-font); letter-spacing: 1.2px; text-transform: uppercase; font-size: 11px; }
+
+/* ---- Toasts ---- */
+.toast {
+  border: 1px solid var(--gold-dk);
+  border-radius: 4px;
+  background: linear-gradient(180deg, rgba(46, 33, 84, 0.94), rgba(11, 7, 26, 0.94));
+  font-family: var(--menu-font);
+  font-size: 12px;
+  letter-spacing: 0.7px;
+  text-shadow: var(--arc-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 233, 168, 0.16), 0 4px 14px rgba(0, 0, 0, 0.55);
+}
+
+/* ---- Quick actions (PC) ---- */
+.hud-actions {
+  position: absolute;
+  right: 14px;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  display: flex;
+  gap: 8px;
+  pointer-events: none;
+}
+.hud-act {
+  pointer-events: auto;
+  cursor: pointer;
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid #5d3f13;
+  border-radius: 5px;
+  background: linear-gradient(180deg, rgba(64, 48, 108, 0.8) 0%, rgba(20, 13, 42, 0.92) 55%, rgba(11, 7, 26, 0.94) 100%);
+  color: var(--gold);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 207, 107, 0.16),
+    inset 0 1px 0 rgba(255, 233, 168, 0.18),
+    0 3px 10px rgba(0, 0, 0, 0.5);
+  transition: border-color 0.14s ease, color 0.14s ease, transform 0.08s ease, box-shadow 0.14s ease;
+}
+.hud-act svg { width: 22px; height: 22px; pointer-events: none; }
+.hud-act svg path { fill: currentColor; opacity: 0.85; }
+.hud-act svg path.ln { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 1; }
+.hud-act:hover {
+  border-color: var(--gold);
+  color: var(--gold-hi);
+  transform: translateY(-2px);
+  box-shadow: inset 0 0 0 1px var(--gold-dim), 0 0 16px rgba(255, 207, 107, 0.45), 0 5px 12px rgba(0, 0, 0, 0.55);
+}
+.hud-act:active { transform: translateY(1px); }
+.hud-act:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+/* A slow twinkle above the cluster — the one purely decorative mark in the HUD. */
+.hud-spark {
+  position: absolute;
+  top: -18px; right: 16px;
+  width: 9px; height: 9px;
+  transform: rotate(45deg);
+  background: linear-gradient(135deg, #ffffff, #ffe9a8 55%, #ffcf6b);
+  animation: hud-spark 3.8s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes hud-spark {
+  0%, 100% { opacity: 0.35; box-shadow: 0 0 5px rgba(255, 220, 140, 0.5); }
+  50% { opacity: 1; box-shadow: 0 0 16px rgba(255, 220, 140, 0.95); }
+}
+/* The touch pad already carries a Bag button, so the PC cluster stands down. */
+body.mode-mobile .hud-actions { display: none; }
+
+/* ===================================================================
+   MOBILE CONTROLS
+   =================================================================== */
+
+.joystick {
+  width: 118px; height: 118px;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  left: 16px;
+  border: 2px solid var(--gold-dk);
+  background:
+    radial-gradient(circle at 50% 42%, rgba(60, 44, 108, 0.5) 0%, rgba(10, 6, 24, 0.62) 72%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 207, 107, 0.2),
+    inset 0 0 26px rgba(0, 0, 0, 0.55),
+    0 4px 16px rgba(0, 0, 0, 0.5);
+}
+.joystick.right { left: auto; right: 16px; }
+/* Four cardinal ticks on the rim, so the stick reads as a dial. */
+.joy-ring {
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  border: 1px dashed rgba(255, 207, 107, 0.28);
+  pointer-events: none;
+  background:
+    linear-gradient(var(--gold-dim), var(--gold-dim)) 50% 0 / 2px 8px no-repeat,
+    linear-gradient(var(--gold-dim), var(--gold-dim)) 50% 100% / 2px 8px no-repeat,
+    linear-gradient(var(--gold-dim), var(--gold-dim)) 0 50% / 8px 2px no-repeat,
+    linear-gradient(var(--gold-dim), var(--gold-dim)) 100% 50% / 8px 2px no-repeat;
+}
+.joy-knob {
+  width: 52px; height: 52px;
+  border: 2px solid var(--gold);
+  background: radial-gradient(circle at 38% 32%, #b8f4e2 0%, #4fbf9e 42%, #1c6a56 100%);
+  box-shadow: 0 0 16px rgba(126, 224, 192, 0.45), inset 0 -4px 10px rgba(0, 0, 0, 0.35);
+}
+.joystick.right .joy-knob {
+  background: radial-gradient(circle at 38% 32%, #ecd6ff 0%, #a86ce0 42%, #5a2b8c 100%);
+  box-shadow: 0 0 16px rgba(197, 139, 255, 0.45), inset 0 -4px 10px rgba(0, 0, 0, 0.35);
+}
+
+/* Action cluster sits above the hotbar rather than across it. */
+.mobile-buttons {
+  right: 150px;
+  bottom: max(66px, calc(env(safe-area-inset-bottom) + 62px));
+  gap: 9px;
+}
+.mbtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 62px; height: 62px;
+  border: 2px solid var(--gold-dk);
+  background: radial-gradient(circle at 50% 26%, rgba(72, 54, 124, 0.9) 0%, rgba(18, 11, 40, 0.92) 68%);
+  color: var(--gold);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 207, 107, 0.2),
+    inset 0 -5px 12px rgba(0, 0, 0, 0.5),
+    0 4px 14px rgba(0, 0, 0, 0.55);
+}
+.mb-ico { width: 22px; height: 22px; pointer-events: none; }
+.mb-ico path, .mb-ico circle { fill: currentColor; }
+.mb-ico path.ln, .mb-ico circle.ln { fill: none; stroke: currentColor; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+.mb-lbl {
+  pointer-events: none;
+  font-family: var(--menu-font);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #e9dfff;
+  text-shadow: var(--arc-ink);
+}
+.mbtn:active, .mbtn.held, .mbtn.on {
+  border-color: var(--gold-hi);
+  color: var(--gold-hi);
+  background: radial-gradient(circle at 50% 26%, rgba(126, 224, 192, 0.5) 0%, rgba(26, 16, 54, 0.92) 70%);
+  box-shadow: inset 0 0 0 1px var(--gold-hi), 0 0 20px rgba(255, 207, 107, 0.5);
+}
+.mbtn.small {
+  width: 44px; height: 44px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, rgba(64, 48, 108, 0.86) 0%, rgba(16, 10, 36, 0.92) 100%);
+}
+.mbtn.small .mb-ico { width: 20px; height: 20px; }
+/* Moved to the top-left gutter, in the gap between the vials and the clock
+   chips. The old top-right spot sat directly on top of the HUD's own chip
+   column — wind, zoom, minion count — which showed through between the
+   tiles, and it crowded the minimap besides. */
+.mobile-buttons-top {
+  top: max(12px, env(safe-area-inset-top));
+  left: max(108px, calc(env(safe-area-inset-left) + 108px));
+  right: auto;
+  gap: 7px;
+}
+/* Too narrow to share the top line with the clock chips: drop to a second row. */
+@media (max-width: 620px) {
+  .mobile-buttons-top { top: max(54px, calc(env(safe-area-inset-top) + 46px)); }
+}
+.mbtn.talk {
+  flex-direction: row;
+  gap: 6px;
+  width: auto; height: 40px;
+  border-radius: 4px;
+  padding: 0 18px;
+  border-color: var(--gold-dk);
+  color: var(--violet);
+  font-family: var(--menu-font);
+  font-size: 12px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+}
+
+/* In mobile mode the corner minimap drops below the touch row it used to
+   sit underneath, and the hotbar shrinks so the sticks never cover it. */
+body.mode-mobile .minimap-wrap.corner { top: 108px; }
+body.mode-mobile .hotbar { gap: 4px; bottom: max(8px, env(safe-area-inset-bottom)); }
+body.mode-mobile .slot { width: 44px; height: 44px; }
+body.mode-mobile .slot canvas, body.mode-mobile .slot .slot-icon { width: 30px; height: 30px; }
+body.mode-mobile .ammo-indicator { bottom: calc(max(8px, env(safe-area-inset-bottom)) + 52px); }
+
+@media (min-width: 900px) {
+  .joystick { width: 132px; height: 132px; }
+}
+/* Portrait phones are the tight case: ten slots at the touch size do not fit
+   across a 390px screen, and the sticks own both bottom corners. So the
+   hotbar shrinks and takes the floor, and everything else stacks above it. */
+@media (orientation: portrait) and (max-width: 620px) {
+  body.mode-mobile .slot { width: 34px; height: 34px; }
+  body.mode-mobile .slot canvas, body.mode-mobile .slot .slot-icon { width: 24px; height: 24px; }
+  body.mode-mobile .slot .slot-key { font-size: 8px; }
+  body.mode-mobile .slot .slot-count { font-size: 9px; bottom: 1px; right: 2px; }
+  body.mode-mobile .hotbar { gap: 3px; }
+  body.mode-mobile .ammo-indicator { bottom: calc(max(8px, env(safe-area-inset-bottom)) + 42px); }
+  .joystick { width: 108px; height: 108px; bottom: max(54px, calc(env(safe-area-inset-bottom) + 48px)); }
+  .joy-knob { width: 48px; height: 48px; }
+  .mobile-buttons { right: 12px; bottom: max(176px, calc(env(safe-area-inset-bottom) + 170px)); }
+  .mbtn.talk { bottom: max(174px, calc(env(safe-area-inset-bottom) + 168px)); }
+}
+/* Short landscape phones: give the vertical budget back. */
+@media (max-height: 470px) {
+  .joystick { width: 104px; height: 104px; }
+  .joy-knob { width: 46px; height: 46px; }
+  .mbtn { width: 56px; height: 56px; }
+  .mobile-buttons { right: 132px; bottom: max(58px, calc(env(safe-area-inset-bottom) + 54px)); gap: 7px; }
+  .vial-tube { height: clamp(70px, 22vh, 96px); }
+  body.mode-mobile .minimap-wrap.corner { top: 100px; width: 140px; height: 94px; }
+}
+/* Narrow screens: stack the quick actions so they clear the hotbar. */
+@media (max-width: 820px) {
+  .hud-actions { flex-direction: column-reverse; }
+  .hud-spark { top: auto; bottom: -18px; right: 17px; }
+}
+@media (max-width: 560px) {
+  .overlay.dialog .dialog-panel { padding: 0 14px 16px; }
+  .overlay.dialog .dialog-panel > h2 { margin: 0 -14px 14px; padding: 11px 36px 12px; }
+  .rune-opt .rune-name { font-size: 9px; letter-spacing: 0.4px; }
+  .overlay.dialog .dialog-panel .btn { padding: 10px 14px; letter-spacing: 1.2px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-spark, .overlay.dialog .dialog-panel::after { animation: none; }
+}
+
+/* ===================================================================
+   BAG & CRAFTING
+   Upgrading the hotbar left the bag looking like a different game sitting
+   on top of this one — same slots, none of the metal. These give the
+   inventory the carved treatment so the row you drag *from* and the row
+   you drag *to* read as the same object.
+   =================================================================== */
+
+.overlay.inv .panel {
+  background: var(--arc-field);
+  border: 2px solid #0a0618;
+  border-radius: 6px;
+  padding: 0 14px 14px;
+  box-shadow:
+    inset 0 0 0 2px var(--gold-lo),
+    inset 0 0 0 5px #150c30,
+    inset 0 0 0 6px var(--gold-dim),
+    0 16px 40px rgba(0, 0, 0, 0.68);
+}
+.overlay.inv .panel-head {
+  margin: 0 -14px 12px;
+  padding: 9px 14px 10px;
+  border-top: 2px solid var(--gold-lo);
+  border-bottom: 2px solid var(--gold-lo);
+  background: linear-gradient(180deg, #4a2f86 0%, #331c60 55%, #22114a 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 233, 168, 0.26), 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+.overlay.inv .panel-head h3 {
+  font-family: var(--title-font);
+  font-size: 15px;
+  letter-spacing: 2.4px;
+  text-transform: uppercase;
+  color: var(--gold);
+  text-shadow:
+    -1px 0 var(--ink-deep), 1px 0 var(--ink-deep), 0 -1px var(--ink-deep), 0 1px var(--ink-deep),
+    0 2px 0 #7a3f10;
+}
+.overlay.inv .panel-head .hint { font-family: var(--menu-font); font-size: 10px; letter-spacing: 0.4px; }
+.overlay.inv h4 { font-family: var(--menu-font); color: var(--gold); letter-spacing: 1.4px; }
+
+/* Slots: the same carved well as the hotbar, one size down. */
+.inv-slot {
+  border: 2px solid #5d3f13;
+  border-radius: 5px;
+  background: linear-gradient(180deg, rgba(64, 48, 108, 0.6) 0%, rgba(22, 14, 46, 0.9) 55%, rgba(11, 7, 26, 0.94) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 207, 107, 0.12),
+    inset 0 1px 0 rgba(255, 233, 168, 0.14),
+    inset 0 -3px 7px rgba(0, 0, 0, 0.45);
+}
+.inv-slot::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  pointer-events: none;
+  --arc-c: rgba(255, 207, 107, 0.32);
+  --arc-l: 6px;
+  background-image:
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c)),
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c)),
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c)),
+    linear-gradient(var(--arc-c), var(--arc-c)), linear-gradient(var(--arc-c), var(--arc-c));
+  background-size:
+    var(--arc-l) 1px, 1px var(--arc-l), var(--arc-l) 1px, 1px var(--arc-l),
+    var(--arc-l) 1px, 1px var(--arc-l), var(--arc-l) 1px, 1px var(--arc-l);
+  background-position:
+    left top, left top, right top, right top,
+    left bottom, left bottom, right bottom, right bottom;
+  background-repeat: no-repeat;
+}
+.inv-slot:hover { border-color: var(--gold); background: linear-gradient(180deg, rgba(88, 68, 148, 0.7), rgba(18, 11, 40, 0.94)); }
+.inv-slot.hotbar { border-color: #8a5a1c; }
+.inv-slot.hotbar.selected { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold-hi), 0 0 14px rgba(255, 207, 107, 0.5); }
+.inv-slot.equip { border-color: #6a4a9c; }
+.inv-slot.equip.empty::after { font-family: var(--menu-font); font-size: 8px; letter-spacing: 0.6px; text-transform: uppercase; color: #8d85b4; }
+.inv-slot .slot-key { font-family: var(--menu-font); color: rgba(255, 207, 107, 0.5); left: 50%; transform: translateX(-50%); }
+.inv-slot .slot-count { font-family: var(--menu-font); color: #fff3d6; text-shadow: 0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000; }
+
+/* Recipe rows read as little plaques. */
+.craft-item {
+  border: 1px solid #4a3a12;
+  border-radius: 4px;
+  background: linear-gradient(180deg, rgba(52, 40, 92, 0.6), rgba(14, 9, 32, 0.75));
+  box-shadow: inset 0 1px 0 rgba(255, 233, 168, 0.1);
+}
+.craft-item:hover:not(.disabled) {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, rgba(76, 58, 130, 0.75), rgba(18, 11, 40, 0.85));
+}
+.craft-item .craft-name { font-family: var(--menu-font); font-size: 12px; letter-spacing: 0.4px; color: #f2e9ff; }
+.craft-item .craft-cost { font-family: var(--menu-font); font-size: 10px; }
+.player-stats { font-family: var(--menu-font); font-size: 11px; }
+.overlay.inv .icon-btn {
+  border: 1px solid var(--gold-dk);
+  border-radius: 4px;
+  background: rgba(12, 7, 28, 0.7);
+  color: var(--gold);
+}
+.overlay.inv .icon-btn:hover { color: var(--gold-hi); border-color: var(--gold); }
+.item-tooltip {
+  border: 2px solid var(--gold-dk);
+  border-radius: 5px;
+  background: linear-gradient(180deg, rgba(36, 26, 76, 0.97), rgba(12, 7, 28, 0.97));
+  box-shadow: inset 0 0 0 1px var(--gold-dim), 0 10px 28px rgba(0, 0, 0, 0.7);
+}
+
+/* ---- Pause menu ----
+   Scoped to #pauseMenu only. It shares .menu-panel with the title screen,
+   which has its own full-bleed treatment and must not be touched. */
+#pauseMenu .menu-panel {
+  background: var(--arc-field);
+  border: 2px solid #0a0618;
+  border-radius: 6px;
+  padding: 0 18px 16px;
+  box-shadow:
+    inset 0 0 0 2px var(--gold-lo),
+    inset 0 0 0 5px #150c30,
+    inset 0 0 0 6px var(--gold-dim),
+    0 16px 44px rgba(0, 0, 0, 0.7);
+}
+#pauseMenu .menu-panel h2 {
+  margin: 0 -18px 14px;
+  padding: 13px 18px 14px;
+  border-top: 2px solid var(--gold-lo);
+  border-bottom: 2px solid var(--gold-lo);
+  background: linear-gradient(180deg, #4a2f86 0%, #331c60 55%, #22114a 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 233, 168, 0.26), 0 5px 16px rgba(0, 0, 0, 0.42);
+  font-family: var(--title-font);
+  font-size: 20px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--gold);
+  text-shadow:
+    -2px 0 var(--ink-deep), 2px 0 var(--ink-deep), 0 -2px var(--ink-deep), 0 2px var(--ink-deep),
+    0 3px 0 #7a3f10, 0 0 16px rgba(255, 190, 90, 0.4);
+}
+#pauseMenu .btn {
+  border: 2px solid var(--gold-dk);
+  border-radius: 5px;
+  background: linear-gradient(180deg, #4a3a78 0%, #2e2054 52%, #1d1340 100%);
+  font-family: var(--menu-font);
+  font-size: 12px;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: #efe6ff;
+  text-shadow: var(--arc-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 233, 168, 0.26), inset 0 -3px 8px rgba(0, 0, 0, 0.45);
+}
+#pauseMenu .btn:hover { border-color: var(--gold); color: #fff6df; box-shadow: inset 0 1px 0 rgba(255, 233, 168, 0.45), 0 0 15px rgba(255, 207, 107, 0.32); }
+#pauseMenu .btn.primary { background: linear-gradient(180deg, #2f8a6a 0%, #1e6249 52%, #144534 100%); border-color: var(--gold-lo); color: #eafff5; }
+#pauseMenu .btn.danger { background: linear-gradient(180deg, #8a2f3f 0%, #5f1f2c 52%, #421520 100%); color: #ffe4e8; }
+#pauseMenu .hint { font-family: var(--menu-font); font-size: 11px; line-height: 1.5; }
+
+/* Death screen: the one place the frame turns to blood. */
+.death-panel h1 { font-family: var(--title-font); letter-spacing: 6px; }
+.death-panel .btn {
+  border: 2px solid var(--gold-dk);
+  border-radius: 5px;
+  background: linear-gradient(180deg, #4a3a78 0%, #2e2054 52%, #1d1340 100%);
+  font-family: var(--menu-font);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.death-panel .btn:hover { border-color: var(--gold); box-shadow: 0 0 18px rgba(255, 207, 107, 0.4); }

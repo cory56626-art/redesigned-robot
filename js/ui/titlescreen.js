@@ -25,7 +25,7 @@
 //
 // The module is deliberately self-contained: it owns one canvas, one rAF loop,
 // and touches no game state. `start()` / `stop()` are the whole API.
-import { mulberry32, clamp, lerp } from '../utils.js?v=hivewrought-1';
+import { mulberry32, clamp, lerp } from '../utils.js?v=runeframe-1';
 
 const F = Math.floor;
 const TAU = Math.PI * 2;

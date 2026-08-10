@@ -1,13 +1,13 @@
 // Summoner Realms — combat & interaction resolution (weapons, mining, placing).
-import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=hivewrought-1';
-import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=hivewrought-1';
-import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=hivewrought-1';
-import { SH, nextShape } from '../world/shapes.js?v=hivewrought-1';
-import { W } from '../world/walls.js?v=hivewrought-1';
-import { item as getItem } from '../data/items.js?v=hivewrought-1';
-import { Projectile } from '../entities/projectile.js?v=hivewrought-1';
-import { ThrownItem } from '../entities/thrown.js?v=hivewrought-1';
-import { angleTo, aabb, clamp } from '../utils.js?v=hivewrought-1';
+import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=runeframe-1';
+import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=runeframe-1';
+import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=runeframe-1';
+import { SH, nextShape } from '../world/shapes.js?v=runeframe-1';
+import { W } from '../world/walls.js?v=runeframe-1';
+import { item as getItem } from '../data/items.js?v=runeframe-1';
+import { Projectile } from '../entities/projectile.js?v=runeframe-1';
+import { ThrownItem } from '../entities/thrown.js?v=runeframe-1';
+import { angleTo, aabb, clamp } from '../utils.js?v=runeframe-1';
 
 const MINE_RATE = 95;
 const MINE_SOUND_INTERVAL = 0.32;

@@ -14,4 +14,8 @@ export function applyControlMode(game, mode) {
   // Mobile controls only show while playing.
   const mc = document.getElementById('mobileControls');
   if (mc) mc.classList.toggle('hidden', !(mode === 'mobile' && game.state === 'playing'));
+  // A body hook so the stylesheet can move the HUD out of the touch layout's
+  // way (smaller hotbar, lower minimap, no duplicate quick-action cluster)
+  // without any of that logic living in JS.
+  document.body.classList.toggle('mode-mobile', mode === 'mobile');
 }

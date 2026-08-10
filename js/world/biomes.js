@@ -4,9 +4,9 @@
 // world read as "two halves" rather than a landscape. They are now laid out as
 // seeded bands along the world with blended seams, and every band carries its
 // own terrain shaping, tile palette, wall palette, decor table and sky colours.
-import { T } from './tiles.js?v=hivewrought-1';
-import { W } from './walls.js?v=hivewrought-1';
-import { mulberry32 } from '../utils.js?v=hivewrought-1';
+import { T } from './tiles.js?v=runeframe-1';
+import { W } from './walls.js?v=runeframe-1';
+import { mulberry32 } from '../utils.js?v=runeframe-1';
 
 // groundCover : the undergrowth mix for this band — a chance plus a weighted
 //               list of plants. Each biome grows something different, so

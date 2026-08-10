@@ -1,15 +1,15 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=hivewrought-1';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=hivewrought-1';
-import { Sprites } from '../art/sprites.js?v=hivewrought-1';
-import { item as getItem } from '../data/items.js?v=hivewrought-1';
-import { availableRecipes } from '../systems/crafting.js?v=hivewrought-1';
-import { claudeNotesHTML } from './claude-notes.js?v=hivewrought-1';
-import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=hivewrought-1';
-import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=hivewrought-1';
-import { drawCharacterPreview } from '../art/charpreview.js?v=hivewrought-1';
-import { TitleScreen } from './titlescreen.js?v=hivewrought-1';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=runeframe-1';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=runeframe-1';
+import { Sprites } from '../art/sprites.js?v=runeframe-1';
+import { item as getItem } from '../data/items.js?v=runeframe-1';
+import { availableRecipes } from '../systems/crafting.js?v=runeframe-1';
+import { claudeNotesHTML } from './claude-notes.js?v=runeframe-1';
+import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=runeframe-1';
+import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=runeframe-1';
+import { drawCharacterPreview } from '../art/charpreview.js?v=runeframe-1';
+import { TitleScreen } from './titlescreen.js?v=runeframe-1';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [
@@ -20,6 +20,16 @@ const RARITY = [
   { name: 'Legendary', color: '#ffcf6b' },
 ];
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
+
+// Difficulty tiers as runes. One mark per tier, drawn rather than typed: the
+// Runic block (U+16A0…) is missing from plenty of mobile font stacks and would
+// have rendered as tofu on exactly the devices the touch UI is aimed at.
+const DIFFICULTY_RUNES = [
+  { key: 'normal', label: 'Normal', d: 'M7 2.5v19M7 2.5h6.2a4 4 0 0 1 0 8H7M12 10.5l6 11' },
+  { key: 'hard', label: 'Hard', d: 'M7 2.5v19M7 6.5l10 5.5-10 5.5' },
+  { key: 'master', label: 'Master', d: 'M12 2.5v19M4 8.5l8 4 8-4M4 15.5l8-4 8 4' },
+  { key: 'masochist', label: 'Masochist', d: 'M5 2.5v19M19 2.5v19M5 6.5l7 5.5-7 5.5M19 6.5l-7 5.5 7 5.5' },
+];
 
 // Equipment slots, in the order they appear in the grid.
 const EQUIP_SLOTS = [
@@ -90,6 +100,7 @@ export class Menus {
     this.refreshActiveCharacter();
 
     // ---- New world dialog ----
+    this._buildRunePicker('newWorld');
     $('newWorldDifficulty').addEventListener('input', () => this._syncNewWorldDifficulty());
     this._syncNewWorldDifficulty();
     $('newWorldCancel').onclick = () => this.hide('newWorldDialog');
@@ -105,6 +116,7 @@ export class Menus {
     $('loadWorldClose').onclick = () => this.hide('loadWorldDialog');
 
     // ---- Multiplayer menu ----
+    this._buildRunePicker('mp');
     $('mpDifficulty').addEventListener('input', () => this._syncDifficultySlider('mp'));
     $('mpUseCurrent').addEventListener('change', () => this._syncMpHostMode());
     $('mpChangeChar').onclick = () => this.openCharacterSelect();
@@ -201,6 +213,21 @@ export class Menus {
     // ---- Always-visible HUD menu/pause button (works in PC & mobile) ----
     $('hudMenuBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); g.menuButton(); });
 
+    // ---- HUD quick actions ----
+    // The keyboard shortcuts are unchanged; these only make them findable.
+    $('hudBagBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); this.toggleInventory(); });
+    $('hudCraftBtn').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      // Crafting lives in the bag screen, so open it and put the recipe list
+      // in view rather than pretending it is a separate window.
+      if (!this.invOpen) this.openInventory();
+      const list = $('craftList');
+      if (list) list.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+    // showHowTo() — not show('howtoDialog') — because the body is rendered on
+    // open; showing the dialog on its own opens an empty panel.
+    $('hudGuideBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); this.showHowTo(); });
+
     // ---- Command panel close handled in commands.js ----
   }
 
@@ -208,6 +235,39 @@ export class Menus {
   show(id) { $(id).classList.remove('hidden'); this.game.onMenuOpened(); }
   hide(id) { $(id).classList.add('hidden'); }
   _syncNewWorldDifficulty() { this._syncDifficultySlider('newWorld'); }
+
+  // Fills a `.rune-picker` rail with one button per tier. The buttons are pure
+  // input: they write the index straight back to the range input and re-fire
+  // its `input` event, so the slider stays the single source of truth and
+  // every existing reader of it (including Create and the host card) is
+  // unaffected by the rail existing at all.
+  _buildRunePicker(prefix) {
+    const rail = $(prefix + 'DifficultyRunes');
+    const slider = $(prefix + 'Difficulty');
+    if (!rail || !slider) return;
+    rail.innerHTML = '';
+    DIFFICULTY_RUNES.forEach((r, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'rune-opt';
+      b.dataset.diff = r.key;
+      b.dataset.index = String(i);
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', 'false');
+      b.title = r.label;
+      b.innerHTML =
+        `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${r.d}"/></svg>` +
+        `<span class="rune-name">${r.label}</span>`;
+      b.addEventListener('click', () => {
+        slider.value = String(i);
+        // Dispatching rather than calling _sync directly keeps one code path:
+        // whatever is listening to the slider runs exactly as it would have.
+        slider.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      rail.appendChild(b);
+    });
+  }
+
   // Shared by the New World dialog and the multiplayer host card, so both
   // sliders read and behave identically instead of being two near-copies.
   _syncDifficultySlider(prefix) {
@@ -218,6 +278,14 @@ export class Menus {
     $(prefix + 'DifficultyTier').textContent = info.tier;
     $(prefix + 'DifficultyHint').textContent = info.hint;
     slider.style.setProperty('--fill', (WORLD_DIFFICULTY_FILL(info.key) * 100) + '%');
+    const rail = $(prefix + 'DifficultyRunes');
+    if (rail) {
+      for (const b of rail.children) {
+        const on = b.dataset.diff === info.key;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+      }
+    }
     return info;
   }
 

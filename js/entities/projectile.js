@@ -1,6 +1,6 @@
 // Summoner Realms — projectiles for ranged/mage weapons, minions, enemies, bosses.
-import { GRAVITY, TILE } from '../config.js?v=hivewrought-1';
-import { aabb, dist2 } from '../utils.js?v=hivewrought-1';
+import { GRAVITY, TILE } from '../config.js?v=runeframe-1';
+import { aabb, dist2 } from '../utils.js?v=runeframe-1';
 
 export class Projectile {
   constructor(opts) {

@@ -9,9 +9,9 @@
 // and the fishing together rather than leaving them as two unrelated features.
 import {
   TILE, REACH, FISH_MIN_WAIT, FISH_MAX_WAIT, FISH_HOOK_WINDOW, FISH_MIN_POOL,
-} from '../config.js?v=hivewrought-1';
-import { item as getItem } from '../data/items.js?v=hivewrought-1';
-import { UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=hivewrought-1';
+} from '../config.js?v=runeframe-1';
+import { item as getItem } from '../data/items.js?v=runeframe-1';
+import { UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=runeframe-1';
 
 // How far a cast can reach, in tiles. Generous compared to mining reach, since
 // standing on a bank and casting across is the point.
