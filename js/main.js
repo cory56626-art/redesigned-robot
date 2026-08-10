@@ -2,51 +2,52 @@
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty,
-} from './config.js?v=realms-qor-48';
-import { hashString, mulberry32, dist2, uid } from './utils.js?v=realms-qor-48';
-import { World } from './world/world.js?v=realms-qor-48';
-import { T } from './world/tiles.js?v=realms-qor-48';
-import { Sprites } from './art/sprites.js?v=realms-qor-48';
-import { Camera } from './engine/camera.js?v=realms-qor-48';
-import { Input } from './engine/input.js?v=realms-qor-48';
-import { AudioManager } from './engine/audio.js?v=realms-qor-48';
-import { Renderer } from './engine/renderer.js?v=realms-qor-48';
-import { Fx } from './engine/fx.js?v=realms-qor-48';
-import { DayNight } from './systems/daynight.js?v=realms-qor-48';
-import { Weather } from './systems/weather.js?v=realms-qor-48';
-import { Spawner } from './systems/spawner.js?v=realms-qor-48';
-import { Progression } from './systems/progression.js?v=realms-qor-48';
-import { starterInventory } from './systems/inventory.js?v=realms-qor-48';
-import * as craftSys from './systems/crafting.js?v=realms-qor-48';
-import { applyPotion } from './systems/combat.js?v=realms-qor-48';
-import { smartTarget } from './systems/smartcursor.js?v=realms-qor-48';
-import { Minimap } from './systems/minimap.js?v=realms-qor-48';
-import { CharacterManager, applyCharacter, captureCharacter, defaultAppearance } from './systems/characters.js?v=realms-qor-48';
-import { MinimapUI } from './ui/minimap.js?v=realms-qor-48';
-import { CraftingUI } from './ui/crafting.js?v=realms-qor-48';
-import { MenuScene } from './ui/menuscene.js?v=realms-qor-48';
-import { Bobber, findBait, rollCatch, openCrate } from './systems/fishing.js?v=realms-qor-48';
-import { Player, assignColor } from './entities/player.js?v=realms-qor-48';
-import { Enemy } from './entities/enemy.js?v=realms-qor-48';
-import { Boss } from './entities/boss.js?v=realms-qor-48';
-import { Minion } from './entities/minion.js?v=realms-qor-48';
-import { Npc } from './entities/npc.js?v=realms-qor-48';
-import { Projectile } from './entities/projectile.js?v=realms-qor-48';
-import { DropItem } from './entities/droppeditem.js?v=realms-qor-48';
-import { FallingTree } from './entities/fallingtree.js?v=realms-qor-48';
-import { ThrownItem } from './entities/thrown.js?v=realms-qor-48';
-import { ENEMIES } from './data/enemies.js?v=realms-qor-48';
-import { BOSSES } from './data/bosses.js?v=realms-qor-48';
-import { item as getItem } from './data/items.js?v=realms-qor-48';
-import { HUD } from './ui/hud.js?v=realms-qor-48';
-import { Menus } from './ui/menus.js?v=realms-qor-48';
-import { NpcDialog } from './ui/npcdialog.js?v=realms-qor-48';
-import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=realms-qor-48';
-import { SaveManager, setSaveIndicator } from './save.js?v=realms-qor-48';
-import { CommandConsole } from './commands.js?v=realms-qor-48';
-import { Net } from './net/net.js?v=realms-qor-48';
-import { MSG } from './net/protocol.js?v=realms-qor-48';
-import * as sync from './net/sync.js?v=realms-qor-48';
+} from './config.js?v=realms-qor-49';
+import { hashString, mulberry32, dist2, uid } from './utils.js?v=realms-qor-49';
+import { World } from './world/world.js?v=realms-qor-49';
+import { T } from './world/tiles.js?v=realms-qor-49';
+import { Sprites } from './art/sprites.js?v=realms-qor-49';
+import { Camera } from './engine/camera.js?v=realms-qor-49';
+import { Input } from './engine/input.js?v=realms-qor-49';
+import { AudioManager } from './engine/audio.js?v=realms-qor-49';
+import { Renderer } from './engine/renderer.js?v=realms-qor-49';
+import { Fx } from './engine/fx.js?v=realms-qor-49';
+import { DayNight } from './systems/daynight.js?v=realms-qor-49';
+import { Weather } from './systems/weather.js?v=realms-qor-49';
+import { Spawner } from './systems/spawner.js?v=realms-qor-49';
+import { Progression } from './systems/progression.js?v=realms-qor-49';
+import { starterInventory } from './systems/inventory.js?v=realms-qor-49';
+import * as craftSys from './systems/crafting.js?v=realms-qor-49';
+import { applyPotion } from './systems/combat.js?v=realms-qor-49';
+import { smartTarget } from './systems/smartcursor.js?v=realms-qor-49';
+import { Minimap } from './systems/minimap.js?v=realms-qor-49';
+import { CharacterManager, applyCharacter, captureCharacter, defaultAppearance } from './systems/characters.js?v=realms-qor-49';
+import { MinimapUI } from './ui/minimap.js?v=realms-qor-49';
+import { CraftingUI } from './ui/crafting.js?v=realms-qor-49';
+import { MenuScene } from './ui/menuscene.js?v=realms-qor-49';
+import { Bobber, findBait, rollCatch, openCrate } from './systems/fishing.js?v=realms-qor-49';
+import { Player, assignColor } from './entities/player.js?v=realms-qor-49';
+import { Enemy } from './entities/enemy.js?v=realms-qor-49';
+import { Boss } from './entities/boss.js?v=realms-qor-49';
+import { Minion } from './entities/minion.js?v=realms-qor-49';
+import { Npc } from './entities/npc.js?v=realms-qor-49';
+import { Grunfunder } from './entities/grunfunder.js?v=realms-qor-49';
+import { Projectile } from './entities/projectile.js?v=realms-qor-49';
+import { DropItem } from './entities/droppeditem.js?v=realms-qor-49';
+import { FallingTree } from './entities/fallingtree.js?v=realms-qor-49';
+import { ThrownItem } from './entities/thrown.js?v=realms-qor-49';
+import { ENEMIES } from './data/enemies.js?v=realms-qor-49';
+import { BOSSES } from './data/bosses.js?v=realms-qor-49';
+import { item as getItem } from './data/items.js?v=realms-qor-49';
+import { HUD } from './ui/hud.js?v=realms-qor-49';
+import { Menus } from './ui/menus.js?v=realms-qor-49';
+import { NpcDialog } from './ui/npcdialog.js?v=realms-qor-49';
+import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=realms-qor-49';
+import { SaveManager, setSaveIndicator } from './save.js?v=realms-qor-49';
+import { CommandConsole } from './commands.js?v=realms-qor-49';
+import { Net } from './net/net.js?v=realms-qor-49';
+import { MSG } from './net/protocol.js?v=realms-qor-49';
+import * as sync from './net/sync.js?v=realms-qor-49';
 
 class Game {
   constructor() {
@@ -91,6 +92,8 @@ class Game {
     this.bobbers = [];       // fishing floats, one per player at most
     this.thrown = [];        // bombs, dynamite, shurikens in flight
     this.npc = null;         // the Guide
+    this.grunfunder = null;  // cursed traveler / bodyguard quest NPC
+    this._rottenBoneThreat = false; // true while The Rotten One's bone storm is active
     this.fx = new Fx(this);
 
     // Debug overlays toggled from the demo command console.
@@ -213,14 +216,31 @@ class Game {
   }
 
   // Mobile has no keyboard, so the Talk prompt is a real button that appears
-  // only while the Guide is actually within range.
+  // only while an NPC is actually within range.
   _updateTalkButton() {
     const el = document.getElementById('mbTalk');
     if (!el) return;
-    const show = this.controlMode === 'mobile' && this.npc && this.localPlayer &&
-      this.npc.canTalkTo(this.localPlayer) &&
+    const talkable = this._nearestTalkableNpc();
+    const show = this.controlMode === 'mobile' && talkable &&
       !(this.ui.npcDialog && this.ui.npcDialog.isOpen());
     el.classList.toggle('hidden', !show);
+  }
+
+  _nearestTalkableNpc() {
+    if (!this.localPlayer) return null;
+    const candidates = [];
+    if (this.npc && this.npc.canTalkTo(this.localPlayer)) candidates.push(this.npc);
+    if (this.grunfunder && this.grunfunder.canTalkTo(this.localPlayer)) candidates.push(this.grunfunder);
+    if (!candidates.length) return null;
+    // Prefer the closer of the two if both are in range.
+    let best = candidates[0], bestD = Infinity;
+    const px = this.localPlayer.x + this.localPlayer.w / 2;
+    const py = this.localPlayer.y + this.localPlayer.h / 2;
+    for (const n of candidates) {
+      const d = Math.hypot((n.x + n.w / 2) - px, (n.y + n.h / 2) - py);
+      if (d < bestD) { bestD = d; best = n; }
+    }
+    return best;
   }
 
   _resize() {
@@ -318,6 +338,10 @@ class Game {
 
     // Guide NPC
     if (this.npc) this.npc.update(dt, this);
+    if (this.grunfunder) {
+      if (this.grunfunder.alive) this.grunfunder.update(dt, this);
+      else this.grunfunder.updateDowned?.(dt, this);
+    }
     this._updateBobbers(dt);
 
     // Minions (local only)
@@ -396,6 +420,8 @@ class Game {
     this.particles = []; this.rings = []; this.flashes = []; this.floatTexts = []; this.fallingTrees = []; this.thrown = [];
     this.bobbers = [];
     this.npc = null;
+    this.grunfunder = null;
+    this._rottenBoneThreat = false;
   }
 
   _seedFromString(str) {
@@ -416,6 +442,7 @@ class Game {
     this.weather = new Weather(this.seed);
     this._createLocalPlayer(true);
     this._spawnGuide(null);
+    this._spawnGrunfunder(null);
     this.currentSaveId = this.saves.newId();
     this._enterPlaying();
     this.saveGame(false);
@@ -453,6 +480,7 @@ class Game {
     this.weather.deserialize(data.weather);
     this._createLocalPlayer(false);
     this._spawnGuide(data.npc);
+    this._spawnGrunfunder(data.grunfunder);
     // Only the position is world-scoped now; the character supplied everything
     // else in _createLocalPlayer.
     const pd = data.player;
@@ -468,6 +496,14 @@ class Game {
     this.npc = null;
     if (!this.world) return;
     this.npc = Npc.create(this, saved);
+  }
+
+  _spawnGrunfunder(saved) {
+    this.grunfunder = null;
+    if (!this.world) return;
+    // After a true defeat he still exists as bodyguard / awaiting thanks.
+    // Before that he always belongs in the world so the quest can start.
+    this.grunfunder = Grunfunder.create(this, saved);
   }
 
   _createLocalPlayer(fresh) {
@@ -549,6 +585,7 @@ class Game {
     this.localPlayer.inventory = inv;
     this.players.set(this.localPlayer.id, this.localPlayer);
     this._spawnGuide(null);
+    this._spawnGrunfunder(null);
     const tx = Math.floor(this.world.spawnX / TILE);
     this.localPlayer.x = this.world.spawnX; this.localPlayer.y = this.world.spawnPixelY(tx, this.localPlayer.h);
     this.localPlayer.vx = 0; this.localPlayer.vy = 0;
@@ -581,6 +618,7 @@ class Game {
       // about them (inventory, gear, progress) belongs to the character record.
       player: { x: p.x, y: p.y, charId: this.activeCharId },
       npc: this.npc ? this.npc.serialize() : null,
+      grunfunder: this.grunfunder ? this.grunfunder.serialize() : null,
     };
   }
 
@@ -693,23 +731,27 @@ class Game {
     else this.ui.menus.hidePause();
   }
   openCommandPanel() { this.commands.open(); }
-  // Clicking directly on the Guide is the other way in, alongside F / the
+  // Clicking directly on an NPC is the other way in, alongside F / the
   // mobile Talk button.
   clickedNpc(worldX, worldY) {
-    const n = this.npc;
-    if (!n || !this.localPlayer) return false;
-    if (worldX < n.x - 4 || worldX > n.x + n.w + 4 || worldY < n.y - 6 || worldY > n.y + n.h + 4) return false;
+    if (!this.localPlayer) return false;
+    const hit = (n) => n && n.alive &&
+      worldX >= n.x - 4 && worldX <= n.x + n.w + 4 &&
+      worldY >= n.y - 6 && worldY <= n.y + n.h + 4;
+    let n = null;
+    if (hit(this.grunfunder)) n = this.grunfunder;
+    else if (hit(this.npc)) n = this.npc;
+    if (!n) return false;
     if (!n.canTalkTo(this.localPlayer)) { this.toast('Too far away to talk', 'info'); return false; }
     this.ui.npcDialog.toggle(n);
     return true;
   }
 
-  // Context action: talk to the Guide if we're standing next to them.
+  // Context action: talk to a nearby NPC.
   interact() {
     if (this.state !== 'playing' || !this.localPlayer || !this.localPlayer.alive) return;
-    if (this.npc && this.npc.canTalkTo(this.localPlayer) && this.ui.npcDialog) {
-      this.ui.npcDialog.toggle(this.npc);
-    }
+    const n = this._nearestTalkableNpc();
+    if (n && this.ui.npcDialog) this.ui.npcDialog.toggle(n);
   }
   // Shared by the Esc key and the always-visible HUD ☰ button, so PC players have
   // a visible pause affordance (the review flagged that Esc was the only way).
@@ -807,13 +849,32 @@ class Game {
     // despawn, so respawning is a clean slate rather than a way to whittle a
     // boss down across lives — the summon item was already consumed, so
     // re-engaging costs another one.
+    //
+    // Exception: The Rotten One's bone storm. Dying to fragments (or during
+    // the storm) voids the kill and returns Grunfunder to the corruption.
+    const boneThreat = this._rottenBoneThreat || this.bosses.some(b => b.bonePhase);
     const anyAlive = [...this.players.values()].some(p => p.alive);
     this.ui.menus._deathWasBossFight = this.bosses.length > 0;
     if (!this.net || !anyAlive) {
-      const had = this.bosses.length;
-      this.clearBosses(true);
-      this.resetCombatState();
-      if (had) this.toast('The encounter ends. Summon it again to try once more.', 'info');
+      const hadRotten = this.bosses.some(b => b.key === 'rottenOne');
+      if (boneThreat) {
+        for (const b of this.bosses) if (b.markIncomplete) b.markIncomplete(this);
+        this.clearBosses(true);
+        this.resetCombatState();
+        this._rottenBoneThreat = false;
+        if (this.grunfunder) this.grunfunder.resetToStranded(this);
+        this.toast('The curse endures… Find Grunfunder in the Corrupted Lands again.', 'bad');
+      } else {
+        const had = this.bosses.length;
+        // Incomplete Rotten One fight (died mid-combat): reset the escort quest.
+        if (hadRotten && this.grunfunder) this.grunfunder.resetToStranded(this);
+        this.clearBosses(true);
+        this.resetCombatState();
+        if (had) {
+          if (hadRotten) this.toast('The Rotten One fades. Rescue Grunfunder again to face it.', 'info');
+          else this.toast('The encounter ends. Summon it again to try once more.', 'info');
+        }
+      }
     }
   }
 
@@ -992,6 +1053,7 @@ class Game {
     };
     for (const p of this.players.values()) consider(p);
     if (this.npc) consider(this.npc);
+    if (this.grunfunder && this.grunfunder.alive) consider(this.grunfunder);
     for (const m of this.minions) if (m.maxHp != null) consider(m);
     return best;
   }
@@ -1032,9 +1094,9 @@ class Game {
     if (this.bosses.includes(target)) this.hurtBoss(target, dmg, ownerId, crit);
     else this.hurtEnemy(target, dmg, kb, -1, effect, ownerId, crit);
   }
-  applyEnemyDamageToPlayer(player, dmg, kbx) {
-    if (player.isLocal) player.takeDamage(dmg, kbx, this);
-    else if (this.isHost && this.net) this.net.toPeer(player.id, { t: MSG.HURT, dmg, kbx });
+  applyEnemyDamageToPlayer(player, dmg, kbx, srcName) {
+    if (player.isLocal) player.takeDamage(dmg, kbx, this, srcName);
+    else if (this.isHost && this.net) this.net.toPeer(player.id, { t: MSG.HURT, dmg, kbx, src: srcName });
   }
 
   // ============ MINIONS ============
@@ -1097,6 +1159,11 @@ class Game {
 
   trySummonBoss(key, player, itemId) {
     const def = BOSSES[key];
+    // Quest bosses (The Rotten One) only rise through Grunfunder's betrayal.
+    if (def.questBoss || !def.summonItem) {
+      this.toast(def.name + ' cannot be summoned with an idol.', 'bad');
+      return;
+    }
     const tx = Math.floor((player.x + player.w / 2) / TILE), ty = Math.floor((player.y + player.h / 2) / TILE);
     const biome = this.world.biomeAt(tx, ty);
     const okBiome = (def.biome === 'underground') ? (biome === 'underground' || biome === 'cavern') : (biome === def.biome);
@@ -1123,9 +1190,10 @@ class Game {
   onBossDeath(b) {
     if (!this.isHost) return;
     // A boss that fled its arena was never defeated: no progression, no loot.
-    if (b.fled) {
+    if (b.fled || b.incompleteKill) {
       this.enemies = this.enemies.filter(e => { if (e.fromBoss) { this.enemyById.delete(e.netId); return false; } return true; });
       this.projectiles = this.projectiles.filter(p => p.ownerType !== 'boss');
+      this._rottenBoneThreat = false;
       return;
     }
     const def = BOSSES[b.key];
@@ -1138,7 +1206,15 @@ class Game {
     }
     // clear boss adds
     this.enemies = this.enemies.filter(e => { if (e.fromBoss) { this.enemyById.delete(e.netId); return false; } return true; });
+    this.projectiles = this.projectiles.filter(p => p.ownerType !== 'boss' || p.kind !== 'bonefrag');
+    this._rottenBoneThreat = false;
     this.toast(def.name + ' defeated!', 'good');
+
+    // True defeat of The Rotten One revives Grunfunder in the caves.
+    if (b.key === 'rottenOne' && this.grunfunder) {
+      this.grunfunder.reviveInCaves(this);
+    }
+
     if (this.net && this.isHost) { this.net.broadcast({ t: MSG.EVENT, kind: 'bossDefeat', key: b.key, name: def.name }); }
     this.markDirty();
     this.saveGame(false);

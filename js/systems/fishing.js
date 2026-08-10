@@ -9,8 +9,8 @@
 //
 // The host is authoritative for bites and loot rolls, so two players fishing
 // the same pool cannot roll different results for the same cast.
-import { TILE } from '../config.js?v=realms-qor-48';
-import { item as getItem } from '../data/items.js?v=realms-qor-48';
+import { TILE } from '../config.js?v=realms-qor-49';
+import { item as getItem } from '../data/items.js?v=realms-qor-49';
 
 // Seconds of waiting before a bite, before bait is taken into account.
 const BITE_MIN = 3.2;

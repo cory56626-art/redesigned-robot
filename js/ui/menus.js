@@ -1,11 +1,11 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=realms-qor-48';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=realms-qor-48';
-import { Sprites } from '../art/sprites.js?v=realms-qor-48';
-import { item as getItem } from '../data/items.js?v=realms-qor-48';
-import { claudeNotesHTML } from './claude-notes.js?v=realms-qor-48';
-import { SKIN_TONES, HAIR_COLORS, HAIR_STYLES, SHIRT_COLORS, PANTS_COLORS, defaultAppearance } from '../systems/characters.js?v=realms-qor-48';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=realms-qor-49';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=realms-qor-49';
+import { Sprites } from '../art/sprites.js?v=realms-qor-49';
+import { item as getItem } from '../data/items.js?v=realms-qor-49';
+import { claudeNotesHTML } from './claude-notes.js?v=realms-qor-49';
+import { SKIN_TONES, HAIR_COLORS, HAIR_STYLES, SHIRT_COLORS, PANTS_COLORS, defaultAppearance } from '../systems/characters.js?v=realms-qor-49';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [

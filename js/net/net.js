@@ -9,7 +9,7 @@
 //
 // The backend URL is configured in index.html (window.SUMMONER_SERVER_URL) and
 // can be overridden per-visit with ?server=https://your-service.onrender.com
-import { MSG } from './protocol.js?v=realms-qor-48';
+import { MSG } from './protocol.js?v=realms-qor-49';
 
 // Resolve the multiplayer backend URL, trailing slashes trimmed:
 //   1. ?server= query param (handy for testing without editing files)

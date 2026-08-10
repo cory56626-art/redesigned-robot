@@ -11,14 +11,21 @@
 // distance, phase and line of sight. Animation fields (squash, jaw, segment
 // lag, shard spin) are updated here rather than in the renderer, so they are
 // driven by the simulation and stay frame-rate independent.
-import { TILE, normalizeDifficulty } from '../config.js?v=realms-qor-48';
-import { BOSSES } from '../data/bosses.js?v=realms-qor-48';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-qor-48';
-import { aabb, angleTo, randRange, clamp } from '../utils.js?v=realms-qor-48';
-import { Projectile } from './projectile.js?v=realms-qor-48';
-import * as AI from '../systems/ai.js?v=realms-qor-48';
+import { TILE, normalizeDifficulty } from '../config.js?v=realms-qor-49';
+import { BOSSES } from '../data/bosses.js?v=realms-qor-49';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=realms-qor-49';
+import { aabb, angleTo, randRange, clamp } from '../utils.js?v=realms-qor-49';
+import { Projectile } from './projectile.js?v=realms-qor-49';
+import * as AI from '../systems/ai.js?v=realms-qor-49';
 
-const PROJ_COLOR = { thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff' };
+const PROJ_COLOR = {
+  thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff',
+  rotbeam: '#f0e0a8', bonefrag: '#e9e2c8',
+};
+
+// How long The Rotten One's bone-burst aftermath lasts after HP hits zero.
+// Survive this window and the kill counts; die inside it and the curse endures.
+const BONE_PHASE_DURATION = 11;
 
 // Beyond this distance from every player the boss is being kited out of its
 // arena; past the grace period it enrages, then leaves.
@@ -208,6 +215,15 @@ export class Boss {
     this.landPulse = 0;  // impact ripple travelling down the body
     this.ghostTrail = [];
     this._trailTimer = 0;
+
+    // The Rotten One: two bony arms that raise before a slam, plus a bone-burst
+    // aftermath that must be survived for a true defeat.
+    this.leftArm = { raise: 0, slam: 0 };
+    this.rightArm = { raise: 0, slam: 0 };
+    this.bonePhase = false;
+    this.bonePhaseTime = 0;
+    this.trueDefeat = false;   // set only after the bone aftermath is survived
+    this.incompleteKill = false;
   }
 
   center() { return { x: this.x + this.w / 2, y: this.y + this.h / 2 }; }
@@ -247,6 +263,14 @@ export class Boss {
     if (this.invuln > 0) this.invuln -= dt;
     this.bob += dt * 3;
     for (const [k, v] of this.cooldowns) if (v > 0) this.cooldowns.set(k, v - dt);
+
+    // Bone-burst aftermath: skull is gone, fragments still kill. Surviving the
+    // full window is what seals the defeat (see takeDamage / _beginBonePhase).
+    if (this.bonePhase) {
+      this._updateBonePhase(dt, game);
+      return;
+    }
+
     this._updatePhase(game);
 
     const target = game.nearestHostileTarget
@@ -442,6 +466,15 @@ export class Boss {
       this.vx = clamp((desiredX - cx) * 0.9, -speed, speed);
       this.vy = clamp((desiredY - cy) * 0.9, -speed, speed);
       this._flyMove(game, dt);
+    } else if (this.movement === 'rottenone') {
+      // Massive skull that hangs above the player, peering down. Slight lateral
+      // sway keeps the arms' slam zones readable without becoming an orbit.
+      const desiredY = tc.y - (this.def.floatHeight || 118) + Math.sin(this.spawnTime * 1.5) * 16;
+      const sway = Math.sin(this.spawnTime * 0.7) * 36;
+      const desiredX = tc.x + sway;
+      this.vx = clamp((desiredX - cx) * 1.1, -speed, speed);
+      this.vy = clamp((desiredY - cy) * 1.0, -speed * 0.85, speed * 0.85);
+      this._flyMove(game, dt);
     } else {
       // Gravemaw is grounded: it commits to the floor, hops ledges and gaps.
       applyGravity(this, dt);
@@ -581,19 +614,37 @@ export class Boss {
         this.ghostTrail.shift();
       }
     }
+
+    // Rotten One: arms raise during an armSlam telegraph and snap down on release.
+    if (this.movement === 'rottenone') {
+      const slamming = this.chosen && this.chosen.type === 'armSlam';
+      const raiseTarget = (this.telegraph > 0 && slamming) ? 1 : 0;
+      const slamTarget = (this.attackPulse > 0 && slamming) ? 1 : 0;
+      const kRaise = 1 - Math.pow(0.02, dt);
+      const kSlam = 1 - Math.pow(0.00001, dt);
+      this.leftArm.raise += (raiseTarget - this.leftArm.raise) * kRaise;
+      this.rightArm.raise += (raiseTarget - this.rightArm.raise) * kRaise;
+      this.leftArm.slam += (slamTarget - this.leftArm.slam) * kSlam;
+      this.rightArm.slam += (slamTarget - this.rightArm.slam) * kSlam;
+      // Jaw gapes while charging a mouth beam.
+      const beamTel = this.telegraph > 0 && this.chosen && this.chosen.type === 'deathBeam';
+      const jawTarget = beamTel ? 1 : (this.telegraph > 0 ? 0.35 : 0);
+      this.jaw += (jawTarget - this.jaw) * (1 - Math.pow(0.01, dt));
+    }
   }
 
   _contactDamage(game, ph) {
-    if (this.hidden) return; // can't be hit by something that isn't there
+    if (this.hidden || this.bonePhase) return; // can't be hit by something that isn't there
     const targets = [...game.players.values()];
     for (const m of (game.minions || [])) {
       if (m.alive !== false && !m.dead && m.maxHp != null) targets.push(m);
     }
+    if (game.grunfunder && game.grunfunder.alive) targets.push(game.grunfunder);
     for (const p of targets) {
       if (p.alive !== false && !p.dead && aabb(this, p)) {
         const knockback = Math.sign(p.x - this.x) * 6;
         const dodged = p.isMinion && p.tryDodgeContact?.(game, this);
-        if (!dodged && p.isMinion) p.takeDamage(ph.contact, knockback, game, this.name);
+        if (!dodged && (p.isMinion || p === game.grunfunder)) p.takeDamage(ph.contact, knockback, game, this.name);
         else if (!dodged) game.applyEnemyDamageToPlayer(p, ph.contact, knockback);
       }
     }
@@ -746,23 +797,209 @@ export class Boss {
         game.spawnBossAdds(atk.enemy, atk.addCount, this.x, this.y);
         break;
       }
+      case 'armSlam': {
+        // Arms pull up (telegraph) then crash down at the player's x, dealing
+        // contact damage in two slam columns and flinging bone shards outward.
+        const slamW = atk.slamWidth || 48;
+        const leftX = tc.x - 36;
+        const rightX = tc.x + 36;
+        const groundY = tc.y + target.h / 2;
+        for (const sx of [leftX, rightX]) {
+          game.fx.ring(sx, groundY, this.color2, slamW * 0.7, { life: 0.35, width: 3 });
+          game.fx.burst(sx, groundY, '#c8b89a', 16, { speed: 160, life: 0.5, gravity: 420 });
+          // Vertical shock column — reads as the arm striking through the air.
+          game.addProjectile(new Projectile({
+            x: sx - 6, y: this.y + this.h * 0.6, vx: 0, vy: 520,
+            w: 12, h: 18, damage: atk.damage, ownerType: 'boss', kind: 'bonefrag',
+            color: this.color2, life: 0.55, phasing: true, knockback: 5,
+          }), true);
+          // Ground impact wave.
+          for (const dir of [-1, 1]) {
+            game.addProjectile(new Projectile({
+              x: sx, y: groundY - 4, vx: dir * 210, vy: -40,
+              w: 12, h: 8, damage: Math.round(atk.damage * 0.7), ownerType: 'boss',
+              kind: 'bonefrag', color: '#d3c8a8', life: 0.7, gravity: true, knockback: 4,
+            }), true);
+          }
+        }
+        // Arm hitboxes also apply immediate melee-range damage under the skull.
+        for (const p of game.players.values()) {
+          if (!p.alive) continue;
+          const pc = p.center();
+          for (const sx of [leftX, rightX]) {
+            if (Math.abs(pc.x - sx) < slamW * 0.55 && Math.abs(pc.y - groundY) < 60) {
+              game.applyEnemyDamageToPlayer(p, atk.damage, Math.sign(pc.x - sx) * 7);
+            }
+          }
+        }
+        game.fx.shake(7, 0.4);
+        this.leftArm.slam = 1;
+        this.rightArm.slam = 1;
+        break;
+      }
+      case 'deathBeam': {
+        // Beams of pale energy from the mouth, aimed at the player.
+        const mouthY = cy + this.h * 0.18;
+        const n = atk.count || 1;
+        const base = angleTo(cx, mouthY, tc.x, tc.y);
+        for (let i = 0; i < n; i++) {
+          const a = base + (i - (n - 1) / 2) * (atk.spread || 0.16);
+          // A short stream so the beam reads as a continuous ray.
+          for (let s = 0; s < 4; s++) {
+            const spd = atk.projSpeed * (1 + s * 0.02);
+            // Stagger via slightly offset spawn positions along the ray.
+            const ox = Math.cos(a) * (8 + s * 10);
+            const oy = Math.sin(a) * (8 + s * 10);
+            game.addProjectile(new Projectile({
+              x: cx + ox - 4, y: mouthY + oy - 4,
+              vx: Math.cos(a) * spd, vy: Math.sin(a) * spd,
+              w: 10, h: 10, damage: atk.damage, ownerType: 'boss',
+              kind: 'rotbeam', color: PROJ_COLOR.rotbeam, life: 2.2,
+              phasing: true, trail: PROJ_COLOR.rotbeam, knockback: 3,
+            }), true);
+          }
+        }
+        game.fx.ring(cx, mouthY, PROJ_COLOR.rotbeam, 36, { life: 0.28, width: 2 });
+        game.fx.burst(cx, mouthY, PROJ_COLOR.rotbeam, 12, { speed: 120, glow: true, life: 0.35 });
+        break;
+      }
+      case 'boneSpray': {
+        const n = atk.count || 8;
+        for (let i = 0; i < n; i++) {
+          const a = -Math.PI * 0.85 + (i / Math.max(1, n - 1)) * Math.PI * 0.7
+            + randRange(Math.random, -0.12, 0.12);
+          game.addProjectile(new Projectile({
+            x: cx, y: cy, vx: Math.cos(a) * atk.projSpeed, vy: Math.sin(a) * atk.projSpeed,
+            w: 8, h: 6, damage: atk.damage, ownerType: 'boss', kind: 'bonefrag',
+            color: PROJ_COLOR.bonefrag, life: 3.5, gravity: true, knockback: 3,
+          }), true);
+        }
+        game.fx.burst(cx, cy, this.color2, 18, { speed: 180, life: 0.5 });
+        break;
+      }
     }
   }
 
   takeDamage(amount, game, crit) {
-    if (this.dead || this.invuln > 0 || this.hidden) return;
+    if (this.dead || this.bonePhase || this.invuln > 0 || this.hidden) return;
     this.hp -= amount;
     this.hurtFlash = 0.1;
     if (game) game.floatText(this.x + this.w / 2, this.y, Math.round(amount) + (crit ? '!' : ''), crit ? '#ffcf6b' : '#ffffff');
     if (this.hp <= 0) {
       this.hp = 0;
-      this.dead = true;
-      if (game) { this._deathThroes(game); game.onBossDeath(this); }
+      // Quest boss: HP zero is only the start of the bone aftermath.
+      if (this.key === 'rottenOne' || this.def.questBoss) {
+        this._beginBonePhase(game);
+      } else {
+        this.dead = true;
+        if (game) { this._deathThroes(game); game.onBossDeath(this); }
+      }
     }
+  }
+
+  // Shatter into flying bone fragments. The boss entity stays "alive" in the
+  // list so the fight isn't cleared; fragments keep dealing damage. If every
+  // player dies during this window the kill is voided (see game.onLocalDeath).
+  _beginBonePhase(game) {
+    this.bonePhase = true;
+    this.bonePhaseTime = BONE_PHASE_DURATION;
+    this.invuln = 99;
+    this.hidden = false;
+    this.vx = 0; this.vy = 0;
+    this.aiState = 'recover';
+    this.chosen = null;
+    this.telegraph = 0;
+    if (game) game._rottenBoneThreat = true;
+    const c = this.center();
+    this._deathThroes(game);
+    // Primary burst of phasing bone fragments that fly around the arena.
+    const n = 28;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + randRange(Math.random, -0.1, 0.1);
+      const spd = randRange(Math.random, 140, 320);
+      game.addProjectile(new Projectile({
+        x: c.x, y: c.y,
+        vx: Math.cos(a) * spd, vy: Math.sin(a) * spd - 40,
+        w: 9, h: 7, damage: 16, ownerType: 'boss', kind: 'bonefrag',
+        color: PROJ_COLOR.bonefrag, life: BONE_PHASE_DURATION + 1,
+        gravity: Math.random() < 0.55, phasing: Math.random() < 0.45,
+        knockback: 4, trail: '#d8d0b8',
+      }), true);
+    }
+    // Secondary delayed shards so the field stays deadly for the full window.
+    for (let i = 0; i < 12; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const spd = randRange(Math.random, 80, 200);
+      game.addProjectile(new Projectile({
+        x: c.x + randRange(Math.random, -40, 40),
+        y: c.y + randRange(Math.random, -30, 30),
+        vx: Math.cos(a) * spd, vy: Math.sin(a) * spd,
+        w: 7, h: 6, damage: 12, ownerType: 'boss', kind: 'bonefrag',
+        color: '#c8b89a', life: BONE_PHASE_DURATION,
+        gravity: true, knockback: 3,
+      }), true);
+    }
+    game.toast?.('The Rotten One shatters — survive the bone storm!', 'bad');
+    game.fx?.shake(10, 0.9);
+  }
+
+  _updateBonePhase(dt, game) {
+    this.bonePhaseTime -= dt;
+    this.bob += dt * 6;
+    // Keep a trickle of shards while the phase is active.
+    if (this.bonePhaseTime > 1.5 && Math.random() < 0.08) {
+      const c = this.center();
+      const a = Math.random() * Math.PI * 2;
+      game.addProjectile(new Projectile({
+        x: c.x, y: c.y, vx: Math.cos(a) * 180, vy: Math.sin(a) * 180 - 60,
+        w: 8, h: 6, damage: 11, ownerType: 'boss', kind: 'bonefrag',
+        color: PROJ_COLOR.bonefrag, life: 3.5, gravity: true, knockback: 3,
+      }), true);
+    }
+    // Skull fades / drifts upward as it disintegrates.
+    this.y -= 8 * dt;
+    this.squashX = 1 + Math.sin(this.spawnTime * 20) * 0.08;
+    this.squashY = 1 - Math.sin(this.spawnTime * 20) * 0.08;
+
+    if (this.bonePhaseTime <= 0) {
+      this._completeBonePhase(game);
+    }
+  }
+
+  _completeBonePhase(game) {
+    // Anyone still alive seals the true defeat.
+    const anyAlive = [...game.players.values()].some(p => p.alive);
+    this.bonePhase = false;
+    if (game) game._rottenBoneThreat = false;
+    if (!anyAlive) {
+      this.incompleteKill = true;
+      this.dead = true;
+      this.fled = true; // no loot / progression (same path as a flee)
+      return;
+    }
+    this.trueDefeat = true;
+    this.dead = true;
+    if (game) {
+      const c = this.center();
+      game.fx?.burst(c.x, c.y, ['#ffffff', this.color2], 24, { speed: 140, glow: true, life: 0.6 });
+      game.onBossDeath(this);
+    }
+  }
+
+  // Called when the player dies while bone fragments are still lethal.
+  markIncomplete(game) {
+    if (!this.bonePhase) return;
+    this.bonePhase = false;
+    this.incompleteKill = true;
+    this.trueDefeat = false;
+    this.dead = true;
+    this.fled = true;
+    if (game) game._rottenBoneThreat = false;
   }
 
   // A boss should not simply blink out of existence.
   _deathThroes(game) {
+    if (!game || !game.fx) return;
     const c = this.center();
     game.fx.shake(9, 0.8);
     game.fx.ring(c.x, c.y, '#ffffff', 140, { life: 0.5, width: 5 });

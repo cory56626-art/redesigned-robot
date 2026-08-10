@@ -13,11 +13,11 @@
 //                the recipe list and boss loot tables, so a new item is
 //                explained correctly the day it's added without anyone writing
 //                a paragraph for it.
-import { ITEMS, item as getItem } from './items.js?v=realms-qor-48';
-import { RECIPES } from './recipes.js?v=realms-qor-48';
-import { BOSSES } from './bosses.js?v=realms-qor-48';
-import { ENEMIES } from './enemies.js?v=realms-qor-48';
-import { TILE } from '../config.js?v=realms-qor-48';
+import { ITEMS, item as getItem } from './items.js?v=realms-qor-49';
+import { RECIPES } from './recipes.js?v=realms-qor-49';
+import { BOSSES } from './bosses.js?v=realms-qor-49';
+import { ENEMIES } from './enemies.js?v=realms-qor-49';
+import { TILE } from '../config.js?v=realms-qor-49';
 
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
 
@@ -98,7 +98,7 @@ export const TOPICS = [
     },
   },
   {
-    id: 'bosses', label: 'The three bosses',
+    id: 'bosses', label: 'The bosses',
     text(g, p) {
       const done = (k) => g.progression.isDefeated(k);
       const lines = [];
@@ -108,8 +108,12 @@ export const TOPICS = [
         const item = getItem(b.summonItem);
         lines.push(`<b>${b.name}</b> — ${b.maxHp} health, ${b.phases.length} phases, summoned with a <b>${item.name}</b> in ${where}. ${done(key) ? '<span class="npc-stat">Already beaten.</span>' : ''}`);
       }
+      const ro = BOSSES.rottenOne;
+      if (ro) {
+        lines.push(`<b>${ro.name}</b> — not summoned with an idol. Find <b>Grunfunder</b> stranded in the Corrupted Lands, lead him out, and the curse he carries will rise as a floating skull. Survive the bone storm after it shatters, or the kill doesn't count. ${done('rottenOne') ? '<span class="npc-stat">Already beaten.</span>' : ''}`);
+      }
       lines.push(`They all telegraph. Every attack has a charge-up you can see and a recovery afterwards where they're slow — that recovery is when you hit back.`);
-      lines.push(`Two things they won't tolerate: running away, which enrages them and eventually makes them leave, and dying, which ends the fight outright. Either way you'll need another idol.`);
+      lines.push(`Two things they won't tolerate: running away, which enrages them and eventually makes them leave, and dying, which ends the fight outright. Either way you'll need another idol (or another escort).`);
       return lines;
     },
   },
@@ -123,7 +127,7 @@ export const TOPICS = [
         forest: `The <b>Verdant Reach</b>. Ordinary, green, and the safest ground you'll find. Home.`,
         dunes: `The <b>Sunken Dunes</b> at the world's edge. Flat, hot, cactus-ridden, and hiding sandstone under the sand.`,
         frostpine: `<b>Frostpine Hollow</b>. Snow over stone, tall pines, and rimeglass that'll blunt a poor pickaxe.`,
-        corrupt: `The <b>Corrupted Lands</b>. Blightstone and thornvines, and the only place Blightore forms. Mind the vines — they bite.`,
+        corrupt: `The <b>Corrupted Lands</b>. Blightstone and thornvines, and the only place Blightore forms. Mind the vines — they bite. A traveler named <b>Grunfunder</b> has been seen stranded here; if you find him, he may ask for an escort out.`,
         underground: `<b>Underground</b>. Past the dirt, into the stone. This is where the ore starts being worth carrying home.`,
         cavern: `The <b>deep caverns</b>. Deepstone, wide halls, and the worst things in the world. Bring torches and don't be shy with them.`,
       };

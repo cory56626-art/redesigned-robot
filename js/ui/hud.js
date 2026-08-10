@@ -1,7 +1,7 @@
 // Summoner Realms — in-game HUD (bars, hotbar, boss bar, clock, indicators).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN } from '../config.js?v=realms-qor-48';
-import { Sprites } from '../art/sprites.js?v=realms-qor-48';
-import { item as getItem } from '../data/items.js?v=realms-qor-48';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN } from '../config.js?v=realms-qor-49';
+import { Sprites } from '../art/sprites.js?v=realms-qor-49';
+import { item as getItem } from '../data/items.js?v=realms-qor-49';
 
 const BUFF_ICON = { regen: '♥', ironskin: '🛡', swift: '»' };
 
@@ -109,14 +109,22 @@ export class HUD {
     if (g.bosses.length) {
       const b = g.bosses[0];
       this.el.bossBar.classList.remove('hidden');
-      this.el.bossName.textContent = b.name + (b.enraged ? ' — ENRAGED' : '');
       const pct = Math.max(0, (b.hp / b.maxHp) * 100);
-      this.el.bossHpFill.style.width = pct + '%';
-      if (this.el.bossHpText) this.el.bossHpText.textContent = `${Math.max(0, Math.ceil(b.hp))} / ${b.maxHp}  (${Math.round(pct)}%)`;
-      this.el.bossPhase.textContent = b.phase ? b.phase().name : (b.phaseName || '');
+      if (b.bonePhase) {
+        this.el.bossName.textContent = b.name + ' — BONE STORM';
+        const bonePct = Math.max(0, Math.min(100, (b.bonePhaseTime / 11) * 100));
+        this.el.bossHpFill.style.width = bonePct + '%';
+        if (this.el.bossHpText) this.el.bossHpText.textContent = `Survive ${Math.ceil(b.bonePhaseTime)}s`;
+        this.el.bossPhase.textContent = 'Survive the fragments — dying voids the kill';
+      } else {
+        this.el.bossName.textContent = b.name + (b.enraged ? ' — ENRAGED' : '');
+        this.el.bossHpFill.style.width = pct + '%';
+        if (this.el.bossHpText) this.el.bossHpText.textContent = `${Math.max(0, Math.ceil(b.hp))} / ${b.maxHp}  (${Math.round(pct)}%)`;
+        this.el.bossPhase.textContent = b.phase ? b.phase().name : (b.phaseName || '');
+      }
       // The bar flashes with the boss's wind-up, so the tell is visible even
       // when the fight has scrolled the boss off the edge of the screen.
-      this.el.bossBar.classList.toggle('telegraph', b.telegraph > 0);
+      this.el.bossBar.classList.toggle('telegraph', b.telegraph > 0 && !b.bonePhase);
     } else {
       this.el.bossBar.classList.add('hidden');
     }

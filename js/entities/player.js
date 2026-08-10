@@ -4,14 +4,14 @@ import {
   MANA_REGEN, HP_REGEN, TILE,
   HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN,
   CAST_REGEN_DELAY, CAST_REGEN_MULT, RESPAWN_DELAY, RESPAWN_DELAY_BOSS,
-} from '../config.js?v=realms-qor-48';
-import { tileDef } from '../world/tiles.js?v=realms-qor-48';
-import { moveAndCollide, applyGravity, clampToWorld, inLiquid, applyLiquidPhysics, SWIM_RISE } from './physics.js?v=realms-qor-48';
-import { Inventory } from '../systems/inventory.js?v=realms-qor-48';
-import { item as getItem } from '../data/items.js?v=realms-qor-48';
-import * as combat from '../systems/combat.js?v=realms-qor-48';
-import { clamp } from '../utils.js?v=realms-qor-48';
-import { WIND_PLAYER_ACCEL } from '../systems/weather.js?v=realms-qor-48';
+} from '../config.js?v=realms-qor-49';
+import { tileDef } from '../world/tiles.js?v=realms-qor-49';
+import { moveAndCollide, applyGravity, clampToWorld, inLiquid, applyLiquidPhysics, SWIM_RISE } from './physics.js?v=realms-qor-49';
+import { Inventory } from '../systems/inventory.js?v=realms-qor-49';
+import { item as getItem } from '../data/items.js?v=realms-qor-49';
+import * as combat from '../systems/combat.js?v=realms-qor-49';
+import { clamp } from '../utils.js?v=realms-qor-49';
+import { WIND_PLAYER_ACCEL } from '../systems/weather.js?v=realms-qor-49';
 
 // Wind dies out below the surface layer; caves are still air.
 const UNDERGROUND_WIND_Y = 100;

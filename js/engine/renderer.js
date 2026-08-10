@@ -1,13 +1,13 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H } from '../config.js?v=realms-qor-48';
-import { T, isSolid, isTree, isLeaf, tileDef, tileSway, SHAPE } from '../world/tiles.js?v=realms-qor-48';
-import { W, hasWall } from '../world/walls.js?v=realms-qor-48';
-import { BIOMES } from '../world/biomes.js?v=realms-qor-48';
-import { Sprites, framingMask, shade as shadeHex, N, E, S, WBIT, NE, SE, SW, NW } from '../art/sprites.js?v=realms-qor-48';
-import { item as getItem } from '../data/items.js?v=realms-qor-48';
-import { canPlaceAt } from '../systems/combat.js?v=realms-qor-48';
-import { clamp } from '../utils.js?v=realms-qor-48';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H } from '../config.js?v=realms-qor-49';
+import { T, isSolid, isTree, isLeaf, tileDef, tileSway, SHAPE } from '../world/tiles.js?v=realms-qor-49';
+import { W, hasWall } from '../world/walls.js?v=realms-qor-49';
+import { BIOMES } from '../world/biomes.js?v=realms-qor-49';
+import { Sprites, framingMask, shade as shadeHex, N, E, S, WBIT, NE, SE, SW, NW } from '../art/sprites.js?v=realms-qor-49';
+import { item as getItem } from '../data/items.js?v=realms-qor-49';
+import { canPlaceAt } from '../systems/combat.js?v=realms-qor-49';
+import { clamp } from '../utils.js?v=realms-qor-49';
 
 // Maximum bend of a fully-swaying tile at full wind, in radians (~17 degrees).
 const SWAY_RADIANS = 0.30;
@@ -17,6 +17,7 @@ const PROJ_GLOW = {
   blight: '#c58bff', crystal: '#df8cff', voidorb: '#b06bff',
   spark: '#9ec3ff', wispbolt: '#9ec3ff', emberball: '#ff8c3b',
   arcwave: '#bfe9ff', diamondSpear: '#dffcff', miniDiamondSpear: '#8be9ff',
+  rotbeam: '#f0e0a8', bonefrag: '#e9e2c8',
 };
 
 // Background colour anchors by depth, in tile rows. `colorAtDepth` interpolates
@@ -632,6 +633,18 @@ export class Renderer {
         ctx.globalAlpha = 1;
       } else if (pr.kind === 'arrow' || pr.kind === 'bolt' || pr.rangedKind === 'bow') {
         ctx.fillRect(-4, -1, 9, 2);
+      } else if (pr.kind === 'rotbeam') {
+        ctx.globalAlpha = 0.55;
+        ctx.fillStyle = glow;
+        ctx.fillRect(-10, -3, 20, 6);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#fff8d0';
+        ctx.fillRect(-8, -1.5, 16, 3);
+      } else if (pr.kind === 'bonefrag') {
+        ctx.fillStyle = pr.color || '#e9e2c8';
+        ctx.fillRect(-4, -2, 8, 4);
+        ctx.fillStyle = '#b0a884';
+        ctx.fillRect(-3, -1, 3, 2);
       } else {
         ctx.fillRect(-2, -2, 4, 4); ctx.fillStyle = '#fff'; ctx.fillRect(-1, -1, 2, 2);
       }
@@ -657,6 +670,7 @@ export class Renderer {
         case 'bat': this._drawBat(ctx, e); break;
         case 'crawler': this._drawCrawler(ctx, e); break;
         case 'bonepicker': this._drawBonepicker(ctx, e); break;
+        case 'cursedSkeleton': this._drawBonepicker(ctx, e); break;
         case 'blightcrawler': this._drawBlightcrawler(ctx, e); break;
         case 'blightshade': this._drawBlightshade(ctx, e); break;
         case 'cow': this._drawGrazer(ctx, e, true); break;
@@ -1385,8 +1399,11 @@ export class Renderer {
 
   // ---- The Guide ----
   _drawNpc(game, ctx) {
-    const n = game.npc;
-    if (!n || !n.alive) return;
+    if (game.npc && game.npc.alive) this._drawGuideNpc(game, ctx, game.npc);
+    if (game.grunfunder && game.grunfunder.alive) this._drawGrunfunder(game, ctx, game.grunfunder);
+  }
+
+  _drawGuideNpc(game, ctx, n) {
     const x = n.x, y = n.y + Math.sin(n.bob) * 0.7, w = n.w, h = n.h;
     const legSwing = Math.sin(n.walkAnim) * 3;
     // legs
@@ -1432,10 +1449,6 @@ export class Renderer {
       ctx.beginPath();
       ctx.arc(0, 0, 7, -Math.PI / 2, Math.PI / 2);
       ctx.stroke();
-      // The string is pulled back to the nock, so it reads as a V rather than a
-      // straight line. Drawn straight (and in near-arrow cream) it crossed the
-      // shaft at an angle and looked like a second arrow. It is also thinner and
-      // dimmer than the shaft so the two never compete.
       ctx.strokeStyle = 'rgba(232, 224, 207, 0.55)';
       ctx.lineWidth = 0.5;
       ctx.beginPath();
@@ -1464,20 +1477,100 @@ export class Renderer {
       ctx.fillStyle = 'rgba(255,255,255,0.65)';
       this._roundRect(ctx, x, y, w, h, 4); ctx.fill();
     }
+    this._drawTalkPrompt(game, ctx, n);
+  }
 
-    // Talk prompt when the local player is close enough.
+  _drawGrunfunder(game, ctx, n) {
+    const x = n.x, y = n.y + Math.sin(n.bob) * 0.7, w = n.w, h = n.h;
+    const legSwing = Math.sin(n.walkAnim) * 3;
+    // legs
+    ctx.fillStyle = '#2a2218';
+    ctx.fillRect(x + 1, y + h - 8 + Math.max(0, legSwing), 4, 8 - Math.max(0, legSwing));
+    ctx.fillRect(x + w - 5, y + h - 8 + Math.max(0, -legSwing), 4, 8 - Math.max(0, -legSwing));
+    // muddy traveler cloak
+    ctx.fillStyle = n.mode === 'bodyguard' ? '#4a5a48' : '#5a4638';
+    this._roundRect(ctx, x - 1, y + 8, w + 2, h - 13, 3); ctx.fill();
+    ctx.fillStyle = '#7a6a50';
+    ctx.fillRect(x + w / 2 - 1, y + 9, 2, h - 15);
+    // tattered sash
+    ctx.fillStyle = '#8a4a3a';
+    ctx.fillRect(x - 1, y + 14, w + 2, 2);
+    // head
+    ctx.fillStyle = '#d4b896';
+    ctx.fillRect(x + 1, y + 1, w - 2, 8);
+    // messy hair
+    ctx.fillStyle = '#3a3228';
+    ctx.fillRect(x, y - 1, w, 4);
+    ctx.fillRect(n.facing > 0 ? x : x + w - 2, y - 1, 2, 6);
+    // eyes
+    if (n.blink > 0) {
+      ctx.fillStyle = '#2b2338';
+      ctx.fillRect(n.facing > 0 ? x + w - 5 : x + 3, y + 4, 2, 2);
+    }
+    // curse mark on forehead while still cursed
+    if (n.mode === 'stranded' || n.mode === 'following' || n.mode === 'betraying') {
+      ctx.fillStyle = '#c58bff';
+      ctx.globalAlpha = 0.7 + 0.3 * Math.sin(n.bob * 3);
+      ctx.fillRect(x + w / 2 - 1, y + 2, 2, 2);
+      ctx.globalAlpha = 1;
+    }
+    // stubbly chin
+    ctx.fillStyle = '#8a7a68';
+    ctx.fillRect(x + 2, y + 8, w - 4, 2);
+
+    // Bodyguard weapon tell during wind-up.
+    if (n.shootWindup > 0) {
+      const hx = x + w / 2 + Math.cos(n.shootAngle) * 4;
+      const hy = y + 14 + Math.sin(n.shootAngle) * 4;
+      ctx.save();
+      ctx.translate(hx, hy);
+      ctx.rotate(n.shootAngle);
+      if (n.weaponKind === 'bow') {
+        ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.arc(0, 0, 6, -Math.PI / 2, Math.PI / 2); ctx.stroke();
+        ctx.strokeStyle = '#e9e2c8'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(8, 0); ctx.stroke();
+      } else {
+        ctx.strokeStyle = '#c0c6d2'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-2, 0); ctx.lineTo(10, 0); ctx.stroke();
+        ctx.fillStyle = '#e9e2c8';
+        ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(7, -2); ctx.lineTo(7, 2); ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    if (n.mode === 'bodyguard' && n.hp < n.maxHp) this._miniHp(ctx, n, n.hp / n.maxHp, '#ff6b7d');
+    if (n.hurtFlash > 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.65)';
+      this._roundRect(ctx, x, y, w, h, 4); ctx.fill();
+    }
+    // Name plate when nearby.
     const p = game.localPlayer;
-    if (p && n.canTalkTo(p) && !(game.ui.npcDialog && game.ui.npcDialog.isOpen())) {
-      const t = Math.sin(n.bob * 2) * 1.2;
-      ctx.fillStyle = 'rgba(10,14,28,0.82)';
-      this._roundRect(ctx, x + w / 2 - 13, y - 18 + t, 26, 11, 3); ctx.fill();
-      ctx.strokeStyle = '#7ee0c0'; ctx.lineWidth = 0.6; ctx.stroke();
-      ctx.fillStyle = '#7ee0c0';
-      ctx.font = 'bold 7px Trebuchet MS, sans-serif';
+    if (p && Math.hypot((p.x + p.w / 2) - (x + w / 2), (p.y + p.h / 2) - (y + h / 2)) < 120) {
+      ctx.fillStyle = 'rgba(10,14,28,0.7)';
+      this._roundRect(ctx, x + w / 2 - 22, y - 12, 44, 9, 2); ctx.fill();
+      ctx.fillStyle = '#e9e2c8';
+      ctx.font = 'bold 6px Trebuchet MS, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(game.controlMode === 'mobile' ? 'Talk' : 'F  Talk', x + w / 2, y - 10 + t);
+      ctx.fillText('Grunfunder', x + w / 2, y - 5);
       ctx.textAlign = 'left';
     }
+    this._drawTalkPrompt(game, ctx, n);
+  }
+
+  _drawTalkPrompt(game, ctx, n) {
+    const p = game.localPlayer;
+    if (!p || !n.canTalkTo?.(p) || (game.ui.npcDialog && game.ui.npcDialog.isOpen())) return;
+    const x = n.x, y = n.y + Math.sin(n.bob) * 0.7, w = n.w;
+    const t = Math.sin(n.bob * 2) * 1.2;
+    ctx.fillStyle = 'rgba(10,14,28,0.82)';
+    this._roundRect(ctx, x + w / 2 - 13, y - 18 + t, 26, 11, 3); ctx.fill();
+    ctx.strokeStyle = '#7ee0c0'; ctx.lineWidth = 0.6; ctx.stroke();
+    ctx.fillStyle = '#7ee0c0';
+    ctx.font = 'bold 7px Trebuchet MS, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(game.controlMode === 'mobile' ? 'Talk' : 'F  Talk', x + w / 2, y - 10 + t);
+    ctx.textAlign = 'left';
   }
 
   _drawBosses(game, ctx) {
@@ -1494,6 +1587,7 @@ export class Renderer {
       }
       if (b.key === 'grovekeeper') this._drawGrovekeeper(ctx, b);
       else if (b.key === 'gravemaw') this._drawGravemaw(ctx, b);
+      else if (b.key === 'rottenOne') this._drawRottenOne(ctx, b);
       else this._drawBlightSovereign(ctx, b);
       ctx.restore();
       this._drawBossWarning(ctx, b);
@@ -1840,6 +1934,172 @@ export class Renderer {
     if (b.invuln > 0) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, 34, 0, Math.PI * 2); ctx.stroke(); }
     ctx.restore();
   }
+
+  // Skeletron-inspired floating skull with two long bony arms. Arms raise during
+  // an armSlam telegraph and crash down on release; the jaw gapes for deathBeam.
+  _drawRottenOne(ctx, b) {
+    const x = b.x, y = b.y + Math.sin(b.bob) * 3, w = b.w, h = b.h;
+    const cx = x + w / 2, cy = y + h / 2;
+    ctx.save();
+
+    // Bone-phase: fading skull ghost while fragments fill the arena.
+    if (b.bonePhase) {
+      ctx.globalAlpha = Math.max(0.15, b.bonePhaseTime / 11);
+      this._bossAura(ctx, b, '#e9e2c8', 50);
+    } else {
+      this._bossAura(ctx, b, b.color2, 44);
+    }
+
+    const la = b.leftArm || { raise: 0, slam: 0 };
+    const ra = b.rightArm || { raise: 0, slam: 0 };
+    const jaw = b.jaw || 0;
+
+    // Arms drawn behind the skull. Raise lifts the elbow; slam drives the hand down.
+    const drawArm = (side, arm) => {
+      const shoulderX = cx + side * (w * 0.42);
+      const shoulderY = cy - 2;
+      const raise = arm.raise || 0;
+      const slam = arm.slam || 0;
+      // Elbow lifts up and out, then hand crashes toward the ground under the player.
+      const elbowX = shoulderX + side * (22 + raise * 10 - slam * 6);
+      const elbowY = shoulderY - 8 - raise * 28 + slam * 18;
+      const handX = shoulderX + side * (8 + raise * 4) + side * (1 - slam) * 6;
+      const handY = shoulderY + 18 + raise * -10 + slam * 55;
+      ctx.strokeStyle = '#d8d0b8';
+      ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(shoulderX, shoulderY);
+      ctx.quadraticCurveTo(elbowX, elbowY, handX, handY);
+      ctx.stroke();
+      // Secondary bone highlight.
+      ctx.strokeStyle = '#f4efe0';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(shoulderX, shoulderY);
+      ctx.quadraticCurveTo(elbowX - side * 2, elbowY - 2, handX, handY);
+      ctx.stroke();
+      // Clawed hand
+      ctx.fillStyle = '#e9e2c8';
+      ctx.beginPath();
+      ctx.arc(handX, handY, 5.5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#b0a884'; ctx.lineWidth = 1.5;
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(handX, handY);
+        ctx.lineTo(handX + side * 6 + i * 3, handY + 8 + Math.abs(i) * 2);
+        ctx.stroke();
+      }
+      // Joint knobs
+      ctx.fillStyle = '#c8b89a';
+      ctx.beginPath(); ctx.arc(shoulderX, shoulderY, 3.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(elbowX, elbowY, 3, 0, Math.PI * 2); ctx.fill();
+    };
+    drawArm(-1, la);
+    drawArm(1, ra);
+
+    // Skull body
+    ctx.fillStyle = '#2a241c';
+    ctx.beginPath();
+    ctx.ellipse(cx + 2, cy + 3, w * 0.42, h * 0.42, 0, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = b.color || '#c8b89a';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - 2, w * 0.40, h * 0.40, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Cranium highlight
+    ctx.fillStyle = '#e9e2c8';
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.ellipse(cx - 6, cy - 10, w * 0.18, h * 0.14, -0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Brow ridge
+    ctx.fillStyle = '#a89878';
+    ctx.beginPath();
+    ctx.moveTo(cx - 18, cy - 6); ctx.lineTo(cx - 4, cy - 10); ctx.lineTo(cx + 4, cy - 10);
+    ctx.lineTo(cx + 18, cy - 6); ctx.lineTo(cx + 16, cy - 2); ctx.lineTo(cx - 16, cy - 2);
+    ctx.closePath(); ctx.fill();
+
+    // Hollow eye sockets that peer downward at the player.
+    const eyeGlow = b.telegraph > 0 ? '#ff6b7d' : '#c58bff';
+    ctx.fillStyle = '#1a1410';
+    ctx.beginPath(); ctx.ellipse(cx - 10, cy + 2, 7, 8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx + 10, cy + 2, 7, 8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = eyeGlow;
+    ctx.globalAlpha = 0.85 + 0.15 * Math.sin(b.bob * 4);
+    ctx.beginPath(); ctx.ellipse(cx - 10, cy + 4, 3.2, 3.8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx + 10, cy + 4, 3.2, 3.8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(cx - 11, cy + 2, 2, 2); ctx.fillRect(cx + 9, cy + 2, 2, 2);
+
+    // Nasal cavity
+    ctx.fillStyle = '#1a1410';
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + 6); ctx.lineTo(cx - 3, cy + 14); ctx.lineTo(cx + 3, cy + 14);
+    ctx.closePath(); ctx.fill();
+
+    // Jaw — drops open for beams.
+    const jawY = cy + 16 + jaw * 10;
+    ctx.fillStyle = '#c8b89a';
+    ctx.beginPath();
+    ctx.moveTo(cx - 14, cy + 14); ctx.lineTo(cx - 12, jawY + 8);
+    ctx.lineTo(cx + 12, jawY + 8); ctx.lineTo(cx + 14, cy + 14);
+    ctx.quadraticCurveTo(cx, cy + 18 + jaw * 4, cx - 14, cy + 14);
+    ctx.closePath(); ctx.fill();
+    // Teeth
+    ctx.fillStyle = '#f4efe0';
+    for (let i = -3; i <= 3; i++) {
+      if (i === 0) continue;
+      ctx.fillRect(cx + i * 3.5 - 1, cy + 14, 2, 4 + jaw * 3);
+    }
+    // Lower teeth
+    for (let i = -2; i <= 2; i++) {
+      ctx.fillRect(cx + i * 4 - 1, jawY + 2, 2, 3);
+    }
+
+    // Cracks across the skull
+    ctx.strokeStyle = '#6a5a48'; ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(cx - 8, cy - 16); ctx.lineTo(cx - 4, cy - 4); ctx.lineTo(cx - 10, cy + 6);
+    ctx.moveTo(cx + 12, cy - 12); ctx.lineTo(cx + 6, cy - 2);
+    ctx.stroke();
+
+    // Beam charge glow in the throat.
+    if (b.telegraph > 0 && b.chosen && b.chosen.type === 'deathBeam') {
+      const k = 1 - b.telegraph / (b.telegraphMax || 0.6);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(cx, cy + 12, 0, cx, cy + 12, 16 + k * 10);
+      g.addColorStop(0, 'rgba(240,224,168,0.55)');
+      g.addColorStop(1, 'rgba(240,224,168,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(cx, cy + 12, 16 + k * 10, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    // Floating rib fragments orbiting the skull.
+    ctx.strokeStyle = '#b0a884'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    for (let i = 0; i < 5; i++) {
+      const a = b.bob * 0.8 + i * 1.25;
+      const rx = cx + Math.cos(a) * (28 + (i % 2) * 6);
+      const ry = cy + Math.sin(a * 1.3) * 16 + 6;
+      ctx.beginPath();
+      ctx.arc(rx, ry, 5, a, a + 1.2);
+      ctx.stroke();
+    }
+
+    if (b.hurtFlash > 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.beginPath(); ctx.ellipse(cx, cy, w * 0.38, h * 0.38, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    if (b.invuln > 0 && !b.bonePhase) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(cx, cy, w * 0.46, h * 0.46, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   _drawPlayers(game, ctx) {
     for (const p of game.players.values()) {
       if (!p.alive) continue; // hidden while dead

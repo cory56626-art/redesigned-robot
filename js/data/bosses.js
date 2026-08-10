@@ -96,6 +96,36 @@ export const BOSSES = {
       { item: 'aetheredgeGreatblade', chance: 0.2, min: 1, max: 1 },
     ],
   },
+  // Quest boss: not summoned by an idol. Grunfunder's curse erupts into this
+  // floating skull once the player escorts him out of the Corrupted Lands.
+  // Killing it is not enough — the bone-burst aftermath must also be survived
+  // (see Boss bonePhase) before progression counts a true defeat.
+  rottenOne: {
+    key: 'rottenOne', name: 'The Rotten One', maxHp: 1600, w: 56, h: 52,
+    color: '#c8b89a', color2: '#e9e2c8', biome: 'corrupt', summonItem: null,
+    movement: 'rottenone', floatHeight: 118, contactBase: 22,
+    questBoss: true,
+    phases: [
+      { name: 'Phase I — Hollow Crown', at: 1.0, contact: 22, speed: 68, attacks: [
+        { type: 'armSlam', cooldown: 2.6, telegraph: 0.85, recover: 0.55, weight: 3, maxRange: 260, damage: 18, slamWidth: 48 },
+        { type: 'deathBeam', cooldown: 2.4, telegraph: 0.7, recover: 0.45, weight: 3, needsLos: true, count: 1, projKind: 'rotbeam', projSpeed: 320, damage: 14 },
+        { type: 'spawnAdds', cooldown: 10, telegraph: 0.9, recover: 0.55, weight: 1, enemy: 'cursedSkeleton', addCount: 2 },
+      ] },
+      { name: 'Phase II — Bone Tempest', at: 0.5, contact: 28, speed: 92, attacks: [
+        { type: 'armSlam', cooldown: 2.0, telegraph: 0.7, recover: 0.45, weight: 3, maxRange: 280, damage: 22, slamWidth: 56 },
+        { type: 'deathBeam', cooldown: 1.8, telegraph: 0.55, recover: 0.4, weight: 3, needsLos: true, count: 3, spread: 0.18, projKind: 'rotbeam', projSpeed: 360, damage: 16 },
+        { type: 'boneSpray', cooldown: 3.2, telegraph: 0.65, recover: 0.5, weight: 2, count: 8, projKind: 'bonefrag', projSpeed: 240, damage: 12 },
+        { type: 'spawnAdds', cooldown: 9, telegraph: 0.85, recover: 0.5, weight: 1, enemy: 'cursedSkeleton', addCount: 3 },
+      ] },
+    ],
+    loot: [
+      { item: 'rottenCrown', chance: 1, min: 1, max: 1 },
+      { item: 'marrow', chance: 1, min: 2, max: 4 },
+      { item: 'blightBar', chance: 0.7, min: 4, max: 8 },
+      { item: 'ironveinBar', chance: 0.8, min: 6, max: 10 },
+      { item: 'healGreater', chance: 0.5, min: 2, max: 4 },
+    ],
+  },
 };
 
 export function bossDef(key) { return BOSSES[key]; }

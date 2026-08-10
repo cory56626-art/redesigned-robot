@@ -1,8 +1,8 @@
 // Summoner Realms — Demo Commands console (testing only).
-import { ITEMS, DEMO_GIVE_ALL } from './data/items.js?v=realms-qor-48';
-import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=realms-qor-48';
-import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=realms-qor-48';
-import { TRACKS } from './engine/music.js?v=realms-qor-48';
+import { ITEMS, DEMO_GIVE_ALL } from './data/items.js?v=realms-qor-49';
+import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=realms-qor-49';
+import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=realms-qor-49';
+import { TRACKS } from './engine/music.js?v=realms-qor-49';
 
 const $ = (id) => document.getElementById(id);
 
@@ -268,6 +268,9 @@ export class CommandConsole {
     const id = this._resolve(BOSS_KEYS, a[0], BOSSNAMES());
     if (!id) return err(`No boss matching "${a[0] || ''}".`);
     const itemId = BOSSES[id].summonItem;
+    if (!itemId) {
+      return err(`${BOSSES[id].name} is a quest boss — find Grunfunder in the Corrupted Lands (or /spawnboss ${id}).`);
+    }
     this.game.localPlayer.inventory.add(itemId, 3);
     return ok(`Gave 3× ${ITEMS[itemId].name}.`);
   }
