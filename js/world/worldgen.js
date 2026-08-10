@@ -17,11 +17,11 @@
 //
 // Deterministic from a numeric seed. `tools/worldgen-check.mjs` asserts the
 // invariants this file is responsible for.
-import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE, LIQUID_MAX } from '../config.js?v=runeframe-1';
-import { T, isSolid, isFlora } from './tiles.js?v=runeframe-1';
-import { W } from './walls.js?v=runeframe-1';
-import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=runeframe-1';
-import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep, lerp } from '../utils.js?v=runeframe-1';
+import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE, LIQUID_MAX } from '../config.js?v=who-invited-grok-1';
+import { T, isSolid, isFlora } from './tiles.js?v=who-invited-grok-1';
+import { W } from './walls.js?v=who-invited-grok-1';
+import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=who-invited-grok-1';
+import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep, lerp } from '../utils.js?v=who-invited-grok-1';
 
 // Half-width of the guaranteed flat, cave-free plain the player spawns on.
 const SPAWN_PLAIN = 13;
@@ -30,14 +30,15 @@ export const BEDROCK = 4; // solid tiles kept at the very bottom of the world
 // stays daylit and only genuine depth reads as underground.
 const SURFACE_WALL_GAP = 3;
 
-export function generateWorld(seed) {
+export function generateWorld(seed, opts = {}) {
   const w = WORLD_W, h = WORLD_H;
   const tiles = new Uint16Array(w * h);
   const walls = new Uint8Array(w * h);
   const rand = mulberry32(seed);
   const idx = (x, y) => y * w + x;
 
-  const biome = buildBiomeMap(seed, w);
+  const evil = opts.evil === 'mesh' ? 'mesh' : 'corrupt';
+  const biome = buildBiomeMap(seed, w, { evil });
   const surface = buildHeightmap(seed, w, biome);
   const spawnTx = pickSpawnColumn(biome, w);
   flattenSpawnPlain(surface, spawnTx, w);
@@ -65,7 +66,9 @@ export function generateWorld(seed) {
   // Water goes in last: it settles into whatever shape the finished terrain
   // left behind, so it can never be buried by a later decoration pass.
   const liquid = fillWater(tiles, w, h, surface, biome, seed, spawnTx);
+  fillOceans(tiles, liquid, w, h, surface, biome);
   seedOres(tiles, liquid, w, h, surface, biome, seed, skyIslands);
+  placeModulineChambers(tiles, liquid, w, h, surface, seed);
   // Chests and wall-mounted dart traps are placed after water has settled, so
   // neither object can split a basin or spawn submerged.
   placeUndergroundFeatures(tiles, liquid, w, h, surface, rand, spawnTx);
@@ -75,6 +78,7 @@ export function generateWorld(seed) {
     tiles, walls, liquid, width: w, height: h, surface,
     biomeMap: biome.map, biomeBands: biome.bands,
     spawnTx, spawnX: spawnTx * TILE, spawnY, skyIslands,
+    evilBiome: evil,
   };
 }
 
@@ -785,9 +789,11 @@ function decorate(tiles, w, h, surface, biome, rand, spawnTx) {
     // headroom and a clean view of the camp.
     if (Math.abs(x - spawnTx) <= 3) continue;
 
-    if (def.treeChance && rand() < def.treeChance && tiles[idx(x, s - 1)] === T.AIR) {
+    if (def.treeChance && rand() < def.treeChance && tiles[idx(x, s - 1)] === T.AIR &&
+        isSolid(tiles[idx(x, s)])) {
       placeTree(tiles, w, h, x, s - 1, def, rand);
-      x += 2 + Math.floor(rand() * 2);
+      // Terraria-like spacing: skip more columns after a tree so canopies rarely merge.
+      x += 3 + Math.floor(rand() * 3);
       continue;
     }
     if (def.cactusChance && rand() < def.cactusChance && ground === T.SAND) {
@@ -809,12 +815,13 @@ function decorate(tiles, w, h, surface, biome, rand, spawnTx) {
     }
   }
 
-  // Corruption thornvines hanging from cave and chasm ceilings.
+  // Evil biome hanging hazards from cave and chasm ceilings.
   for (let x = 0; x < w; x++) {
-    if (BIOME_ORDER[biome.map[x]] !== 'corrupt') continue;
+    const key = BIOME_ORDER[biome.map[x]];
+    if (key !== 'corrupt' && key !== 'mesh') continue;
     for (let y = surface[x] + 1; y < h - BEDROCK - 1; y++) {
       if (tiles[idx(x, y)] === T.AIR && tiles[idx(x, y - 1)] !== T.AIR && rand() < 0.045) {
-        tiles[idx(x, y)] = T.THORNVINE;
+        tiles[idx(x, y)] = key === 'mesh' ? T.MESHWIRE : T.THORNVINE;
       }
     }
   }
@@ -890,12 +897,14 @@ function placeSkyIslands(tiles, w, h, surface, seed, spawnTx) {
   const mask = new Uint8Array(w * h);
   let made = 0;
 
-  for (let attempt = 0; attempt < 18 && made < 6; attempt++) {
-    const cx = 32 + Math.floor(rand() * Math.max(1, w - 64));
-    if (Math.abs(cx - spawnTx) < 36) continue;
-    const cy = 24 + Math.floor(rand() * 22);
-    const rx = 6 + Math.floor(rand() * 7);
-    const ry = 2 + Math.floor(rand() * 3);
+  // Fewer, higher shelves so they read as rare sky landmarks rather than a
+  // floating roof that darkens the surface under every island.
+  for (let attempt = 0; attempt < 12 && made < 3; attempt++) {
+    const cx = 40 + Math.floor(rand() * Math.max(1, w - 80));
+    if (Math.abs(cx - spawnTx) < 48) continue;
+    const cy = 10 + Math.floor(rand() * 14); // high sky band
+    const rx = 5 + Math.floor(rand() * 6);
+    const ry = 2 + Math.floor(rand() * 2);
     let cells = 0;
 
     for (let y = cy - ry; y <= cy + ry; y++) {
@@ -937,8 +946,10 @@ const ORE_SPECS = [
   { key: 'ember', tile: T.EMBER, hosts: ORE_HOSTS.deep, veins: 28, size: [2, 5], allow: (x, y) => y >= CAVERN_Y + 4 },
   { key: 'verdant', tile: T.VERDANT, hosts: ORE_HOSTS.jungle, veins: 26, size: [2, 5], allow: (x, y, s, b) => b === 'jungle' && y >= s[x] + 12 && y < CAVERN_Y + 8 },
   { key: 'storm', tile: T.STORM, hosts: ORE_HOSTS.shallow, veins: 12, size: [2, 4], allow: (x, y, s, b, liquid, w, h, sky) => !!sky[y * w + x] },
-  { key: 'shadowglass', tile: T.SHADOWGLASS, hosts: ORE_HOSTS.shadow, veins: 24, size: [2, 5], allow: (x, y, s, b) => b === 'corrupt' && y >= UNDERGROUND_Y + 8 },
+  { key: 'shadowglass', tile: T.SHADOWGLASS, hosts: ORE_HOSTS.shadow, veins: 24, size: [2, 5], allow: (x, y, s, b) => (b === 'corrupt' || b === 'mesh') && y >= UNDERGROUND_Y + 8 },
+  { key: 'tanerine', tile: T.TANERINE, hosts: ORE_HOSTS.deep, veins: 22, size: [2, 4], allow: (x, y) => y >= CAVERN_Y - 10 && y < CAVERN_Y + 40 },
   { key: 'starsteel', tile: T.STARSTEEL, hosts: ORE_HOSTS.deep, veins: 16, size: [1, 3], allow: (x, y, s, b, liquid, w, h) => y >= h - BEDROCK - 34 },
+  // Moduline is placed only by placeModulineChambers (large empty caverns).
 ];
 
 function nearWater(liquid, w, h, x, y, radius) {
@@ -1089,7 +1100,19 @@ function placeTree(tiles, w, h, x, baseY, def, rand) {
         if (bx > 0 && bx < w - 1 && tiles[idx(bx, y)] === T.AIR) tiles[idx(bx, y)] = trunk;
       }
     }
-    return; // no canopy: these are dead
+    // Sparse blight leaves attached to trunk tiles only (no orphan leaves).
+    const leaf = def.leafTile;
+    if (leaf != null) {
+      for (let i = 2; i < height; i++) {
+        const y = baseY - i;
+        if (y <= 1) break;
+        if (tiles[idx(tx, y)] !== trunk) continue;
+        if (rand() > 0.55) continue;
+        const lx = tx + (rand() < 0.5 ? -1 : 1);
+        if (lx > 0 && lx < w - 1 && tiles[idx(lx, y)] === T.AIR) tiles[idx(lx, y)] = leaf;
+      }
+    }
+    return;
   }
 
   for (let i = 0; i < height; i++) {
@@ -1118,6 +1141,17 @@ function placeTree(tiles, w, h, x, baseY, def, rand) {
       const radius = Math.min(3, Math.floor(row / 2));
       for (let dx = -radius; dx <= radius; dx++) put(x + dx, ly);
     }
+  } else if (def.canopy === 'spire') {
+    // Mesh "trees": thin metal spines with scrap flecks, not leafy canopies.
+    for (let row = 0; row < Math.min(4, height); row++) {
+      put(x, topY + row);
+      if (rand() < 0.4) put(x + (rand() < 0.5 ? -1 : 1), topY + row);
+    }
+  } else if (def.canopy === 'twisted') {
+    // Sparse blight leaves on a few side branches so corruption is not bare oak.
+    for (let i = 0; i < 5; i++) {
+      put(x + (rand() < 0.5 ? -1 : 1) * (1 + (rand() * 2) | 0), topY + (rand() * 3) | 0);
+    }
   } else {
     for (let dy = -2; dy <= 2; dy++) {
       for (let dx = -3; dx <= 3; dx++) {
@@ -1126,6 +1160,67 @@ function placeTree(tiles, w, h, x, baseY, def, rand) {
         if (Math.abs(dx) + Math.abs(dy) <= 4 - bias) put(x + dx, topY + dy);
       }
     }
+  }
+}
+
+// Edge oceans: deep water columns over the ocean biome bands.
+function fillOceans(tiles, liquid, w, h, surface, biome) {
+  if (!liquid) return;
+  const idx = (x, y) => y * w + x;
+  for (let x = 0; x < w; x++) {
+    const key = BIOME_ORDER[biome.map[x]];
+    const def = BIOMES[key];
+    if (!def || !def.ocean) continue;
+    const s = surface[x];
+    // Flood air above solid seafloor only — never leave water floating over void.
+    const waterTop = Math.max(2, s - 10 - ((x * 3) % 4));
+    for (let y = waterTop; y < s; y++) {
+      if (tiles[idx(x, y)] !== T.AIR) continue;
+      // Supported if anything solid sits below this cell down to the seafloor.
+      let supported = false;
+      for (let by = y + 1; by <= s + 2 && by < h - BEDROCK; by++) {
+        if (isSolid(tiles[idx(x, by)])) { supported = true; break; }
+        if (tiles[idx(x, by)] !== T.AIR) break;
+      }
+      if (supported) liquid[idx(x, y)] = LIQUID_MAX;
+    }
+  }
+}
+
+// Moduline veins only appear in large empty deep chambers, guarded by a marker
+// tile cluster the spawner can recognize as a Moduline Devil roost.
+function placeModulineChambers(tiles, liquid, w, h, surface, seed) {
+  const idx = (x, y) => y * w + x;
+  const rand = mulberry32((seed ^ 0x10d01e) >>> 0);
+  const bottom = h - BEDROCK - 6;
+  let placed = 0;
+  for (let attempt = 0; attempt < 80 && placed < 5; attempt++) {
+    const cx = 20 + ((rand() * (w - 40)) | 0);
+    const cy = CAVERN_Y + 20 + ((rand() * Math.max(1, bottom - CAVERN_Y - 30)) | 0);
+    // Measure open chamber size around the seed.
+    let air = 0;
+    for (let dy = -6; dy <= 6; dy++) {
+      for (let dx = -8; dx <= 8; dx++) {
+        const x = cx + dx, y = cy + dy;
+        if (x < 1 || x >= w - 1 || y < 1 || y >= bottom) continue;
+        const i = idx(x, y);
+        if (tiles[i] === T.AIR && !(liquid && liquid[i] > 0)) air++;
+      }
+    }
+    if (air < 70) continue;
+    // Seed a modest Moduline vein on the chamber walls.
+    let vein = 0;
+    for (let n = 0; n < 14 && vein < 8; n++) {
+      const x = cx + ((rand() * 11) | 0) - 5;
+      const y = cy + ((rand() * 9) | 0) - 4;
+      if (x < 1 || x >= w - 1 || y < CAVERN_Y || y >= bottom) continue;
+      const i = idx(x, y);
+      if (tiles[i] === T.STONE || tiles[i] === T.DEEPSTONE || tiles[i] === T.BLIGHTSTONE || tiles[i] === T.MESHSTONE) {
+        tiles[i] = T.MODULINE;
+        vein++;
+      }
+    }
+    if (vein > 0) placed++;
   }
 }
 

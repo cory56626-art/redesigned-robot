@@ -1,7 +1,7 @@
 // Summoner Realms — authored procedural game audio.
 // Uses authored OGG sample assets for the primary sound, with the procedural
 // layers kept as a graceful fallback if a browser blocks asset loading.
-import { Music } from './music.js?v=runeframe-1';
+import { Music } from './music.js?v=who-invited-grok-1';
 
 const AudioContextCtor = () => window.AudioContext || window.webkitAudioContext;
 
@@ -340,10 +340,12 @@ export class AudioManager {
 
   swordSwing() {
     if (!this._throttle('sword', 90)) return;
-    if (this._sample('sword', 0.7, 0, 0.96 + Math.random() * 0.12)) return;
-    this._noise(0.18, 0.07, 3200, { filterType: 'bandpass', endFilter: 650, smooth: 0.35 });
-    this._osc(980, 0.2, { endFreq: 310, volume: 0.08, type: 'sawtooth', attack: 0.002 });
-    this._osc(740, 0.13, { endFreq: 420, volume: 0.045, type: 'triangle', delay: 0.02 });
+    // Prefer a softer sample; fall back to a smoother whoosh than the old
+    // harsh sawtooth pair (Who Invited Grok?! SFX pass).
+    if (this._sample('sword', 0.55, 0, 0.94 + Math.random() * 0.1)) return;
+    this._noise(0.14, 0.05, 2400, { filterType: 'bandpass', endFilter: 900, smooth: 0.45 });
+    this._osc(520, 0.16, { endFreq: 180, volume: 0.045, type: 'sine', attack: 0.004, release: 0.08 });
+    this._osc(360, 0.12, { endFreq: 140, volume: 0.03, type: 'triangle', delay: 0.015, release: 0.07 });
   }
 
   bowShot() {

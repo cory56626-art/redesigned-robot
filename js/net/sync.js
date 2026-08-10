@@ -1,12 +1,12 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
-import { MSG } from './protocol.js?v=runeframe-1';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=runeframe-1';
-import { Player, assignColor } from '../entities/player.js?v=runeframe-1';
-import { Projectile } from '../entities/projectile.js?v=runeframe-1';
-import { ThrownItem } from '../entities/thrown.js?v=runeframe-1';
-import { ITEMS, isItemEnabled } from '../data/items.js?v=runeframe-1';
-import { ENEMIES } from '../data/enemies.js?v=runeframe-1';
-import { BOSSES } from '../data/bosses.js?v=runeframe-1';
+import { MSG } from './protocol.js?v=who-invited-grok-1';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=who-invited-grok-1';
+import { Player, assignColor } from '../entities/player.js?v=who-invited-grok-1';
+import { Projectile } from '../entities/projectile.js?v=who-invited-grok-1';
+import { ThrownItem } from '../entities/thrown.js?v=who-invited-grok-1';
+import { ITEMS, isItemEnabled } from '../data/items.js?v=who-invited-grok-1';
+import { ENEMIES } from '../data/enemies.js?v=who-invited-grok-1';
+import { BOSSES } from '../data/bosses.js?v=who-invited-grok-1';
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 
@@ -360,8 +360,19 @@ export function handleMessage(game, fromId, msg, conn) {
     }
     case MSG.HIT_BOSS: {
       if (!net.isHost) break;
-      const b = game.bosses[0];
+      const b = (msg.key && game.bosses.find(x => x.key === msg.key)) || game.bosses[0];
       if (b && b.takeDamage) b.takeDamage(msg.dmg, game, msg.crit);
+      break;
+    }
+    case MSG.BOOM: {
+      // Host-broadcast explosion FX for clients (Mech missiles, etc.).
+      if (msg.x != null && msg.y != null) {
+        const r = msg.radius || 46;
+        game.audio?.explosion?.();
+        game.fx?.ring(msg.x, msg.y, msg.color || '#ffad55', r, { life: 0.28, width: 2 });
+        game.fx?.burst(msg.x, msg.y, msg.color || '#ffad55', 26, { speed: 150, life: 0.5, size: 2, glow: true });
+        game.fx?.explosion?.(msg.x, msg.y, r, { hot: msg.color || '#ffad55', shake: 2 });
+      }
       break;
     }
     case MSG.HURT: { // client's player takes damage
@@ -397,7 +408,14 @@ export function handleMessage(game, fromId, msg, conn) {
         x: msg.x, y: msg.y, vx: msg.vx, vy: msg.vy,
         w: msg.w, h: msg.h, kind: msg.kind, color: msg.color,
         gravity: msg.gravity, life: msg.life || 2,
-        ignoreTerrain: msg.ignoreTerrain, visualOnly: true,
+        ignoreTerrain: msg.ignoreTerrain,
+        // Clients keep visual fuse/blast so Mech missiles still explode locally.
+        visualOnly: !(msg.blastRadius > 0),
+        blastRadius: msg.blastRadius || 0,
+        blastDamage: msg.blastDamage || 0,
+        burstDelay: msg.burstDelay,
+        homing: !!msg.homing,
+        damage: 0,
       }));
       if (net.isHost) net.broadcast(msg, fromId);
       break;

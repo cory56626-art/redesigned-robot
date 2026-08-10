@@ -1,9 +1,13 @@
 // Summoner Realms — in-game HUD (bars, hotbar, boss bar, clock, indicators).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN } from '../config.js?v=runeframe-1';
-import { Sprites } from '../art/sprites.js?v=runeframe-1';
-import { item as getItem } from '../data/items.js?v=runeframe-1';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN } from '../config.js?v=who-invited-grok-1';
+import { Sprites } from '../art/sprites.js?v=who-invited-grok-1';
+import { item as getItem } from '../data/items.js?v=who-invited-grok-1';
 
-const BUFF_ICON = { regen: '♥', ironskin: '🛡', swift: '»' };
+const BUFF_ICON = {
+  regen: '♥', ironskin: '🛡', swift: '»',
+  rage: '⚔', calming: '☁', ranger: '🏹', berserker: '🪓',
+  summonerBrew: '✦', beer: '🍺',
+};
 
 export class HUD {
   constructor(game) {

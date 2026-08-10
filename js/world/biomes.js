@@ -4,9 +4,9 @@
 // world read as "two halves" rather than a landscape. They are now laid out as
 // seeded bands along the world with blended seams, and every band carries its
 // own terrain shaping, tile palette, wall palette, decor table and sky colours.
-import { T } from './tiles.js?v=runeframe-1';
-import { W } from './walls.js?v=runeframe-1';
-import { mulberry32 } from '../utils.js?v=runeframe-1';
+import { T } from './tiles.js?v=who-invited-grok-1';
+import { W } from './walls.js?v=who-invited-grok-1';
+import { mulberry32 } from '../utils.js?v=who-invited-grok-1';
 
 // groundCover : the undergrowth mix for this band — a chance plus a weighted
 //               list of plants. Each biome grows something different, so
@@ -33,15 +33,44 @@ export const BIOMES = {
     surface: T.GRASS, sub: T.DIRT, subDepth: [5, 9], stone: T.STONE,
     wall: W.DIRT, subWall: W.DIRT, stoneWall: W.STONE,
     amp: 9.5, rough: 0.45, lift: 0,
-    treeChance: 0.22, cactusChance: 0, vineChance: 0,
+    treeChance: 0.20, cactusChance: 0, vineChance: 0,
     groundCover: { chance: 0.52, plants: [
       { tile: T.SHORTGRASS, weight: 10 },
       { tile: T.TALLGRASS, weight: 6 },
       { tile: T.FLOWERS, weight: 5 },
       { tile: T.FERN, weight: 3 },
+      { tile: T.HOPS, weight: 1 },
+      { tile: T.CALMLEAF, weight: 1 },
     ] },
     treeTile: T.WOOD, leafTile: T.LEAVES, treeHeight: [5, 9], canopy: 'round',
     skyDay: ['#3a6ea5', '#8fc0e8'], skyNight: ['#0a0e22', '#1a1d3a'],
+  },
+  ocean: {
+    key: 'ocean', label: 'Open Ocean',
+    surface: T.SAND, sub: T.SAND, subDepth: [8, 14], stone: T.SANDSTONE,
+    wall: W.SANDSTONE, subWall: W.SANDSTONE, stoneWall: W.SANDSTONE,
+    amp: 2.5, rough: 0.15, lift: 14,
+    treeChance: 0, cactusChance: 0.02, vineChance: 0, ocean: true,
+    groundCover: { chance: 0.08, plants: [{ tile: T.REEDS, weight: 6 }, { tile: T.DUNESHRUB, weight: 2 }] },
+    skyDay: ['#2a6a9a', '#7ec8e8'], skyNight: ['#061018', '#122030'],
+  },
+  infestedOcean: {
+    key: 'infestedOcean', label: 'Infested Ocean',
+    surface: T.SAND, sub: T.SAND, subDepth: [8, 14], stone: T.BLIGHTSTONE,
+    wall: W.BLIGHT, subWall: W.SANDSTONE, stoneWall: W.BLIGHT,
+    amp: 3, rough: 0.2, lift: 14,
+    treeChance: 0, cactusChance: 0, vineChance: 0.04, ocean: true, evilOcean: 'corrupt',
+    groundCover: { chance: 0.12, plants: [{ tile: T.BLIGHTBLOOM, weight: 5 }, { tile: T.REEDS, weight: 2 }] },
+    skyDay: ['#3a2a5a', '#6a4a7a'], skyNight: ['#100818', '#1e1028'],
+  },
+  whirringOcean: {
+    key: 'whirringOcean', label: 'Whirring Ocean',
+    surface: T.SAND, sub: T.MESHSTONE, subDepth: [8, 14], stone: T.MESHSTONE,
+    wall: W.MESH, subWall: W.SANDSTONE, stoneWall: W.MESH,
+    amp: 3, rough: 0.22, lift: 14,
+    treeChance: 0, cactusChance: 0, vineChance: 0, ocean: true, evilOcean: 'mesh',
+    groundCover: { chance: 0.1, plants: [{ tile: T.MESHSCRAP, weight: 5 }, { tile: T.MESHWIRE, weight: 3 }] },
+    skyDay: ['#2a3540', '#5a4a40'], skyNight: ['#080a10', '#141018'],
   },
   jungle: {
     key: 'jungle', label: 'Verdant Jungle',
@@ -62,12 +91,11 @@ export const BIOMES = {
     surface: T.SNOW, sub: T.SNOW, subDepth: [6, 11], stone: T.STONE,
     wall: W.SNOW, subWall: W.SNOW, stoneWall: W.STONE,
     amp: 13, rough: 0.5, lift: -4,
-    treeChance: 0.26, cactusChance: 0, vineChance: 0,
+    treeChance: 0.22, cactusChance: 0, vineChance: 0,
     groundCover: { chance: 0.22, plants: [
-      { tile: T.FROSTBRACKEN, weight: 8 },
-      { tile: T.SHORTGRASS, weight: 2 },
+      { tile: T.FROSTBRACKEN, weight: 10 },
     ] },
-    treeTile: T.FROSTWOOD, leafTile: T.FROSTLEAVES, treeHeight: [7, 13], canopy: 'conifer',
+    treeTile: T.FROSTWOOD, leafTile: T.FROSTLEAVES, treeHeight: [8, 14], canopy: 'conifer',
     iceChance: 0.16,
     skyDay: ['#5b81ad', '#cfe2f2'], skyNight: ['#0b1224', '#232c46'],
   },
@@ -78,12 +106,11 @@ export const BIOMES = {
     // Frostpine is steep and wind-battered; the Taiga is a calmer, broader
     // snowfield with shorter, more widely spaced conifers.
     amp: 6.5, rough: 0.32, lift: -1,
-    treeChance: 0.17, cactusChance: 0, vineChance: 0,
+    treeChance: 0.14, cactusChance: 0, vineChance: 0,
     groundCover: { chance: 0.30, plants: [
-      { tile: T.FROSTBRACKEN, weight: 9 },
-      { tile: T.SHORTGRASS, weight: 1 },
+      { tile: T.FROSTBRACKEN, weight: 10 },
     ] },
-    treeTile: T.FROSTWOOD, leafTile: T.FROSTLEAVES, treeHeight: [6, 10], canopy: 'conifer',
+    treeTile: T.FROSTWOOD, leafTile: T.FROSTLEAVES, treeHeight: [6, 11], canopy: 'conifer',
     iceChance: 0.27,
     skyDay: ['#7197bf', '#edf8ff'], skyNight: ['#0d1830', '#2d4165'],
   },
@@ -93,21 +120,37 @@ export const BIOMES = {
     wall: W.BLIGHT, subWall: W.DIRT, stoneWall: W.BLIGHT,
     amp: 15, rough: 0.85, lift: -2,
     treeChance: 0.12, cactusChance: 0, vineChance: 0.06,
-    groundCover: { chance: 0.30, plants: [
-      { tile: T.BLIGHTBLOOM, weight: 6 },
-      { tile: T.TALLGRASS, weight: 3 },
+    groundCover: { chance: 0.34, plants: [
+      { tile: T.BLIGHTBLOOM, weight: 9 },
     ] },
-    // Corruption trees are twisted: the trunk lurches side to side as it grows
-    // and throws out bare, asymmetric branches instead of a canopy.
-    treeTile: T.WOOD, leafTile: null, treeHeight: [5, 10], canopy: 'twisted',
+    // Corruption trees use blight wood/leaves so they never read as normal oaks.
+    treeTile: T.BLIGHTWOOD, leafTile: T.BLIGHTLEAVES, treeHeight: [5, 10], canopy: 'twisted',
     chasmChance: 0.35,
     skyDay: ['#4a2f5a', '#7a5a86'], skyNight: ['#14081e', '#2a1436'],
+  },
+  mesh: {
+    key: 'mesh', label: 'The Mesh',
+    surface: T.MESHGRASS, sub: T.MESHSTONE, subDepth: [5, 10], stone: T.MESHSTONE,
+    wall: W.MESH, subWall: W.MESH, stoneWall: W.MESH,
+    amp: 12, rough: 0.7, lift: -1,
+    treeChance: 0.06, cactusChance: 0, vineChance: 0.1,
+    groundCover: { chance: 0.28, plants: [
+      { tile: T.MESHWIRE, weight: 8 },
+      { tile: T.MESHSCRAP, weight: 4 },
+    ] },
+    treeTile: T.MESHSPIRE, leafTile: T.MESHSCRAP, treeHeight: [4, 8], canopy: 'spire',
+    chasmChance: 0.22,
+    skyDay: ['#3a3f48', '#6a5548'], skyNight: ['#0a0c10', '#1a1418'],
   },
 };
 
 // Append-only ordering keeps saved biome-map indices stable across updates.
-export const BIOME_ORDER = ['dunes', 'forest', 'frostpine', 'corrupt', 'snowyTaiga', 'jungle'];
+export const BIOME_ORDER = [
+  'dunes', 'forest', 'frostpine', 'corrupt', 'snowyTaiga', 'jungle',
+  'mesh', 'ocean', 'infestedOcean', 'whirringOcean',
+];
 export const SURFACE_BIOMES = new Set(BIOME_ORDER);
+export const EVIL_BIOMES = new Set(['corrupt', 'mesh']);
 
 // Width of the cross-fade at every band seam, in tiles. Terrain properties are
 // interpolated across it and surface tiles are dithered, so no seam is a line.
@@ -116,23 +159,27 @@ export const SEAM = 14;
 /**
  * Lay out the surface biome bands for a world.
  *
+ * opts.evil — 'corrupt' | 'mesh' (only one evil biome per world)
+ *
  * Returns:
  *   map    Uint8Array(width) — index into BIOME_ORDER, the dominant biome
  *   mixAt(x) -> [{ biome, weight }, …] normalised blend weights at column x
  *   bands  the raw band list (for debugging / the worldgen harness)
  *   forestRuns  contiguous pure-forest spans, used to seat the spawn plain
+ *   evil   the chosen evil biome key
  */
-export function buildBiomeMap(seed, width) {
+export function buildBiomeMap(seed, width, opts = {}) {
   const rc = mulberry32((seed ^ 0xb10e5) >>> 0);
-  const duneW = Math.max(24, Math.round(width * 0.06));
+  const evil = (opts.evil === 'mesh') ? 'mesh' : 'corrupt';
+  const oceanW = Math.max(36, Math.round(width * 0.07));
   const frostW = Math.max(48, Math.round(width * (0.11 + rc() * 0.05)));
   const taigaW = Math.max(54, Math.round(width * (0.08 + rc() * 0.03)));
   const jungleW = Math.max(56, Math.round(width * (0.08 + rc() * 0.025)));
-  const corruptW = Math.max(56, Math.round(width * (0.13 + rc() * 0.06)));
+  const evilW = Math.max(56, Math.round(width * (0.13 + rc() * 0.06)));
 
-  // Frostpine sits left of centre, corruption right of centre, both clear of
-  // the dune shores and of each other.
-  const frostMin = duneW + 34;
+  // Frostpine sits left of centre, evil biome right of centre, both clear of
+  // the ocean shores and of each other.
+  const frostMin = oceanW + 34;
   const frostMax = Math.max(frostMin + 1, Math.floor(width * 0.40) - frostW);
   const frostStart = Math.round(frostMin + rc() * (frostMax - frostMin));
 
@@ -144,22 +191,28 @@ export function buildBiomeMap(seed, width) {
   const jungleStart = Math.round(jungleMin + rc() * (jungleMax - jungleMin));
 
   // The Taiga is a compact snow country after the jungle and before
-  // corruption. It has enough buffer on either side to read as its own place.
+  // the evil biome. It has enough buffer on either side to read as its own place.
   const taigaMin = Math.max(jungleStart + jungleW + 28, Math.floor(width * 0.52));
   const taigaMax = Math.max(taigaMin + 1, Math.floor(width * 0.66) - taigaW);
   const taigaStart = Math.round(taigaMin + rc() * (taigaMax - taigaMin));
 
-  const corruptMin = Math.max(taigaStart + taigaW + 38, Math.floor(width * 0.68));
-  const corruptMax = Math.max(corruptMin + 1, width - duneW - corruptW - 30);
-  const corruptStart = Math.round(corruptMin + rc() * (corruptMax - corruptMin));
+  const evilMin = Math.max(taigaStart + taigaW + 38, Math.floor(width * 0.68));
+  const evilMax = Math.max(evilMin + 1, width - oceanW - evilW - 30);
+  const evilStart = Math.round(evilMin + rc() * (evilMax - evilMin));
 
+  // Oceans at both edges with a thin dune beach just inland so the shore still
+  // reads as sand country. The evil-side ocean is themed to the world evil.
+  const beachW = Math.max(10, Math.round(oceanW * 0.35));
+  const rightOcean = evil === 'mesh' ? 'whirringOcean' : 'infestedOcean';
   const bands = [
-    { biome: 'dunes', x0: 0, x1: duneW },
+    { biome: 'ocean', x0: 0, x1: oceanW },
+    { biome: 'dunes', x0: oceanW, x1: oceanW + beachW },
     { biome: 'frostpine', x0: frostStart, x1: frostStart + frostW },
     { biome: 'jungle', x0: jungleStart, x1: jungleStart + jungleW },
     { biome: 'snowyTaiga', x0: taigaStart, x1: taigaStart + taigaW },
-    { biome: 'corrupt', x0: corruptStart, x1: corruptStart + corruptW },
-    { biome: 'dunes', x0: width - duneW, x1: width },
+    { biome: evil, x0: evilStart, x1: evilStart + evilW },
+    { biome: 'dunes', x0: width - oceanW - beachW, x1: width - oceanW },
+    { biome: rightOcean, x0: width - oceanW, x1: width },
   ];
 
   const map = new Uint8Array(width);
@@ -180,7 +233,7 @@ export function buildBiomeMap(seed, width) {
     else if (!pure && runStart >= 0) { forestRuns.push({ x0: runStart, x1: x }); runStart = -1; }
   }
 
-  return { map, bands, forestRuns, mixAt: (x) => mixAt(map, bands, x, width) };
+  return { map, bands, forestRuns, evil, mixAt: (x) => mixAt(map, bands, x, width) };
 }
 
 function distToSeam(bands, x, width) {

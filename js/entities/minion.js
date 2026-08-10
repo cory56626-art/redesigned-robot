@@ -1,12 +1,12 @@
 // Summoner Realms — minion entity. Owned by a player; the owner's client
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
-import { minionDef } from '../data/minions.js?v=runeframe-1';
-import { initAidanState, updateAidanState } from './aidan.js?v=runeframe-1';
-import { dist2, aabb, angleTo } from '../utils.js?v=runeframe-1';
-import { TILE } from '../config.js?v=runeframe-1';
-import { Projectile } from './projectile.js?v=runeframe-1';
-import * as AI from '../systems/ai.js?v=runeframe-1';
+import { minionDef } from '../data/minions.js?v=who-invited-grok-1';
+import { initAidanState, updateAidanState } from './aidan.js?v=who-invited-grok-1';
+import { dist2, aabb, angleTo } from '../utils.js?v=who-invited-grok-1';
+import { TILE } from '../config.js?v=who-invited-grok-1';
+import { Projectile } from './projectile.js?v=who-invited-grok-1';
+import * as AI from '../systems/ai.js?v=who-invited-grok-1';
 
 let MINION_SEQ = 1;
 
@@ -139,7 +139,10 @@ export class Minion {
     if (moved < 0.6 && ownerDist > 60) this.stuckTimer += dt; else this.stuckTimer = 0;
     if (ownerDist > LEASH || this.stuckTimer > STUCK_TELEPORT) { this._teleportToOwner(game, oc); return; }
 
-    const dmgMul = (owner.stats ? owner.stats.summonMul : 1) || 1;
+    let dmgMul = (owner.stats ? owner.stats.summonMul : 1) || 1;
+    for (const b of owner.buffs || []) {
+      if (b.type === 'rage' && b.dmgMul) dmgMul *= (1 + b.dmgMul);
+    }
     const damage = this.def.damage * dmgMul;
 
     // Only chase reachable targets (line-of-sight from the minion). Grounded

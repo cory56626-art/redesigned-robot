@@ -13,11 +13,11 @@
 //                the recipe list and boss loot tables, so a new item is
 //                explained correctly the day it's added without anyone writing
 //                a paragraph for it.
-import { ITEMS, item as getItem } from './items.js?v=runeframe-1';
-import { RECIPES } from './recipes.js?v=runeframe-1';
-import { BOSSES } from './bosses.js?v=runeframe-1';
-import { ENEMIES } from './enemies.js?v=runeframe-1';
-import { TILE } from '../config.js?v=runeframe-1';
+import { ITEMS, item as getItem } from './items.js?v=who-invited-grok-1';
+import { RECIPES } from './recipes.js?v=who-invited-grok-1';
+import { BOSSES } from './bosses.js?v=who-invited-grok-1';
+import { ENEMIES } from './enemies.js?v=who-invited-grok-1';
+import { TILE } from '../config.js?v=who-invited-grok-1';
 
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
 

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1020" />
   <title>Summoner Realms</title>
-  <link rel="stylesheet" href="css/styles.css?v=runeframe-1" />
+  <link rel="stylesheet" href="css/styles.css?v=who-invited-grok-1" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230b1020'/%3E%3Crect x='5' y='2' width='6' height='6' fill='%237ee0c0'/%3E%3Crect x='6' y='9' width='4' height='5' fill='%23c58bff'/%3E%3C/svg%3E" />
 </head>
 <body>
@@ -171,7 +171,7 @@
     <div class="menu-panel">
       <div class="title-head">
         <div class="title-banner">
-          <h1 class="game-title"><span class="t1">Summoners</span><span class="t2">Realm</span></h1>
+          <h1 class="game-title"><span class="t1">Summoner's</span><span class="t2">Realm</span></h1>
         </div>
         <span class="title-gem" aria-hidden="true"></span>
       </div>
@@ -200,7 +200,7 @@
         <span id="activeCharName" class="active-char">Summoner</span>
         <button class="btn tiny" id="btnEditCharacter">Customise</button>
       </div>
-      <p class="version">v4.2 · Vespera Rising</p>
+      <p class="version">v4.3 · Who Invited Grok?!</p>
     </div>
   </div>
 
@@ -288,6 +288,12 @@
             <span id="newWorldDifficultyHint">Bosses are tougher than the old baseline, with readable attack tells.</span></p>
         </div>
       </div>
+      <label>World evil (one per realm)</label>
+      <div class="seg" id="newWorldEvilSeg" role="radiogroup" aria-label="World evil biome">
+        <button type="button" class="seg-btn active" data-evil="corrupt">Corruption</button>
+        <button type="button" class="seg-btn" data-evil="mesh">The Mesh</button>
+      </div>
+      <p class="hint" style="margin-top:6px;font-size:12px;opacity:0.75">Only one evil biome can exist. Oceans on that side become Infested or Whirring.</p>
       <div class="dialog-buttons">
         <button class="btn" id="newWorldCancel">Cancel</button>
         <button class="btn primary" id="newWorldCreate">Create</button>
@@ -626,6 +632,6 @@
   <!-- The ?v= stamp is applied to every module by tools/stamp-build.mjs, driven
        by the BUILD constant in js/config.js, so a release can never ship a
        half-updated module graph out of the browser cache. -->
-  <script type="module" src="js/main.js?v=runeframe-1"></script>
+  <script type="module" src="js/main.js?v=who-invited-grok-1"></script>
 </body>
 </html>

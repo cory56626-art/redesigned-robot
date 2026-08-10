@@ -4,11 +4,11 @@
 // Single build stamp for every cache-busted module import. Bump this once per
 // release instead of editing per-module `?build=` strings (which drifted out of
 // sync and could ship a half-updated module graph).
-export const BUILD = 'runeframe-1';
+export const BUILD = 'who-invited-grok-1';
 
 // Release identity, surfaced on the main menu and in Claude's Notes.
-export const VERSION = '4.2';
-export const VERSION_TITLE = 'Vespera Rising';
+export const VERSION = '4.3';
+export const VERSION_TITLE = 'Who Invited Grok?!';
 
 export const WORLD_DIFFICULTIES = Object.freeze([
   { key: 'normal', label: 'Normal', tier: 'Buffed baseline', hint: 'Enemies are tougher than the old baseline, but attacks stay readable.' },
@@ -78,7 +78,7 @@ export const SIM_HZ = 60;
 export const SIM_DT = 1 / SIM_HZ;
 
 // Day / night cycle (seconds for a full cycle).
-export const DAY_LENGTH = 180; // 3 minutes per full day/night loop
+export const DAY_LENGTH = 540; // 9 minutes per full day/night loop
 
 // Combat / entity caps for smoothness.
 export const MAX_ENEMIES = 40;
@@ -169,10 +169,13 @@ export const WIND_DEPTH_FADE = 6;
 export const LIQUID_MAX = 8;
 export const LIQUID_TICK = 1 / 12;     // seconds between flow updates
 export const LIQUID_BUDGET = 3000;     // max cells processed per flow update
-export const SWIM_GRAVITY = 0.28;      // gravity multiplier while submerged
-export const SWIM_MAX_FALL = 110;      // terminal velocity in water
+export const SWIM_GRAVITY = 0.22;      // gravity multiplier while submerged
+export const SWIM_MAX_FALL = 100;      // terminal velocity in water
 export const SWIM_DRAG = 0.62;         // horizontal speed multiplier in water
-export const SWIM_STROKE = 150;        // upward impulse from jumping in water
+export const SWIM_STROKE = 220;        // upward impulse from jumping in water
+// Fall damage: impact when landing faster than the safe threshold (px/s).
+export const FALL_SAFE_SPEED = 520;
+export const FALL_DAMAGE_PER_100 = 14; // damage per 100 px/s over the safe speed
 
 // ---- Fishing (4.1) ----
 export const FISH_MIN_WAIT = 3.0;      // seconds before the earliest possible bite

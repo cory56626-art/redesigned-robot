@@ -11,9 +11,9 @@
 //
 // Everything is pointer-event driven rather than mouse-specific, so drag, pan
 // and pinch all work under touch without a second code path.
-import { TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=runeframe-1';
-import { T, isSolid, tileDef } from '../world/tiles.js?v=runeframe-1';
-import { hasWall } from '../world/walls.js?v=runeframe-1';
+import { TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=who-invited-grok-1';
+import { T, isSolid, tileDef } from '../world/tiles.js?v=who-invited-grok-1';
+import { hasWall } from '../world/walls.js?v=who-invited-grok-1';
 
 // Radius around the player, in tiles, that counts as explored.
 const REVEAL_RADIUS = 26;

@@ -1,13 +1,13 @@
 // Summoner Realms — combat & interaction resolution (weapons, mining, placing).
-import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=runeframe-1';
-import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=runeframe-1';
-import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=runeframe-1';
-import { SH, nextShape } from '../world/shapes.js?v=runeframe-1';
-import { W } from '../world/walls.js?v=runeframe-1';
-import { item as getItem } from '../data/items.js?v=runeframe-1';
-import { Projectile } from '../entities/projectile.js?v=runeframe-1';
-import { ThrownItem } from '../entities/thrown.js?v=runeframe-1';
-import { angleTo, aabb, clamp } from '../utils.js?v=runeframe-1';
+import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=who-invited-grok-1';
+import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=who-invited-grok-1';
+import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=who-invited-grok-1';
+import { SH, nextShape } from '../world/shapes.js?v=who-invited-grok-1';
+import { W } from '../world/walls.js?v=who-invited-grok-1';
+import { item as getItem } from '../data/items.js?v=who-invited-grok-1';
+import { Projectile } from '../entities/projectile.js?v=who-invited-grok-1';
+import { ThrownItem } from '../entities/thrown.js?v=who-invited-grok-1';
+import { angleTo, aabb, clamp } from '../utils.js?v=who-invited-grok-1';
 
 const MINE_RATE = 95;
 const MINE_SOUND_INTERVAL = 0.32;
@@ -74,7 +74,12 @@ export function useWeapon(game, player, item) {
     game.audio?.swordSwing();
     player.swing = { time: 0, dur: item.useTime, angle: aimAng, item: item.id, reach: item.reach };
     const crit = rollCrit(item.crit || 0.06);
-    const dmg = item.damage * (player.stats ? player.stats.meleeMul : 1) * (crit ? 2 : 1);
+    let meleeMul = player.stats ? player.stats.meleeMul : 1;
+    for (const b of player.buffs || []) {
+      if (b.type === 'rage' && b.dmgMul) meleeMul *= (1 + b.dmgMul);
+      if (b.type === 'berserker' && b.meleeMul) meleeMul *= (1 + b.meleeMul);
+    }
+    const dmg = item.damage * meleeMul * (crit ? 2 : 1);
     const reachPx = item.reach + 8;
     const arc = item.arc || 1.6;
 
@@ -157,8 +162,16 @@ export function useWeapon(game, player, item) {
       player.inventory.remove(item.ammo, 1);
     }
     player.useTimer = item.useTime;
+    player.aiming = true;
+    player.usePose = 'ranged';
+    player.aimAngle = rawAng;
     const crit = rollCrit(item.crit || 0.06);
-    const dmg = item.damage * (player.stats ? player.stats.rangedMul : 1) * (crit ? 2 : 1);
+    let rangedMul = player.stats ? player.stats.rangedMul : 1;
+    for (const b of player.buffs || []) {
+      if (b.type === 'rage' && b.dmgMul) rangedMul *= (1 + b.dmgMul);
+      if (b.type === 'ranger' && b.rangedMul) rangedMul *= (1 + b.rangedMul);
+    }
+    const dmg = item.damage * rangedMul * (crit ? 2 : 1);
     _fireProjectiles(game, player, item, rawAng, dmg, crit, 'ranged');
     if (item.rangedKind === 'bow') game.audio?.bowShot();
     if (item.fx && item.fx.shot) shotFx(game, player, item, rawAng);
@@ -174,9 +187,16 @@ export function useWeapon(game, player, item) {
     }
     player.spendMana(item.manaCost);
     player.useTimer = item.useTime;
+    player.usePose = 'magic';
+    player.aiming = true;
+    player.aimAngle = rawAng;
     player.castTimer = CAST_REGEN_DELAY; // throttle mana regen right after a cast
     const crit = rollCrit(item.crit || 0.06);
-    const dmg = item.damage * (player.stats ? player.stats.mageMul : 1) * (crit ? 2 : 1);
+    let mageMul = player.stats ? player.stats.mageMul : 1;
+    for (const b of player.buffs || []) {
+      if (b.type === 'rage' && b.dmgMul) mageMul *= (1 + b.dmgMul);
+    }
+    const dmg = item.damage * mageMul * (crit ? 2 : 1);
     _fireProjectiles(game, player, item, rawAng, dmg, crit, 'mage');
     game.audio?.magicCast();
     game.spawnCastFx && game.spawnCastFx(player, rawAng, item);
@@ -911,7 +931,14 @@ export function applyPotion(game, player, index, def) {
 
   if (eff.heal) { player.heal(eff.heal); player.startHealCooldown(); }
   if (eff.mana) { player.restoreMana(eff.mana); player.startManaCooldown(); }
-  if (eff.buff) { player.buffs = player.buffs.filter(x => x.type !== eff.buff.type); player.buffs.push(Object.assign({}, eff.buff)); player.startBuffCooldown(); }
+  if (eff.buff) {
+    player.buffs = player.buffs.filter(x => x.type !== eff.buff.type);
+    const b = Object.assign({}, eff.buff);
+    if (b.time == null && b.duration != null) b.time = b.duration;
+    player.buffs.push(b);
+    player.startBuffCooldown();
+    player.recomputeStats?.();
+  }
 
   player.inventory.removeAt(index, 1);
   game.floatText(player.x + player.w / 2, player.y, 'used ' + def.name.split(' ')[0], '#7ee08a');

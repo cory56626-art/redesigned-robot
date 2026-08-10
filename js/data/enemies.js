@@ -71,9 +71,45 @@ export const ENEMIES = {
   },
   blightcrawler: {
     key: 'blightcrawler', name: 'Blight Crawler', hp: 52, damage: 15, speed: 50, behavior: 'charger',
-    biomes: ['corrupt'], time: 'any', color: '#8a4fb0', color2: '#5a2f7a', w: 22, h: 16, kbResist: 0.4,
+    biomes: ['corrupt', 'infestedOcean'], time: 'any', color: '#8a4fb0', color2: '#5a2f7a', w: 22, h: 16, kbResist: 0.4,
     aggroRange: 19, loseRange: 34, memory: 6, telegraph: 0.45,
     drops: [{ item: 'blightstone', chance: 0.5, min: 1, max: 2 }],
+  },
+  rustCrawler: {
+    key: 'rustCrawler', name: 'Rust Crawler', hp: 58, damage: 16, speed: 48, behavior: 'charger',
+    biomes: ['mesh', 'whirringOcean'], time: 'any', color: '#8a6040', color2: '#4a3a30', w: 22, h: 16, kbResist: 0.45,
+    aggroRange: 18, loseRange: 32, memory: 6, telegraph: 0.4,
+    drops: [{ item: 'emberDust', chance: 0.35, min: 1, max: 2 }, { item: 'stone', chance: 0.4, min: 1, max: 2 }],
+  },
+  sparkDrone: {
+    key: 'sparkDrone', name: 'Spark Drone', hp: 36, damage: 12, speed: 90, behavior: 'flyer',
+    biomes: ['mesh'], time: 'any', color: '#c8d0d8', color2: '#ff8a3a', w: 16, h: 14, kbResist: 0.15,
+    aggroRange: 20, loseRange: 34, memory: 5, telegraph: 0.35,
+    drops: [{ item: 'emberDust', chance: 0.45, min: 1, max: 2 }],
+  },
+  ironHusk: {
+    key: 'ironHusk', name: 'Iron Husk', hp: 72, damage: 18, speed: 34, behavior: 'walker',
+    biomes: ['mesh'], time: 'any', color: '#6a7078', color2: '#3a4048', w: 18, h: 26, kbResist: 0.55,
+    aggroRange: 16, loseRange: 30, memory: 7, telegraph: 0.5,
+    drops: [{ item: 'stone', chance: 0.6, min: 1, max: 3 }, { item: 'stoneironOre', chance: 0.12, min: 1, max: 1 }],
+  },
+  wireSerpent: {
+    key: 'wireSerpent', name: 'Wire Serpent', hp: 48, damage: 14, speed: 70, behavior: 'hopper',
+    biomes: ['mesh', 'whirringOcean'], time: 'night', color: '#c45a2a', color2: '#5a2a18', w: 20, h: 12, kbResist: 0.25,
+    aggroRange: 17, loseRange: 30, memory: 5, telegraph: 0.3, hazard: true,
+    drops: [{ item: 'emberDust', chance: 0.5, min: 1, max: 2 }],
+  },
+  modulineDevil: {
+    key: 'modulineDevil', name: 'Moduline Devil', hp: 420, damage: 22, speed: 54, behavior: 'caster',
+    biomes: ['cavern'], time: 'any', color: '#c42828', color2: '#e8e0d0', w: 28, h: 36, kbResist: 0.65,
+    aggroRange: 26, loseRange: 48, memory: 12, telegraph: 0.55, fireRate: 1.6,
+    miniboss: true, teleport: true, stunScreech: true,
+    projectile: { kind: 'modulineScreech', damage: 16, speed: 0, color: '#ff6060', effect: { stun: 1.2 } },
+    drops: [
+      { item: 'modulineOre', chance: 1, min: 6, max: 14 },
+      { item: 'modulineBar', chance: 0.35, min: 1, max: 2 },
+      { item: 'healGreater', chance: 0.4, min: 1, max: 2 },
+    ],
   },
   blightshade: {
     key: 'blightshade', name: 'Blightshade', hp: 40, damage: 12, speed: 30, behavior: 'caster',

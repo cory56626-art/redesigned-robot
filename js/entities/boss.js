@@ -11,12 +11,12 @@
 // distance, phase and line of sight. Animation fields (squash, jaw, segment
 // lag, shard spin) are updated here rather than in the renderer, so they are
 // driven by the simulation and stay frame-rate independent.
-import { TILE, normalizeDifficulty } from '../config.js?v=runeframe-1';
-import { BOSSES } from '../data/bosses.js?v=runeframe-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=runeframe-1';
-import { aabb, angleTo, randRange, clamp } from '../utils.js?v=runeframe-1';
-import { Projectile } from './projectile.js?v=runeframe-1';
-import * as AI from '../systems/ai.js?v=runeframe-1';
+import { TILE, normalizeDifficulty } from '../config.js?v=who-invited-grok-1';
+import { BOSSES } from '../data/bosses.js?v=who-invited-grok-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=who-invited-grok-1';
+import { aabb, angleTo, randRange, clamp } from '../utils.js?v=who-invited-grok-1';
+import { Projectile } from './projectile.js?v=who-invited-grok-1';
+import * as AI from '../systems/ai.js?v=who-invited-grok-1';
 
 const PROJ_COLOR = {
   thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff',

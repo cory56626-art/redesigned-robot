@@ -1,6 +1,7 @@
 // Summoner Realms — projectiles for ranged/mage weapons, minions, enemies, bosses.
-import { GRAVITY, TILE } from '../config.js?v=runeframe-1';
-import { aabb, dist2 } from '../utils.js?v=runeframe-1';
+import { GRAVITY, TILE } from '../config.js?v=who-invited-grok-1';
+import { aabb, dist2 } from '../utils.js?v=who-invited-grok-1';
+import { MSG } from '../net/protocol.js?v=who-invited-grok-1';
 
 export class Projectile {
   constructor(opts) {
@@ -116,9 +117,16 @@ export class Projectile {
         this.y += this.vy * sdt;
         const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
         if (!this.ignoreTerrain && game.world.isSolidAt(Math.floor(cx / TILE), Math.floor(cy / TILE))) {
+          // Fused missiles (Mech) and other blast projectiles detonate on impact
+          // rather than sticking for a long fuse — contact is the expected bang.
+          if (this.blastRadius > 0 && this.blastDamage > 0) {
+            this._burst(game, cx, cy);
+            this.dead = true;
+            game.addHitParticles(cx, cy, this.color, 8);
+            return;
+          }
           if (this.burstTimer != null) {
-            // Stick to the wall, but honor the full fuse instead of detonating
-            // on the first collision.
+            // Non-blast fused projectiles still stick and honor the fuse.
             this.vx = 0;
             this.vy = 0;
             this.fuseAnchored = true;
@@ -278,6 +286,14 @@ export class Projectile {
     game.fx?.ring(x, y, color, radius, { life: 0.28, width: 2 });
     game.fx?.burst(x, y, color, hasBlast ? 26 : 20, { speed: 150, life: 0.5, size: 2, glow: true });
     game.fx?.shake?.(hasBlast ? 3.2 : 1.5, hasBlast ? 0.22 : 0.12);
+    if (hasBlast) {
+      game.audio?.explosion?.();
+      game.fx?.explosion?.(x, y, radius, { hot: color, shake: 0 });
+      // Multiplayer clients need the bang even when they only had a visual stub.
+      if (game.net && game.net.status === 'connected' && game.isHost) {
+        game.net.broadcast({ t: MSG.BOOM, x: Math.round(x), y: Math.round(y), radius: Math.round(radius), color });
+      }
+    }
   }
 
   _spawnOnBurst(game, x, y) {
@@ -342,11 +358,24 @@ export class Projectile {
   }
 
   _hitPlayers(game) {
-    // A fused missile is intentionally harmless on touch: it keeps tracking
-    // its selected target until the five-second fuse resolves (or a player
-    // shoots it down). Without this guard a 0-damage collision would still
-    // delete the missile before its promised explosion.
-    if (this.burstTimer != null && this.damage <= 0) return;
+    // Blast missiles (Mech) explode on contact with players/minions/NPCs.
+    if (this.burstTimer != null && this.damage <= 0 && !(this.blastRadius > 0 && this.blastDamage > 0)) return;
+    if (this.burstTimer != null && this.damage <= 0 && this.blastRadius > 0) {
+      // Contact detonation path for fused blast projectiles.
+      const box = { x: this.x, y: this.y, w: this.w, h: this.h };
+      const targets = [...game.players.values()];
+      for (const npc of (game.npcs || (game.npc ? [game.npc] : []))) if (npc && npc.alive) targets.push(npc);
+      for (const m of (game.minions || [])) if (m.alive !== false && !m.dead && m.maxHp != null) targets.push(m);
+      for (const p of targets) {
+        if (p.alive === false || p.dead) continue;
+        if (aabb(box, p)) {
+          this._burst(game, this.x + this.w / 2, this.y + this.h / 2);
+          this.dead = true;
+          return;
+        }
+      }
+      return;
+    }
     const box = { x: this.x, y: this.y, w: this.w, h: this.h };
     const targets = [...game.players.values()];
     for (const npc of (game.npcs || (game.npc ? [game.npc] : []))) {

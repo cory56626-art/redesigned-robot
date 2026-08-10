@@ -1,15 +1,15 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=runeframe-1';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=runeframe-1';
-import { Sprites } from '../art/sprites.js?v=runeframe-1';
-import { item as getItem } from '../data/items.js?v=runeframe-1';
-import { availableRecipes } from '../systems/crafting.js?v=runeframe-1';
-import { claudeNotesHTML } from './claude-notes.js?v=runeframe-1';
-import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=runeframe-1';
-import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=runeframe-1';
-import { drawCharacterPreview } from '../art/charpreview.js?v=runeframe-1';
-import { TitleScreen } from './titlescreen.js?v=runeframe-1';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=who-invited-grok-1';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=who-invited-grok-1';
+import { Sprites } from '../art/sprites.js?v=who-invited-grok-1';
+import { item as getItem } from '../data/items.js?v=who-invited-grok-1';
+import { availableRecipes } from '../systems/crafting.js?v=who-invited-grok-1';
+import { claudeNotesHTML } from './claude-notes.js?v=who-invited-grok-1';
+import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=who-invited-grok-1';
+import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=who-invited-grok-1';
+import { drawCharacterPreview } from '../art/charpreview.js?v=who-invited-grok-1';
+import { TitleScreen } from './titlescreen.js?v=who-invited-grok-1';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [
@@ -103,13 +103,25 @@ export class Menus {
     this._buildRunePicker('newWorld');
     $('newWorldDifficulty').addEventListener('input', () => this._syncNewWorldDifficulty());
     this._syncNewWorldDifficulty();
+    this._newWorldEvil = 'corrupt';
+    const evilSeg = $('newWorldEvilSeg');
+    if (evilSeg) {
+      evilSeg.querySelectorAll('.seg-btn').forEach(b => {
+        b.onclick = () => {
+          evilSeg.querySelectorAll('.seg-btn').forEach(x => x.classList.remove('active'));
+          b.classList.add('active');
+          this._newWorldEvil = b.dataset.evil === 'mesh' ? 'mesh' : 'corrupt';
+        };
+      });
+    }
     $('newWorldCancel').onclick = () => this.hide('newWorldDialog');
     $('newWorldCreate').onclick = () => {
       const name = $('newWorldName').value.trim() || 'Realm';
       const seed = $('newWorldSeed').value.trim();
       const difficulty = difficultyForIndex($('newWorldDifficulty').value).key;
+      const evil = this._newWorldEvil || 'corrupt';
       this.hide('newWorldDialog');
-      g.startNewWorld(name, seed, difficulty);
+      g.startNewWorld(name, seed, difficulty, { evil });
     };
 
     // ---- Load world dialog ----
@@ -197,6 +209,13 @@ export class Menus {
       if (e.key === 'Enter') { const v = e.target.value.trim(); if (v) g.sendChat(v); e.target.value = ''; e.target.blur(); }
       else if (e.key === 'Escape') e.target.blur();
     });
+    // Clicking away from chat closes it (blur), matching common chat UX.
+    document.addEventListener('pointerdown', (e) => {
+      const input = $('chatInput');
+      if (!input || document.activeElement !== input) return;
+      if (e.target === input || (e.target.closest && e.target.closest('#mpSidebar, #chatLog, .chat-log'))) return;
+      input.blur();
+    }, true);
 
     // ---- Confirm ----
     $('confirmNo').onclick = () => this.hide('confirmDialog');

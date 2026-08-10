@@ -834,14 +834,15 @@ input[type="range"]::-moz-range-thumb {
   clip-path: var(--ribbon);
   background: linear-gradient(180deg, #3b2470 0%, #2a1550 55%, #1c0e3a 100%);
   margin: 0;
-  padding: clamp(12px, 2.6vh, 24px) clamp(30px, 9vw, 74px) clamp(14px, 2.8vh, 26px);
+  padding: clamp(12px, 2.6vh, 24px) clamp(36px, 10vw, 80px) clamp(14px, 2.8vh, 26px);
   font-family: var(--title-font);
   font-weight: 700;
-  font-size: clamp(24px, 6.4vw, 54px);
-  line-height: 0.98;
-  letter-spacing: clamp(1px, 0.5vw, 5px);
+  font-size: clamp(22px, 5.6vw, 48px);
+  line-height: 1.05;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--gold);
+  white-space: nowrap;
   /* Hard 2px outline built from eight offsets, then a warm drop and a glow —
      the chunky pixel-poster treatment the scene behind it is drawn in. */
   text-shadow:
@@ -854,8 +855,11 @@ input[type="range"]::-moz-range-thumb {
   display: block;
   color: inherit;
   text-shadow: inherit;
+  white-space: nowrap;
+  overflow: visible;
 }
-#mainMenu .game-title .t2 { font-size: 0.9em; letter-spacing: clamp(2px, 0.9vw, 10px); }
+#mainMenu .game-title .t1 { letter-spacing: 0.06em; }
+#mainMenu .game-title .t2 { font-size: 0.92em; letter-spacing: 0.18em; }
 
 #mainMenu .tagline {
   font-family: var(--menu-font);

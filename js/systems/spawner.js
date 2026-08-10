@@ -1,8 +1,8 @@
 // Summoner Realms — natural enemy spawning (host only). Biome + day/night aware.
-import { TILE, UNDERGROUND_Y, MAX_ENEMIES, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=runeframe-1';
-import { ENEMIES } from '../data/enemies.js?v=runeframe-1';
-import { FAUNA } from '../data/fauna.js?v=runeframe-1';
-import { aabb, dist2 } from '../utils.js?v=runeframe-1';
+import { TILE, UNDERGROUND_Y, MAX_ENEMIES, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=who-invited-grok-1';
+import { ENEMIES } from '../data/enemies.js?v=who-invited-grok-1';
+import { FAUNA } from '../data/fauna.js?v=who-invited-grok-1';
+import { aabb, dist2 } from '../utils.js?v=who-invited-grok-1';
 
 // Keep spawns off-screen-ish but not so far they never arrive (tiles).
 const MIN_SPAWN_DIST = 13;
@@ -47,7 +47,14 @@ export class Spawner {
 
     // Natural spawns are deliberately paced. A guaranteed spawn every timer tick
     // filled the world too quickly and made single-player combat unplayable.
-    if (Math.random() > (tuning.spawnChance || BASE_SPAWN_CHANCE)) return;
+    let spawnChance = tuning.spawnChance || BASE_SPAWN_CHANCE;
+    // Calming potions on any living player suppress natural spawns.
+    for (const p of players) {
+      for (const b of p.buffs || []) {
+        if (b.type === 'calming' && b.spawnMul != null) spawnChance *= b.spawnMul;
+      }
+    }
+    if (Math.random() > spawnChance) return;
 
     // Keep a small, readable population near each player while still scaling
     // gently for co-op instead of flooding the world.
@@ -122,7 +129,36 @@ export class Spawner {
       game.spawnEnemy(key, x, y);
       return true;
     }
+    // Rare deep-chamber check: Moduline Devil near Moduline ore.
+    if (underground && Math.random() < 0.08) {
+      const devil = this._tryModulineDevil(game, p, players);
+      if (devil) return true;
+    }
     return false;
+  }
+
+  _tryModulineDevil(game, p, players) {
+    if (game.enemies.some(e => e.key === 'modulineDevil' && !e.dead)) return false;
+    // Scan near player for Moduline ore tiles (T.MODULINE = 63).
+    const MODULINE = 63;
+    const px = Math.floor((p.x + p.w / 2) / TILE);
+    const py = Math.floor((p.y + p.h / 2) / TILE);
+    let found = null;
+    for (let dy = -18; dy <= 18 && !found; dy++) {
+      for (let dx = -18; dx <= 18 && !found; dx++) {
+        const tx = px + dx, ty = py + dy;
+        if (!game.world.inBounds(tx, ty)) continue;
+        if (game.world.get(tx, ty) === MODULINE) found = { tx, ty };
+      }
+    }
+    if (!found) return false;
+    const def = ENEMIES.modulineDevil;
+    const x = found.tx * TILE;
+    const y = found.ty * TILE - def.h;
+    if (!this._fits(game, x, y, def, players)) return false;
+    game.spawnEnemy('modulineDevil', x, y);
+    game.toast?.('The Moduline Devil stirs…', 'bad');
+    return true;
   }
 
   // ---- Wildlife ----

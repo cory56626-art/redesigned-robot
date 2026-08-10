@@ -19,6 +19,7 @@ export const W = {
   SANDSTONE: 5,
   BLIGHT: 6,
   CLAY: 7,
+  MESH: 8,
 };
 
 // color   : base colour before the renderer's depth shading.
@@ -32,6 +33,7 @@ export const WALLS = {
   [W.SANDSTONE]: { name: 'Sandstone Wall', color: '#6d5c3b', blastResist: 1 },
   [W.BLIGHT]:    { name: 'Blightstone Wall', color: '#2b1b3c', blastResist: 2 },
   [W.CLAY]:      { name: 'Clay Wall', color: '#5a3628', blastResist: 0 },
+  [W.MESH]:      { name: 'Mesh Wall', color: '#2a2e34', blastResist: 2 },
 };
 
 export function wallDef(id) { return WALLS[id] || WALLS[W.NONE]; }

@@ -5,14 +5,15 @@ import {
   HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN,
   CAST_REGEN_DELAY, CAST_REGEN_MULT, RESPAWN_DELAY, RESPAWN_DELAY_BOSS,
   SWIM_DRAG, SWIM_STROKE, WIND_PLAYER_PUSH,
-} from '../config.js?v=runeframe-1';
-import { tileDef } from '../world/tiles.js?v=runeframe-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=runeframe-1';
-import { Inventory } from '../systems/inventory.js?v=runeframe-1';
-import { item as getItem } from '../data/items.js?v=runeframe-1';
-import * as combat from '../systems/combat.js?v=runeframe-1';
-import * as fishing from '../systems/fishing.js?v=runeframe-1';
-import { clamp } from '../utils.js?v=runeframe-1';
+  FALL_SAFE_SPEED, FALL_DAMAGE_PER_100,
+} from '../config.js?v=who-invited-grok-1';
+import { tileDef } from '../world/tiles.js?v=who-invited-grok-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=who-invited-grok-1';
+import { Inventory } from '../systems/inventory.js?v=who-invited-grok-1';
+import { item as getItem } from '../data/items.js?v=who-invited-grok-1';
+import * as combat from '../systems/combat.js?v=who-invited-grok-1';
+import * as fishing from '../systems/fishing.js?v=who-invited-grok-1';
+import { clamp } from '../utils.js?v=who-invited-grok-1';
 
 export class Player {
   constructor(id, opts = {}) {
@@ -61,12 +62,22 @@ export class Player {
     this.combatTimer = 0;   // time since last hit (for regen gating)
     this.walkAnim = 0;
     this.remoteMinions = []; // for remote render only
+    this.fallSpeedPeak = 0; // max downward speed while airborne (fall damage)
+    this.aiming = false;    // ranged/magic use pose
+    this.usePose = null;    // 'melee' | 'ranged' | 'magic' | 'summon' while using
   }
 
   center() { return { x: this.x + this.w / 2, y: this.y + this.h / 2 }; }
 
   recomputeStats() {
     const st = this.inventory.getStats();
+    // Temporary brew buffs layer on top of equipment (e.g. Summoner potion).
+    for (const b of this.buffs || []) {
+      if (b.type === 'summonerBrew') {
+        st.minionCap += b.minionCap || 0;
+        st.summonMul += b.summonMul || 0;
+      }
+    }
     this.stats = st;
     const newMaxHp = BASE_HP + st.maxHpBonus;
     const newMaxMana = BASE_MANA + st.maxManaBonus;
@@ -156,7 +167,12 @@ export class Player {
         // a fresh press per stroke, which is what makes crossing a pool feel
         // like swimming instead of like failing to jump.
         this.vy = Math.min(this.vy, -SWIM_STROKE);
-        game.input.consumeJumpPress();
+        // Near the surface, a press also vaults you free so water never traps.
+        if (input.jumpPressed) {
+          this.vy = -JUMP_VELOCITY * 0.72 * jumpMul;
+          game.input.consumeJumpPress();
+          game.audio?.jump();
+        }
       } else if (canAct && input.jumpPressed) {
         if (this.onGround || this.coyoteTimer > 0) {
           this.vy = -JUMP_VELOCITY * jumpMul;
@@ -190,11 +206,30 @@ export class Player {
       if (!this.submerged && !this.onGround && (st.glideFallSpeed || 0) > 0 && this.vy > 0) {
         this.vy = Math.min(this.vy, st.glideFallSpeed);
       }
+      // Track peak fall speed before collision zeros vy on landing.
+      if (!this.onGround && !this.submerged && this.vy > this.fallSpeedPeak) {
+        this.fallSpeedPeak = this.vy;
+      }
+      const wasAirborne = !this.onGround;
       moveAndCollide(this, game.world, dt);
       clampToWorld(this, game.world);
       if (this.onGround) {
+        if (wasAirborne && this.fallSpeedPeak > FALL_SAFE_SPEED && !this.submerged && !this.cheats.fly) {
+          const mul = (st.fallDamageMul != null ? st.fallDamageMul : 1);
+          const excess = this.fallSpeedPeak - FALL_SAFE_SPEED;
+          const dmg = Math.max(1, Math.round((excess / 100) * FALL_DAMAGE_PER_100 * mul));
+          if (dmg > 0 && mul > 0) {
+            this.takeDamage(dmg, 0, game, 'fall');
+            game.fx?.burst(this.x + this.w / 2, this.y + this.h, ['#c9b89a', '#8a7a62'], 10, {
+              speed: 90, life: 0.4, gravity: 400, size: 2,
+            });
+          }
+        }
+        this.fallSpeedPeak = 0;
         this.jumpsLeft = extraJumps;
         this.flightLeft = Math.max(0, st.flightTime || 0);
+      } else if (this.submerged) {
+        this.fallSpeedPeak = 0;
       }
     }
 
@@ -227,6 +262,7 @@ export class Player {
 
   _tickTimers(dt, game) {
     if (this.useTimer > 0) this.useTimer -= dt;
+    if (this.useTimer <= 0) { this.aiming = false; this.usePose = null; }
     if (this.placeTimer > 0) this.placeTimer -= dt;
     if (this.hammerTimer > 0) this.hammerTimer -= dt;
     if (this.iframes > 0) this.iframes -= dt;
@@ -235,10 +271,12 @@ export class Player {
     if (this.buffCd > 0) this.buffCd -= dt;
     if (this.castTimer > 0) this.castTimer -= dt;
     if (this.hazardTimer > 0) this.hazardTimer -= dt;
+    let buffsChanged = false;
     for (let i = this.buffs.length - 1; i >= 0; i--) {
       this.buffs[i].time -= dt;
-      if (this.buffs[i].time <= 0) this.buffs.splice(i, 1);
+      if (this.buffs[i].time <= 0) { this.buffs.splice(i, 1); buffsChanged = true; }
     }
+    if (buffsChanged) this.recomputeStats();
     if (this.poison) {
       this.poison.time -= dt;
       this.poison.tick -= dt;
@@ -373,6 +411,8 @@ export class Player {
     const def = this.stats ? this.stats.defense : 0;
     let dmg = Math.max(1, Math.round(amount - def * 0.5));
     for (const b of this.buffs) if (b.type === 'ironskin') dmg = Math.max(1, dmg - b.defense);
+    // Rage trades defense for power: take 10% more damage while active.
+    for (const b of this.buffs) if (b.type === 'rage' && b.takenMul) dmg = Math.max(1, Math.round(dmg * (1 + b.takenMul)));
     this.hp -= dmg;
     game.audio?.playerHurt();
     this.iframes = 0.6;

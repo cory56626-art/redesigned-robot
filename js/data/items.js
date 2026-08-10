@@ -1,7 +1,7 @@
 // Summoner Realms — item catalogue. All original names/designs.
 // Categories: weapon (melee/ranged/mage/summon), tool, armor, accessory,
 // potion, ammo, material, block, station, summonitem.
-import { T } from '../world/tiles.js?v=runeframe-1';
+import { T } from '../world/tiles.js?v=who-invited-grok-1';
 
 export const ITEMS = {};
 
@@ -30,11 +30,14 @@ export const FIRST_WORLD_ITEM_IDS = new Set([
 // kit. This keeps the old retired catalogue disabled while making the new ore
 // progression auditable in one place.
 export const PREHARDMODE_ITEM_IDS = new Set([
-  'forge',
+  'forge', 'aetherAltar',
   'stoneironOre', 'stoneironBar', 'amberOre', 'amberBar',
   'tideOre', 'tideBar', 'emberOre', 'emberBar',
   'verdantOre', 'verdantBar', 'stormOre', 'stormBar',
   'shadowglassOre', 'shadowglassBar', 'starsteelOre', 'starsteelBar',
+  // Who Invited Grok?! mid / deep ore tiers
+  'tanerineOre', 'tanerineBar', 'modulineOre', 'modulineBar',
+  'tanerinePick', 'modulinePick', 'tanerineBlade', 'modulineCleaver',
   'stoneironPick', 'amberPick', 'tidePick', 'emberPick', 'verdantPick',
   'stormPick', 'shadowglassPick', 'starsteelPick',
   'amberBow', 'tideTrident', 'emberblade', 'stormcaller',
@@ -46,6 +49,18 @@ export const PREHARDMODE_ITEM_IDS = new Set([
   'missileLauncher', 'mechanicalSword',
   'stingerBow', 'mandibleEdge', 'hiveCatalyst', 'broodStaff',
   'waspEmblem', 'vesperaWings',
+  // Class armor sets + accessories (were defined but gated out of ITEMS)
+  'ironveinHelm', 'ironveinPlate', 'ironveinGreaves',
+  'huntersCowl', 'huntersGarb', // huntersBoots already in FIRST_WORLD
+  'aetherweaveHat', 'aetherweaveRobe', 'aetherweavePants',
+  'thornweaveMask', 'thornweaveMantle', 'thornweaveGuards',
+  'blightHelm', 'blightCuirass', 'blightGreaves',
+  'swiftboots', 'cloudstepCharm', 'vitalBand', 'aetherLocket',
+  'beastmasterSigil', 'ironhideEmblem',
+  // Buff / brewery chain
+  'brewery', 'emptyBottle', 'ragePotion', 'calmingPotion', 'rangerPotion',
+  'berserkerPotion', 'summonerPotion', 'beer',
+  'bloodroot', 'calmleaf', 'rangerBloom', 'berserkMoss', 'summonThistle', 'hops',
   // Post-Vespera "Hivewrought" tier (tier 11). Twelve weapons — three per class
   // — forged from the queen's remains plus the deep-ore alloys. This is the
   // bridge tier between the third boss and the fights that follow it, so every
@@ -85,6 +100,8 @@ orePick('verdantPick', 'Verdant Pickaxe', '#65b957', 6, 5, 'Plant-infused metal 
 orePick('stormPick', 'Storm Pickaxe', '#f4dc55', 7, 6, 'Electric yellow metal that crackles in the dark.');
 orePick('shadowglassPick', 'Shadowglass Pickaxe', '#9d65d1', 8, 7, 'Black-purple crystal-metal with a razor edge.');
 orePick('starsteelPick', 'Starsteel Pickaxe', '#d8f4ff', 9, 8, 'White-blue glowing metal from the deepest rock.');
+orePick('tanerinePick', 'Tanerine Pickaxe', '#e07a2a', 6, 5, 'Orange mid-tier metal for deep cavern stone.');
+orePick('modulinePick', 'Moduline Pickaxe', '#c42828', 10, 9, 'Crimson high-end pick from Devil-guarded ore.');
 def({ id: 'cupritePick', name: 'Cuprite Pick', category: 'tool', tool: { power: 2, kind: 'pickaxe' }, color: '#c47b4a', tier: 1, desc: 'Mining power 2. Breaks Ironvein.' });
 def({ id: 'ironveinPick', name: 'Ironvein Pick', category: 'tool', tool: { power: 3, kind: 'pickaxe' }, color: '#a9b0bd', tier: 2, desc: 'Mining power 3. Breaks Glimmer & Aetherite.' });
 def({ id: 'glimmerPick', name: 'Glimmer Pick', category: 'tool', tool: { power: 4, kind: 'pickaxe' }, color: '#ffe08a', tier: 3, desc: 'Mining power 4. Breaks Blightore.' });
@@ -128,6 +145,14 @@ melee('verdantVineblade', 'Verdant Vineblade', '#65b957', 25, 0.42, 5, {
 melee('shadowglassScythe', 'Shadowglass Scythe', '#9d65d1', 34, 0.54, 7, {
   meleeKind: 'heavy', reach: 45, arc: 2.05, knockback: 7, crit: 0.08, fx: { swing: 'shadow' },
   desc: 'A wide black-purple crystal sweep. Strong, but deliberately slow before Hardmode.',
+});
+melee('tanerineBlade', 'Tanerine Blade', '#e07a2a', 28, 0.36, 5, {
+  reach: 36, knockback: 5, fx: { swing: 'flame' },
+  desc: 'A sharp orange mid-tier sword forged from Tanerine.',
+});
+melee('modulineCleaver', 'Moduline Cleaver', '#c42828', 42, 0.48, 9, {
+  meleeKind: 'heavy', reach: 42, arc: 2.0, knockback: 9, crit: 0.1, fx: { swing: 'mechanical' },
+  desc: 'A heavy red cleaver smelted from Devil-guarded Moduline.',
 });
 melee('mechanicalSword', 'Mechanical Sword', '#78d9ff', 39, 0.46, 9, {
   meleeKind: 'heavy', reach: 43, arc: 1.9, knockback: 8, crit: 0.08, fx: { swing: 'mechanical' },
@@ -399,11 +424,11 @@ armor('huntersBoots', "Hunter's Boots", '#6a7a3a', 'legs', 3, 2, 'hunter', { cla
 armor('aetherweaveHat', 'Aetherweave Hat', '#8ad9ff', 'head', 2, 3, 'aetherweave', { classBonus: 'mage', dmgMul: 0.14, maxMana: 20 });
 armor('aetherweaveRobe', 'Aetherweave Robe', '#8ad9ff', 'chest', 3, 3, 'aetherweave', { classBonus: 'mage', dmgMul: 0.12, maxMana: 20 });
 armor('aetherweavePants', 'Aetherweave Pants', '#8ad9ff', 'legs', 2, 3, 'aetherweave', { classBonus: 'mage', dmgMul: 0.1, maxMana: 20 });
-// Thornweave (summoner set): +minion cap +summon dmg
-armor('thornweaveMask', 'Thornweave Mask', '#5a7a3a', 'head', 2, 1, 'thornweave', { classBonus: 'summon', dmgMul: 0.1, minionCap: 1 });
-armor('thornweaveMantle', 'Thornweave Mantle', '#5a7a3a', 'chest', 3, 1, 'thornweave', { classBonus: 'summon', dmgMul: 0.12, minionCap: 1 });
-armor('thornweaveGuards', 'Thornweave Guards', '#5a7a3a', 'legs', 2, 1, 'thornweave', { classBonus: 'summon', dmgMul: 0.1, minionCap: 1 });
-// Blightplate (endgame): high defense
+// Thornweave (summoner set): piece dmg only; full set grants +1 minion slot
+armor('thornweaveMask', 'Thornweave Mask', '#5a7a3a', 'head', 2, 1, 'thornweave', { classBonus: 'summon', dmgMul: 0.1 });
+armor('thornweaveMantle', 'Thornweave Mantle', '#5a7a3a', 'chest', 3, 1, 'thornweave', { classBonus: 'summon', dmgMul: 0.12 });
+armor('thornweaveGuards', 'Thornweave Guards', '#5a7a3a', 'legs', 2, 1, 'thornweave', { classBonus: 'summon', dmgMul: 0.1 });
+// Blightplate (late pre-Hardmode): high defense + general damage
 armor('blightHelm', 'Blight Helm', '#8a4fb0', 'head', 6, 4, 'blight', { dmgMul: 0.08 });
 armor('blightCuirass', 'Blight Cuirass', '#8a4fb0', 'chest', 9, 4, 'blight', { dmgMul: 0.08 });
 armor('blightGreaves', 'Blight Greaves', '#8a4fb0', 'legs', 7, 4, 'blight', { dmgMul: 0.08 });
@@ -435,6 +460,12 @@ pot('aetherTonic', 'Aether Tonic', '#6a7bff', { mana: 60 }, 'Restores 60 Aether.
 pot('vigorBrew', 'Vigor Brew', '#7ee08a', { buff: { type: 'regen', duration: 30, hpRegen: 4 } }, 'Health regen for 30s.');
 pot('ironskinTonic', 'Ironskin Tonic', '#c9c9c9', { buff: { type: 'ironskin', duration: 40, defense: 8 } }, '+8 defense for 40s.');
 pot('swiftElixir', 'Swiftness Elixir', '#7ee0c0', { buff: { type: 'swift', duration: 40, speed: 0.3 } }, '+30% speed for 40s.');
+pot('ragePotion', 'Rage Potion', '#ff4040', { buff: { type: 'rage', duration: 45, dmgMul: 0.2, takenMul: 0.1 } }, '+20% damage, +10% damage taken for 45s.');
+pot('calmingPotion', 'Calming Potion', '#6ab0d0', { buff: { type: 'calming', duration: 90, spawnMul: 0.45 } }, 'Reduces nearby enemy spawns for 90s.');
+pot('rangerPotion', 'Ranger Potion', '#6aaa3a', { buff: { type: 'ranger', duration: 50, rangedMul: 0.3 } }, '+30% ranged damage for 50s.');
+pot('berserkerPotion', 'Berserker Potion', '#d06020', { buff: { type: 'berserker', duration: 50, meleeMul: 0.3 } }, '+30% melee damage for 50s.');
+pot('summonerPotion', 'Summoner Potion', '#b07aff', { buff: { type: 'summonerBrew', duration: 60, minionCap: 1, summonMul: 0.15 } }, '+1 minion slot and +15% summon damage for 60s.');
+pot('beer', 'Tavern Beer', '#d4a84a', { buff: { type: 'beer', duration: 20, npcDiscount: 0.15 } }, 'Gift to NPCs to lower their prices. Mild tipsiness for 20s.');
 
 // ---------- Ammo ----------
 def({ id: 'flintArrow', name: 'Flint Arrow', category: 'ammo', color: '#c9c9c9', color2: '#8a6a3a', maxStack: 200, desc: 'Ammunition for bows.' });
@@ -493,6 +524,17 @@ mat('shadowglassOre', 'Shadowglass Ore', '#9d65d1', 'ore', 7, 'Black-purple crys
 mat('shadowglassBar', 'Shadowglass Bar', '#d4a4ff', 'bar', 7, 'Dark crystal refined into a razor-edged bar.');
 mat('starsteelOre', 'Starsteel Ore', '#d8f4ff', 'ore', 8, 'White-blue glowing metal at the deepest boundary.');
 mat('starsteelBar', 'Starsteel Bar', '#ffffff', 'bar', 8, 'A brilliant final pre-Hardmode alloy.');
+mat('tanerineOre', 'Tanerine Ore', '#e07a2a', 'ore', 5, 'Warm orange metal found deep in cavern stone.');
+mat('tanerineBar', 'Tanerine Bar', '#ff9a40', 'bar', 5, 'A bright mid-tier alloy with a citrus glow.');
+mat('modulineOre', 'Moduline Ore', '#c42828', 'ore', 9, 'Crimson metal found only in large deep chambers, guarded by the Moduline Devil.');
+mat('modulineBar', 'Moduline Bar', '#ff4040', 'bar', 9, 'A dense red alloy forged from Devil-guarded veins.');
+mat('bloodroot', 'Bloodroot', '#b03030', 'herb', 2, 'Brewery herb. Fuel for Rage potions.');
+mat('calmleaf', 'Calmleaf', '#6ab0a0', 'herb', 2, 'Brewery herb. Soothes spawn pressure.');
+mat('rangerBloom', 'Ranger Bloom', '#6a9a3a', 'herb', 2, 'Brewery herb. Sharpens the eye for ranged work.');
+mat('berserkMoss', 'Berserk Moss', '#c05a2a', 'herb', 2, 'Brewery herb. Feeds Berserker potions.');
+mat('summonThistle', 'Summon Thistle', '#9a6ad0', 'herb', 2, 'Brewery herb. Expands the summoner’s bond.');
+mat('hops', 'Wild Hops', '#8aaa4a', 'herb', 1, 'Brewery herb. Makes beer for NPCs.');
+mat('emptyBottle', 'Empty Bottle', '#a0c0d0', 'misc', 1, 'A glass bottle for brewing.');
 mat('mechCore', 'Mech Core', '#72ddff', 'drop', 8, 'A heavy blue reactor core claimed from The Mech. Its pulse marks the realm as Hardmode-ready.');
 mat('wormCore', 'Worm Core', '#c383ff', 'drop', 9, 'A pulsing violet core from The Worm. It vibrates as if the tunnel is still moving.');
 mat('royalChitinPlate', 'Royal Chitin Plate', '#2a222d', 'drop', 10, 'Obsidian-black chitin threaded with molten gold. Used to craft the Hive Resonance Core and future mobility gear.');
@@ -561,6 +603,7 @@ def({ id: 'craftingBench', name: 'Crafting Bench', category: 'station', place: T
 def({ id: 'smeltery', name: 'Smeltery', category: 'station', place: T.SMELTERY, color: '#5a5560', desc: 'Cooks food and supports basic recipes.' });
 def({ id: 'forge', name: 'Forge', category: 'station', place: T.FORGE, color: '#4a4a55', desc: 'Forges metal gear.' });
 def({ id: 'aetherAltar', name: 'Aether Altar', category: 'station', place: T.ALTAR, color: '#5a7abf', desc: 'Crafts magic gear & boss idols.' });
+def({ id: 'brewery', name: 'Brewery', category: 'station', place: T.BREWERY, color: '#8a5a3a', desc: 'Brews buff potions and beer. Mid-game station.' });
 // raw dirt/stone/etc as placeable too
 def({ id: 'dirtBlock', name: 'Dirt Block', category: 'block', place: T.DIRT, color: '#6b4a2b' });
 

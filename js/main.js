@@ -2,50 +2,50 @@
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty, ZOOM_DEFAULT, REACH,
-} from './config.js?v=runeframe-1';
-import { hashString, mulberry32, dist2, uid } from './utils.js?v=runeframe-1';
-import { World } from './world/world.js?v=runeframe-1';
-import { T, tileDef } from './world/tiles.js?v=runeframe-1';
-import { Sprites } from './art/sprites.js?v=runeframe-1';
-import { Camera } from './engine/camera.js?v=runeframe-1';
-import { Input } from './engine/input.js?v=runeframe-1';
-import { AudioManager } from './engine/audio.js?v=runeframe-1';
-import { Renderer } from './engine/renderer.js?v=runeframe-1';
-import { Fx } from './engine/fx.js?v=runeframe-1';
-import { DayNight } from './systems/daynight.js?v=runeframe-1';
-import { Weather } from './systems/weather.js?v=runeframe-1';
-import { Spawner } from './systems/spawner.js?v=runeframe-1';
-import { Progression } from './systems/progression.js?v=runeframe-1';
-import { starterInventory } from './systems/inventory.js?v=runeframe-1';
-import * as craftSys from './systems/crafting.js?v=runeframe-1';
-import { applyPotion } from './systems/combat.js?v=runeframe-1';
-import * as fishing from './systems/fishing.js?v=runeframe-1';
-import { Critter } from './entities/critter.js?v=runeframe-1';
-import { FAUNA } from './data/fauna.js?v=runeframe-1';
-import { smartTarget } from './systems/smartcursor.js?v=runeframe-1';
-import { Player, assignColor } from './entities/player.js?v=runeframe-1';
-import { Enemy } from './entities/enemy.js?v=runeframe-1';
-import { Boss } from './entities/boss.js?v=runeframe-1';
-import { Minion } from './entities/minion.js?v=runeframe-1';
-import { Npc } from './entities/npc.js?v=runeframe-1';
-import { Projectile } from './entities/projectile.js?v=runeframe-1';
-import { DropItem } from './entities/droppeditem.js?v=runeframe-1';
-import { FallingTree } from './entities/fallingtree.js?v=runeframe-1';
-import { ThrownItem } from './entities/thrown.js?v=runeframe-1';
-import { ENEMIES } from './data/enemies.js?v=runeframe-1';
-import { BOSSES, rollMechSpecialDrop, rollVesperaWeaponDrop } from './data/bosses.js?v=runeframe-1';
-import { item as getItem, isItemEnabled } from './data/items.js?v=runeframe-1';
-import { HUD } from './ui/hud.js?v=runeframe-1';
-import { Minimap } from './ui/minimap.js?v=runeframe-1';
-import { Menus } from './ui/menus.js?v=runeframe-1';
-import { NpcDialog } from './ui/npcdialog.js?v=runeframe-1';
-import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=runeframe-1';
-import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=runeframe-1';
-import { Achievements, craftAchievement } from './systems/achievements.js?v=runeframe-1';
-import { CommandConsole } from './commands.js?v=runeframe-1';
-import { Net } from './net/net.js?v=runeframe-1';
-import { MSG } from './net/protocol.js?v=runeframe-1';
-import * as sync from './net/sync.js?v=runeframe-1';
+} from './config.js?v=who-invited-grok-1';
+import { hashString, mulberry32, dist2, uid } from './utils.js?v=who-invited-grok-1';
+import { World } from './world/world.js?v=who-invited-grok-1';
+import { T, tileDef } from './world/tiles.js?v=who-invited-grok-1';
+import { Sprites } from './art/sprites.js?v=who-invited-grok-1';
+import { Camera } from './engine/camera.js?v=who-invited-grok-1';
+import { Input } from './engine/input.js?v=who-invited-grok-1';
+import { AudioManager } from './engine/audio.js?v=who-invited-grok-1';
+import { Renderer } from './engine/renderer.js?v=who-invited-grok-1';
+import { Fx } from './engine/fx.js?v=who-invited-grok-1';
+import { DayNight } from './systems/daynight.js?v=who-invited-grok-1';
+import { Weather } from './systems/weather.js?v=who-invited-grok-1';
+import { Spawner } from './systems/spawner.js?v=who-invited-grok-1';
+import { Progression } from './systems/progression.js?v=who-invited-grok-1';
+import { starterInventory } from './systems/inventory.js?v=who-invited-grok-1';
+import * as craftSys from './systems/crafting.js?v=who-invited-grok-1';
+import { applyPotion } from './systems/combat.js?v=who-invited-grok-1';
+import * as fishing from './systems/fishing.js?v=who-invited-grok-1';
+import { Critter } from './entities/critter.js?v=who-invited-grok-1';
+import { FAUNA } from './data/fauna.js?v=who-invited-grok-1';
+import { smartTarget } from './systems/smartcursor.js?v=who-invited-grok-1';
+import { Player, assignColor } from './entities/player.js?v=who-invited-grok-1';
+import { Enemy } from './entities/enemy.js?v=who-invited-grok-1';
+import { Boss } from './entities/boss.js?v=who-invited-grok-1';
+import { Minion } from './entities/minion.js?v=who-invited-grok-1';
+import { Npc } from './entities/npc.js?v=who-invited-grok-1';
+import { Projectile } from './entities/projectile.js?v=who-invited-grok-1';
+import { DropItem } from './entities/droppeditem.js?v=who-invited-grok-1';
+import { FallingTree } from './entities/fallingtree.js?v=who-invited-grok-1';
+import { ThrownItem } from './entities/thrown.js?v=who-invited-grok-1';
+import { ENEMIES } from './data/enemies.js?v=who-invited-grok-1';
+import { BOSSES, rollMechSpecialDrop, rollVesperaWeaponDrop } from './data/bosses.js?v=who-invited-grok-1';
+import { item as getItem, isItemEnabled } from './data/items.js?v=who-invited-grok-1';
+import { HUD } from './ui/hud.js?v=who-invited-grok-1';
+import { Minimap } from './ui/minimap.js?v=who-invited-grok-1';
+import { Menus } from './ui/menus.js?v=who-invited-grok-1';
+import { NpcDialog } from './ui/npcdialog.js?v=who-invited-grok-1';
+import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=who-invited-grok-1';
+import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=who-invited-grok-1';
+import { Achievements, craftAchievement } from './systems/achievements.js?v=who-invited-grok-1';
+import { CommandConsole } from './commands.js?v=who-invited-grok-1';
+import { Net } from './net/net.js?v=who-invited-grok-1';
+import { MSG } from './net/protocol.js?v=who-invited-grok-1';
+import * as sync from './net/sync.js?v=who-invited-grok-1';
 
 class Game {
   constructor() {
@@ -325,8 +325,10 @@ class Game {
       for (const d of this.drops.slice()) if (d.localOnly) d.update(dt, this);
     }
 
-    // Friendly NPCs are local world landmarks, just like the existing Guide.
-    for (const npc of this.npcs || []) if (npc) npc.update(dt, this);
+    // Friendly NPCs: host (or solo) runs full AI; clients only interpolate ghosts.
+    if (this.isHost || !this.net) {
+      for (const npc of this.npcs || []) if (npc) npc.update(dt, this);
+    }
 
     // Minions (local only)
     for (const m of this.minions.slice()) m.update(dt, this);
@@ -422,12 +424,13 @@ class Game {
     return hashString(str);
   }
 
-  startNewWorld(name, seedStr, difficulty = 'normal') {
+  startNewWorld(name, seedStr, difficulty = 'normal', opts = {}) {
     this.ensureCharacter();
     this.seed = this._seedFromString(seedStr);
     this.worldName = name;
     this.difficulty = normalizeDifficulty(difficulty);
-    this.world = new World(this.seed);
+    const evil = opts.evil === 'mesh' ? 'mesh' : 'corrupt';
+    this.world = new World(this.seed, { evil });
     this.progression = new Progression();
     this._resetEntities();
     this.time = new DayNight();
@@ -454,7 +457,7 @@ class Game {
     this.seed = data.seed;
     this.worldName = data.name;
     this.difficulty = normalizeDifficulty(data.difficulty);
-    this.world = new World(this.seed);
+    this.world = new World(this.seed, { evil: data.evilBiome || 'corrupt' });
     this.world.applyDiffArray(data.diffs);
     this.world.applyWallDiffArray(data.wallDiffs);
     this.world.applyShapeDiffArray(data.shapeDiffs);
@@ -606,7 +609,9 @@ class Game {
   buildSaveData() {
     const p = this.localPlayer;
     return {
-      version: SAVE_VERSION, name: this.worldName, seed: this.seed, difficulty: this.difficulty, time: this.time.t, day: this.time.day,
+      version: SAVE_VERSION, name: this.worldName, seed: this.seed, difficulty: this.difficulty,
+      evilBiome: this.world.evilBiome || 'corrupt',
+      time: this.time.t, day: this.time.day,
       width: this.world.width, height: this.world.height,
       diffs: this.world.getDiffArray(),
       wallDiffs: this.world.getWallDiffArray(),
@@ -995,6 +1000,8 @@ class Game {
         vx: Math.round(proj.vx), vy: Math.round(proj.vy), kind: proj.kind,
         color: proj.color, gravity: proj.gravity, life: proj.life,
         w: proj.w, h: proj.h, ignoreTerrain: proj.ignoreTerrain,
+        blastRadius: proj.blastRadius || 0, blastDamage: proj.blastDamage || 0,
+        burstDelay: proj.burstDelay, homing: !!proj.homing,
       });
     }
   }

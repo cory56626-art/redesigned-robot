@@ -1,15 +1,15 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=runeframe-1';
-import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=runeframe-1';
-import { SH } from '../world/shapes.js?v=runeframe-1';
-import { W, hasWall } from '../world/walls.js?v=runeframe-1';
-import { BIOMES } from '../world/biomes.js?v=runeframe-1';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=runeframe-1';
-import { item as getItem } from '../data/items.js?v=runeframe-1';
-import { canPlaceAt } from '../systems/combat.js?v=runeframe-1';
-import { clamp } from '../utils.js?v=runeframe-1';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=runeframe-1';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=who-invited-grok-1';
+import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=who-invited-grok-1';
+import { SH } from '../world/shapes.js?v=who-invited-grok-1';
+import { W, hasWall } from '../world/walls.js?v=who-invited-grok-1';
+import { BIOMES } from '../world/biomes.js?v=who-invited-grok-1';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=who-invited-grok-1';
+import { item as getItem } from '../data/items.js?v=who-invited-grok-1';
+import { canPlaceAt } from '../systems/combat.js?v=who-invited-grok-1';
+import { clamp } from '../utils.js?v=who-invited-grok-1';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=who-invited-grok-1';
 
 // Fallback appearance for players without a character record (remote players
 // on an older client, or a world loaded before characters existed).
@@ -246,6 +246,9 @@ export class Renderer {
     // underground. Drives stars fading out and the cave backdrop fading in.
     const depthT = clamp((botWorldTy - surfRow) / 34, 0, 1);
 
+    // Terraria-like biome parallax silhouettes, cross-faded at seams.
+    if (depthT < 0.85) this._drawBiomeBackdrop(game, W2, H, camX, camY, cam.scale, depthT, camTx);
+
     if (depthT < 0.8) this._drawStars(game, W2, H, camX, depthT);
     if (depthT > 0.15) {
       // Clip the backdrop to the part of the screen that is actually below
@@ -260,6 +263,65 @@ export class Renderer {
         this._drawCaveBackdrop(ctx, W2, H, camX, camY, cam.scale, depthT);
         ctx.restore();
       }
+    }
+  }
+
+  // Soft parallax hills/silhouettes per surface biome, blended across seams.
+  _drawBiomeBackdrop(game, W2, H, camX, camY, scale, depthT, camTx) {
+    const ctx = this.ctx;
+    const world = game.world;
+    if (!world || !world.surfaceBiomeAt) return;
+    const mixes = [];
+    for (let dx = -40; dx <= 40; dx += 8) {
+      const key = world.surfaceBiomeAt(camTx + dx);
+      if (!key) continue;
+      const e = mixes.find(m => m.key === key);
+      if (e) e.w += 1; else mixes.push({ key, w: 1 });
+    }
+    let total = 0; for (const m of mixes) total += m.w;
+    if (!total) return;
+    const night = game.time ? (1 - game.time.brightness) : 0;
+    const alphaBase = 0.22 * (1 - depthT) * (0.55 + 0.45 * (1 - night));
+    const scroll = camX * 0.08;
+    for (const m of mixes) {
+      const a = alphaBase * (m.w / total);
+      if (a < 0.01) continue;
+      const pal = this._biomeSilhouettePalette(m.key);
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.fillStyle = pal.far;
+      // Far ridge
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      for (let x = 0; x <= W2; x += 24) {
+        const n = Math.sin((x + scroll * 0.5) * 0.01 + m.key.length) * 18
+          + Math.sin((x + scroll) * 0.004) * 28;
+        ctx.lineTo(x, H * 0.55 + n);
+      }
+      ctx.lineTo(W2, H); ctx.closePath(); ctx.fill();
+      // Near ridge
+      ctx.globalAlpha = a * 1.15;
+      ctx.fillStyle = pal.near;
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      for (let x = 0; x <= W2; x += 18) {
+        const n = Math.sin((x + scroll * 1.4) * 0.014 + 2) * 14
+          + Math.sin((x + scroll * 1.1) * 0.006) * 22;
+        ctx.lineTo(x, H * 0.68 + n);
+      }
+      ctx.lineTo(W2, H); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  _biomeSilhouettePalette(key) {
+    switch (key) {
+      case 'corrupt': case 'infestedOcean': return { far: '#2a1838', near: '#3d2450' };
+      case 'mesh': case 'whirringOcean': return { far: '#1a1e24', near: '#2e343c' };
+      case 'frostpine': case 'snowyTaiga': return { far: '#1a2a3a', near: '#2a4058' };
+      case 'dunes': case 'ocean': return { far: '#3a3020', near: '#5a4a30' };
+      case 'jungle': return { far: '#0e2818', near: '#1a3e28' };
+      default: return { far: '#1a2a20', near: '#2a4030' };
     }
   }
 
@@ -2590,7 +2652,7 @@ export class Renderer {
       }
       if (b.key === 'theMech') this._drawTheMech(ctx, b);
       else if (b.key === 'theWorm') this._drawTheWorm(ctx, b);
-      else if (b.key === 'vespera') this._drawVespera(ctx, b);
+      else if (b.key === 'vespera') this._drawVespera(ctx, b, game);
       else if (b.key === 'grovekeeper') this._drawGrovekeeper(ctx, b);
       else if (b.key === 'gravemaw') this._drawGravemaw(ctx, b);
       else this._drawBlightSovereign(ctx, b);
@@ -3436,7 +3498,7 @@ export class Renderer {
   // four iridescent wings that blur on the downbeat, a compound eye with real
   // facets, dangling tarsal legs, and a long curved injector. Frenzy and phase
   // two heat the gold and crack the chitin rather than changing the shape.
-  _drawVespera(ctx, b) {
+  _drawVespera(ctx, b, game) {
     const x = b.x, y = b.y, w = b.w, h = b.h;
     const cx = x + w / 2, cy = y + h / 2;
     const f = b.facing < 0 ? -1 : 1;
@@ -3469,9 +3531,28 @@ export class Renderer {
       ctx.restore();
     }
 
-    // Faint ground shadow — she is airborne, but it still gives depth.
-    ctx.fillStyle = 'rgba(7,5,11,0.20)';
-    ctx.beginPath(); ctx.ellipse(cx, y + h + 10, 34, 5, 0, 0, Math.PI * 2); ctx.fill();
+    // Cast a ground shadow onto terrain below her, not glued under her body.
+    // While she is high in the air the blob shrinks and fades; with no solid
+    // under her column it is skipped entirely.
+    {
+      const world = game?.world;
+      let groundY = null;
+      if (world) {
+        const tx = Math.floor(cx / TILE);
+        const startTy = Math.floor((y + h) / TILE);
+        for (let ty = startTy; ty < Math.min(world.height, startTy + 40); ty++) {
+          if (world.isSolidAt(tx, ty)) { groundY = ty * TILE; break; }
+        }
+      }
+      if (groundY != null) {
+        const height = Math.max(0, groundY - (y + h));
+        const falloff = Math.max(0.12, 1 - height / 320);
+        ctx.fillStyle = `rgba(7,5,11,${0.22 * falloff})`;
+        ctx.beginPath();
+        ctx.ellipse(cx, groundY + 2, 34 * falloff + 8, 5 * falloff + 1.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
 
     // ---- local space: origin at her centre-front, +x is the way she faces ---
     ctx.save();
@@ -4367,18 +4448,45 @@ export class Renderer {
     ctx.fillRect(-1.5, 0, 3, 8);
     ctx.fillStyle = app.skin;
     ctx.fillRect(-1.5, 7, 3, 2.5);
-    // Held item, in the hand, rotating with the arm.
-    if (sel) {
+    // Terraria-like: weapons only appear while used. Tools/blocks stay visible
+    // when selected so mining/building still read clearly.
+    const showHeld = sel && (
+      p.swing ||
+      p.usePose ||
+      p.aiming ||
+      sel.category === 'tool' ||
+      sel.category === 'block' ||
+      sel.category === 'station' ||
+      sel.place != null
+    );
+    if (showHeld) {
       const icon = Sprites.getIcon(sel);
       if (icon) {
         ctx.save();
         ctx.translate(0, 9);
-        ctx.rotate(p.swing ? 0.5 : 0.9);
-        ctx.drawImage(icon, -6, -11, 12, 12);
+        if (p.aiming || p.usePose === 'ranged') {
+          // Two-hand aim: flatten the weapon toward the cursor direction.
+          const aim = p.aimAngle != null ? p.aimAngle : (p.facing > 0 ? 0 : Math.PI);
+          ctx.rotate(p.facing > 0 ? aim : Math.PI - aim);
+          ctx.drawImage(icon, -4, -10, 14, 14);
+        } else {
+          ctx.rotate(p.swing ? 0.5 : 0.9);
+          ctx.drawImage(icon, -6, -11, 12, 12);
+        }
         ctx.restore();
       }
     }
     ctx.restore();
+
+    // Second hand for bow/ranged aim pose.
+    if (sel && (p.aiming || p.usePose === 'ranged') && (sel.weaponClass === 'ranged' || sel.weaponClass === 'mage')) {
+      ctx.save();
+      ctx.translate(2, shoulderY);
+      ctx.rotate((p.aimAngle != null ? p.aimAngle * 0.35 : 0) - 0.4);
+      ctx.fillStyle = this._shade(sleeve, -0.15);
+      ctx.fillRect(-1.5, 0, 3, 7);
+      ctx.restore();
+    }
   }
 
   _drawPlayerHead(ctx, p, pose, app, eq) {

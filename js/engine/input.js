@@ -2,7 +2,7 @@
 // Produces a platform-agnostic InputState so PC and mobile drive gameplay and
 // networking identically. Keyboard/mouse and touch joysticks both feed the same
 // intents: move, jump, aim, primary-use, mine, place, consume.
-import { REACH, TILE } from '../config.js?v=runeframe-1';
+import { REACH, TILE } from '../config.js?v=who-invited-grok-1';
 
 export class Input {
   constructor(canvas) {
@@ -271,6 +271,8 @@ export class Input {
       'wheel',
       (e) => {
         if (this.isTyping()) return;
+        // Chat log / multiplayer sidebar scrolling must never rotate the hotbar.
+        if (e.target && e.target.closest && e.target.closest('#chatLog, #chatInput, #mpSidebar, .mp-panel, .chat-log')) return;
         // Overlays you can keep playing under (the bag, the transparent pause)
         // are marked `non-blocking` and do not swallow the wheel.
         if (document.querySelector('.overlay:not(.hidden):not(.non-blocking)')) return;

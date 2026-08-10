@@ -1,6 +1,6 @@
 // Summoner Realms — inventory, hotbar, equipment, and derived stats.
-import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=runeframe-1';
-import { ITEMS, item as getItem, isItemEnabled } from '../data/items.js?v=runeframe-1';
+import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=who-invited-grok-1';
+import { ITEMS, item as getItem, isItemEnabled } from '../data/items.js?v=who-invited-grok-1';
 
 export const INV_SIZE = HOTBAR_SIZE + INV_ROWS * INV_COLS;
 
@@ -185,9 +185,16 @@ export class Inventory {
       const sb = def.setBonus;
       if (sb) {
         if (sb.classBonus === 'melee') st.meleeMul += sb.dmgMul || 0;
-        if (sb.classBonus === 'ranged') st.rangedMul += sb.dmgMul || 0;
-        if (sb.classBonus === 'mage') st.mageMul += sb.dmgMul || 0;
-        if (sb.classBonus === 'summon') st.summonMul += sb.dmgMul || 0;
+        else if (sb.classBonus === 'ranged') st.rangedMul += sb.dmgMul || 0;
+        else if (sb.classBonus === 'mage') st.mageMul += sb.dmgMul || 0;
+        else if (sb.classBonus === 'summon') st.summonMul += sb.dmgMul || 0;
+        else if (sb.dmgMul) {
+          // Class-agnostic piece bonuses (e.g. Blightplate) apply to all damage types.
+          st.meleeMul += sb.dmgMul;
+          st.rangedMul += sb.dmgMul;
+          st.mageMul += sb.dmgMul;
+          st.summonMul += sb.dmgMul;
+        }
         st.maxManaBonus += sb.maxMana || 0;
         st.minionCap += sb.minionCap || 0;
       }

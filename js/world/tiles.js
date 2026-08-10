@@ -65,6 +65,23 @@ export const T = {
   STORM: 52,
   SHADOWGLASS: 53,
   STARSTEEL: 54,
+  // --- Who Invited Grok?! ---
+  BLIGHTWOOD: 55,
+  BLIGHTLEAVES: 56,
+  MESHGRASS: 57,
+  MESHSTONE: 58,
+  MESHWIRE: 59,
+  MESHSCRAP: 60,
+  MESHSPIRE: 61,
+  TANERINE: 62,
+  MODULINE: 63,
+  BREWERY: 64,
+  BLOODROOT: 65,
+  CALMLEAF: 66,
+  RANGERBLOOM: 67,
+  BERSERKMOSS: 68,
+  SUMMONTHISTLE: 69,
+  HOPS: 70,
 };
 
 // The old ore IDs stay reserved so saves from the short-lived pre-reset build
@@ -77,6 +94,7 @@ export const LEGACY_ORE_TILE_IDS = new Set([
 export const ORE_TILE_IDS = new Set([
   T.STONEIRON, T.AMBER, T.TIDE, T.EMBER,
   T.VERDANT, T.STORM, T.SHADOWGLASS, T.STARSTEEL,
+  T.TANERINE, T.MODULINE,
 ]);
 
 // Each entry: name, solid, color (fallback), hardness, minPower, drop item id,
@@ -121,13 +139,30 @@ export const TILES = {
   [T.STORM]:     { name: 'Storm Ore', solid: true, color: '#746d31', hardness: 132, minPower: 6, drop: 'stormOre', toolType: 'pickaxe', mat: 'stone', ore: true, blastResist: 2 },
   [T.SHADOWGLASS]: { name: 'Shadowglass Ore', solid: true, color: '#292039', hardness: 148, minPower: 7, drop: 'shadowglassOre', toolType: 'pickaxe', mat: 'deepstone', ore: true, blastResist: 2 },
   [T.STARSTEEL]: { name: 'Starsteel Ore', solid: true, color: '#748da6', hardness: 168, minPower: 8, drop: 'starsteelOre', toolType: 'pickaxe', mat: 'deepstone', ore: true, blastResist: 3 },
+  [T.TANERINE]:  { name: 'Tanerine Ore', solid: true, color: '#e07a2a', hardness: 122, minPower: 5, drop: 'tanerineOre', toolType: 'pickaxe', mat: 'deepstone', ore: true, blastResist: 2 },
+  [T.MODULINE]:  { name: 'Moduline Ore', solid: true, color: '#c42828', hardness: 175, minPower: 9, drop: 'modulineOre', toolType: 'pickaxe', mat: 'deepstone', ore: true, blastResist: 3 },
+
+  [T.BLIGHTWOOD]:   { name: 'Blightwood', solid: false, color: '#5a3a68', hardness: 30, minPower: 0, drop: 'wood', toolType: 'axe', tree: true, decor: true, mat: 'wood', blastResist: 1 },
+  [T.BLIGHTLEAVES]: { name: 'Blight Leaves', solid: false, color: '#7a3a9a', hardness: 8, minPower: 0, toolType: 'axe', leaf: true, decor: true, mat: 'leaves', blastResist: 0 },
+  [T.MESHGRASS]:    { name: 'Mesh Plating', solid: true, color: '#5a6068', hardness: 40, minPower: 1, drop: 'stone', mat: 'mesh', grass: '#8a9098', blastResist: 1 },
+  [T.MESHSTONE]:    { name: 'Iron Mesh', solid: true, color: '#4a4e56', hardness: 95, minPower: 2, drop: 'stone', toolType: 'pickaxe', mat: 'mesh', blastResist: 2 },
+  [T.MESHWIRE]:     { name: 'Living Wire', solid: false, color: '#c45a2a', hardness: 8, minPower: 0, drop: 'emberDust', dropChance: 0.35, decor: true, sway: 0.6, flora: true, hazard: 2, blastResist: 0 },
+  [T.MESHSCRAP]:    { name: 'Scrap Heap', solid: false, color: '#6a5548', hardness: 12, minPower: 0, drop: 'stone', dropChance: 0.4, decor: true, sway: 0.2, flora: true, blastResist: 0 },
+  [T.MESHSPIRE]:    { name: 'Mesh Spire', solid: false, color: '#6a7078', hardness: 34, minPower: 0, drop: 'stone', toolType: 'axe', tree: true, decor: true, mat: 'mesh', blastResist: 1 },
+  [T.BREWERY]:      { name: 'Brewery', solid: false, color: '#8a5a3a', hardness: 30, minPower: 0, drop: 'brewery', station: 'brewery', decor: true, blastResist: 0 },
+  [T.BLOODROOT]:    { name: 'Bloodroot', solid: false, color: '#b03030', hardness: 4, minPower: 0, drop: 'bloodroot', dropChance: 1, decor: true, sway: 0.7, flora: true, blastResist: 0 },
+  [T.CALMLEAF]:     { name: 'Calmleaf', solid: false, color: '#6ab0a0', hardness: 4, minPower: 0, drop: 'calmleaf', dropChance: 1, decor: true, sway: 0.8, flora: true, blastResist: 0 },
+  [T.RANGERBLOOM]:  { name: 'Ranger Bloom', solid: false, color: '#6a9a3a', hardness: 4, minPower: 0, drop: 'rangerBloom', dropChance: 1, decor: true, sway: 0.9, flora: true, blastResist: 0 },
+  [T.BERSERKMOSS]:  { name: 'Berserk Moss', solid: false, color: '#c05a2a', hardness: 4, minPower: 0, drop: 'berserkMoss', dropChance: 1, decor: true, sway: 0.5, flora: true, blastResist: 0 },
+  [T.SUMMONTHISTLE]:{ name: 'Summon Thistle', solid: false, color: '#9a6ad0', hardness: 4, minPower: 0, drop: 'summonThistle', dropChance: 1, decor: true, sway: 0.85, flora: true, blastResist: 0 },
+  [T.HOPS]:         { name: 'Wild Hops', solid: false, color: '#8aaa4a', hardness: 4, minPower: 0, drop: 'hops', dropChance: 1, decor: true, sway: 1.0, flora: true, blastResist: 0 },
 
   [T.SNOW]:       { name: 'Snowpack', solid: true, color: '#dfe8f4', hardness: 24, minPower: 0, drop: 'snow', mat: 'snow', blastResist: 0 },
   [T.ICE]:        { name: 'Rimeglass', solid: true, color: '#a8cfe4', hardness: 45, minPower: 1, drop: 'ice', toolType: 'pickaxe', mat: 'snow', blastResist: 2, slippery: true },
   [T.SANDSTONE]:  { name: 'Sandstone', solid: true, color: '#bfa367', hardness: 48, minPower: 1, drop: 'sandstone', toolType: 'pickaxe', mat: 'sand', blastResist: 1 },
   [T.DEEPSTONE]:  { name: 'Deepstone', solid: true, color: '#4e4a59', hardness: 90, minPower: 2, drop: 'deepstone', toolType: 'pickaxe', mat: 'deepstone', blastResist: 2 },
   [T.FROSTWOOD]:  { name: 'Frostpine', solid: false, color: '#6a5b4c', hardness: 32, minPower: 0, drop: 'wood', toolType: 'axe', tree: true, decor: true, mat: 'wood', blastResist: 1 },
-  [T.FROSTLEAVES]:{ name: 'Frostpine Needles', solid: false, color: '#2f5c4a', hardness: 8, minPower: 0, toolType: 'axe', leaf: true, decor: true, mat: 'leaves', blastResist: 0 },
+  [T.FROSTLEAVES]:{ name: 'Frostpine Needles', solid: false, color: '#7a9e8a', hardness: 8, minPower: 0, toolType: 'axe', leaf: true, decor: true, mat: 'leaves', blastResist: 0 },
   [T.CACTUS]:     { name: 'Duneheart Cactus', solid: false, color: '#4f8a53', hardness: 16, minPower: 0, drop: 'fiber', dropChance: 0.8, decor: true, hazard: 2, blastResist: 0 },
   [T.TALLGRASS]:  { name: 'Tall Grass', solid: false, color: '#5c9c46', hardness: 4, minPower: 0, drop: 'fiber', dropChance: 0.5, decor: true, blastResist: 0 },
   [T.STALAGMITE]: { name: 'Stalagmite', solid: false, color: '#7b7f8c', hardness: 18, minPower: 0, drop: 'stone', dropChance: 0.6, decor: true, blastResist: 0 },

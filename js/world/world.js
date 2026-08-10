@@ -1,17 +1,18 @@
 // Summoner Realms — runtime world: tile grid, wall grid, collision, mining,
 // lighting, and the edit diffs that get saved.
-import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=runeframe-1';
-import { T, tileDef, isSolid, tileLight, isLegacyOreTile } from './tiles.js?v=runeframe-1';
-import { W, hasWall, wallBlastResist } from './walls.js?v=runeframe-1';
-import { SH, shapeContains, surfaceOffset, fillsTop } from './shapes.js?v=runeframe-1';
-import { LiquidGrid } from './liquid.js?v=runeframe-1';
-import { BIOME_ORDER } from './biomes.js?v=runeframe-1';
-import { generateWorld } from './worldgen.js?v=runeframe-1';
+import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=who-invited-grok-1';
+import { T, tileDef, isSolid, tileLight, isLegacyOreTile } from './tiles.js?v=who-invited-grok-1';
+import { W, hasWall, wallBlastResist } from './walls.js?v=who-invited-grok-1';
+import { SH, shapeContains, surfaceOffset, fillsTop } from './shapes.js?v=who-invited-grok-1';
+import { LiquidGrid } from './liquid.js?v=who-invited-grok-1';
+import { BIOME_ORDER } from './biomes.js?v=who-invited-grok-1';
+import { generateWorld } from './worldgen.js?v=who-invited-grok-1';
 
 export class World {
-  constructor(seed) {
+  constructor(seed, opts = {}) {
     this.seed = seed >>> 0;
-    const g = generateWorld(this.seed);
+    this.evilBiome = opts.evil === 'mesh' ? 'mesh' : 'corrupt';
+    const g = generateWorld(this.seed, { evil: this.evilBiome });
     this.width = g.width;
     this.height = g.height;
     this.tiles = g.tiles;
@@ -25,6 +26,7 @@ export class World {
     this.spawnTx = g.spawnTx;
     this.spawnX = g.spawnX;
     this.spawnY = g.spawnY;
+    if (g.evilBiome) this.evilBiome = g.evilBiome;
     // Player edits, keyed by flat index so repeated edits to one tile collapse.
     this.diffs = new Map();      // index -> tileId
     this.wallDiffs = new Map();  // index -> wallId
@@ -314,11 +316,17 @@ export class World {
           const i = this.index(tx, ty);
           const id = this.tiles[i];
           seed = tileLight(id);
-          // Daylight reaches open air only where there is nothing solid above it
-          // *and* no background wall behind it. A walled-off pocket stays dark
-          // even near the surface, which is what makes caves feel enclosed.
-          if (ty < this.topSolid[tx] && !isSolid(id) && !hasWall(this.walls[i])) {
-            seed = Math.max(seed, dayLevel);
+          // Daylight in open air with no background wall. Sky islands sit well
+          // above the generated surface line: if topSolid is that high floating
+          // shelf, daylight still reaches everything from the island underside
+          // down to the natural surface instead of casting a full night shaft.
+          if (!isSolid(id) && !hasWall(this.walls[i])) {
+            const top = this.topSolid[tx];
+            const surface = this.surface ? this.surface[tx] : top;
+            const islandCeiling = surface != null && top < surface - 6;
+            if (ty < top || (islandCeiling && ty < surface)) {
+              seed = Math.max(seed, dayLevel);
+            }
           }
         } else if (ty < 0) {
           seed = dayLevel; // sky above the world

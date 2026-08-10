@@ -1,7 +1,7 @@
 // Summoner Realms — crafting recipes.
 // station: null (hand) | 'bench' | 'smeltery' | 'forge' | 'altar'
 // requiresBoss: optional active-boss progression gate.
-import { isItemEnabled } from './items.js?v=runeframe-1';
+import { isItemEnabled } from './items.js?v=who-invited-grok-1';
 
 const ALL_RECIPES = [
   // --- Hand ---
@@ -77,6 +77,8 @@ const ALL_RECIPES = [
   { out: { item: 'stormBar', count: 1 }, in: [{ item: 'stormOre', count: 5 }], station: 'smeltery' },
   { out: { item: 'shadowglassBar', count: 1 }, in: [{ item: 'shadowglassOre', count: 6 }], station: 'smeltery' },
   { out: { item: 'starsteelBar', count: 1 }, in: [{ item: 'starsteelOre', count: 7 }], station: 'smeltery' },
+  { out: { item: 'tanerineBar', count: 1 }, in: [{ item: 'tanerineOre', count: 5 }], station: 'smeltery' },
+  { out: { item: 'modulineBar', count: 1 }, in: [{ item: 'modulineOre', count: 7 }], station: 'smeltery' },
   { out: { item: 'cupriteBar', count: 1 }, in: [{ item: 'cupriteOre', count: 3 }], station: 'smeltery' },
   { out: { item: 'ironveinBar', count: 1 }, in: [{ item: 'ironveinOre', count: 4 }], station: 'smeltery' },
   { out: { item: 'glimmerBar', count: 1 }, in: [{ item: 'glimmerOre', count: 5 }], station: 'smeltery' },
@@ -100,6 +102,39 @@ const ALL_RECIPES = [
   { out: { item: 'emberblade', count: 1 }, in: [{ item: 'emberBar', count: 16 }, { item: 'emberDust', count: 4 }], station: 'forge' },
   { out: { item: 'stormcaller', count: 1 }, in: [{ item: 'stormBar', count: 18 }, { item: 'emberDust', count: 6 }, { item: 'stone', count: 8 }], station: 'forge' },
   { out: { item: 'stoneironBroadsword', count: 1 }, in: [{ item: 'stoneironBar', count: 8 }, { item: 'wood', count: 3 }], station: 'forge' },
+  // Class armor on the live ore ladder (legacy ironvein/cuprite recipes stay but stay filtered).
+  { out: { item: 'ironveinHelm', count: 1 }, in: [{ item: 'stoneironBar', count: 10 }], station: 'forge' },
+  { out: { item: 'ironveinPlate', count: 1 }, in: [{ item: 'stoneironBar', count: 16 }], station: 'forge' },
+  { out: { item: 'ironveinGreaves', count: 1 }, in: [{ item: 'stoneironBar', count: 14 }], station: 'forge' },
+  { out: { item: 'huntersCowl', count: 1 }, in: [{ item: 'amberBar', count: 8 }, { item: 'fiber', count: 6 }], station: 'forge' },
+  { out: { item: 'huntersGarb', count: 1 }, in: [{ item: 'amberBar', count: 12 }, { item: 'fiber', count: 8 }], station: 'forge' },
+  { out: { item: 'thornweaveMask', count: 1 }, in: [{ item: 'fiber', count: 12 }, { item: 'stoneironBar', count: 4 }], station: 'forge' },
+  { out: { item: 'thornweaveMantle', count: 1 }, in: [{ item: 'fiber', count: 16 }, { item: 'stoneironBar', count: 6 }], station: 'forge' },
+  { out: { item: 'thornweaveGuards', count: 1 }, in: [{ item: 'fiber', count: 14 }, { item: 'stoneironBar', count: 5 }], station: 'forge' },
+  { out: { item: 'aetherweaveHat', count: 1 }, in: [{ item: 'tideBar', count: 8 }, { item: 'emberDust', count: 2 }], station: 'forge' },
+  { out: { item: 'aetherweaveRobe', count: 1 }, in: [{ item: 'tideBar', count: 12 }, { item: 'emberDust', count: 3 }], station: 'forge' },
+  { out: { item: 'aetherweavePants', count: 1 }, in: [{ item: 'tideBar', count: 10 }, { item: 'emberDust', count: 2 }], station: 'forge' },
+  { out: { item: 'blightHelm', count: 1 }, in: [{ item: 'shadowglassBar', count: 8 }], station: 'forge' },
+  { out: { item: 'blightCuirass', count: 1 }, in: [{ item: 'shadowglassBar', count: 12 }], station: 'forge' },
+  { out: { item: 'blightGreaves', count: 1 }, in: [{ item: 'shadowglassBar', count: 10 }], station: 'forge' },
+  { out: { item: 'swiftboots', count: 1 }, in: [{ item: 'stoneironBar', count: 5 }, { item: 'fiber', count: 6 }], station: 'forge' },
+  { out: { item: 'vitalBand', count: 1 }, in: [{ item: 'stoneironBar', count: 6 }, { item: 'healLesser', count: 2 }], station: 'forge' },
+  { out: { item: 'ironhideEmblem', count: 1 }, in: [{ item: 'amberBar', count: 8 }], station: 'forge' },
+  { out: { item: 'aetherLocket', count: 1 }, in: [{ item: 'tideBar', count: 4 }, { item: 'emberDust', count: 2 }], station: 'forge' },
+  { out: { item: 'beastmasterSigil', count: 1 }, in: [{ item: 'verdantBar', count: 4 }, { item: 'fiber', count: 8 }], station: 'forge' },
+  { out: { item: 'cloudstepCharm', count: 1 }, in: [{ item: 'stormBar', count: 6 }, { item: 'fiber', count: 4 }], station: 'forge' },
+  { out: { item: 'tanerinePick', count: 1 }, in: [{ item: 'tanerineBar', count: 14 }, { item: 'wood', count: 3 }], station: 'forge' },
+  { out: { item: 'tanerineBlade', count: 1 }, in: [{ item: 'tanerineBar', count: 12 }, { item: 'wood', count: 2 }], station: 'forge' },
+  { out: { item: 'modulinePick', count: 1 }, in: [{ item: 'modulineBar', count: 18 }, { item: 'wood', count: 3 }], station: 'forge' },
+  { out: { item: 'modulineCleaver', count: 1 }, in: [{ item: 'modulineBar', count: 16 }, { item: 'emberDust', count: 4 }], station: 'forge' },
+  { out: { item: 'brewery', count: 1 }, in: [{ item: 'wood', count: 20 }, { item: 'amberBar', count: 6 }, { item: 'emberBar', count: 4 }, { item: 'clay', count: 8 }], station: 'forge' },
+  { out: { item: 'emptyBottle', count: 3 }, in: [{ item: 'sand', count: 4 }, { item: 'clay', count: 1 }], station: 'smeltery' },
+  { out: { item: 'ragePotion', count: 1 }, in: [{ item: 'emptyBottle', count: 1 }, { item: 'bloodroot', count: 2 }, { item: 'emberDust', count: 1 }], station: 'brewery' },
+  { out: { item: 'calmingPotion', count: 1 }, in: [{ item: 'emptyBottle', count: 1 }, { item: 'calmleaf', count: 2 }], station: 'brewery' },
+  { out: { item: 'rangerPotion', count: 1 }, in: [{ item: 'emptyBottle', count: 1 }, { item: 'rangerBloom', count: 2 }, { item: 'fiber', count: 2 }], station: 'brewery' },
+  { out: { item: 'berserkerPotion', count: 1 }, in: [{ item: 'emptyBottle', count: 1 }, { item: 'berserkMoss', count: 2 }, { item: 'stone', count: 2 }], station: 'brewery' },
+  { out: { item: 'summonerPotion', count: 1 }, in: [{ item: 'emptyBottle', count: 1 }, { item: 'summonThistle', count: 2 }, { item: 'fiber', count: 4 }], station: 'brewery' },
+  { out: { item: 'beer', count: 2 }, in: [{ item: 'emptyBottle', count: 2 }, { item: 'hops', count: 3 }, { item: 'fiber', count: 2 }], station: 'brewery' },
   { out: { item: 'verdantVineblade', count: 1 }, in: [{ item: 'verdantBar', count: 10 }, { item: 'fiber', count: 6 }], station: 'forge' },
   { out: { item: 'shadowglassScythe', count: 1 }, in: [{ item: 'shadowglassBar', count: 14 }, { item: 'wood', count: 4 }], station: 'forge' },
   { out: { item: 'tideWand', count: 1 }, in: [{ item: 'tideBar', count: 8 }, { item: 'wood', count: 4 }, { item: 'fiber', count: 3 }], station: 'forge' },
