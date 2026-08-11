@@ -11,8 +11,8 @@
 import {
   WIND_MIN_INTERVAL, WIND_MAX_INTERVAL, WIND_SHIFT_TIME,
   WIND_GUST_RATE, WIND_GUST_AMOUNT, WIND_DEPTH_FADE, TILE,
-} from '../config.js?v=who-invited-grok-1';
-import { mulberry32, clamp, lerp, smoothstep } from '../utils.js?v=who-invited-grok-1';
+} from '../config.js?v=deep-and-divided-1';
+import { mulberry32, clamp, lerp, smoothstep } from '../utils.js?v=deep-and-divided-1';
 
 // Named bands for the HUD readout, from the absolute wind strength.
 const BANDS = [

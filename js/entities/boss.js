@@ -11,18 +11,20 @@
 // distance, phase and line of sight. Animation fields (squash, jaw, segment
 // lag, shard spin) are updated here rather than in the renderer, so they are
 // driven by the simulation and stay frame-rate independent.
-import { TILE, normalizeDifficulty } from '../config.js?v=who-invited-grok-1';
-import { BOSSES } from '../data/bosses.js?v=who-invited-grok-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=who-invited-grok-1';
-import { aabb, angleTo, randRange, clamp } from '../utils.js?v=who-invited-grok-1';
-import { Projectile } from './projectile.js?v=who-invited-grok-1';
-import * as AI from '../systems/ai.js?v=who-invited-grok-1';
+import { TILE, normalizeDifficulty } from '../config.js?v=deep-and-divided-1';
+import { BOSSES } from '../data/bosses.js?v=deep-and-divided-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=deep-and-divided-1';
+import { aabb, angleTo, randRange, clamp, pointSegmentDistance } from '../utils.js?v=deep-and-divided-1';
+import { Projectile } from './projectile.js?v=deep-and-divided-1';
+import * as AI from '../systems/ai.js?v=deep-and-divided-1';
 
 const PROJ_COLOR = {
   thorn: '#7ee08a', rock: '#8a7a5a', blight: '#c58bff', voidorb: '#b06bff',
   mechMissile: '#ffad55', mechPlasma: '#78e9ff', mechShock: '#ffd36d',
   wormSpit: '#ca8cff', wormQuake: '#d8a6ff',
   venomInjector: '#f0c56b', venomStinger: '#f6d172', vesperaShard: '#ffe089',
+  choirSpore: '#c9e07a', choirGrasp: '#a86ac0', choirRot: '#7b4a8e',
+  weaveLash: '#8fd8e8', weavePulse: '#ffd36d', weaveSpore: '#b9e86e',
 };
 
 // Beyond this distance from every player the boss is being kited out of its
@@ -56,7 +58,12 @@ function scaledBossDef(source, tuning) {
       if (out.cooldown != null) out.cooldown = Math.max(0.32, out.cooldown * tuning.cooldown);
       if (out.telegraph != null) out.telegraph = Math.max(0.20, out.telegraph * tuning.telegraph);
       if (out.recover != null) out.recover = Math.max(0.12, out.recover * tuning.recover);
-      if (out.count != null) out.count = Math.max(1, out.count + tuning.extraProjectiles);
+      if (out.trailDamage != null && out.trailDamage > 0) out.trailDamage = Math.max(1, Math.round(out.trailDamage * tuning.damage));
+      if (out.sporeDamage != null && out.sporeDamage > 0) out.sporeDamage = Math.max(1, Math.round(out.sporeDamage * tuning.damage));
+      // Ring and node-pulse counts are geometry, not difficulty: adding a
+      // projectile to an evenly spaced ring closes the gap the player is meant
+      // to walk through. Only aimed fans take the extra shot.
+      if (out.count != null && out.type !== 'choirWail') out.count = Math.max(1, out.count + tuning.extraProjectiles);
       if (out.addCount != null) out.addCount = Math.max(1, out.addCount + tuning.extraAdds);
       if (out.homingStrength != null) out.homingStrength *= tuning.projectile;
       if (out.blastDamage != null && out.blastDamage > 0) out.blastDamage = Math.max(1, Math.round(out.blastDamage * tuning.damage));
@@ -75,6 +82,9 @@ export class Boss {
     this.key = key;
     this.def = d;
     this.name = d.name;
+    // The name the HUD shows for the whole fight. A husk is called a husk in
+    // the world but the bar above it is still The Hollowed Choir's bar.
+    this.encounterName = d.parentBoss && BOSSES[d.parentBoss] ? BOSSES[d.parentBoss].name : d.name;
     this.x = x; this.y = y; this.vx = 0; this.vy = 0;
     this.w = d.w; this.h = d.h;
     this.maxHp = d.maxHp; this.hp = d.maxHp;
@@ -158,6 +168,69 @@ export class Boss {
     this.vesperaFrenzyTime = 0;
     this.vesperaWingBeat = Math.random() * Math.PI * 2;
     this.vesperaMandible = 0;
+
+    // ---- The Hollowed Choir ----
+    // Arms are simulation state, not decoration: the renderer draws exactly the
+    // reach the hitboxes used, so a limb you can see is a limb that can hit you.
+    this.choirArms = [];
+    this.choirTrail = null;
+    this.choirSplit = false;
+    // Husks remember how long they have been huddled next to a sibling, which
+    // is the whole of the re-fuse mechanic.
+    this.huskFuseTimer = 0;
+    this.huskFuseCooldown = 0;
+    this.huskBite = 0;
+
+    // ---- The Weave ----
+    this.nodes = [];
+    this.weaveSpin = Math.random() * Math.PI * 2;
+    this.weaveLash = null;      // { a, b, time, max, stage }
+    this.weaveSweep = null;     // { time, max, angle }
+    this.weavePulse = 0;
+    this.weaveHitCooldowns = new Map();
+    if (this.movement === 'weave') this._initWeaveNodes();
+  }
+
+  // ---- The Weave: node bookkeeping -------------------------------------
+  //
+  // The boss's HP *is* the sum of its nodes. Every hit is attributed to the
+  // node nearest the blow, which is what makes "spread your damage" a real
+  // instruction rather than flavour text: focus one node and it retracts and
+  // heals, and the total barely moves.
+  _initWeaveNodes() {
+    const count = Math.max(1, this.def.nodeCount || 4);
+    const share = this.maxHp / count;
+    this.nodes = [];
+    for (let i = 0; i < count; i++) {
+      this.nodes.push({
+        i,
+        hp: share, maxHp: share,
+        x: this.x + this.w / 2, y: this.y + this.h / 2,
+        // Each node wanders on its own phase so the formation breathes.
+        driftSeed: Math.random() * Math.PI * 2,
+        retract: 0,       // 0..1, how far it has pulled toward the centre
+        regenLeft: 0,     // seconds of Reform regeneration remaining
+        regenRate: 0,
+        reformCd: 0,
+        hurtFlash: 0,
+        pulse: 0,
+      });
+    }
+  }
+
+  liveNodes() { return this.nodes.filter(n => !n.dead); }
+
+  // Formation slots for the live nodes: a diamond at four, a tighter triangle
+  // at three. Returned in local offsets from the boss centre.
+  _weaveSlot(index, count, phase) {
+    const rx = this.w * 0.36, ry = this.h * 0.38;
+    if (count >= 4) {
+      const a = -Math.PI / 2 + index * (Math.PI * 2 / 4);
+      return { x: Math.cos(a) * rx, y: Math.sin(a) * ry };
+    }
+    // Frayed: three nodes, pulled in tighter and spun a little faster.
+    const a = -Math.PI / 2 + index * (Math.PI * 2 / Math.max(1, count));
+    return { x: Math.cos(a) * rx * 0.82, y: Math.sin(a) * ry * 0.82 };
   }
 
   center() { return { x: this.x + this.w / 2, y: this.y + this.h / 2 }; }
@@ -194,7 +267,64 @@ export class Boss {
       game.fx.burst(c.x, c.y, this.color2, 28, { speed: 200, glow: true, life: 0.6 });
       game.fx.shake(6, 0.5);
       if (vesperaTransition) this._beginVesperaTransition(game);
+      if (this.def.splitInto && idx > prior) this._unravel(game);
+      else if (this.movement === 'weave' && idx > prior) this._frayWeave(game);
     }
+  }
+
+  // The Choir comes apart. The parent is removed without going through
+  // onBossDeath — it was not killed, it stopped being one thing — and its
+  // remaining health is divided between the husks that replace it.
+  _unravel(game) {
+    if (this.choirSplit) return;
+    this.choirSplit = true;
+    const count = Math.max(1, this.def.splitCount || 3);
+    const c = this.center();
+    const share = Math.max(1, Math.round(this.hp / count));
+    game.toast('The Choir comes apart!', 'bad');
+    game.audio?.bossTelegraph?.();
+    game.fx.ring(c.x, c.y, this.color2, 180, { life: 0.8, width: 5 });
+    game.fx.burst(c.x, c.y, ['#f062a8', '#b9d16a', '#4a2f52'], 54, {
+      speed: 260, life: 0.9, glow: true, gravity: 120, size: 2.8,
+    });
+    game.fx.smoke(c.x, c.y, '#2b1a31', 20, { jitter: 46 });
+    game.fx.shake(9, 0.7);
+    game.spawnChoirHusks?.(this, this.def.splitInto, count, share);
+    // Leave the arena cleanly: no lingering arms, trail or hitboxes.
+    this.choirArms.length = 0;
+    this.choirTrail = null;
+    this.dead = true;
+    this.replaced = true;
+  }
+
+  // The Weave loses a node at half health. The lost node is *absorbed*, not
+  // destroyed — its remaining health moves into the survivors, so the split
+  // never hands the player free damage.
+  _frayWeave(game) {
+    const live = this.liveNodes();
+    const target = this.def.phases[this.phaseIndex].nodes || (live.length - 1);
+    if (live.length <= target) return;
+    const c = this.center();
+    while (this.liveNodes().length > target) {
+      const alive = this.liveNodes();
+      // The weakest node is the one the formation gives up.
+      let weakest = alive[0];
+      for (const n of alive) if (n.hp < weakest.hp) weakest = n;
+      weakest.dead = true;
+      const rest = this.liveNodes();
+      if (rest.length) {
+        const each = weakest.hp / rest.length;
+        for (const n of rest) { n.hp += each; n.maxHp += each; }
+      }
+      weakest.hp = 0;
+      game.fx.burst(weakest.x, weakest.y, ['#8fd8e8', '#c47b4a', '#2b1c18'], 30, {
+        speed: 210, life: 0.75, glow: true, size: 2.4,
+      });
+    }
+    this.weaveLash = null;
+    this.weaveSweep = null;
+    game.fx.ring(c.x, c.y, '#8fd8e8', 150, { life: 0.7, width: 4 });
+    game.audio?.bossTelegraph?.();
   }
 
   update(dt, game) {
@@ -238,6 +368,24 @@ export class Boss {
       }
     }
 
+    // The Choir's ground trail and its arms keep running while it chooses its
+    // next move: the smear it left is a hazard you have to walk around, not a
+    // thing that politely expires when the attack ends.
+    if (this.movement === 'choir') this._updateChoirTrail(dt, game);
+    if (this.choirArms.length) this._updateChoirArms(dt, game);
+    if (this.movement === 'husk') this._updateHuskFusion(dt, game);
+    if (this.movement === 'weave') {
+      this._updateWeaveNodes(dt, game);
+      if (this.weaveSweep) {
+        this._updateWeaveSweep(dt, game);
+        clampToWorld(this, game.world);
+        this._updateAnim(dt, game);
+        this._contactDamage(game, this.phase());
+        return;
+      }
+      if (this.weaveLash) this._updateWeaveLash(dt, game);
+    }
+
     if (this.hidden) { this._updateHidden(dt, game, target); this._updateAnim(dt, game); return; }
     if (!target) { this._drift(dt, game); this._updateAnim(dt, game); return; }
 
@@ -267,6 +415,13 @@ export class Boss {
 
     // A committed charge or leap overrides everything until it expires.
     if (this.charge) {
+      if (this.charge.kind === 'lurchCharge') {
+        this._updateLurchCharge(dt, game, ph);
+        clampToWorld(this, game.world);
+        this._updateAnim(dt, game);
+        this._contactDamage(game, ph, this.charge ? this.charge.damage : null);
+        return;
+      }
       if (this.charge.kind === 'mechJump') {
         this._updateMechJump(dt, game, target, ph);
         clampToWorld(this, game.world);
@@ -367,7 +522,10 @@ export class Boss {
   // so the fight has to be re-summoned.
   _updateLeash(dt, game, target) {
     const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
-    const far = !target || Math.hypot(target.x - cx, target.y - cy) > ARENA_TILES * TILE;
+    // Slow grounded encounters declare a tighter arena, because the default is
+    // wide enough that a player can simply stand outside every attack's reach.
+    const arena = (this.def.arenaTiles || ARENA_TILES) * TILE;
+    const far = !target || Math.hypot(target.x - cx, target.y - cy) > arena;
     if (far) {
       this.awayTimer += dt;
       if (!this.enraged && this.awayTimer > this.tuning.enrageGrace) {
@@ -514,6 +672,34 @@ export class Boss {
       else this.vx = 0;
       if (this.onGround && this.vx && AI.shouldJump(this, game.world, Math.sign(this.vx))) this.vy = -345;
       this._move(game, dt);
+    } else if (this.movement === 'choir' || this.movement === 'husk') {
+      // Grounded and relentless. The Choir drags itself along at a lurch; a
+      // husk moves like something that used to be several people running.
+      applyGravity(this, dt);
+      const dir = Math.sign(dx) || this.facing || 1;
+      // The mass shambles: its speed oscillates instead of being a constant
+      // slide, which is what makes it read as dragging itself forward.
+      const shamble = this.movement === 'choir'
+        ? 0.72 + 0.28 * Math.max(0, Math.sin(this.spawnTime * 3.1))
+        : 0.86 + 0.14 * Math.max(0, Math.sin(this.spawnTime * 6.4));
+      // A husk that is re-fusing with a sibling stops trying to reach you.
+      const holding = this.movement === 'husk' && this.huskFuseTimer > 0.6 ? 0.35 : 1;
+      this.vx = dir * speed * shamble * holding;
+      if (this.onGround && AI.shouldJump(this, game.world, dir)) this.vy = -330;
+      this._move(game, dt);
+    } else if (this.movement === 'weave') {
+      // The formation hangs just above the player and corrects toward them
+      // continuously; the nodes do the drifting inside it. The standoff is
+      // small on purpose — see the note on floatHeight in data/bosses.js.
+      const float = ph.floatHeight || 46;
+      const orbit = this.spawnTime * (this.phaseIndex > 0 ? 1.15 : 0.78);
+      const side = Math.sin(orbit * 0.5) >= 0 ? 1 : -1;
+      const standoff = this.phaseIndex > 0 ? 58 : 76;
+      const desiredX = tc.x + side * standoff + Math.sin(orbit * 1.4) * 34;
+      const desiredY = tc.y - float + Math.cos(orbit * 1.1) * 26;
+      this.vx = clamp((desiredX - cx) * 1.25, -speed, speed);
+      this.vy = clamp((desiredY - cy) * 1.18, -speed, speed);
+      this._flyMove(game, dt);
     } else if (this.movement === 'worm') {
       // The Worm still walks and jumps in an open tunnel, but it does not
       // remain a harmless wall ornament if natural cave geometry blocks it.
@@ -914,6 +1100,420 @@ export class Boss {
     if (dive.time <= 0) this._launchVesperaDivePass(dive, game, target);
   }
 
+  // ---- Shared: damage along a line ------------------------------------
+  //
+  // Reaching arms, snapping strands and sweeping tendrils are all *lines*, and
+  // an axis-aligned box is a poor stand-in for one. This walks the segment,
+  // stops at the first solid tile (so a limb cannot reach through rock) and
+  // damages anything whose box the surviving part of the line crosses. Each
+  // call keeps its own hit set, so one lash hits a target once.
+  _lineDamage(game, x0, y0, angle, length, damage, opts = {}) {
+    const world = game.world;
+    const step = opts.step || 9;
+    const half = (opts.thickness || 16) / 2;
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+    let reached = length;
+    if (!opts.phasing) {
+      for (let d = 0; d <= length; d += 6) {
+        const px = x0 + cos * d, py = y0 + sin * d;
+        if (world.isSolidAt(Math.floor(px / TILE), Math.floor(py / TILE))) { reached = d; break; }
+      }
+    }
+    const hit = opts.hitSet || new Set();
+    const targets = [...game.players.values()];
+    for (const npc of (game.npcs || [])) if (npc && npc.alive) targets.push(npc);
+    for (const m of (game.minions || [])) if (m.alive !== false && !m.dead && m.maxHp != null) targets.push(m);
+
+    for (let d = 0; d <= reached; d += step) {
+      const px = x0 + cos * d, py = y0 + sin * d;
+      for (const p of targets) {
+        if (hit.has(p) || p.alive === false || p.dead) continue;
+        if (px < p.x - half || px > p.x + p.w + half) continue;
+        if (py < p.y - half || py > p.y + p.h + half) continue;
+        hit.add(p);
+        const kb = Math.sign(px - (this.x + this.w / 2)) * (opts.knockback || 5);
+        if (p.kind || p.isMinion) p.takeDamage(damage, kb, game, this.name);
+        else game.applyEnemyDamageToPlayer(p, damage, kb);
+      }
+    }
+    return { reached, hit };
+  }
+
+  // ---- The Hollowed Choir ---------------------------------------------
+
+  // Arms live for a fraction of a second and are drawn from this state, so the
+  // limb you see reaching for you is the exact segment that was tested.
+  _spawnChoirArms(atk, game, target) {
+    const c = this.center();
+    const tc = target.center();
+    const n = Math.max(1, Math.min(3, atk.count || 3));
+    const base = angleTo(c.x, c.y, tc.x, tc.y);
+    const reach = atk.reach || 200;
+    const damage = atk.damage || 60;
+    const hit = new Set();
+    for (let i = 0; i < n; i++) {
+      // The arms fan slightly so a player standing still is caught, while
+      // stepping out of the line still clears all three.
+      const a = base + (i - (n - 1) / 2) * 0.30;
+      const origin = { x: c.x, y: c.y - 6 + (i - (n - 1) / 2) * 12 };
+      const res = this._lineDamage(game, origin.x, origin.y, a, reach, damage, {
+        thickness: 20, knockback: 7, hitSet: hit,
+      });
+      this.choirArms.push({
+        x: origin.x - this.x, y: origin.y - this.y, // stored relative: the mass moves
+        angle: a, len: res.reached, t: 0, life: 0.55,
+      });
+      game.fx.streak(origin.x, origin.y, a, '#c98adf', 5, {
+        speed: 260, spread: 0.18, life: 0.24, size: 2.2, glow: true,
+      });
+    }
+    game.fx.shake(4.5, 0.24);
+  }
+
+  _updateChoirArms(dt, game) {
+    for (const arm of this.choirArms) arm.t += dt;
+    // Retract slowly, which is the readable half of the animation.
+    for (let i = this.choirArms.length - 1; i >= 0; i--) {
+      if (this.choirArms[i].t >= this.choirArms[i].life) this.choirArms.splice(i, 1);
+    }
+  }
+
+  _updateLurchCharge(dt, game, ph) {
+    const lurch = this.charge;
+    lurch.time -= dt;
+    applyGravity(this, dt);
+    this.vx = lurch.vx;
+    this._move(game, dt);
+    // The smear is laid down by the body as it travels, so its length is
+    // exactly how far the lurch actually got.
+    lurch.emit -= dt;
+    while (lurch.emit <= 0 && lurch.time > 0) {
+      lurch.emit += lurch.interval;
+      this._spawnRotZone(game, this.x + this.w / 2, this.y + this.h - 6, lurch.trailDamage, lurch.trailLife);
+    }
+    if (lurch.time > 0 && !this.hitWallX) return;
+    const c = this.center();
+    game.fx.burst(c.x, this.y + this.h, ['#7b4a8e', '#c9e07a', '#2b1a31'], 18, {
+      speed: 150, life: 0.5, gravity: 420, size: 2.3,
+    });
+    this.charge = null;
+    this.aiState = 'recover';
+    this.recover = lurch.recover != null ? lurch.recover : 0.75;
+  }
+
+  // A patch of corrupted ground. Persistent, terrain-ignoring and on a hit
+  // cooldown, so standing in it ticks while running through it costs one tick.
+  _spawnRotZone(game, x, y, damage, life) {
+    game.addProjectile(new Projectile({
+      x: x - 30, y: y - 10, vx: 0, vy: 0, w: 60, h: 20,
+      damage: Math.max(1, damage || 3), ownerType: 'boss', kind: 'choirRot',
+      color: '#7b4a8e', life: life || 2, persistent: true, hitCooldown: 0.5,
+      ignoreTerrain: true, knockback: 0,
+    }), true);
+  }
+
+  _updateChoirTrail(dt, game) {
+    const trail = this.choirTrail;
+    if (!trail) return;
+    trail.time -= dt;
+    if (trail.time <= 0) this.choirTrail = null;
+  }
+
+  // Husks that huddle together start knitting back into one thing. The heal is
+  // deliberately loud — toast, ring, particles — because the counterplay is to
+  // notice it and break them apart.
+  _updateHuskFusion(dt, game) {
+    if (this.huskFuseCooldown > 0) this.huskFuseCooldown = Math.max(0, this.huskFuseCooldown - dt);
+    const siblings = (game.bosses || []).filter(b =>
+      b !== this && !b.dead && b.key === this.key && b.hp > 0);
+    if (!siblings.length) { this.huskFuseTimer = 0; return; }
+    const c = this.center();
+    let near = null;
+    for (const s of siblings) {
+      const sc = s.center();
+      if (Math.hypot(sc.x - c.x, sc.y - c.y) <= 96) { near = s; break; }
+    }
+    if (!near) { this.huskFuseTimer = Math.max(0, this.huskFuseTimer - dt * 1.6); return; }
+    this.huskFuseTimer += dt;
+    // Both halves of the pair show the same tell while it builds.
+    if (Math.random() < dt * 14) {
+      const sc = near.center();
+      game.fx.burst((c.x + sc.x) / 2, (c.y + sc.y) / 2, '#b9d16a', 1, {
+        speed: 60, life: 0.4, glow: true,
+      });
+    }
+    if (this.huskFuseTimer < 3 || this.huskFuseCooldown > 0) return;
+
+    const pooled = this.hp + near.hp;
+    const heal = pooled * 0.05;
+    this.hp = Math.min(this.maxHp, this.hp + heal / 2);
+    near.hp = Math.min(near.maxHp, near.hp + heal / 2);
+    this.huskFuseTimer = 0; near.huskFuseTimer = 0;
+    this.huskFuseCooldown = 4; near.huskFuseCooldown = 4;
+    const mid = { x: (c.x + near.center().x) / 2, y: (c.y + near.center().y) / 2 };
+    game.toast('The husks knit back together!', 'bad');
+    game.fx.ring(mid.x, mid.y, '#b9d16a', 92, { life: 0.5, width: 3 });
+    game.fx.burst(mid.x, mid.y, ['#b9d16a', '#f062a8', '#4a2f52'], 24, {
+      speed: 170, life: 0.6, glow: true,
+    });
+    game.floatText?.(mid.x, mid.y - 16, '+' + Math.round(heal), '#b9d16a');
+  }
+
+  // Killing a husk in melee range costs you: it pops.
+  _huskSporeBurst(game) {
+    const c = this.center();
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.random() * 0.4;
+      game.addProjectile(new Projectile({
+        x: c.x - 5, y: c.y - 5,
+        vx: Math.cos(a) * 128, vy: Math.sin(a) * 128 - 40,
+        w: 10, h: 10, damage: 30, ownerType: 'boss', kind: 'choirSpore',
+        color: '#c9e07a', life: 1.5, gravity: true, trail: '#9fbb52', knockback: 4,
+      }), true);
+    }
+    game.fx.ring(c.x, c.y, '#c9e07a', 62, { life: 0.4, width: 3 });
+  }
+
+  // ---- The Weave -------------------------------------------------------
+
+  _updateWeaveNodes(dt, game) {
+    const live = this.liveNodes();
+    if (!live.length) return;
+    const ph = this.phase();
+    const c = this.center();
+    this.weaveSpin += dt * (this.phaseIndex > 0 ? 0.85 : 0.5);
+    const drift = ph.nodeDrift != null ? ph.nodeDrift : 24;
+
+    live.forEach((n, i) => {
+      const slot = this._weaveSlot(i, live.length, ph);
+      const a = this.weaveSpin;
+      // Rotate the slot with the formation, then let the node wander around it.
+      let ox = slot.x * Math.cos(a) - slot.y * Math.sin(a);
+      let oy = slot.x * Math.sin(a) + slot.y * Math.cos(a);
+      ox += Math.sin(this.spawnTime * 1.4 + n.driftSeed) * drift;
+      oy += Math.cos(this.spawnTime * 1.1 + n.driftSeed * 1.7) * drift * 0.7;
+      // Reform pulls the node in toward its siblings, which is what makes it
+      // genuinely harder to keep hitting.
+      const pull = 1 - n.retract * 0.72;
+      n.x = c.x + ox * pull;
+      n.y = c.y + oy * pull;
+      if (n.hurtFlash > 0) n.hurtFlash -= dt;
+      if (n.pulse > 0) n.pulse -= dt;
+      if (n.reformCd > 0) n.reformCd -= dt;
+
+      if (n.regenLeft > 0) {
+        n.regenLeft -= dt;
+        n.hp = Math.min(n.maxHp, n.hp + n.regenRate * dt);
+        n.retract = Math.min(1, n.retract + dt * 3);
+        if (n.regenLeft <= 0) n.retract = 0;
+      } else if (n.retract > 0) {
+        n.retract = Math.max(0, n.retract - dt * 2);
+      }
+    });
+    this._syncWeaveHp();
+    this._tryWeaveReform(game);
+  }
+
+  _syncWeaveHp() {
+    let total = 0;
+    for (const n of this.nodes) if (!n.dead) total += Math.max(0, n.hp);
+    this.hp = Math.min(this.maxHp, total);
+  }
+
+  // Reform: a node below a quarter of its own share retracts into the
+  // formation and knits itself back up. Its internal cooldown means focus fire
+  // still eventually wins — it just costs far more time than spreading damage.
+  _tryWeaveReform(game) {
+    const ph = this.phase();
+    const atk = ph.attacks.find(a => a.type === 'reform');
+    if (!atk) return;
+    for (const n of this.liveNodes()) {
+      if (n.regenLeft > 0 || n.reformCd > 0) continue;
+      if (n.hp / n.maxHp > (atk.threshold || 0.25)) continue;
+      const time = atk.regenTime || 3;
+      n.regenLeft = time;
+      n.regenRate = (n.maxHp * (atk.regen || 0.03)) / time;
+      n.reformCd = atk.cooldown || 15;
+      game.fx.ring(n.x, n.y, '#8fd8e8', 46, { life: 0.45, width: 2.5 });
+      game.floatText?.(n.x, n.y - 14, 'REFORM', '#8fd8e8');
+    }
+  }
+
+  // Strand Lash: two adjacent nodes pull the tissue between them taut, then
+  // snap it. The wind-up glows along the whole strand, so the dodge is to be
+  // off the line rather than away from either node.
+  _startWeaveLash(atk, game, target) {
+    const live = this.liveNodes();
+    if (live.length < 2) return;
+    const tc = target.center();
+    // Pick the adjacent pair whose strand passes closest to the player: the
+    // Weave aims with the geometry it has rather than firing at random.
+    let best = null, bestD = Infinity;
+    for (let i = 0; i < live.length; i++) {
+      const a = live[i], b = live[(i + 1) % live.length];
+      const d = pointSegmentDistance(tc.x, tc.y, a.x, a.y, b.x, b.y);
+      if (d < bestD) { bestD = d; best = [a, b]; }
+    }
+    if (!best) return;
+    const [n0, n1] = best;
+    // A taut strand between two fixed points is a line the player is almost
+    // never standing on, which made the Weave's signature attack land on
+    // nothing. A whip does not stay between its ends: the strand snaps *out*,
+    // bowing through the space it is aimed at. If the target is within the
+    // capture radius of the strand, the lash bulges through them; further away
+    // than that and it cracks straight, and stepping off the line is still the
+    // dodge the 0.5s wind-up is there to allow.
+    const CAPTURE = 96;
+    const bulge = bestD <= CAPTURE ? { x: tc.x, y: tc.y } : null;
+    const ang = angleTo(n0.x, n0.y, n1.x, n1.y);
+    const len = Math.hypot(n1.x - n0.x, n1.y - n0.y);
+    const over = len * 0.34;
+    this.weaveLash = {
+      a: n0, b: n1, stage: 'fire',
+      time: atk.lashLife || 0.22, max: atk.lashLife || 0.22,
+      damage: atk.damage || 55,
+      over, bulge,
+      hit: new Set(),
+    };
+    const opts = { thickness: 24, knockback: 8, hitSet: this.weaveLash.hit, phasing: true, step: 8 };
+    if (bulge) {
+      // Two legs: out to the crack point and back to the far node.
+      const a0 = angleTo(n0.x, n0.y, bulge.x, bulge.y);
+      const l0 = Math.hypot(bulge.x - n0.x, bulge.y - n0.y);
+      this._lineDamage(game, n0.x, n0.y, a0, l0 + 18, this.weaveLash.damage, opts);
+      const a1 = angleTo(bulge.x, bulge.y, n1.x, n1.y);
+      const l1 = Math.hypot(n1.x - bulge.x, n1.y - bulge.y);
+      this._lineDamage(game, bulge.x, bulge.y, a1, l1 + 18, this.weaveLash.damage, opts);
+    } else {
+      this._lineDamage(game, n0.x - Math.cos(ang) * over, n0.y - Math.sin(ang) * over,
+        ang, len + over * 2, this.weaveLash.damage, opts);
+    }
+    game.fx.streak(n0.x, n0.y, ang, '#d6f6ff', 8, { speed: 300, spread: 0.1, life: 0.2, size: 2, glow: true });
+    game.fx.shake(3.4, 0.18);
+  }
+
+  _updateWeaveLash(dt, game) {
+    const lash = this.weaveLash;
+    lash.time -= dt;
+    if (lash.time <= 0) this.weaveLash = null;
+  }
+
+  // Node Pulse: every node releases a radial shockwave at once. Phase two adds
+  // four homing spores per node so the burst has follow-through at range.
+  _weaveNodePulse(atk, game, target) {
+    const live = this.liveNodes();
+    const radius = atk.radius || 74;
+    const tc = target.center();
+    for (const n of live) {
+      n.pulse = 0.4;
+      game.addProjectile(new Projectile({
+        x: n.x - radius / 2, y: n.y - radius / 2, vx: 0, vy: 0,
+        w: radius, h: radius,
+        damage: atk.damage || 35, ownerType: 'boss', kind: 'weavePulse',
+        color: '#ffd36d', life: 0.22, ignoreTerrain: true, knockback: 6,
+      }), true);
+      game.fx.ring(n.x, n.y, '#ffd36d', radius, { life: 0.34, width: 3 });
+      if (!atk.spores) continue;
+      for (let i = 0; i < atk.spores; i++) {
+        const a = angleTo(n.x, n.y, tc.x, tc.y) + (i - (atk.spores - 1) / 2) * 0.34;
+        game.addProjectile(new Projectile({
+          x: n.x - 5, y: n.y - 5,
+          vx: Math.cos(a) * (atk.projSpeed || 210), vy: Math.sin(a) * (atk.projSpeed || 210),
+          w: 10, h: 10, damage: atk.sporeDamage || 22, ownerType: 'boss', kind: 'weaveSpore',
+          color: '#b9e86e', life: 2.4, homing: true,
+          homingTargetId: target.id || target.netId || null,
+          homingStrength: atk.homingStrength || 1.5, trail: '#8fd44e', knockback: 3,
+        }), true);
+      }
+    }
+    game.fx.shake(4, 0.24);
+  }
+
+  // Tendril Sweep: the formation spins and every strand extends into a rotating
+  // blade for a second and a half. The gaps between the strands are the dodge.
+  _startWeaveSweep(atk, game) {
+    this.weaveSweep = {
+      time: atk.duration || 1.5,
+      max: atk.duration || 1.5,
+      angle: Math.random() * Math.PI * 2,
+      speed: atk.sweepSpeed || 3.4,
+      reach: atk.reach || 132,
+      damage: atk.damage || 50,
+      recover: atk.recover != null ? atk.recover : 0.7,
+      tick: 0,
+    };
+    this.weaveHitCooldowns.clear();
+    const c = this.center();
+    game.fx.ring(c.x, c.y, '#8fd8e8', atk.reach || 132, { life: 0.4, width: 3 });
+  }
+
+  _updateWeaveSweep(dt, game) {
+    const sweep = this.weaveSweep;
+    sweep.time -= dt;
+    sweep.angle += sweep.speed * dt;
+    // The formation keeps drifting during the sweep, so it is not a safe
+    // "stand still and it passes" moment — but it moves slowly enough to run.
+    this.vx *= 0.9; this.vy *= 0.9;
+    this._flyMove(game, dt);
+
+    for (const [k, v] of this.weaveHitCooldowns) {
+      if (v <= dt) this.weaveHitCooldowns.delete(k); else this.weaveHitCooldowns.set(k, v - dt);
+    }
+
+    // Damage is sampled a few times a second rather than every frame, so the
+    // sweep cannot shred a target that clips one strand for two frames.
+    sweep.tick -= dt;
+    if (sweep.tick <= 0) {
+      sweep.tick = 0.12;
+      const live = this.liveNodes();
+      const c = this.center();
+      const hit = new Set();
+      for (let i = 0; i < live.length; i++) {
+        const a = sweep.angle + (i / Math.max(1, live.length)) * Math.PI * 2;
+        this._lineDamage(game, c.x, c.y, a, sweep.reach, sweep.damage, {
+          thickness: 16, knockback: 7, hitSet: hit, phasing: true, step: 10,
+        });
+      }
+      // Per-target pacing on top of the shared hit set.
+      for (const p of hit) this.weaveHitCooldowns.set(p, 0.4);
+    }
+
+    if (sweep.time > 0) return;
+    this.weaveSweep = null;
+    this.aiState = 'recover';
+    this.recover = sweep.recover;
+  }
+
+  // Contact for a formation: near a node, or across one of its strands.
+  _weaveContactDamage(game, contact) {
+    const live = this.liveNodes();
+    if (!live.length) return;
+    const targets = [...game.players.values()];
+    for (const npc of (game.npcs || [])) if (npc && npc.alive) targets.push(npc);
+    for (const m of (game.minions || [])) if (m.alive !== false && !m.dead && m.maxHp != null) targets.push(m);
+
+    for (const p of targets) {
+      if (p.alive === false || p.dead) continue;
+      const px = p.x + p.w / 2, py = p.y + p.h / 2;
+      let touching = false;
+      for (const n of live) {
+        if (Math.hypot(n.x - px, n.y - py) <= 26 + Math.max(p.w, p.h) * 0.4) { touching = true; break; }
+      }
+      if (!touching) {
+        for (let i = 0; i < live.length && !touching; i++) {
+          const a = live[i], b2 = live[(i + 1) % live.length];
+          if (live.length === 2 && i === 1) break;
+          if (pointSegmentDistance(px, py, a.x, a.y, b2.x, b2.y) <= 10 + Math.max(p.w, p.h) * 0.3) touching = true;
+        }
+      }
+      if (!touching) continue;
+      const knockback = Math.sign(px - (this.x + this.w / 2)) * 6;
+      const dodged = p.isMinion && p.tryDodgeContact?.(game, this);
+      if (!dodged && (p.kind || p.isMinion)) p.takeDamage(contact, knockback, game, this.name);
+      else if (!dodged) game.applyEnemyDamageToPlayer(p, contact, knockback);
+    }
+  }
+
   // Flying bosses used to integrate position directly with no collision at all,
   // so they swam through solid rock. They now refuse a move that would embed
   // them and climb out of whatever they are pressed against.
@@ -1057,6 +1657,29 @@ export class Boss {
       this.vesperaMandible += (mandibleTarget - this.vesperaMandible) * (1 - Math.pow(0.008, dt));
     }
 
+    // The Choir. The mass breathes constantly and the faces across it strain
+    // during a wind-up; the arms are already simulated, so only the body's own
+    // swell is animated here.
+    if (this.movement === 'choir') {
+      const charge = this.telegraph > 0 ? 1 - this.telegraph / (this.telegraphMax || 0.6) : 0;
+      this.choirSwell = (this.choirSwell || 0) + (charge - (this.choirSwell || 0)) * (1 - Math.pow(0.02, dt));
+      this.walkCycle = (this.walkCycle || 0) + dt * (Math.abs(this.vx) > 6 ? 2.6 : 0.8);
+      const wasAir = this._wasAirborne;
+      this._wasAirborne = !this.onGround;
+      if (wasAir && this.onGround) {
+        this.squashX = 1.2; this.squashY = 0.82;
+        game?.fx?.burst?.(this.x + this.w / 2, this.y + this.h, '#4a2f52', 10,
+          { speed: 110, life: 0.5, size: 2.2, gravity: 240 });
+      }
+    }
+    if (this.movement === 'husk') {
+      this.walkCycle = (this.walkCycle || 0) + dt * (Math.abs(this.vx) > 6 ? 6.5 : 1.2);
+      if (this.huskBite > 0) this.huskBite = Math.max(0, this.huskBite - dt);
+      const jawTarget = this.telegraph > 0 ? 1 : 0;
+      if (jawTarget > this.jaw) this.jaw += (jawTarget - this.jaw) * (1 - Math.pow(0.02, dt));
+      else this.jaw = Math.max(0, this.jaw - dt * 10);
+    }
+
     if (this.movement === 'mech') {
       const moving = Math.abs(this.vx || 0) > 5 && this.onGround;
       this.walkCycle += dt * (moving ? 5.2 : 0.65);
@@ -1158,8 +1781,16 @@ export class Boss {
     this.recover = ray.recover;
   }
 
-  _contactDamage(game, ph) {
+  // `override` lets a committed move (the Choir's lurch) hit for its own
+  // damage while it is travelling, instead of the phase's normal contact.
+  _contactDamage(game, ph, override = null) {
     if (this.hidden) return; // can't be hit by something that isn't there
+    const contact = Math.max(1, Math.round(override != null ? override : ph.contact));
+    // A formation is its nodes and the strands between them, not the empty air
+    // inside the diamond. Using the bounding box here would make standing in
+    // the middle of The Weave — the one place with nothing in it — the most
+    // punishing spot on the screen.
+    if (this.nodes.length) { this._weaveContactDamage(game, contact); return; }
     const targets = [...game.players.values()];
     for (const npc of (game.npcs || (game.npc ? [game.npc] : []))) {
       if (npc && npc.alive) targets.push(npc);
@@ -1171,8 +1802,8 @@ export class Boss {
       if (p.alive !== false && !p.dead && aabb(this, p)) {
         const knockback = Math.sign(p.x - this.x) * 6;
         const dodged = p.isMinion && p.tryDodgeContact?.(game, this);
-        if (!dodged && (p.kind || p.isMinion)) p.takeDamage(ph.contact, knockback, game, this.name);
-        else if (!dodged) game.applyEnemyDamageToPlayer(p, ph.contact, knockback);
+        if (!dodged && (p.kind || p.isMinion)) p.takeDamage(contact, knockback, game, this.name);
+        else if (!dodged) game.applyEnemyDamageToPlayer(p, contact, knockback);
       }
     }
   }
@@ -1468,6 +2099,87 @@ export class Boss {
         game.spawnBossAdds(atk.enemy, atk.addCount, this.x, this.y);
         break;
       }
+
+      // ---- The Hollowed Choir ----
+      case 'reachingGrasp': {
+        this._spawnChoirArms(atk, game, target);
+        break;
+      }
+      case 'choirWail': {
+        // A ring with even spacing and slow projectiles: the gaps between the
+        // spores are wide enough to walk through, which is the point.
+        const n = atk.count || 8;
+        const offset = this.spawnTime * 0.4;
+        for (let i = 0; i < n; i++) {
+          const a = offset + (i / n) * Math.PI * 2;
+          game.addProjectile(new Projectile({
+            x: cx - 7, y: cy - 7,
+            vx: Math.cos(a) * (atk.projSpeed || 132), vy: Math.sin(a) * (atk.projSpeed || 132),
+            w: 14, h: 14, damage: atk.damage, ownerType: 'boss', kind: 'choirSpore',
+            color: '#c9e07a', life: 4.2, trail: '#9fbb52', knockback: 5, destructible: true,
+          }), true);
+        }
+        game.audio?.vesperaScream?.();
+        game.fx.ring(cx, cy, '#f062a8', 130, { life: 0.5, width: 4 });
+        game.fx.burst(cx, cy, ['#c9e07a', '#f062a8', '#2b1a31'], 26, {
+          speed: 190, life: 0.6, glow: true, size: 2.4,
+        });
+        game.fx.shake(7.5, 0.5);
+        break;
+      }
+      case 'lurchCharge': {
+        const dir = Math.sign(tc.x - cx) || this.facing || 1;
+        this.charge = {
+          kind: 'lurchCharge',
+          time: atk.duration || 0.62,
+          vx: dir * (atk.speed || 300), vy: 0,
+          damage: atk.damage || 70,
+          trailDamage: atk.trailDamage || 3,
+          trailLife: atk.trailLife || 2,
+          interval: atk.trailInterval || 0.09,
+          emit: 0,
+          recover: atk.recover != null ? atk.recover : 0.75,
+        };
+        this.vx = this.charge.vx;
+        game.fx.burst(cx, this.y + this.h - 4, ['#7b4a8e', '#c9e07a'], 18, {
+          speed: 160, life: 0.5, gravity: 460, size: 2.2, glow: true,
+        });
+        game.fx.shake(4, 0.22);
+        break;
+      }
+      case 'unravel': {
+        // Reaching this phase is what splits the mass; the attack entry only
+        // exists so the phase has something legal to select.
+        this._unravel(game);
+        break;
+      }
+      case 'snapBite': {
+        const a = angleTo(cx, cy, tc.x, tc.y);
+        this.huskBite = 0.28;
+        this._lineDamage(game, cx, cy, a, atk.maxRange || 92, atk.damage || 45, {
+          thickness: 18, knockback: atk.knockback || 6,
+        });
+        game.fx.streak(cx, cy, a, '#b9d16a', 4, { speed: 220, spread: 0.3, life: 0.18, size: 1.8, glow: true });
+        break;
+      }
+
+      // ---- The Weave ----
+      case 'strandLash': {
+        this._startWeaveLash(atk, game, target);
+        break;
+      }
+      case 'nodePulse': {
+        this._weaveNodePulse(atk, game, target);
+        break;
+      }
+      case 'tendrilSweep': {
+        this._startWeaveSweep(atk, game);
+        break;
+      }
+      case 'reform': {
+        // Driven by node health in _tryWeaveReform, never by the attack roll.
+        break;
+      }
       case 'mechMissile': {
         const n = atk.count || 1;
         const muzzle = this._mechMissileMuzzle();
@@ -1554,16 +2266,53 @@ export class Boss {
     }
   }
 
-  takeDamage(amount, game, crit) {
+  // `hx`/`hy` are the point the blow landed, when the caller knows it. The
+  // Weave uses it to decide which node took the hit; every other boss ignores
+  // it, so passing it is optional at every call site.
+  takeDamage(amount, game, crit, hx = null, hy = null) {
     if (this.dead || this.invuln > 0 || this.hidden) return;
-    this.hp -= amount;
+    // Defense is flat mitigation with a floor, the same shape the player's own
+    // defense uses, so a fast weak weapon is weakened rather than nullified.
+    const armor = this.def.defense || 0;
+    const dealt = armor > 0 ? Math.max(1, amount - armor * 0.5) : amount;
+
+    if (this.nodes.length) {
+      const node = this._nodeNearest(hx, hy);
+      if (node) {
+        node.hp = Math.max(0, node.hp - dealt);
+        node.hurtFlash = 0.12;
+        this._syncWeaveHp();
+        if (game) game.floatText(node.x, node.y - 10, Math.round(dealt) + (crit ? '!' : ''), crit ? '#ffcf6b' : '#ffffff');
+      }
+    } else {
+      this.hp -= dealt;
+      if (game) game.floatText(this.x + this.w / 2, this.y, Math.round(dealt) + (crit ? '!' : ''), crit ? '#ffcf6b' : '#ffffff');
+    }
     this.hurtFlash = 0.1;
-    if (game) game.floatText(this.x + this.w / 2, this.y, Math.round(amount) + (crit ? '!' : ''), crit ? '#ffcf6b' : '#ffffff');
     if (this.hp <= 0) {
       this.hp = 0;
       this.dead = true;
       if (game) { this._deathThroes(game); game.onBossDeath(this); }
     }
+  }
+
+  // The node closest to where the hit landed. With no hit point (an effect that
+  // does not report one) the formation's lead node takes it, so damage is never
+  // silently discarded.
+  _nodeNearest(hx, hy) {
+    const live = this.liveNodes();
+    if (!live.length) return null;
+    if (hx == null || hy == null) {
+      // Prefer a node that is not mid-Reform, so a positionless tick cannot
+      // undo the retract mechanic for free.
+      return live.find(n => n.regenLeft <= 0) || live[0];
+    }
+    let best = live[0], bestD = Infinity;
+    for (const n of live) {
+      const d = (n.x - hx) * (n.x - hx) + (n.y - hy) * (n.y - hy);
+      if (d < bestD) { bestD = d; best = n; }
+    }
+    return best;
   }
 
   // A boss should not simply blink out of existence.
@@ -1585,6 +2334,29 @@ export class Boss {
         speed: 300, life: 1.08, glow: true, gravity: 120, size: 2.7,
       });
       game.fx.smoke(c.x, c.y, '#17121b', 28, { jitter: 44 });
+    }
+    if (this.movement === 'choir') {
+      game.fx.ring(c.x, c.y, '#f062a8', 210, { life: 0.86, width: 4 });
+      game.fx.burst(c.x, c.y, ['#f062a8', '#c9e07a', '#2b1a31'], 58, {
+        speed: 280, life: 1.0, glow: true, gravity: 140, size: 2.8,
+      });
+      game.fx.smoke(c.x, c.y, '#241429', 26, { jitter: 44 });
+    }
+    if (this.movement === 'husk') {
+      // Spores on death are a real hitbox — killing the last husk while stood
+      // on top of it should cost something.
+      this._huskSporeBurst(game);
+      game.fx.smoke(c.x, c.y, '#241429', 12, { jitter: 26 });
+    }
+    if (this.movement === 'weave') {
+      // The strands go slack and the nodes drift apart rather than popping.
+      for (const n of this.nodes) {
+        game.fx.burst(n.x, n.y, ['#8fd8e8', '#ffd36d', '#3d2a26'], 22, {
+          speed: 150, life: 1.1, glow: true, gravity: 26, size: 2.3,
+        });
+      }
+      game.fx.ring(c.x, c.y, '#8fd8e8', 220, { life: 0.9, width: 4 });
+      game.fx.smoke(c.x, c.y, '#17110f', 20, { jitter: 40 });
     }
     game.fx.shake(9, 0.8);
     game.fx.ring(c.x, c.y, '#ffffff', 140, { life: 0.5, width: 5 });
@@ -1609,6 +2381,24 @@ export class Boss {
       mr: this.mechRay ? { a: Math.round(this.mechRay.angle * 1000) / 1000, t: Math.round(this.mechRay.time * 100) / 100 } : null,
       vf: this.vesperaFrenzy ? 1 : 0,
       vt: this.vesperaTransition ? Math.round(this.vesperaTransition.time * 100) / 100 : 0,
+      // The Weave's nodes and the Choir's arms are the creature, not decoration,
+      // so a joined client has to receive them or it sees an empty box swinging
+      // at people. Both are rounded hard: they change every frame.
+      nd: this.nodes.length
+        ? this.nodes.filter(n => !n.dead).map(n => [
+            Math.round(n.x), Math.round(n.y),
+            Math.round((n.hp / Math.max(1, n.maxHp)) * 100),
+            Math.round(n.retract * 100),
+          ])
+        : null,
+      ar: this.choirArms.length
+        ? this.choirArms.map(a => [
+            Math.round(this.x + a.x), Math.round(this.y + a.y),
+            Math.round(a.angle * 100) / 100, Math.round(a.len),
+            Math.round((1 - a.t / a.life) * 100),
+          ])
+        : null,
+      sw: this.weaveSweep ? Math.round(this.weaveSweep.angle * 100) / 100 : null,
       warn,
     };
   }

@@ -1,15 +1,16 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, LIQUID_MAX } from '../config.js?v=who-invited-grok-1';
-import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=who-invited-grok-1';
-import { SH } from '../world/shapes.js?v=who-invited-grok-1';
-import { W, hasWall } from '../world/walls.js?v=who-invited-grok-1';
-import { BIOMES } from '../world/biomes.js?v=who-invited-grok-1';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=who-invited-grok-1';
-import { item as getItem } from '../data/items.js?v=who-invited-grok-1';
-import { canPlaceAt } from '../systems/combat.js?v=who-invited-grok-1';
-import { clamp } from '../utils.js?v=who-invited-grok-1';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=who-invited-grok-1';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H } from '../config.js?v=deep-and-divided-1';
+import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=deep-and-divided-1';
+import { SH } from '../world/shapes.js?v=deep-and-divided-1';
+import { W, hasWall } from '../world/walls.js?v=deep-and-divided-1';
+import { BIOMES } from '../world/biomes.js?v=deep-and-divided-1';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=deep-and-divided-1';
+import { item as getItem } from '../data/items.js?v=deep-and-divided-1';
+import { canPlaceAt } from '../systems/combat.js?v=deep-and-divided-1';
+import { clamp, mulberry32 } from '../utils.js?v=deep-and-divided-1';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=deep-and-divided-1';
+import { WaterRenderer } from './water.js?v=deep-and-divided-1';
 
 // Fallback appearance for players without a character record (remote players
 // on an older client, or a world loaded before characters existed).
@@ -32,6 +33,10 @@ const PROJ_GLOW = {
   guillotineCrescent: '#f0d489', hiveboreBolt: '#f4ce76', venomLance: '#b9e86e',
   royalSting: '#efbb57', prismShard: '#c9ee79', venomarchBolt: '#a5e86b',
   resonantPulse: '#f2e3af', droneLance: '#efbb57',
+  choirSpore: '#c9e07a', choirGrasp: '#c98adf', choirRot: '#9b5fb0',
+  weaveLash: '#8fd8e8', weavePulse: '#ffd36d', weaveSpore: '#b9e86e',
+  strandSpit: '#c8f2ff', strandBolt: '#c8f2ff',
+  hollowNote: '#f062a8', choirMote: '#c9e07a',
 };
 
 // Background colour anchors by depth, in tile rows. `colorAtDepth` interpolates
@@ -53,6 +58,7 @@ export class Renderer {
     this.camera = camera;
     this.lightCanvas = document.createElement('canvas');
     this.lightCtx = this.lightCanvas.getContext('2d');
+    this.water = new WaterRenderer();
   }
 
   draw(game) {
@@ -119,6 +125,10 @@ export class Renderer {
     this._drawParticles(game, ctx, true);
     this._drawRings(game, ctx);
     ctx.restore();
+
+    // Being underwater changes what you can see, not how bright the world is,
+    // so the submerged cast sits over the lighting overlay rather than under it.
+    this.water.drawSubmergedOverlay(game, ctx, W2, H);
 
     // Float texts (screen space via camera projection).
     this._drawFloatTexts(game, W2, H);
@@ -619,48 +629,12 @@ export class Renderer {
     }
   }
 
-  // Water, drawn over the terrain and under everything that moves.
-  //
-  // Each cell is filled to its level, so a partly-filled tile shows a real
-  // surface rather than a full block of blue. The topmost cell of a body gets a
-  // travelling wave and a brighter rim, which is what makes still water read as
-  // a liquid instead of a flat coloured rectangle.
+  // Water, drawn over the terrain and under everything that moves. The body,
+  // its surface, the light entering it and everything suspended in it live in
+  // engine/water.js — see the note at the top of that file for why an ocean
+  // needs all four to stop reading as a flat blue slab.
   _drawLiquid(game, ctx, tx0, ty0, tx1, ty1) {
-    const liq = game.world.liquid;
-    if (!liq) return;
-    const t = game.time ? game.time.t : 0;
-
-    ctx.save();
-    for (let ty = ty0; ty <= ty1; ty++) {
-      for (let tx = tx0; tx <= tx1; tx++) {
-        const level = liq.get(tx, ty);
-        if (!level) continue;
-        const fill = level / LIQUID_MAX;
-        // Water below more water is full-height: only the top of a body has a
-        // free surface.
-        const covered = liq.get(tx, ty - 1) > 0;
-        const h = covered ? TILE : TILE * fill;
-        const x = tx * TILE, y = ty * TILE + (TILE - h);
-
-        ctx.globalAlpha = 0.72;
-        ctx.fillStyle = '#2f6fbf';
-        ctx.fillRect(x, y, TILE, h);
-
-        if (!covered) {
-          // Surface wave: two out-of-phase sines so it never reads as a single
-          // scrolling sawtooth.
-          const wave = Math.sin(t * 2.2 + tx * 0.55) * 0.8 + Math.sin(t * 1.3 + tx * 0.21) * 0.5;
-          ctx.globalAlpha = 0.9;
-          ctx.fillStyle = '#7ec2f0';
-          ctx.fillRect(x, y + wave - 1, TILE, 1.4);
-          ctx.globalAlpha = 0.35;
-          ctx.fillStyle = '#bfe4ff';
-          ctx.fillRect(x, y + wave, TILE, 0.6);
-        }
-      }
-    }
-    ctx.globalAlpha = 1;
-    ctx.restore();
+    this.water.draw(game, ctx, tx0, ty0, tx1, ty1);
   }
 
   // A toppling tree keeps the exact sprites it had while standing — the shaded
@@ -1487,6 +1461,12 @@ export class Renderer {
         case 'bonepicker': this._drawBonepicker(ctx, e); break;
         case 'blightcrawler': this._drawBlightcrawler(ctx, e); break;
         case 'blightshade': this._drawBlightshade(ctx, e); break;
+        case 'sinewCrawler': this._drawSinewCrawler(ctx, e); break;
+        case 'sporeDrone': this._drawSporeDrone(ctx, e); break;
+        case 'gristleHusk': this._drawGristleHusk(ctx, e); break;
+        case 'wireSerpent': this._drawWireSerpent(ctx, e); break;
+        case 'strandSpitter': this._drawStrandSpitter(ctx, e); break;
+        case 'meshBrute': this._drawMeshBrute(ctx, e); break;
         default: this._drawUnknownEnemy(ctx, e); break;
       }
       if (e.hp < e.maxHp) this._miniHp(ctx, e, e.hp / e.maxHp, '#ff6b7d');
@@ -2037,6 +2017,894 @@ export class Renderer {
       ctx.beginPath(); ctx.arc(0, 0, 12 + f.charge * 5, 0, Math.PI * 2); ctx.stroke();
     }
     this._enemyFlashLocal(ctx, e, 16, 22, 6);
+    ctx.restore();
+  }
+
+  // ---------------------------------------------------------------------
+  // The Mesh's creatures.
+  //
+  // These all previously fell through to `_drawUnknownEnemy` — a rounded box
+  // with a white pixel for an eye — which is most of why the biome read as
+  // unfinished. They share one visual grammar so they belong to each other:
+  // dark wet meat, one bone-pale mechanical remnant left over from whatever
+  // they used to be, and a hot exposed core that brightens on the wind-up.
+
+  _drawSinewCrawler(ctx, e) {
+    const f = this._enemyFrame(e, 1);
+    this._enemyShadow(ctx, e, 1);
+    this._enemyGlow(ctx, e.x + e.w / 2, e.y + e.h / 2, 11, '#e08a6a', 0.10);
+    this._enemyPose(ctx, e, () => {
+      const gait = f.step * 1.9;
+      ctx.save();
+      ctx.translate(0, f.bob * 0.25);
+      // Cabled legs: pale filament under dark tissue.
+      ctx.lineCap = 'round';
+      for (const [lx, ly, sw] of [[-9, 3, -gait], [-4, 5, gait], [2, 5, -gait], [7, 3, gait]]) {
+        ctx.strokeStyle = '#2b1c1e'; ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx - 2, 9 + sw); ctx.lineTo(lx + 1, 10 + sw); ctx.stroke();
+        ctx.strokeStyle = '#9aa0a4'; ctx.lineWidth = 0.7;
+        ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx - 2, 9 + sw); ctx.stroke();
+      }
+      // Three fused body segments, wettest in the middle.
+      for (const [sx, sy, r] of [[-7, 1, 6], [0, 0, 7.5], [7, -1, 6]]) {
+        ctx.fillStyle = '#2f2022';
+        ctx.beginPath(); ctx.ellipse(sx, sy, r + 1, 5.4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = e.color;
+        ctx.beginPath(); ctx.ellipse(sx, sy, r, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,190,170,0.30)';
+        ctx.beginPath(); ctx.ellipse(sx - 1, sy - 2, r * 0.4, 1.4, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      // Exposed spinal cabling running the length of the back.
+      ctx.strokeStyle = '#9aa0a4'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-9, -2); ctx.quadraticCurveTo(0, -5, 9, -3); ctx.stroke();
+      // Head: a lipless plate over a wet mouth.
+      ctx.fillStyle = '#a35a52';
+      ctx.beginPath(); ctx.ellipse(10, -1, 5.2, 4.6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#d8d2c4';
+      ctx.beginPath(); ctx.moveTo(7, -4); ctx.lineTo(15, -2.5); ctx.lineTo(13, 0); ctx.lineTo(7, -1); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#1a0f10';
+      ctx.beginPath(); ctx.moveTo(9, 1); ctx.lineTo(14, 2); ctx.lineTo(9, 4); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = f.charge > 0 ? '#ffd7a0' : '#e8734a';
+      ctx.fillRect(11, -2.5, 1.6, 1.6);
+      if (f.charge > 0) {
+        ctx.strokeStyle = '#ffb27a'; ctx.globalAlpha = 0.7;
+        ctx.beginPath(); ctx.arc(0, 0, 12 + f.charge * 5, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      this._enemyFlashLocal(ctx, e, 24, 16, 6);
+      ctx.restore();
+    });
+  }
+
+  _drawSporeDrone(ctx, e) {
+    const f = this._enemyFrame(e, 1);
+    const cx = e.x + e.w / 2, cy = e.y + e.h / 2 + f.bob * 0.6;
+    this._enemyGlow(ctx, cx, cy, 15, '#e8b070', 0.18);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(e.facing < 0 ? -1 : 1, 1);
+    // Two membranes beating fast enough to blur.
+    const beat = Math.sin(f.t * 22) * 0.55 + 0.45;
+    ctx.fillStyle = 'rgba(232,176,112,0.34)';
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(s * 6, -3, 6.5, 2.4 + beat * 2.6, s * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Sac body, with the spore cluster hanging beneath it.
+    ctx.fillStyle = '#3a221c';
+    ctx.beginPath(); ctx.ellipse(0, 0, 6.4, 5.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = e.color;
+    ctx.beginPath(); ctx.ellipse(0, 0, 5.2, 4.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,220,180,0.35)';
+    ctx.beginPath(); ctx.ellipse(-1.6, -1.8, 1.8, 1.2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = f.charge > 0 ? '#fff0c8' : e.color2;
+    ctx.beginPath(); ctx.arc(0, 4.6, 2.2 + f.charge * 1.4, 0, Math.PI * 2); ctx.fill();
+    // A pale strut across the sac: the machine it grew over.
+    ctx.strokeStyle = '#c3c8ca'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-5, 1.5); ctx.lineTo(5, 0.5); ctx.stroke();
+    ctx.fillStyle = '#20120f';
+    ctx.fillRect(2.4, -2, 1.4, 1.4);
+    this._enemyFlashLocal(ctx, e, 18, 14, 6);
+    ctx.restore();
+  }
+
+  _drawGristleHusk(ctx, e) {
+    const f = this._enemyFrame(e, 1);
+    this._enemyShadow(ctx, e, 1);
+    this._enemyPose(ctx, e, () => {
+      const stride = f.step * 2.4;
+      ctx.save();
+      ctx.translate(0, f.bob * 0.3);
+      // Legs.
+      ctx.fillStyle = '#33212a';
+      ctx.fillRect(-5, 6 - stride * 0.3, 4, 8 + stride * 0.3);
+      ctx.fillRect(2, 6 + stride * 0.3, 4, 8 - stride * 0.3);
+      // Torso: meat over a ribcage of exposed frame.
+      ctx.fillStyle = '#2b1a1e';
+      this._roundRect(ctx, -8, -12, 16, 20, 5); ctx.fill();
+      ctx.fillStyle = e.color;
+      this._roundRect(ctx, -7, -11, 14, 18, 4); ctx.fill();
+      ctx.strokeStyle = e.color2; ctx.lineWidth = 1.2;
+      for (let i = 0; i < 3; i++) {
+        const y = -7 + i * 4.5;
+        ctx.beginPath(); ctx.moveTo(-6, y); ctx.quadraticCurveTo(0, y + 2, 6, y); ctx.stroke();
+      }
+      // One arm is still a piston.
+      ctx.strokeStyle = '#2b1a1e'; ctx.lineWidth = 3.4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(6, -7); ctx.lineTo(10 + stride * 0.2, 2); ctx.stroke();
+      ctx.strokeStyle = '#9aa0a4'; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(7, -5); ctx.lineTo(10 + stride * 0.2, 1); ctx.stroke();
+      ctx.strokeStyle = '#2b1a1e'; ctx.lineWidth = 3.2;
+      ctx.beginPath(); ctx.moveTo(-6, -7); ctx.lineTo(-9 - stride * 0.2, 3); ctx.stroke();
+      // Head: no face, just a split and a light inside it.
+      ctx.fillStyle = '#3a252a';
+      this._roundRect(ctx, -5, -19, 10, 9, 3); ctx.fill();
+      ctx.fillStyle = '#150c0e';
+      ctx.beginPath(); ctx.moveTo(-3, -16); ctx.lineTo(3, -17); ctx.lineTo(3, -12); ctx.lineTo(-3, -13); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = f.charge > 0 ? '#ffe0b0' : '#e0705a';
+      ctx.fillRect(-1.5, -15.5, 3, 2.4);
+      if (f.charge > 0) {
+        ctx.strokeStyle = '#ffb27a'; ctx.globalAlpha = 0.75; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(0, -4, 14 + f.charge * 5, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      this._enemyFlashLocal(ctx, e, 20, 28, 6);
+      ctx.restore();
+    });
+  }
+
+  _drawWireSerpent(ctx, e) {
+    const f = this._enemyFrame(e, 1.2);
+    this._enemyShadow(ctx, e, 1);
+    this._enemyPose(ctx, e, () => {
+      ctx.save();
+      ctx.translate(0, f.bob * 0.4);
+      // A whipping body drawn as a chain of shrinking coils.
+      for (let i = 4; i >= 0; i--) {
+        const t = i / 4;
+        const x = -10 + i * 5;
+        const y = Math.sin(f.t * 7 - i * 0.8) * (1.6 + t * 1.8);
+        ctx.fillStyle = i % 2 ? '#3a1a10' : e.color2;
+        ctx.beginPath(); ctx.ellipse(x, y, 3.4 - t * 0.6, 3.0 - t * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = e.color;
+        ctx.beginPath(); ctx.ellipse(x, y, 2.4 - t * 0.5, 2.0 - t * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      // Head with a live filament arcing off the jaw.
+      const hy = Math.sin(f.t * 7 - 4 * 0.8) * 3.4;
+      ctx.fillStyle = '#3a1a10';
+      ctx.beginPath(); ctx.ellipse(11, hy, 5, 3.6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = e.color;
+      ctx.beginPath(); ctx.ellipse(11, hy, 4, 2.8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffe08a';
+      ctx.fillRect(12, hy - 1.4, 1.6, 1.6);
+      ctx.strokeStyle = f.charge > 0 ? '#fff2c0' : '#ffb04a';
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.55 + 0.45 * Math.sin(f.t * 18);
+      ctx.beginPath();
+      ctx.moveTo(14, hy);
+      ctx.lineTo(16 + Math.sin(f.t * 21) * 2, hy - 2);
+      ctx.lineTo(18, hy + 1);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      this._enemyFlashLocal(ctx, e, 22, 12, 5);
+      ctx.restore();
+    });
+  }
+
+  _drawStrandSpitter(ctx, e) {
+    const f = this._enemyFrame(e, 1);
+    this._enemyShadow(ctx, e, 1);
+    this._enemyPose(ctx, e, () => {
+      ctx.save();
+      ctx.translate(0, f.bob * 0.3);
+      // Rooted stalk.
+      ctx.strokeStyle = '#2f1c1e'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(0, 11); ctx.quadraticCurveTo(-2, 3, 0, -3); ctx.stroke();
+      // The spool: a ring of pale machine with tissue wound onto it.
+      ctx.strokeStyle = '#9aa0a4'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(0, -4, 6, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = e.color; ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.arc(0, -4, 6, f.t * 1.5, f.t * 1.5 + Math.PI * 1.3);
+      ctx.stroke();
+      // The knot at the centre swells as it winds up a shot.
+      ctx.fillStyle = '#2f1c1e';
+      ctx.beginPath(); ctx.arc(0, -4, 3.6 + f.charge * 1.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = f.charge > 0 ? '#dcfaff' : e.color2;
+      ctx.beginPath(); ctx.arc(0, -4, 2.2 + f.charge * 1.2, 0, Math.PI * 2); ctx.fill();
+      // A loose strand trailing off, the thing it is about to spit.
+      ctx.strokeStyle = e.color2; ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.6 + f.charge * 0.4;
+      ctx.beginPath();
+      ctx.moveTo(5, -4);
+      ctx.quadraticCurveTo(9 + f.charge * 3, -6 + Math.sin(f.t * 4) * 2, 12 + f.charge * 4, -3);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      this._enemyFlashLocal(ctx, e, 18, 22, 6);
+      ctx.restore();
+    });
+  }
+
+  _drawMeshBrute(ctx, e) {
+    const f = this._enemyFrame(e, 0.85);
+    this._enemyShadow(ctx, e, 1.25);
+    this._enemyGlow(ctx, e.x + e.w / 2, e.y + e.h / 2, 20, '#d0705a', 0.14);
+    this._enemyPose(ctx, e, () => {
+      const stride = f.step * 2.6;
+      ctx.save();
+      ctx.translate(0, f.bob * 0.35);
+      // Squat, wide, four-legged: it should read as heavy before it moves.
+      ctx.fillStyle = '#2a171b';
+      for (const [lx, sw] of [[-10, -stride], [-3, stride], [3, -stride], [10, stride]]) {
+        ctx.fillRect(lx - 2, 8 + sw * 0.2, 4.4, 8 - sw * 0.2);
+      }
+      ctx.fillStyle = '#25141a';
+      this._roundRect(ctx, -14, -10, 28, 20, 8); ctx.fill();
+      ctx.fillStyle = e.color;
+      this._roundRect(ctx, -13, -9, 26, 18, 7); ctx.fill();
+      // Plating fused across the shoulders.
+      ctx.fillStyle = '#8d9296';
+      this._roundRect(ctx, -11, -9, 9, 6, 2); ctx.fill();
+      this._roundRect(ctx, 3, -9, 9, 6, 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,190,170,0.22)';
+      this._roundRect(ctx, -10, 1, 20, 5, 3); ctx.fill();
+      // A split chest with the core inside it — the thing you shoot.
+      ctx.fillStyle = '#150b0e';
+      ctx.beginPath(); ctx.moveTo(-4, -3); ctx.lineTo(4, -4); ctx.lineTo(3, 6); ctx.lineTo(-3, 5); ctx.closePath(); ctx.fill();
+      const core = 2.4 + f.charge * 2 + Math.sin(f.t * 3) * 0.3;
+      ctx.fillStyle = f.charge > 0 ? '#fff0d0' : e.color2;
+      ctx.beginPath(); ctx.arc(0, 1, core, 0, Math.PI * 2); ctx.fill();
+      // Head is small and low, slung forward off the mass.
+      ctx.fillStyle = '#2a171b';
+      this._roundRect(ctx, 8, -14, 10, 8, 3); ctx.fill();
+      ctx.fillStyle = '#c0655a';
+      this._roundRect(ctx, 9, -13, 8, 6, 2); ctx.fill();
+      ctx.fillStyle = '#ffd7a0';
+      ctx.fillRect(14, -11, 2, 2);
+      if (f.charge > 0) {
+        ctx.strokeStyle = '#ffb27a'; ctx.globalAlpha = 0.8; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.arc(0, 0, 18 + f.charge * 7, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      this._enemyFlashLocal(ctx, e, 30, 32, 8);
+      ctx.restore();
+    });
+  }
+
+  // =====================================================================
+  // THE HOLLOWED CHOIR
+  //
+  // A mound of fused, rotted husks: skulls and screaming faces packed into a
+  // dome, limbs jutting out of it at wrong angles, and two enormous splayed
+  // arms holding the whole thing off the ground. Two colours do the work — a
+  // bruised violet for the meat and a sick green for the bone — because a
+  // hundred small parts in two hues read as a crowd, and the same parts in
+  // twelve hues read as noise.
+  //
+  // The layout is generated once per boss from a fixed seed and cached on the
+  // entity, so the same creature has the same faces every frame and on every
+  // client, and the per-frame cost is drawing rather than deciding.
+  _choirLayout(b) {
+    if (b._choirLayout) return b._choirLayout;
+    // A fixed seed, not the entity id: every client must build the same crowd.
+    const rand = mulberry32(0xc0a17);
+    const parts = [];
+    const w = b.w, h = b.h;
+    // The dome is packed in two passes over the same ellipse. The first lays a
+    // dense grid of bodies; the second drops smaller husks into the gaps. A
+    // single sparse pass leaves the dark backing showing between the husks,
+    // which reads as a hole in the creature rather than as depth — the whole
+    // effect depends on there being no visible floor under the crowd.
+    const RX = w * 0.44, RY = h * 0.42;
+    const inside = (dx, dy, slack) =>
+      (dx * dx) / (RX * RX) + (dy * dy) / (RY * RY) <= slack;
+
+    const rows = 10;
+    for (let row = 0; row < rows; row++) {
+      const ry = row / (rows - 1);
+      const dy = (ry - 0.5) * 2 * RY;
+      const halfW = Math.sqrt(Math.max(0.03, 1 - (dy * dy) / (RY * RY))) * RX;
+      const count = Math.max(2, Math.round(halfW / 11));
+      for (let i = -count; i <= count; i++) {
+        const jitterX = (rand() - 0.5) * 8;
+        const jitterY = (rand() - 0.5) * 8;
+        const x = w / 2 + (i / Math.max(1, count)) * halfW + jitterX;
+        const y = h * 0.44 + dy + jitterY;
+        const r = rand();
+        parts.push({
+          x, y,
+          kind: r < 0.30 ? 'skull' : r < 0.58 ? 'face' : r < 0.80 ? 'limb' : 'lump',
+          // Bodies get bigger toward the middle of the mound, so the silhouette
+          // is made of small husks and the interior of large ones.
+          size: (11 + rand() * 7) * (0.82 + 0.24 * (1 - Math.abs(ry - 0.5) * 2)),
+          rot: (rand() - 0.5) * 1.6,
+          // Purple meat outnumbers green bone roughly three to two, as in the
+          // reference: bone is the accent that picks faces out of the mass.
+          bone: rand() < 0.42,
+          phase: rand() * Math.PI * 2,
+          depth: ry,
+        });
+      }
+    }
+    // Infill pass: smaller husks wherever the grid left a seam.
+    for (let i = 0; i < 90; i++) {
+      const a = rand() * Math.PI * 2;
+      const rr = Math.sqrt(rand());
+      const dx = Math.cos(a) * rr * RX, dy = Math.sin(a) * rr * RY;
+      if (!inside(dx, dy, 1)) continue;
+      const r = rand();
+      parts.push({
+        x: w / 2 + dx, y: h * 0.44 + dy,
+        kind: r < 0.42 ? 'skull' : r < 0.72 ? 'face' : 'lump',
+        size: 7 + rand() * 5,
+        rot: (rand() - 0.5) * 1.8,
+        bone: rand() < 0.42,
+        phase: rand() * Math.PI * 2,
+        depth: 0.5,
+      });
+    }
+    // Painter's order: back to front, so the lower husks overlap the upper ones
+    // the way a heap actually stacks.
+    parts.sort((p, q) => p.y - q.y);
+    // Reaching limbs that break the silhouette. These are decorative — the
+    // limbs that can hurt you are b.choirArms, drawn separately and last.
+    const reach = [];
+    for (let i = 0; i < 7; i++) {
+      reach.push({
+        x: w * (0.14 + rand() * 0.72),
+        y: h * (0.06 + rand() * 0.3),
+        angle: -Math.PI / 2 + (rand() - 0.5) * 2.4,
+        len: 16 + rand() * 22,
+        phase: rand() * Math.PI * 2,
+        bone: rand() < 0.45,
+      });
+    }
+    b._choirLayout = { parts, reach };
+    return b._choirLayout;
+  }
+
+  _drawHollowedChoir(ctx, b) {
+    const x = b.x, y = b.y, w = b.w, h = b.h;
+    const cx = x + w / 2;
+    const f = b.facing === -1 ? -1 : 1;
+    const layout = this._choirLayout(b);
+    const t = b.spawnTime || 0;
+    const swell = clamp(b.choirSwell || 0, 0, 1);
+    const walk = b.walkCycle || 0;
+
+    const MEAT = '#6b4a73';
+    const MEAT_D = '#3a2440';
+    const BONE = '#a8b96a';
+    const BONE_D = '#6d7c42';
+    const VOID = '#1b1020';
+    const HOT = '#f062a8';
+
+    ctx.save();
+    this._bossAura(ctx, b, HOT, 96);
+
+    // Contact shadow under the whole mass.
+    const sg = ctx.createRadialGradient(cx, y + h + 2, 6, cx, y + h + 2, w * 0.52);
+    sg.addColorStop(0, 'rgba(8,4,12,0.5)');
+    sg.addColorStop(1, 'rgba(8,4,12,0)');
+    ctx.fillStyle = sg;
+    ctx.beginPath(); ctx.ellipse(cx, y + h + 2, w * 0.52, 10, 0, 0, Math.PI * 2); ctx.fill();
+
+    ctx.translate(x, y);
+
+    // ---- The two splayed support limbs, drawn behind the mound ----
+    // These are what make it read as a thing dragging itself rather than a
+    // boulder: they plant, the mass swings forward, they plant again.
+    for (const side of [-1, 1]) {
+      const gait = Math.sin(walk * 2 + (side > 0 ? 0 : Math.PI)) * 4;
+      const shoulderX = w / 2 + side * w * 0.24;
+      const shoulderY = h * 0.46;
+      const elbowX = w / 2 + side * w * 0.50;
+      const elbowY = h * 0.62 + gait * 0.4;
+      const handX = w / 2 + side * w * 0.60;
+      const handY = h - 2 + gait * 0.25;
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.strokeStyle = MEAT_D; ctx.lineWidth = 15;
+      ctx.beginPath();
+      ctx.moveTo(shoulderX, shoulderY);
+      ctx.quadraticCurveTo(elbowX, elbowY, handX, handY);
+      ctx.stroke();
+      ctx.strokeStyle = MEAT; ctx.lineWidth = 11;
+      ctx.stroke();
+      ctx.strokeStyle = this._rgba('#8d6795', 0.5); ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(shoulderX, shoulderY - 3);
+      ctx.quadraticCurveTo(elbowX, elbowY - 4, handX, handY - 4);
+      ctx.stroke();
+      // Splayed fingers pressed into the ground.
+      ctx.strokeStyle = MEAT_D; ctx.lineWidth = 5;
+      for (let i = 0; i < 4; i++) {
+        const a = 0.25 + i * 0.42;
+        ctx.beginPath();
+        ctx.moveTo(handX, handY - 2);
+        ctx.lineTo(handX + side * Math.cos(a) * 15, handY + Math.sin(a) * 5);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = MEAT; ctx.lineWidth = 3;
+      for (let i = 0; i < 4; i++) {
+        const a = 0.25 + i * 0.42;
+        ctx.beginPath();
+        ctx.moveTo(handX, handY - 2);
+        ctx.lineTo(handX + side * Math.cos(a) * 15, handY + Math.sin(a) * 5);
+        ctx.stroke();
+      }
+    }
+
+    // ---- Decorative reaching limbs behind the dome ----
+    for (const r of layout.reach) {
+      const wave = Math.sin(t * 1.6 + r.phase) * 0.22;
+      const a = r.angle + wave;
+      const ex = r.x + Math.cos(a) * r.len;
+      const ey = r.y + Math.sin(a) * r.len;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = MEAT_D; ctx.lineWidth = 7;
+      ctx.beginPath(); ctx.moveTo(r.x, r.y + 6); ctx.quadraticCurveTo(r.x + Math.cos(a) * r.len * 0.5, r.y + Math.sin(a) * r.len * 0.5 + 4, ex, ey); ctx.stroke();
+      ctx.strokeStyle = r.bone ? BONE_D : MEAT; ctx.lineWidth = 4.4;
+      ctx.stroke();
+      // A splayed hand at the end of each.
+      ctx.strokeStyle = r.bone ? BONE : MEAT; ctx.lineWidth = 2;
+      for (let i = 0; i < 4; i++) {
+        const fa = a + (i - 1.5) * 0.34;
+        ctx.beginPath();
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(ex + Math.cos(fa) * 7, ey + Math.sin(fa) * 7);
+        ctx.stroke();
+      }
+    }
+
+    // ---- The mound itself ----
+    // A dark silhouette first, so every husk drawn on top has an edge to sit
+    // against instead of floating on the sky.
+    ctx.fillStyle = VOID;
+    ctx.beginPath();
+    ctx.ellipse(w / 2, h * 0.44, w * 0.43, h * 0.41, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    for (const p of layout.parts) {
+      const breathe = Math.sin(t * 1.5 + p.phase) * (0.8 + swell * 1.6);
+      const px = p.x, py = p.y + breathe;
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(p.rot + Math.sin(t * 0.9 + p.phase) * 0.05);
+      // Everything is lit from the upper left: a dark base, the body colour,
+      // then a single bevel highlight.
+      const body = p.bone ? BONE : MEAT;
+      const dark = p.bone ? BONE_D : MEAT_D;
+
+      if (p.kind === 'skull') {
+        ctx.fillStyle = dark;
+        ctx.beginPath(); ctx.ellipse(0, 0, p.size * 0.62, p.size * 0.72, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = body;
+        ctx.beginPath(); ctx.ellipse(-0.6, -0.6, p.size * 0.54, p.size * 0.64, 0, 0, Math.PI * 2); ctx.fill();
+        // Sockets and a hinged jaw.
+        ctx.fillStyle = VOID;
+        ctx.beginPath(); ctx.ellipse(-p.size * 0.22, -p.size * 0.12, p.size * 0.17, p.size * 0.21, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(p.size * 0.22, -p.size * 0.12, p.size * 0.17, p.size * 0.21, 0, 0, Math.PI * 2); ctx.fill();
+        const gape = p.size * (0.16 + swell * 0.16);
+        ctx.beginPath(); ctx.ellipse(0, p.size * 0.36, p.size * 0.2, gape, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = this._rgba('#e6f0b8', 0.5);
+        ctx.fillRect(-p.size * 0.34, -p.size * 0.5, p.size * 0.3, 1.4);
+      } else if (p.kind === 'face') {
+        ctx.fillStyle = dark;
+        ctx.beginPath(); ctx.ellipse(0, 0, p.size * 0.66, p.size * 0.76, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = body;
+        ctx.beginPath(); ctx.ellipse(-0.5, -0.7, p.size * 0.58, p.size * 0.68, 0, 0, Math.PI * 2); ctx.fill();
+        // A screaming mouth stretched open by the wind-up.
+        ctx.fillStyle = VOID;
+        ctx.beginPath();
+        ctx.ellipse(0, p.size * 0.24, p.size * 0.24, p.size * (0.26 + swell * 0.22), 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(-p.size * 0.26, -p.size * 0.24, p.size * 0.2, 2.2);
+        ctx.fillRect(p.size * 0.08, -p.size * 0.26, p.size * 0.2, 2.2);
+        ctx.fillStyle = this._rgba('#c79fd0', 0.4);
+        ctx.fillRect(-p.size * 0.4, -p.size * 0.54, p.size * 0.34, 1.4);
+      } else if (p.kind === 'limb') {
+        // Limbs are meat far more often than bone: a heap of bright green
+        // capsules reads as vegetation, and this is supposed to read as people.
+        const limbBody = p.bone && p.phase > 4.2 ? BONE : MEAT;
+        const limbDark = limbBody === BONE ? BONE_D : MEAT_D;
+        const a = p.rot * 2;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = VOID; ctx.lineWidth = p.size * 0.52;
+        ctx.beginPath(); ctx.moveTo(0, p.size * 0.4); ctx.lineTo(Math.cos(a) * p.size, Math.sin(a) * p.size - p.size * 0.3); ctx.stroke();
+        ctx.strokeStyle = limbDark; ctx.lineWidth = p.size * 0.42;
+        ctx.stroke();
+        ctx.strokeStyle = limbBody; ctx.lineWidth = p.size * 0.24;
+        ctx.stroke();
+        // A hand or a stump at the far end, so a limb is a limb and not a pipe.
+        const hx = Math.cos(a) * p.size, hy = Math.sin(a) * p.size - p.size * 0.3;
+        ctx.fillStyle = limbDark;
+        ctx.beginPath(); ctx.ellipse(hx, hy, p.size * 0.22, p.size * 0.18, a, 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.fillStyle = dark;
+        ctx.beginPath(); ctx.ellipse(0, 0, p.size * 0.7, p.size * 0.56, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = body;
+        ctx.beginPath(); ctx.ellipse(-0.5, -0.8, p.size * 0.6, p.size * 0.46, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // ---- The one face that is looking at you ----
+    // Every crowd needs a focal point. This is the Choir's: a central head with
+    // a heart-shaped light where an eye should be, which brightens as it winds
+    // up so the tell is legible even at the edge of the screen.
+    const fx = w / 2 + f * 4;
+    const fy = h * 0.56;
+    ctx.save();
+    ctx.translate(fx, fy);
+    ctx.fillStyle = MEAT_D;
+    ctx.beginPath(); ctx.ellipse(0, 0, 15, 17, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = MEAT;
+    ctx.beginPath(); ctx.ellipse(-1, -1.4, 13, 15, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = VOID;
+    ctx.beginPath();
+    ctx.ellipse(0, 7, 6.2, 6 + swell * 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Teeth around the gape.
+    ctx.fillStyle = BONE;
+    for (let i = -2; i <= 2; i++) ctx.fillRect(i * 2.4 - 0.7, 1.4, 1.4, 2.4);
+    ctx.fillStyle = VOID;
+    ctx.beginPath(); ctx.ellipse(-5, -4, 3, 3.6, 0, 0, Math.PI * 2); ctx.fill();
+    // The heart-light.
+    this._glow(ctx, 5, -4, 11 + swell * 7, HOT, 0.85 + swell * 0.4);
+    ctx.fillStyle = HOT;
+    ctx.beginPath();
+    ctx.moveTo(5, -1.2);
+    ctx.bezierCurveTo(1.4, -5.4, 2.4, -8.4, 5, -6.6);
+    ctx.bezierCurveTo(7.6, -8.4, 8.6, -5.4, 5, -1.2);
+    ctx.fill();
+    ctx.restore();
+
+    // ---- Live arms: the actual hitboxes from the last Reaching Grasp ----
+    // Drawn last and in world space, because these are the part of the picture
+    // that is allowed to hurt you and they must be unmissable.
+    ctx.restore();
+    if (b.choirArms && b.choirArms.length) {
+      ctx.save();
+      for (const arm of b.choirArms) {
+        const k = clamp(1 - arm.t / arm.life, 0, 1);
+        // Snap out fast, retract slowly: the retract is the readable half.
+        const ext = k > 0.72 ? (1 - k) / 0.28 : Math.pow(k / 0.72, 0.6);
+        const ax = b.x + arm.x, ay = b.y + arm.y;
+        const ex = ax + Math.cos(arm.angle) * arm.len * ext;
+        const ey = ay + Math.sin(arm.angle) * arm.len * ext;
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = MEAT_D; ctx.lineWidth = 11;
+        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ex, ey); ctx.stroke();
+        ctx.strokeStyle = MEAT; ctx.lineWidth = 7;
+        ctx.stroke();
+        ctx.strokeStyle = this._rgba('#c98adf', 0.55); ctx.lineWidth = 2.4;
+        ctx.stroke();
+        // Clawed hand at the tip.
+        ctx.strokeStyle = MEAT_D; ctx.lineWidth = 4;
+        for (let i = 0; i < 4; i++) {
+          const fa = arm.angle + (i - 1.5) * 0.36;
+          ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + Math.cos(fa) * 11, ey + Math.sin(fa) * 11); ctx.stroke();
+        }
+        ctx.strokeStyle = BONE; ctx.lineWidth = 1.8;
+        for (let i = 0; i < 4; i++) {
+          const fa = arm.angle + (i - 1.5) * 0.36;
+          ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + Math.cos(fa) * 11, ey + Math.sin(fa) * 11); ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+    ctx.save();
+
+    if (b.hurtFlash > 0) {
+      ctx.globalAlpha = 0.4;
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.ellipse(cx, y + h * 0.44, w * 0.45, h * 0.43, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+
+  // One third of the Choir: a husk that crawls on its hands. Same palette and
+  // the same construction as the mound's parts, at a size you can read as an
+  // individual rather than as a crowd.
+  _drawChoirHusk(ctx, b) {
+    const x = b.x, y = b.y, w = b.w, h = b.h;
+    const f = b.facing === -1 ? -1 : 1;
+    const t = b.spawnTime || 0;
+    const walk = b.walkCycle || 0;
+    const jaw = clamp((b.jaw || 0) + (b.huskBite || 0) * 3, 0, 1);
+    const MEAT = '#6b4a73', MEAT_D = '#3a2440', BONE = '#a8b96a', VOID = '#1b1020';
+
+    ctx.save();
+    this._bossAura(ctx, b, '#b9d16a', 44);
+    const sg = ctx.createRadialGradient(x + w / 2, y + h + 1, 3, x + w / 2, y + h + 1, w * 0.5);
+    sg.addColorStop(0, 'rgba(8,4,12,0.42)');
+    sg.addColorStop(1, 'rgba(8,4,12,0)');
+    ctx.fillStyle = sg;
+    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h + 1, w * 0.5, 5, 0, 0, Math.PI * 2); ctx.fill();
+
+    ctx.translate(x + w / 2, y + h);
+    ctx.scale(f, 1);
+
+    // Four limbs scrabbling, contra-phased.
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 4; i++) {
+      const side = i < 2 ? -1 : 1;
+      const swing = Math.sin(walk + i * 1.7) * 5;
+      const ox = side * (7 + (i % 2) * 9);
+      ctx.strokeStyle = MEAT_D; ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(ox, -22);
+      ctx.quadraticCurveTo(ox + side * 10, -12 + swing * 0.4, ox + side * 13 + swing, -1);
+      ctx.stroke();
+      ctx.strokeStyle = i % 2 ? BONE : MEAT; ctx.lineWidth = 3.4;
+      ctx.stroke();
+    }
+
+    // Body: three fused torsos in one lump.
+    ctx.fillStyle = VOID;
+    ctx.beginPath(); ctx.ellipse(0, -24, 22, 17, 0, 0, Math.PI * 2); ctx.fill();
+    for (const [ox, oy, r, bone] of [[-10, -24, 11, false], [8, -27, 10, true], [0, -19, 12, false]]) {
+      const breathe = Math.sin(t * 2.4 + ox) * 0.8;
+      ctx.fillStyle = bone ? '#6d7c42' : MEAT_D;
+      ctx.beginPath(); ctx.ellipse(ox, oy + breathe, r, r * 0.86, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = bone ? BONE : MEAT;
+      ctx.beginPath(); ctx.ellipse(ox - 0.6, oy - 0.8 + breathe, r * 0.86, r * 0.74, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = VOID;
+      ctx.beginPath(); ctx.ellipse(ox - 3, oy - 2 + breathe, 1.9, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(ox + 3, oy - 2 + breathe, 1.9, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // The forward head does the biting, so it carries the jaw animation.
+    ctx.save();
+    ctx.translate(15, -28);
+    ctx.fillStyle = MEAT_D;
+    ctx.beginPath(); ctx.ellipse(0, 0, 11, 10, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = MEAT;
+    ctx.beginPath(); ctx.ellipse(-0.8, -1, 9.4, 8.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = VOID;
+    ctx.beginPath(); ctx.ellipse(1, 3.4, 5.2, 2.4 + jaw * 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = BONE;
+    for (let i = -2; i <= 2; i++) {
+      ctx.fillRect(1 + i * 2 - 0.6, 1.4, 1.2, 2 + jaw * 1.6);
+      ctx.fillRect(1 + i * 2 - 0.6, 4.6 + jaw * 4, 1.2, 1.6);
+    }
+    this._glow(ctx, -2, -3, 7, '#f062a8', 0.7);
+    ctx.fillStyle = '#f062a8';
+    ctx.beginPath(); ctx.arc(-2, -3, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    if (b.hurtFlash > 0) {
+      ctx.globalAlpha = 0.42; ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.ellipse(0, -24, 22, 17, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+
+  // =====================================================================
+  // THE WEAVE
+  //
+  // Four biomechanical nodes in a diamond, each a geared iris grown around a
+  // living eye, joined by strands that are half cable and half tissue. The
+  // strands are the creature: they are what lash you, what sweeps you, and
+  // what the formation is *for*, so they are drawn first, thickest, and with
+  // the most attention.
+  _weaveNodeTint(i) {
+    // Four distinct eye colours, as in the reference: cold blue at the crown,
+    // red and amber on the arms, violet below.
+    return [
+      { iris: '#5aa8e8', hot: '#cfeaff', gear: '#9a6a3e' },
+      { iris: '#e05050', hot: '#ffd0c0', gear: '#c9a24a' },
+      { iris: '#e8c24a', hot: '#fff2c0', gear: '#9a6a3e' },
+      { iris: '#a86ae0', hot: '#e8d0ff', gear: '#7d5a3a' },
+    ][i % 4];
+  }
+
+  _drawWeaveNode(ctx, b, n, index, t) {
+    const tint = this._weaveNodeTint(index);
+    const frac = clamp(n.hp / Math.max(1, n.maxHp), 0, 1);
+    const spin = t * (0.6 + index * 0.13) + index;
+    const pulse = 0.72 + 0.28 * Math.sin(t * 2.4 + index * 1.4);
+    // A retracting node folds its iris shut, which is the visible half of the
+    // Reform mechanic: you can see the node you are wasting damage on.
+    const open = 1 - (n.retract || 0) * 0.55;
+    const R = 17 * open;
+
+    ctx.save();
+    ctx.translate(n.x, n.y);
+
+    // Wet organic seat the machinery is grown into.
+    ctx.fillStyle = '#1d1210';
+    ctx.beginPath(); ctx.ellipse(0, 0, R + 6, R + 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#4a2f2a';
+    ctx.beginPath(); ctx.ellipse(-0.8, -1, R + 3.4, R + 2.4, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Gear ring: teeth around the rim, then the rim itself.
+    ctx.save();
+    ctx.rotate(spin);
+    ctx.fillStyle = this._shade(tint.gear, -0.4);
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      ctx.save();
+      ctx.rotate(a);
+      ctx.fillRect(-2.6, -(R + 6.5), 5.2, 5.2);
+      ctx.restore();
+    }
+    ctx.fillStyle = tint.gear;
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      ctx.save();
+      ctx.rotate(a);
+      ctx.fillRect(-2, -(R + 6), 4, 4.2);
+      ctx.restore();
+    }
+    ctx.strokeStyle = this._shade(tint.gear, -0.32); ctx.lineWidth = 5.4;
+    ctx.beginPath(); ctx.arc(0, 0, R + 2, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = tint.gear; ctx.lineWidth = 3.4;
+    ctx.beginPath(); ctx.arc(0, 0, R + 2, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = this._rgba('#f0d0a0', 0.45); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(0, 0, R + 3.4, -2.4, -0.7); ctx.stroke();
+    ctx.restore();
+
+    // The eye. Sclera, iris, vertical slit — and the whole thing dims as the
+    // node loses health, so a wounded node is visibly wounded.
+    ctx.fillStyle = '#0e0a10';
+    ctx.beginPath(); ctx.ellipse(0, 0, R * 0.8, R * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+    this._glow(ctx, 0, 0, R * (1.5 + pulse * 0.5), tint.iris, (0.35 + 0.5 * frac) * pulse * open);
+    const g = ctx.createRadialGradient(-R * 0.18, -R * 0.2, 1, 0, 0, R * 0.74);
+    g.addColorStop(0, tint.hot);
+    g.addColorStop(0.55, tint.iris);
+    g.addColorStop(1, this._shade(tint.iris, -0.55));
+    ctx.globalAlpha = 0.35 + 0.65 * frac;
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.ellipse(0, 0, R * 0.72, R * 0.72, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#0b0710';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, R * 0.17, R * 0.56 * (0.6 + 0.4 * open), 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = this._rgba('#ffffff', 0.6);
+    ctx.beginPath(); ctx.arc(-R * 0.26, -R * 0.3, R * 0.13, 0, Math.PI * 2); ctx.fill();
+
+    // Pulse ring when the node fires.
+    if (n.pulse > 0) {
+      const k = clamp(n.pulse / 0.4, 0, 1);
+      ctx.strokeStyle = this._rgba('#ffd36d', k * 0.85);
+      ctx.lineWidth = 2.4 * k;
+      ctx.beginPath(); ctx.arc(0, 0, R + 8 + (1 - k) * 34, 0, Math.PI * 2); ctx.stroke();
+    }
+    if (n.hurtFlash > 0) {
+      ctx.globalAlpha = 0.5; ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(0, 0, R + 4, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+
+  // One strand: a dark tube with a pale filament running through it, sagging
+  // between its two nodes. `heat` 0..1 lights it for a lash telegraph or hit.
+  _drawWeaveStrand(ctx, ax, ay, bx, by, t, heat, thick = 1) {
+    const mx = (ax + bx) / 2, my = (ay + by) / 2;
+    // Slack: the strand hangs, and pulls taut as it heats up.
+    const sag = (18 - heat * 18) * thick;
+    const sway = Math.sin(t * 1.6 + ax * 0.02) * 3 * (1 - heat);
+    const cxp = mx + sway, cyp = my + sag;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#160f0d'; ctx.lineWidth = 8.5 * thick;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(cxp, cyp, bx, by); ctx.stroke();
+    ctx.strokeStyle = '#5c3a30'; ctx.lineWidth = 6 * thick;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(cxp, cyp, bx, by); ctx.stroke();
+    ctx.strokeStyle = '#8a5a44'; ctx.lineWidth = 2.6 * thick;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(cxp, cyp - 1.5, bx, by); ctx.stroke();
+    // The living filament inside. Always faintly visible; blinding on a lash.
+    ctx.strokeStyle = this._rgba('#8fd8e8', 0.28 + heat * 0.72);
+    ctx.lineWidth = (1 + heat * 3) * thick;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(cxp, cyp - 1, bx, by); ctx.stroke();
+    if (heat > 0.35) {
+      ctx.strokeStyle = this._rgba('#e6fbff', (heat - 0.35) * 1.2);
+      ctx.lineWidth = (0.8 + heat * 1.6) * thick;
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(cxp, cyp - 1, bx, by); ctx.stroke();
+    }
+  }
+
+  _drawTheWeave(ctx, b) {
+    const t = b.spawnTime || 0;
+    const nodes = (b.nodes || []).filter(n => !n.dead);
+    if (!nodes.length) return;
+    const c = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+
+    ctx.save();
+    this._bossAura(ctx, b, '#8fd8e8', 92);
+
+    // ---- Sweep tendrils, when the formation is spinning ----
+    if (b.weaveSweep) {
+      const sweep = b.weaveSweep;
+      const k = clamp(sweep.time / Math.max(0.001, sweep.max), 0, 1);
+      for (let i = 0; i < nodes.length; i++) {
+        const a = sweep.angle + (i / nodes.length) * Math.PI * 2;
+        const ex = c.x + Math.cos(a) * sweep.reach;
+        const ey = c.y + Math.sin(a) * sweep.reach;
+        // A motion trail behind each tendril, so the rotation direction reads.
+        for (let s = 1; s <= 3; s++) {
+          const ta = a - 0.16 * s;
+          ctx.strokeStyle = this._rgba('#8fd8e8', 0.12 * (4 - s) * k);
+          ctx.lineWidth = 5 - s;
+          ctx.beginPath();
+          ctx.moveTo(c.x, c.y);
+          ctx.lineTo(c.x + Math.cos(ta) * sweep.reach, c.y + Math.sin(ta) * sweep.reach);
+          ctx.stroke();
+        }
+        this._drawWeaveStrand(ctx, c.x, c.y, ex, ey, t, 0.9, 0.85);
+        // A hooked barb at the tip.
+        ctx.strokeStyle = '#c9a24a'; ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(ex + Math.cos(a + 1.5) * 9, ey + Math.sin(a + 1.5) * 9);
+        ctx.stroke();
+      }
+    }
+
+    // ---- Strands between adjacent nodes ----
+    const lash = b.weaveLash;
+    for (let i = 0; i < nodes.length; i++) {
+      const n0 = nodes[i], n1 = nodes[(i + 1) % nodes.length];
+      if (nodes.length === 2 && i === 1) break;
+      let heat = 0;
+      let over = 0;
+      if (lash && ((lash.a === n0 && lash.b === n1) || (lash.a === n1 && lash.b === n0))) {
+        heat = clamp(lash.time / Math.max(0.001, lash.max), 0, 1);
+        over = lash.over || 0;
+      } else if (b.telegraph > 0 && b.chosen && b.chosen.type === 'strandLash') {
+        // Every strand hums during the wind-up; only the chosen one snaps.
+        heat = 0.18 * (1 - b.telegraph / (b.telegraphMax || 0.5));
+      }
+      // When it snaps, the strand is drawn along the exact path that was tested
+      // for damage — the bulge through the crack point included — so what you
+      // see is what hit you.
+      const thick = b.phaseIndex > 0 ? 1.25 : 1;
+      if (heat > 0 && lash && lash.bulge && over) {
+        this._drawWeaveStrand(ctx, n0.x, n0.y, lash.bulge.x, lash.bulge.y, t, heat, thick);
+        this._drawWeaveStrand(ctx, lash.bulge.x, lash.bulge.y, n1.x, n1.y, t, heat, thick);
+      } else {
+        const ang = Math.atan2(n1.y - n0.y, n1.x - n0.x);
+        const ax = n0.x - Math.cos(ang) * over, ay = n0.y - Math.sin(ang) * over;
+        const bx2 = n1.x + Math.cos(ang) * over, by2 = n1.y + Math.sin(ang) * over;
+        this._drawWeaveStrand(ctx, ax, ay, bx2, by2, t, heat, thick);
+      }
+    }
+    // Cross-strands through the middle hold the diamond together and give the
+    // formation an interior instead of an empty hole.
+    if (nodes.length >= 4) {
+      this._drawWeaveStrand(ctx, nodes[0].x, nodes[0].y, nodes[2].x, nodes[2].y, t, 0, 0.6);
+      this._drawWeaveStrand(ctx, nodes[1].x, nodes[1].y, nodes[3].x, nodes[3].y, t, 0, 0.6);
+    } else if (nodes.length === 3) {
+      for (const n of nodes) this._drawWeaveStrand(ctx, c.x, c.y, n.x, n.y, t, 0, 0.55);
+    }
+
+    // Arcs of charge jumping between nodes — the reference's crackle.
+    for (let i = 0; i < nodes.length; i++) {
+      const n0 = nodes[i], n1 = nodes[(i + 1) % nodes.length];
+      const seed = Math.sin(t * 6.1 + i * 2.3);
+      if (seed < 0.72) continue;
+      ctx.strokeStyle = this._rgba(i % 2 ? '#c98adf' : '#b9e86e', 0.55);
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(n0.x, n0.y);
+      const steps = 4;
+      for (let s = 1; s <= steps; s++) {
+        const p = s / steps;
+        const jx = n0.x + (n1.x - n0.x) * p + (Math.sin(t * 30 + s * 3.7 + i) * 6) * (1 - Math.abs(p - 0.5) * 2);
+        const jy = n0.y + (n1.y - n0.y) * p + (Math.cos(t * 27 + s * 2.9 + i) * 6) * (1 - Math.abs(p - 0.5) * 2);
+        ctx.lineTo(jx, jy);
+      }
+      ctx.stroke();
+    }
+
+    // ---- The nodes ----
+    nodes.forEach((n, i) => this._drawWeaveNode(ctx, b, n, i, t));
+
     ctx.restore();
   }
 
@@ -2653,6 +3521,9 @@ export class Renderer {
       if (b.key === 'theMech') this._drawTheMech(ctx, b);
       else if (b.key === 'theWorm') this._drawTheWorm(ctx, b);
       else if (b.key === 'vespera') this._drawVespera(ctx, b, game);
+      else if (b.key === 'hollowedChoir') this._drawHollowedChoir(ctx, b);
+      else if (b.key === 'choirHusk') this._drawChoirHusk(ctx, b);
+      else if (b.key === 'theWeave') this._drawTheWeave(ctx, b);
       else if (b.key === 'grovekeeper') this._drawGrovekeeper(ctx, b);
       else if (b.key === 'gravemaw') this._drawGravemaw(ctx, b);
       else this._drawBlightSovereign(ctx, b);

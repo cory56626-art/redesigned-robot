@@ -7,14 +7,66 @@
 //
 // Keep this in sync with CLAUDE_NOTES.md when either changes.
 
-export const CLAUDE_NOTES_VERSION = '4.1 — Quality of Realms · 2026-07';
+export const CLAUDE_NOTES_VERSION = '4.2 — The Deep and the Divided · 2026-08';
 
 export function claudeNotesHTML() {
   return `
-  <p class="cn-intro">Developer notes. The first section covers <b>4.1 — Quality of Realms</b>;
-  after it, the previous overhaul, then the original point-by-point answers to the ChatGPT stress-test review —
+  <p class="cn-intro">Developer notes. The first section covers <b>4.2 — The Deep and the Divided</b>;
+  then 4.1, the previous overhaul, and the original point-by-point answers to the ChatGPT stress-test review —
   each saying whether it was a <b>real bug</b> (now fixed), a <b>misunderstanding</b>, or <b>working as intended</b>.
   Version: <code>${CLAUDE_NOTES_VERSION}</code>.</p>
+
+  <h4>◆ 4.2 — The Deep and the Divided</h4>
+  <p class="cn-intro">The oceans were a flat blue slab, the Mesh was an empty shelf next to the Corruption's
+  thickets, and slot five was missing. All three had the same shape of cause: a system that was described but
+  never given the parts that make it read.</p>
+  <ul>
+    <li><b class="cn-bad">The sea had no single level.</b> Real bug — fixed. The generator picked a per-column
+      water top of <code>s - 10 - ((x * 3) % 4)</code>, a four-column sawtooth, so the surface stepped up and
+      down three tiles every few columns and any depth shading reset at every step. Each ocean band now floods
+      to one flat row.</li>
+    <li><b class="cn-bad">Ocean columns were missing entirely.</b> Real bug — fixed. The old support test
+      bailed on the first non-air tile below a cell, so any column with a reed standing on the seabed was left
+      completely dry — a wall of water with slices cut out of it.</li>
+    <li><b>Water is now drawn as a body of water.</b> Depth ramp keyed to each column's own free surface, a
+      wavy crest with sheen and foam on the tops of the swell, god rays cast wherever open water sits under
+      open sky (leaning with the sun, drifting on their own cycles), caustics on the seabed, suspended motes,
+      rising bubbles, shoreline foam, and a colour cast, vignette and shimmer while you are submerged.
+      The first version of the rays emitted from <i>every</i> open column, which at noon produced evenly
+      spaced vertical bars — light has to arrive from somewhere, so they now sit on a sparse lattice and
+      always keep a standing tilt.</li>
+    <li><b class="cn-bad">The Mesh grew nothing.</b> Real bug — fixed. Surface undergrowth is gated on a
+      whitelist of ground tiles and <i>Mesh Membrane was not in it</i>, so every Mesh column rolled its ground
+      cover, looked at the wrong ground tile and grew nothing. That one missing entry is most of why the
+      biome looked bare.</li>
+    <li><b>The Mesh is now the living evil</b> — muscle grown over machinery, not rust and scrap. Mesh Flesh
+      under the surface, Raw Sinew and Sinew Clumps on the floor, Gut Strands off every ceiling, and Mesh Pods
+      as the biome's only natural light. Six creatures, all with their own art at last (the four old ones had
+      none and fell through to the generic fallback): Sinew Crawler, Spore Drone, Gristle Husk, Wire Serpent,
+      Strand Spitter, and the post-Vespera Mesh Brute. All drop Mesh Sinew, so the biome funds its own boss.</li>
+    <li><b>Slot five is a fork, not a step.</b> A realm generates one evil biome, so
+      <b>The Hollowed Choir</b> (Corruption) and <b>The Weave</b> (Mesh) are alternatives. Neither requires the
+      other; both sit behind Vespera and behind their own biome. The gate enforces itself through ingredients —
+      Blightstone only exists in a Corruption world, Mesh Sinew only in a Mesh world.</li>
+    <li><b>The Hollowed Choir</b> — 12,000 HP, 12 defense. One hulking mass of fused husks: Reaching Grasp,
+      Choir Wail, Lurch Charge. At 55% it comes apart into three husks sharing one health bar; they pop for
+      spore damage when they die, and <i>re-fuse and heal</i> if two are left huddled together for three
+      seconds. Focusing one down while the others regroup loses you ground.</li>
+    <li><b>The Weave</b> — 12,000 HP, 12 defense. Four geared nodes in a diamond joined by tissue strands.
+      Strand Lash, Node Pulse, and Reform, which pulls any node below a quarter of its share back into the
+      formation to knit itself up — so focus fire is the slowest way to kill it. At 50% a node is absorbed
+      (its health moves into the survivors) and the remaining three sweep their tendrils and add homing spores.</li>
+    <li><b>Balance was measured, not guessed.</b> Against a stationary player in full Royal Chitin, damage per
+      second: <b>Vespera 5.5</b>, <b>The Weave 19.9</b>, <b>The Hollowed Choir 29.5</b>. Playtesting found
+      three real problems: the Weave could not reach a grounded player at all (both phase-one attacks are
+      close range and it was hovering out of range of both); Strand Lash landed on nothing (a taut line
+      between two fixed points is a line you are never standing on — it now bows <i>through</i> its target,
+      like a whip); and a grounded boss can be walked away from forever, so the Choir's arms reach further
+      than its body travels and it declares a tighter 26-tile arena.</li>
+    <li><b>Flat defense subtracts before the hit lands</b>, which is why Vespera's 13–16 damage projectiles do
+      <b>1</b> to a player wearing her own drop set. These two are the first bosses whose projectiles are
+      worth dodging.</li>
+  </ul>
 
   <h4>◆ 4.1 — Quality of Realms</h4>
   <p class="cn-intro">A patch pass driven by player feedback. The headline items were four bugs that

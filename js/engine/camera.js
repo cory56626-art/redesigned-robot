@@ -2,8 +2,8 @@
 import {
   TILE, WORLD_W, WORLD_H, TARGET_TILES_V,
   ZOOM_MIN, ZOOM_MAX, ZOOM_DEFAULT, ZOOM_STEP,
-} from '../config.js?v=who-invited-grok-1';
-import { clamp, lerp } from '../utils.js?v=who-invited-grok-1';
+} from '../config.js?v=deep-and-divided-1';
+import { clamp, lerp } from '../utils.js?v=deep-and-divided-1';
 
 export class Camera {
   constructor() {

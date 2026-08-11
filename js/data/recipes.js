@@ -1,7 +1,7 @@
 // Summoner Realms — crafting recipes.
 // station: null (hand) | 'bench' | 'smeltery' | 'forge' | 'altar'
 // requiresBoss: optional active-boss progression gate.
-import { isItemEnabled } from './items.js?v=who-invited-grok-1';
+import { isItemEnabled } from './items.js?v=deep-and-divided-1';
 
 const ALL_RECIPES = [
   // --- Hand ---
@@ -177,6 +177,26 @@ const ALL_RECIPES = [
   { out: { item: 'royalDroneScepter', count: 1 }, in: [{ item: 'royalChitinPlate', count: 8 }, { item: 'venomCore', count: 2 }, { item: 'starsteelBar', count: 8 }], station: 'forge', requiresBoss: 'vespera' },
   { out: { item: 'hiveguardTotem', count: 1 }, in: [{ item: 'royalChitinPlate', count: 9 }, { item: 'venomCore', count: 1 }, { item: 'emberBar', count: 10 }], station: 'forge', requiresBoss: 'vespera' },
   { out: { item: 'vesperShadeBell', count: 1 }, in: [{ item: 'royalChitinPlate', count: 8 }, { item: 'venomCore', count: 3 }, { item: 'shadowglassBar', count: 10 }], station: 'forge', requiresBoss: 'vespera' },
+
+  // --- Slot five: the evil-biome fork ---
+  //
+  // Both summon items sit behind Vespera and neither sits behind the other.
+  // The gate that actually decides which one a realm can build is the
+  // ingredient: Blightstone only exists in a Corruption world and Mesh Sinew
+  // only in a Mesh world, so the fork enforces itself without a progression
+  // flag saying so.
+  { out: { item: 'choirEffigy', count: 1 }, in: [{ item: 'blightstone', count: 25 }, { item: 'royalChitinPlate', count: 8 }, { item: 'venomCore', count: 3 }], station: 'forge', requiresBoss: 'vespera' },
+  { out: { item: 'wovenNexus', count: 1 }, in: [{ item: 'meshSinew', count: 25 }, { item: 'royalChitinPlate', count: 8 }, { item: 'venomCore', count: 3 }], station: 'forge', requiresBoss: 'vespera' },
+  // A first clear hands over the whole set; these exist so a lost or shared
+  // piece can be replaced without fighting the boss again.
+  { out: { item: 'choirEffigy', count: 1 }, in: [{ item: 'choirRemnant', count: 8 }], station: 'forge', requiresBoss: 'hollowedChoir' },
+  { out: { item: 'hollowedPlateHelm', count: 1 }, in: [{ item: 'choirRemnant', count: 10 }, { item: 'blightstone', count: 20 }], station: 'forge', requiresBoss: 'hollowedChoir' },
+  { out: { item: 'hollowedPlateMail', count: 1 }, in: [{ item: 'choirRemnant', count: 14 }, { item: 'blightstone', count: 28 }], station: 'forge', requiresBoss: 'hollowedChoir' },
+  { out: { item: 'hollowedPlateGreaves', count: 1 }, in: [{ item: 'choirRemnant', count: 12 }, { item: 'blightstone', count: 24 }], station: 'forge', requiresBoss: 'hollowedChoir' },
+  { out: { item: 'wovenNexus', count: 1 }, in: [{ item: 'wovenTissue', count: 8 }], station: 'forge', requiresBoss: 'theWeave' },
+  { out: { item: 'frayedPlateMask', count: 1 }, in: [{ item: 'wovenTissue', count: 10 }, { item: 'meshSinew', count: 20 }], station: 'forge', requiresBoss: 'theWeave' },
+  { out: { item: 'frayedPlateMail', count: 1 }, in: [{ item: 'wovenTissue', count: 14 }, { item: 'meshSinew', count: 28 }], station: 'forge', requiresBoss: 'theWeave' },
+  { out: { item: 'frayedPlateGreaves', count: 1 }, in: [{ item: 'wovenTissue', count: 12 }, { item: 'meshSinew', count: 24 }], station: 'forge', requiresBoss: 'theWeave' },
 
   { out: { item: 'cupritePick', count: 1 }, in: [{ item: 'cupriteBar', count: 8 }], station: 'forge' },
   { out: { item: 'cupriteAxe', count: 1 }, in: [{ item: 'cupriteBar', count: 7 }, { item: 'wood', count: 2 }], station: 'forge' },

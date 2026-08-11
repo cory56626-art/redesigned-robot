@@ -1,7 +1,7 @@
 // Summoner Realms — item catalogue. All original names/designs.
 // Categories: weapon (melee/ranged/mage/summon), tool, armor, accessory,
 // potion, ammo, material, block, station, summonitem.
-import { T } from '../world/tiles.js?v=who-invited-grok-1';
+import { T } from '../world/tiles.js?v=deep-and-divided-1';
 
 export const ITEMS = {};
 
@@ -69,6 +69,13 @@ export const PREHARDMODE_ITEM_IDS = new Set([
   'hiveboreRepeater', 'venomlanceBallista', 'royalStingLauncher',
   'hivemindPrism', 'venomarchCodex', 'chitinResonator',
   'royalDroneScepter', 'hiveguardTotem', 'vesperShadeBell',
+  // Slot five — the evil-biome fork. A realm carries one evil biome and one of
+  // these two paths; both are listed here because the *catalogue* is shared
+  // even though a single world can only ever reach one of them.
+  'choirEffigy', 'choirRemnant',
+  'hollowedPlateHelm', 'hollowedPlateMail', 'hollowedPlateGreaves', 'theHollow',
+  'wovenNexus', 'wovenTissue', 'meshSinew',
+  'frayedPlateMask', 'frayedPlateMail', 'frayedPlateGreaves', 'theMesh',
 ]);
 
 // Raw terrain materials are also placeable blocks, so they remain available
@@ -241,6 +248,19 @@ ranged('royalStingLauncher', 'Royal Sting Launcher', '#efbb57', 32, 0.62, 11, {
   desc: 'Launches a detached royal stinger that bursts on impact and scatters four homing venom motes. Carries its own stingers — no ammunition needed.',
 });
 
+// ---------- The Mesh (slot five, Mesh realms) ----------
+// The Weave's drop and the only tier-12 ranged weapon. Three strand-bolts on
+// slightly different lines, each punching through two foes: it is a weapon for
+// a fight with several bodies in it, which is exactly what the two evil bosses
+// and their biomes are. Self-feeding, like the Repeater it follows.
+ranged('theMesh', 'The Mesh', '#8fd8e8', 16, 0.30, 12, {
+  multishot: 3, spread: 0.26, pierce: 2, projSpeed: 820, crit: 0.11, knockback: 4,
+  projectileKind: 'strandBolt', projColor: '#c8f2ff', trail: '#8fd8e8',
+  projectileW: 12, projectileH: 4,
+  fx: { shot: 'strand' },
+  desc: 'Three living strands leave the frame on slightly different lines and each one bores through two foes. It carries its own filament — no ammunition, and no reason to stand still.',
+});
+
 // ---------- Mage weapons (8) ----------
 const mage = (id, name, color, dmg, useTime, tier, mana, extra = {}) =>
   def(Object.assign({ id, name, category: 'weapon', weaponClass: 'mage', color, damage: dmg, useTime, tier, manaCost: mana, knockback: 2, crit: 0.06, projSpeed: 420, projColor: color, mageKind: 'staff', desc: `${name} — ${dmg} magic damage, ${mana} Aether.` }, extra));
@@ -300,6 +320,19 @@ mage('chitinResonator', 'Chitin Resonator', '#e8d38a', 19, 0.22, 11, 8, {
   projSpeed: 620, effect: { slow: 1.4 }, projectileKind: 'resonantPulse',
   trail: '#f2e3af', fx: { cast: 'resonate' },
   desc: 'A cheap, steady pulse that rattles chitin and bone. It will not out-damage the Prism, but it slows what it hits and you can cast it all day.',
+});
+
+// ---------- The Hollow (slot five, Corruption realms) ----------
+// The Choir's drop and the only tier-12 mage weapon. One heavy note that runs
+// through two foes and comes apart into three screaming motes when it stops —
+// the weapon equivalent of the fight it comes from.
+mage('theHollow', 'The Hollow', '#f062a8', 64, 0.55, 12, 16, {
+  mageKind: 'tome', pierce: 2, projSpeed: 620, projectileKind: 'hollowNote',
+  projectileW: 14, projectileH: 14, trail: '#c9e07a', knockback: 5,
+  burstCount: 3, burstDamage: 16, burstKind: 'choirMote', burstColor: '#c9e07a',
+  burstSpeed: 250, burstLife: 1.1, burstHoming: true, burstHomingStrength: 2.4,
+  fx: { cast: 'hollow' },
+  desc: 'A single sustained note from a hundred throats. It carries through two foes and breaks into three seeking motes wherever it finally stops.',
 });
 
 // ---------- Summoner weapons (6) ----------
@@ -439,6 +472,16 @@ armor('blightGreaves', 'Blight Greaves', '#8a4fb0', 'legs', 7, 4, 'blight', { dm
 armor('royalChitinCrown', 'Royal Chitin Crown', '#2a222d', 'head', 7, 10, 'royalChitin', {});
 armor('royalChitinCarapace', 'Royal Chitin Carapace', '#2a222d', 'chest', 10, 10, 'royalChitin', {});
 armor('royalChitinTreads', 'Royal Chitin Treads', '#2a222d', 'legs', 8, 10, 'royalChitin', {});
+// Slot five drops two sets, one per evil biome, and a realm can only ever hold
+// one of them. They are deliberately not the same armour in two colours:
+// Hollowed Plate is the wall you stand behind and Frayed Plate is the speed you
+// use instead of a wall, so which evil your world rolled changes how you fight.
+armor('hollowedPlateHelm', 'Hollowed Plate Helm', '#5a3a63', 'head', 9, 12, 'hollowedPlate', { dmgMul: 0.09 });
+armor('hollowedPlateMail', 'Hollowed Plate Mail', '#5a3a63', 'chest', 13, 12, 'hollowedPlate', { dmgMul: 0.09 });
+armor('hollowedPlateGreaves', 'Hollowed Plate Greaves', '#5a3a63', 'legs', 10, 12, 'hollowedPlate', { dmgMul: 0.09 });
+armor('frayedPlateMask', 'Frayed Plate Mask', '#3d2a26', 'head', 7, 12, 'frayedPlate', { classBonus: 'ranged', dmgMul: 0.14 });
+armor('frayedPlateMail', 'Frayed Plate Mail', '#3d2a26', 'chest', 11, 12, 'frayedPlate', { classBonus: 'ranged', dmgMul: 0.14 });
+armor('frayedPlateGreaves', 'Frayed Plate Greaves', '#3d2a26', 'legs', 8, 12, 'frayedPlate', { classBonus: 'ranged', dmgMul: 0.12 });
 
 // ---------- Accessories ----------
 const acc = (id, name, color, kind, stats, tier, desc) =>
@@ -539,6 +582,9 @@ mat('mechCore', 'Mech Core', '#72ddff', 'drop', 8, 'A heavy blue reactor core cl
 mat('wormCore', 'Worm Core', '#c383ff', 'drop', 9, 'A pulsing violet core from The Worm. It vibrates as if the tunnel is still moving.');
 mat('royalChitinPlate', 'Royal Chitin Plate', '#2a222d', 'drop', 10, 'Obsidian-black chitin threaded with molten gold. Used to craft the Hive Resonance Core and future mobility gear.');
 mat('venomCore', 'Venom Core', '#b9e86e', 'drop', 10, 'A pressurized gland taken from a Brood Drone. A rare component for venom gear and alchemy.');
+mat('choirRemnant', 'Choir Remnant', '#f062a8', 'drop', 12, 'A knot of fused husk that has not stopped humming. Reforges Hollowed Plate and binds another Choir Effigy.');
+mat('wovenTissue', 'Woven Tissue', '#8fd8e8', 'drop', 12, 'A length of node-tissue still trying to knit itself to something. Reweaves Frayed Plate and binds another Woven Nexus.');
+mat('meshSinew', 'Mesh Sinew', '#c47b4a', 'drop', 10, 'Wet cabling harvested from the Mesh. The living half of a biome that is half machine.');
 
 // ---------- Fauna drops, food and cooking ----------
 // Raw meat is a material; cooking it at a Smeltery turns it into a food item
@@ -623,6 +669,12 @@ ITEMS.blightstone.place = T.BLIGHTSTONE;
 def({ id: 'mechBeacon', name: 'Mech Beacon', category: 'summonitem', color: '#5f7896', color2: '#9deeff', summonBoss: 'theMech', maxStack: 20, desc: 'Forge: 5 Starsteel Bars, 4 Storm Bars, 6 Ember Dust. Use on the Surface in an open arena to summon The Mech.' });
 def({ id: 'wormLure', name: 'Worm Lure', category: 'summonitem', color: '#3a2448', color2: '#d39aff', summonBoss: 'theWorm', maxStack: 20, desc: 'Post-Mech Forge recipe: 1 Mech Core, 6 Shadowglass Bars, 8 Ember Dust. Use on the Surface in an open arena to summon The Worm.' });
 def({ id: 'hiveResonanceCore', name: 'Hive Resonance Core', category: 'summonitem', color: '#211a25', color2: '#efbb57', summonBoss: 'vespera', maxStack: 20, desc: 'Post-Worm Forge recipe: 8 Royal Chitin Plates and 4 rare Venom Cores. Use anywhere on the Surface at night to summon Vespera.' });
+// Slot five. Which of these two a realm can build is decided by the evil biome
+// it generated with — the ingredients simply do not exist in the other kind of
+// world — so a Corruption realm answers to the Choir and a Mesh realm answers
+// to the Weave, and neither is a prerequisite for the other.
+def({ id: 'choirEffigy', name: 'Choir Effigy', category: 'summonitem', color: '#4a2f52', color2: '#f062a8', summonBoss: 'hollowedChoir', maxStack: 20, desc: 'Post-Vespera Forge recipe: 25 Blightstone, 8 Royal Chitin Plates, 3 Venom Cores. Use inside the Corrupted Lands to call The Hollowed Choir.' });
+def({ id: 'wovenNexus', name: 'Woven Nexus', category: 'summonitem', color: '#3d2a26', color2: '#8fd8e8', summonBoss: 'theWeave', maxStack: 20, desc: 'Post-Vespera Forge recipe: 25 Mesh Sinew, 8 Royal Chitin Plates, 3 Venom Cores. Use inside the Mesh to call The Weave.' });
 def({ id: 'verdantEffigy', name: 'Verdant Effigy', category: 'summonitem', color: '#7ee08a', color2: '#3a6a2a', summonBoss: 'grovekeeper', maxStack: 20, desc: 'Summons the Grovekeeper in the Forest (day or night).' });
 def({ id: 'boneSigil', name: 'Bone Sigil', category: 'summonitem', color: '#e9e2c8', color2: '#8a7a5a', summonBoss: 'gravemaw', maxStack: 20, desc: 'Summons the Gravemaw in the Underground.' });
 def({ id: 'blightIdol', name: 'Blight Idol', category: 'summonitem', color: '#c58bff', color2: '#4a2f66', summonBoss: 'blightSovereign', maxStack: 20, desc: 'Summons the Blight Sovereign in the Corrupted Lands.' });

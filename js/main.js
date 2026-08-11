@@ -2,50 +2,50 @@
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty, ZOOM_DEFAULT, REACH,
-} from './config.js?v=who-invited-grok-1';
-import { hashString, mulberry32, dist2, uid } from './utils.js?v=who-invited-grok-1';
-import { World } from './world/world.js?v=who-invited-grok-1';
-import { T, tileDef } from './world/tiles.js?v=who-invited-grok-1';
-import { Sprites } from './art/sprites.js?v=who-invited-grok-1';
-import { Camera } from './engine/camera.js?v=who-invited-grok-1';
-import { Input } from './engine/input.js?v=who-invited-grok-1';
-import { AudioManager } from './engine/audio.js?v=who-invited-grok-1';
-import { Renderer } from './engine/renderer.js?v=who-invited-grok-1';
-import { Fx } from './engine/fx.js?v=who-invited-grok-1';
-import { DayNight } from './systems/daynight.js?v=who-invited-grok-1';
-import { Weather } from './systems/weather.js?v=who-invited-grok-1';
-import { Spawner } from './systems/spawner.js?v=who-invited-grok-1';
-import { Progression } from './systems/progression.js?v=who-invited-grok-1';
-import { starterInventory } from './systems/inventory.js?v=who-invited-grok-1';
-import * as craftSys from './systems/crafting.js?v=who-invited-grok-1';
-import { applyPotion } from './systems/combat.js?v=who-invited-grok-1';
-import * as fishing from './systems/fishing.js?v=who-invited-grok-1';
-import { Critter } from './entities/critter.js?v=who-invited-grok-1';
-import { FAUNA } from './data/fauna.js?v=who-invited-grok-1';
-import { smartTarget } from './systems/smartcursor.js?v=who-invited-grok-1';
-import { Player, assignColor } from './entities/player.js?v=who-invited-grok-1';
-import { Enemy } from './entities/enemy.js?v=who-invited-grok-1';
-import { Boss } from './entities/boss.js?v=who-invited-grok-1';
-import { Minion } from './entities/minion.js?v=who-invited-grok-1';
-import { Npc } from './entities/npc.js?v=who-invited-grok-1';
-import { Projectile } from './entities/projectile.js?v=who-invited-grok-1';
-import { DropItem } from './entities/droppeditem.js?v=who-invited-grok-1';
-import { FallingTree } from './entities/fallingtree.js?v=who-invited-grok-1';
-import { ThrownItem } from './entities/thrown.js?v=who-invited-grok-1';
-import { ENEMIES } from './data/enemies.js?v=who-invited-grok-1';
-import { BOSSES, rollMechSpecialDrop, rollVesperaWeaponDrop } from './data/bosses.js?v=who-invited-grok-1';
-import { item as getItem, isItemEnabled } from './data/items.js?v=who-invited-grok-1';
-import { HUD } from './ui/hud.js?v=who-invited-grok-1';
-import { Minimap } from './ui/minimap.js?v=who-invited-grok-1';
-import { Menus } from './ui/menus.js?v=who-invited-grok-1';
-import { NpcDialog } from './ui/npcdialog.js?v=who-invited-grok-1';
-import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=who-invited-grok-1';
-import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=who-invited-grok-1';
-import { Achievements, craftAchievement } from './systems/achievements.js?v=who-invited-grok-1';
-import { CommandConsole } from './commands.js?v=who-invited-grok-1';
-import { Net } from './net/net.js?v=who-invited-grok-1';
-import { MSG } from './net/protocol.js?v=who-invited-grok-1';
-import * as sync from './net/sync.js?v=who-invited-grok-1';
+} from './config.js?v=deep-and-divided-1';
+import { hashString, mulberry32, dist2, uid } from './utils.js?v=deep-and-divided-1';
+import { World } from './world/world.js?v=deep-and-divided-1';
+import { T, tileDef } from './world/tiles.js?v=deep-and-divided-1';
+import { Sprites } from './art/sprites.js?v=deep-and-divided-1';
+import { Camera } from './engine/camera.js?v=deep-and-divided-1';
+import { Input } from './engine/input.js?v=deep-and-divided-1';
+import { AudioManager } from './engine/audio.js?v=deep-and-divided-1';
+import { Renderer } from './engine/renderer.js?v=deep-and-divided-1';
+import { Fx } from './engine/fx.js?v=deep-and-divided-1';
+import { DayNight } from './systems/daynight.js?v=deep-and-divided-1';
+import { Weather } from './systems/weather.js?v=deep-and-divided-1';
+import { Spawner } from './systems/spawner.js?v=deep-and-divided-1';
+import { Progression } from './systems/progression.js?v=deep-and-divided-1';
+import { starterInventory } from './systems/inventory.js?v=deep-and-divided-1';
+import * as craftSys from './systems/crafting.js?v=deep-and-divided-1';
+import { applyPotion } from './systems/combat.js?v=deep-and-divided-1';
+import * as fishing from './systems/fishing.js?v=deep-and-divided-1';
+import { Critter } from './entities/critter.js?v=deep-and-divided-1';
+import { FAUNA } from './data/fauna.js?v=deep-and-divided-1';
+import { smartTarget } from './systems/smartcursor.js?v=deep-and-divided-1';
+import { Player, assignColor } from './entities/player.js?v=deep-and-divided-1';
+import { Enemy } from './entities/enemy.js?v=deep-and-divided-1';
+import { Boss } from './entities/boss.js?v=deep-and-divided-1';
+import { Minion } from './entities/minion.js?v=deep-and-divided-1';
+import { Npc } from './entities/npc.js?v=deep-and-divided-1';
+import { Projectile } from './entities/projectile.js?v=deep-and-divided-1';
+import { DropItem } from './entities/droppeditem.js?v=deep-and-divided-1';
+import { FallingTree } from './entities/fallingtree.js?v=deep-and-divided-1';
+import { ThrownItem } from './entities/thrown.js?v=deep-and-divided-1';
+import { ENEMIES } from './data/enemies.js?v=deep-and-divided-1';
+import { BOSSES, rollMechSpecialDrop, rollVesperaWeaponDrop } from './data/bosses.js?v=deep-and-divided-1';
+import { item as getItem, isItemEnabled } from './data/items.js?v=deep-and-divided-1';
+import { HUD } from './ui/hud.js?v=deep-and-divided-1';
+import { Minimap } from './ui/minimap.js?v=deep-and-divided-1';
+import { Menus } from './ui/menus.js?v=deep-and-divided-1';
+import { NpcDialog } from './ui/npcdialog.js?v=deep-and-divided-1';
+import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=deep-and-divided-1';
+import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=deep-and-divided-1';
+import { Achievements, craftAchievement } from './systems/achievements.js?v=deep-and-divided-1';
+import { CommandConsole } from './commands.js?v=deep-and-divided-1';
+import { Net } from './net/net.js?v=deep-and-divided-1';
+import { MSG } from './net/protocol.js?v=deep-and-divided-1';
+import * as sync from './net/sync.js?v=deep-and-divided-1';
 
 class Game {
   constructor() {
@@ -1114,12 +1114,14 @@ class Game {
     if (this.net && !this.isHost && e.netId != null) { this.net.toHost({ t: MSG.HIT_ENEMY, netId: e.netId, dmg, kbx, effect, crit }); e.hurtFlash = 0.1; return; }
     if (e.takeDamage) e.takeDamage(dmg, kbx, kby, this, effect, crit);
   }
-  hurtBoss(b, dmg, ownerId, crit) {
-    if (this.net && !this.isHost) { this.net.toHost({ t: MSG.HIT_BOSS, dmg, crit }); b.hurtFlash = 0.1; return; }
-    if (b.takeDamage) b.takeDamage(dmg, this, crit);
+  // `hx`/`hy` are where the blow landed. Multi-part bosses (The Weave) use it
+  // to decide which part took the hit; everything else ignores it.
+  hurtBoss(b, dmg, ownerId, crit, hx = null, hy = null) {
+    if (this.net && !this.isHost) { this.net.toHost({ t: MSG.HIT_BOSS, dmg, crit, hx, hy }); b.hurtFlash = 0.1; return; }
+    if (b.takeDamage) b.takeDamage(dmg, this, crit, hx, hy);
   }
-  hurtEnemyOrBoss(target, dmg, kb, ownerId, crit, effect) {
-    if (this.bosses.includes(target)) this.hurtBoss(target, dmg, ownerId, crit);
+  hurtEnemyOrBoss(target, dmg, kb, ownerId, crit, effect, hx = null, hy = null) {
+    if (this.bosses.includes(target)) this.hurtBoss(target, dmg, ownerId, crit, hx, hy);
     // Wildlife is local and unsynced: it takes damage directly rather than
     // going through the host-authoritative enemy path.
     else if (target instanceof Critter) target.takeDamage(dmg, kb, -1, this);
@@ -1220,6 +1222,49 @@ class Game {
       if (options.lifetime != null) e.lifetime = Math.max(0, Number(options.lifetime) || 0);
     }
   }
+  // The Hollowed Choir's phase two. The parent removes itself and hands its
+  // remaining health to three husks, which are ordinary Boss entities sharing
+  // the parent's HP bar (see `barGroup`) and its loot (see onBossDeath). They
+  // are spawned around the parent's own footprint so the split reads as the
+  // mass coming apart where it stood rather than as three new arrivals.
+  spawnChoirHusks(parent, key, count, share) {
+    if (!this.isHost) return;
+    const def = BOSSES[key];
+    if (!def) return;
+    const cx = parent.x + parent.w / 2;
+    const cy = parent.y + parent.h / 2;
+    for (let i = 0; i < count; i++) {
+      const a = -Math.PI / 2 + (i / count) * Math.PI * 2;
+      const px = cx + Math.cos(a) * (parent.w * 0.32) - def.w / 2;
+      const py = cy + Math.sin(a) * (parent.h * 0.22) - def.h / 2;
+      const spot = this._findClearSpot(px, py, def.w, def.h);
+      const husk = new Boss(key, spot.x, spot.y, this.difficulty);
+      // A husk's *max* stays a third of the mass's max, so the shared bar keeps
+      // falling from where the split happened. Only its current health is
+      // divided: splitting is never a heal and never a free damage window.
+      husk.hp = Math.max(1, Math.min(husk.maxHp, share));
+      husk.vy = -180;
+      husk.vx = Math.cos(a) * 90;
+      husk.parentKey = parent.key;
+      this.bosses.push(husk);
+    }
+    this.markDirty();
+  }
+
+  // Total health across every boss sharing a bar, so a fight that splits into
+  // three bodies still reads as one health pool.
+  bossBarGroup(boss) {
+    const group = boss && (boss.def?.barGroup || BOSSES[boss.key]?.barGroup);
+    if (!group) return { hp: boss.hp, maxHp: boss.maxHp, parts: 1 };
+    let hp = 0, maxHp = 0, parts = 0;
+    for (const b of this.bosses) {
+      const g = b.def?.barGroup || BOSSES[b.key]?.barGroup;
+      if (g !== group || b.dead) continue;
+      hp += Math.max(0, b.hp); maxHp += b.maxHp; parts++;
+    }
+    return { hp, maxHp: maxHp || boss.maxHp, parts };
+  }
+
   spawnBossByKey(key) {
     if (!this.isHost) return;
     const def = BOSSES[key];
@@ -1242,6 +1287,19 @@ class Game {
       const side = anchor.facing || 1;
       bx = anchor.x + side * (def.spawnDistance || 250);
       by = anchor.y - def.h - 118;
+    }
+    if (def.movement === 'choir' && anchor) {
+      // The Choir drags itself in from one side. It is grounded and slow, so
+      // arriving beside the player is the whole of its entrance.
+      const side = anchor.facing || 1;
+      bx = anchor.x + side * (def.spawnDistance || 250);
+      by = anchor.y - def.h - 16;
+    }
+    if (def.movement === 'weave' && anchor) {
+      // The formation hangs in the air off to one side.
+      const side = anchor.facing || 1;
+      bx = anchor.x + side * (def.spawnDistance || 250);
+      by = anchor.y - def.h - 84;
     }
     // Never materialise inside terrain — search outward for clear air first, so
     // a boss summoned in a tight cave doesn't start the fight embedded in rock.
@@ -1300,7 +1358,11 @@ class Game {
         : b === 'dunes' ? 'Sunken Dunes'
           : b === 'frostpine' ? 'Frostpine Hollow'
             : b === 'snowyTaiga' ? 'Snowy Taiga'
-              : b === 'corrupt' ? 'Corrupted Lands' : 'Underground';
+              : b === 'corrupt' ? 'Corrupted Lands'
+                : b === 'mesh' ? 'Mesh'
+                  : b === 'ocean' ? 'Open Ocean'
+                    : b === 'infestedOcean' ? 'Infested Ocean'
+                      : b === 'whirringOcean' ? 'Whirring Ocean' : 'Underground';
   }
 
   onEnemyDeath(e) {
@@ -1317,7 +1379,7 @@ class Game {
   }
   onBossDeath(b) {
     if (!this.isHost) return;
-    const def = BOSSES[b.key];
+    let def = BOSSES[b.key];
     if (!def) return;
     // A boss that fled its arena was never defeated: no progression, no loot.
     if (b.fled) {
@@ -1325,11 +1387,27 @@ class Game {
       this.projectiles = this.projectiles.filter(p => p.ownerType !== 'boss');
       return;
     }
+    // A piece of a larger encounter — one of the Choir's husks. The fight is
+    // only over, and only pays out, when the last piece falls; the loot and the
+    // progression entry belong to the parent, not the piece.
+    if (def.parentBoss) {
+      const remaining = this.bosses.some(o => o !== b && !o.dead && BOSSES[o.key]?.parentBoss === def.parentBoss);
+      if (remaining) {
+        this.toast(def.name + ' collapses.', 'good');
+        return;
+      }
+      const parent = BOSSES[def.parentBoss];
+      if (!parent) return;
+      def = parent;
+    }
+    // Everything below credits the *encounter*, which is the parent for a piece
+    // of a split boss and the boss itself for everything else.
+    const key = BOSSES[b.key]?.parentBoss || b.key;
     const unlockedHardmode = !!def.unlocksHardmode && !this.progression.hardmodeUnlocked;
-    const mechSpecialDrop = b.key === 'theMech' ? rollMechSpecialDrop() : null;
-    const vesperaWeaponDrop = b.key === 'vespera' ? rollVesperaWeaponDrop() : null;
-    this.progression.defeatBoss(b.key);
-    this.achievements.unlock(b.key);
+    const mechSpecialDrop = key === 'theMech' ? rollMechSpecialDrop() : null;
+    const vesperaWeaponDrop = key === 'vespera' ? rollVesperaWeaponDrop() : null;
+    this.progression.defeatBoss(key);
+    this.achievements.unlock(key);
     for (const drop of def.loot || []) {
       if (Math.random() <= drop.chance) {
         const n = drop.min + ((Math.random() * (drop.max - drop.min + 1)) | 0);
@@ -1348,9 +1426,17 @@ class Game {
     this.enemies = this.enemies.filter(e => { if (e.fromBoss) { this.enemyById.delete(e.netId); return false; } return true; });
     this.toast(def.name + ' defeated!', 'good');
     if (unlockedHardmode) this.toast('The Mech Core stabilizes — the realm is now Hardmode-ready.', 'good');
-    if (b.key === 'theMech') this.toast('The Surface trembles — a Worm Lure can now call The Worm into an open arena.', 'info');
-    if (b.key === 'theWorm') this.toast('Overgrowth caverns stir — hunt Swarm enemies for a Hive Resonance Core.', 'info');
-    if (this.net && this.isHost) { this.net.broadcast({ t: MSG.EVENT, kind: 'bossDefeat', key: b.key, name: def.name }); }
+    if (key === 'theMech') this.toast('The Surface trembles — a Worm Lure can now call The Worm into an open arena.', 'info');
+    if (key === 'theWorm') this.toast('Overgrowth caverns stir — hunt Swarm enemies for a Hive Resonance Core.', 'info');
+    if (key === 'vespera') {
+      // Slot five is a fork, not a queue: a realm only ever holds one evil
+      // biome, so the player is pointed at the one their world actually has.
+      const evil = this.world && this.world.evil === 'mesh' ? 'mesh' : 'corrupt';
+      this.toast(evil === 'mesh'
+        ? 'The Mesh tightens — weave a Woven Nexus and call The Weave.'
+        : 'The Corruption sings — bind a Choir Effigy and call The Hollowed Choir.', 'info');
+    }
+    if (this.net && this.isHost) { this.net.broadcast({ t: MSG.EVENT, kind: 'bossDefeat', key, name: def.name }); }
     this.markDirty();
     this.saveGame(false);
   }

@@ -1,7 +1,7 @@
 // Summoner Realms — projectiles for ranged/mage weapons, minions, enemies, bosses.
-import { GRAVITY, TILE } from '../config.js?v=who-invited-grok-1';
-import { aabb, dist2 } from '../utils.js?v=who-invited-grok-1';
-import { MSG } from '../net/protocol.js?v=who-invited-grok-1';
+import { GRAVITY, TILE } from '../config.js?v=deep-and-divided-1';
+import { aabb, dist2 } from '../utils.js?v=deep-and-divided-1';
+import { MSG } from '../net/protocol.js?v=deep-and-divided-1';
 
 export class Projectile {
   constructor(opts) {
@@ -235,7 +235,10 @@ export class Projectile {
         if (this.damage <= 0 && this.effect?.freeze) {
           b.applyFreeze?.(this.effect.freeze, game);
         } else {
-          game.hurtBoss(b, this.damage, this.ownerId, this.crit);
+          // Where the projectile actually is, so a multi-part boss can
+          // attribute the hit to the part it struck.
+          game.hurtBoss(b, this.damage, this.ownerId, this.crit,
+            this.x + this.w / 2, this.y + this.h / 2);
         }
         game.addHitParticles(this.x, this.y, this.color, 4);
         if (this.pierce-- <= 0 && this.burstDelay == null) {
@@ -334,7 +337,11 @@ export class Projectile {
       const amount = Math.max(1, Math.round(this.blastDamage * (1 - distance / this.blastRadius)));
       const knockback = Math.sign(tx - x) * this.knockback;
       if (friendly) {
-        if (target.key && target.maxHp != null && (game.bosses || []).includes(target)) game.hurtBoss(target, amount, this.ownerId, this.crit);
+        if (target.key && target.maxHp != null && (game.bosses || []).includes(target)) {
+          // A blast is attributed to its own centre, so a detonation between
+          // two parts of a multi-part boss hits whichever it went off nearest.
+          game.hurtBoss(target, amount, this.ownerId, this.crit, x, y);
+        }
         else game.hurtEnemy(target, amount, knockback, -1, this.effect, this.ownerId, this.crit);
       } else if (target.kind || target.isMinion) {
         target.takeDamage(amount, knockback, game, 'explosion');

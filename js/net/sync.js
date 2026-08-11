@@ -1,12 +1,12 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
-import { MSG } from './protocol.js?v=who-invited-grok-1';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=who-invited-grok-1';
-import { Player, assignColor } from '../entities/player.js?v=who-invited-grok-1';
-import { Projectile } from '../entities/projectile.js?v=who-invited-grok-1';
-import { ThrownItem } from '../entities/thrown.js?v=who-invited-grok-1';
-import { ITEMS, isItemEnabled } from '../data/items.js?v=who-invited-grok-1';
-import { ENEMIES } from '../data/enemies.js?v=who-invited-grok-1';
-import { BOSSES } from '../data/bosses.js?v=who-invited-grok-1';
+import { MSG } from './protocol.js?v=deep-and-divided-1';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=deep-and-divided-1';
+import { Player, assignColor } from '../entities/player.js?v=deep-and-divided-1';
+import { Projectile } from '../entities/projectile.js?v=deep-and-divided-1';
+import { ThrownItem } from '../entities/thrown.js?v=deep-and-divided-1';
+import { ITEMS, isItemEnabled } from '../data/items.js?v=deep-and-divided-1';
+import { ENEMIES } from '../data/enemies.js?v=deep-and-divided-1';
+import { BOSSES } from '../data/bosses.js?v=deep-and-divided-1';
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 
@@ -361,7 +361,9 @@ export function handleMessage(game, fromId, msg, conn) {
     case MSG.HIT_BOSS: {
       if (!net.isHost) break;
       const b = (msg.key && game.bosses.find(x => x.key === msg.key)) || game.bosses[0];
-      if (b && b.takeDamage) b.takeDamage(msg.dmg, game, msg.crit);
+      // The hit point travels with the hit so a remote player's shot lands on
+      // the part of a multi-part boss they actually aimed at.
+      if (b && b.takeDamage) b.takeDamage(msg.dmg, game, msg.crit, msg.hx ?? null, msg.hy ?? null);
       break;
     }
     case MSG.BOOM: {

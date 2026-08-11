@@ -4,9 +4,9 @@
 // world read as "two halves" rather than a landscape. They are now laid out as
 // seeded bands along the world with blended seams, and every band carries its
 // own terrain shaping, tile palette, wall palette, decor table and sky colours.
-import { T } from './tiles.js?v=who-invited-grok-1';
-import { W } from './walls.js?v=who-invited-grok-1';
-import { mulberry32 } from '../utils.js?v=who-invited-grok-1';
+import { T } from './tiles.js?v=deep-and-divided-1';
+import { W } from './walls.js?v=deep-and-divided-1';
+import { mulberry32 } from '../utils.js?v=deep-and-divided-1';
 
 // groundCover : the undergrowth mix for this band — a chance plus a weighted
 //               list of plants. Each biome grows something different, so
@@ -65,12 +65,12 @@ export const BIOMES = {
   },
   whirringOcean: {
     key: 'whirringOcean', label: 'Whirring Ocean',
-    surface: T.SAND, sub: T.MESHSTONE, subDepth: [8, 14], stone: T.MESHSTONE,
+    surface: T.SAND, sub: T.MESHFLESH, subDepth: [8, 14], stone: T.MESHSTONE,
     wall: W.MESH, subWall: W.SANDSTONE, stoneWall: W.MESH,
     amp: 3, rough: 0.22, lift: 14,
     treeChance: 0, cactusChance: 0, vineChance: 0, ocean: true, evilOcean: 'mesh',
-    groundCover: { chance: 0.1, plants: [{ tile: T.MESHSCRAP, weight: 5 }, { tile: T.MESHWIRE, weight: 3 }] },
-    skyDay: ['#2a3540', '#5a4a40'], skyNight: ['#080a10', '#141018'],
+    groundCover: { chance: 0.18, plants: [{ tile: T.MESHSINEW, weight: 5 }, { tile: T.MESHSCRAP, weight: 4 }, { tile: T.MESHPOD, weight: 2 }] },
+    skyDay: ['#3a2a30', '#6a4438'], skyNight: ['#0c080c', '#181016'],
   },
   jungle: {
     key: 'jungle', label: 'Verdant Jungle',
@@ -128,19 +128,29 @@ export const BIOMES = {
     chasmChance: 0.35,
     skyDay: ['#4a2f5a', '#7a5a86'], skyNight: ['#14081e', '#2a1436'],
   },
+  // The Mesh is the Corruption's opposite number, and it used to be the thinner
+  // of the two: bare plating, two kinds of scrap on the ground, and a sky the
+  // colour of a shed. It is now the *living* evil — muscle grown over machinery
+  // — with its own flesh strata, six kinds of ground cover, gut strands off
+  // every ceiling and pods that are the only light down there. Ground cover
+  // runs as dense as the Jungle's, because an evil biome you walk through
+  // should feel overgrown with something.
   mesh: {
     key: 'mesh', label: 'The Mesh',
-    surface: T.MESHGRASS, sub: T.MESHSTONE, subDepth: [5, 10], stone: T.MESHSTONE,
+    surface: T.MESHGRASS, sub: T.MESHFLESH, subDepth: [6, 12], stone: T.MESHSTONE,
     wall: W.MESH, subWall: W.MESH, stoneWall: W.MESH,
     amp: 12, rough: 0.7, lift: -1,
-    treeChance: 0.06, cactusChance: 0, vineChance: 0.1,
-    groundCover: { chance: 0.28, plants: [
-      { tile: T.MESHWIRE, weight: 8 },
-      { tile: T.MESHSCRAP, weight: 4 },
+    treeChance: 0.16, cactusChance: 0, vineChance: 0.34,
+    vineTile: T.MESHGUT,
+    groundCover: { chance: 0.66, plants: [
+      { tile: T.MESHSINEW, weight: 8 },
+      { tile: T.MESHWIRE, weight: 5 },
+      { tile: T.MESHSCRAP, weight: 5 },
+      { tile: T.MESHPOD, weight: 3 },
     ] },
     treeTile: T.MESHSPIRE, leafTile: T.MESHSCRAP, treeHeight: [4, 8], canopy: 'spire',
     chasmChance: 0.22,
-    skyDay: ['#3a3f48', '#6a5548'], skyNight: ['#0a0c10', '#1a1418'],
+    skyDay: ['#4a3038', '#7a4a44'], skyNight: ['#100a0e', '#221419'],
   },
 };
 

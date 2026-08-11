@@ -1,6 +1,6 @@
 // Summoner Realms — inventory, hotbar, equipment, and derived stats.
-import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=who-invited-grok-1';
-import { ITEMS, item as getItem, isItemEnabled } from '../data/items.js?v=who-invited-grok-1';
+import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=deep-and-divided-1';
+import { ITEMS, item as getItem, isItemEnabled } from '../data/items.js?v=deep-and-divided-1';
 
 export const INV_SIZE = HOTBAR_SIZE + INV_ROWS * INV_COLS;
 
@@ -210,6 +210,11 @@ export class Inventory {
         else if (key === 'blight') { st.defense += 6; }
         else if (key === 'fiber') { st.maxHpBonus += 10; }
         else if (key === 'royalChitin') { st.defense += 3; st.speedMul += 0.15; st.extraJumps += 1; }
+        // Slot five's two sets are the same tier expressed two ways: the
+        // Corruption set completes into raw survivability, the Mesh set into
+        // reach and footwork. Neither is strictly better than the other.
+        else if (key === 'hollowedPlate') { st.defense += 6; st.maxHpBonus += 20; }
+        else if (key === 'frayedPlate') { st.defense += 3; st.rangedMul += 0.10; st.speedMul += 0.14; st.extraJumps += 1; }
       }
     }
     for (const a of this.equip.acc) {

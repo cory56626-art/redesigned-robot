@@ -1,12 +1,12 @@
 // Summoner Realms — runtime world: tile grid, wall grid, collision, mining,
 // lighting, and the edit diffs that get saved.
-import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=who-invited-grok-1';
-import { T, tileDef, isSolid, tileLight, isLegacyOreTile } from './tiles.js?v=who-invited-grok-1';
-import { W, hasWall, wallBlastResist } from './walls.js?v=who-invited-grok-1';
-import { SH, shapeContains, surfaceOffset, fillsTop } from './shapes.js?v=who-invited-grok-1';
-import { LiquidGrid } from './liquid.js?v=who-invited-grok-1';
-import { BIOME_ORDER } from './biomes.js?v=who-invited-grok-1';
-import { generateWorld } from './worldgen.js?v=who-invited-grok-1';
+import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=deep-and-divided-1';
+import { T, tileDef, isSolid, tileLight, isLegacyOreTile } from './tiles.js?v=deep-and-divided-1';
+import { W, hasWall, wallBlastResist } from './walls.js?v=deep-and-divided-1';
+import { SH, shapeContains, surfaceOffset, fillsTop } from './shapes.js?v=deep-and-divided-1';
+import { LiquidGrid } from './liquid.js?v=deep-and-divided-1';
+import { BIOME_ORDER } from './biomes.js?v=deep-and-divided-1';
+import { generateWorld } from './worldgen.js?v=deep-and-divided-1';
 
 export class World {
   constructor(seed, opts = {}) {

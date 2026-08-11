@@ -1,13 +1,13 @@
 // Summoner Realms — combat & interaction resolution (weapons, mining, placing).
-import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=who-invited-grok-1';
-import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=who-invited-grok-1';
-import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=who-invited-grok-1';
-import { SH, nextShape } from '../world/shapes.js?v=who-invited-grok-1';
-import { W } from '../world/walls.js?v=who-invited-grok-1';
-import { item as getItem } from '../data/items.js?v=who-invited-grok-1';
-import { Projectile } from '../entities/projectile.js?v=who-invited-grok-1';
-import { ThrownItem } from '../entities/thrown.js?v=who-invited-grok-1';
-import { angleTo, aabb, clamp } from '../utils.js?v=who-invited-grok-1';
+import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=deep-and-divided-1';
+import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=deep-and-divided-1';
+import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=deep-and-divided-1';
+import { SH, nextShape } from '../world/shapes.js?v=deep-and-divided-1';
+import { W } from '../world/walls.js?v=deep-and-divided-1';
+import { item as getItem } from '../data/items.js?v=deep-and-divided-1';
+import { Projectile } from '../entities/projectile.js?v=deep-and-divided-1';
+import { ThrownItem } from '../entities/thrown.js?v=deep-and-divided-1';
+import { angleTo, aabb, clamp } from '../utils.js?v=deep-and-divided-1';
 
 const MINE_RATE = 95;
 const MINE_SOUND_INTERVAL = 0.32;
@@ -120,7 +120,11 @@ export function useWeapon(game, player, item) {
       // ignore terrain, so hitting something on the far side of a wall is a
       // property of the weapon rather than an oversight in the hit test.
       if (!item.phasing && !_meleeCanReach(game, pc, tgt)) continue;
-      game.hurtEnemyOrBoss(tgt, dmg, Math.sign(tcx - pc.x) * item.knockback, player.id, crit, item.effect);
+      // The swing lands where the blade meets the target, not at the target's
+      // centre, so a multi-part boss takes the blow on the part you hit.
+      game.hurtEnemyOrBoss(tgt, dmg, Math.sign(tcx - pc.x) * item.knockback, player.id, crit, item.effect,
+        pc.x + Math.cos(aimAng) * Math.min(reachPx, Math.hypot(tcx - pc.x, tcy - pc.y)),
+        pc.y + Math.sin(aimAng) * Math.min(reachPx, Math.hypot(tcx - pc.x, tcy - pc.y)));
       // Mandible Edge earns its dual-blade identity with a delayed, compact
       // follow-up hitbox. The short arming window clears the normal enemy
       // iframe, so both cuts register while still reading as one quick swing.
@@ -389,6 +393,20 @@ function castFx(game, player, item, angle) {
   const pc = player.center();
   const hx = pc.x + Math.cos(angle) * 14, hy = pc.y + Math.sin(angle) * 14;
   switch (item.fx.cast) {
+    case 'hollow': {
+      // One low note: a slow expanding ring and a handful of pale motes drawn
+      // *inward* toward the caster, so it reads as a chorus being pulled out of
+      // them rather than as another muzzle flash.
+      game.fx.ring(hx, hy, 'rgba(240,98,168,0.75)', 30, { life: 0.3, width: 3 });
+      game.fx.ring(hx, hy, 'rgba(201,224,122,0.45)', 18, { life: 0.22, width: 2 });
+      for (let i = 0; i < 5; i++) {
+        const a = angle + (i - 2) * 0.5;
+        game.fx.streak(hx + Math.cos(a) * 16, hy + Math.sin(a) * 16, a + Math.PI, '#c9e07a', 2,
+          { speed: 90, spread: 0.3, life: 0.26, size: 1.4, glow: true });
+      }
+      game.fx.shake(1.4, 0.12);
+      break;
+    }
     case 'lightning': {
       // A branching bolt drawn ahead of the shot, plus a white flash.
       game.fx.ring(hx, hy, 'rgba(255,255,220,0.85)', 26, { life: 0.12, width: 3 });
@@ -546,6 +564,12 @@ function shotFx(game, player, item, angle) {
       game.fx.ring(mx, my, 'rgba(143,212,78,0.66)', 20, { life: 0.18, width: 2.2 });
       player.vx -= Math.cos(angle) * 34;
       game.fx.shake(1.8, 0.12);
+      break;
+    case 'strand':
+      // The Mesh unspools rather than fires: a short bright thread along the
+      // line of the shot and a couple of filaments shaken loose behind it.
+      game.fx.streak(mx, my, angle, '#c8f2ff', 4, { speed: 300, spread: 0.16, life: 0.14, size: 1.4, glow: true });
+      game.fx.streak(mx, my, angle + Math.PI, '#8fd8e8', 2, { speed: 70, spread: 0.9, life: 0.2, size: 1.1 });
       break;
   }
 }

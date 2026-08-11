@@ -1,7 +1,7 @@
 // Summoner Realms — in-game HUD (bars, hotbar, boss bar, clock, indicators).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN } from '../config.js?v=who-invited-grok-1';
-import { Sprites } from '../art/sprites.js?v=who-invited-grok-1';
-import { item as getItem } from '../data/items.js?v=who-invited-grok-1';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN } from '../config.js?v=deep-and-divided-1';
+import { Sprites } from '../art/sprites.js?v=deep-and-divided-1';
+import { item as getItem } from '../data/items.js?v=deep-and-divided-1';
 
 const BUFF_ICON = {
   regen: '♥', ironskin: '🛡', swift: '»',
@@ -136,14 +136,21 @@ export class HUD {
     if (g.bosses.length) {
       const b = g.bosses[0];
       this.el.bossBar.classList.remove('hidden');
-      this.el.bossName.textContent = b.name + (b.enraged ? ' — ENRAGED' : '');
-      const pct = Math.max(0, (b.hp / b.maxHp) * 100);
+      // A fight that splits into several bodies — the Choir's husks — is still
+      // one encounter with one health pool, so the bar sums the group and the
+      // name reports how many pieces are left rather than naming one of them.
+      const group = g.bossBarGroup ? g.bossBarGroup(b) : { hp: b.hp, maxHp: b.maxHp, parts: 1 };
+      const label = group.parts > 1
+        ? `${b.encounterName || b.name} ×${group.parts}`
+        : (b.encounterName || b.name);
+      this.el.bossName.textContent = label + (b.enraged ? ' — ENRAGED' : '');
+      const pct = Math.max(0, (group.hp / group.maxHp) * 100);
       this.el.bossHpFill.style.width = pct + '%';
-      if (this.el.bossHpText) this.el.bossHpText.textContent = `${Math.max(0, Math.ceil(b.hp))} / ${b.maxHp}  (${Math.round(pct)}%)`;
+      if (this.el.bossHpText) this.el.bossHpText.textContent = `${Math.max(0, Math.ceil(group.hp))} / ${group.maxHp}  (${Math.round(pct)}%)`;
       this.el.bossPhase.textContent = b.phase ? b.phase().name : (b.phaseName || '');
       // The bar flashes with the boss's wind-up, so the tell is visible even
       // when the fight has scrolled the boss off the edge of the screen.
-      this.el.bossBar.classList.toggle('telegraph', b.telegraph > 0);
+      this.el.bossBar.classList.toggle('telegraph', g.bosses.some(x => x.telegraph > 0));
     } else {
       this.el.bossBar.classList.add('hidden');
     }

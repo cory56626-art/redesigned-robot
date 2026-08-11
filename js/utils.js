@@ -154,3 +154,17 @@ export function now() {
 export function angleTo(ax, ay, bx, by) {
   return Math.atan2(by - ay, bx - ax);
 }
+
+/**
+ * Shortest distance from a point to a line segment. Used to pick which of a
+ * formation's strands is nearest the player, so an attack that runs along a
+ * line can aim with the geometry it actually has.
+ */
+export function pointSegmentDistance(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq <= 1e-6) return Math.hypot(px - ax, py - ay);
+  let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}

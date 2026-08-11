@@ -75,29 +75,56 @@ export const ENEMIES = {
     aggroRange: 19, loseRange: 34, memory: 6, telegraph: 0.45,
     drops: [{ item: 'blightstone', chance: 0.5, min: 1, max: 2 }],
   },
-  rustCrawler: {
-    key: 'rustCrawler', name: 'Rust Crawler', hp: 58, damage: 16, speed: 48, behavior: 'charger',
-    biomes: ['mesh', 'whirringOcean'], time: 'any', color: '#8a6040', color2: '#4a3a30', w: 22, h: 16, kbResist: 0.45,
+  // ---- The Mesh ----
+  //
+  // The Mesh used to borrow the cave pool and a handful of rust-coloured
+  // reskins, which is why it had no identity of its own. Its six creatures are
+  // all the same idea taken in different directions: something that used to be
+  // machinery and is now mostly meat. Every one of them drops Mesh Sinew, so
+  // the biome funds its own boss.
+  sinewCrawler: {
+    key: 'sinewCrawler', name: 'Sinew Crawler', hp: 64, damage: 16, speed: 52, behavior: 'charger',
+    biomes: ['mesh', 'whirringOcean'], time: 'any', color: '#8a4a48', color2: '#3f2a2c', w: 24, h: 16, kbResist: 0.45,
     aggroRange: 18, loseRange: 32, memory: 6, telegraph: 0.4,
-    drops: [{ item: 'emberDust', chance: 0.35, min: 1, max: 2 }, { item: 'stone', chance: 0.4, min: 1, max: 2 }],
+    drops: [{ item: 'meshSinew', chance: 0.75, min: 1, max: 3 }, { item: 'emberDust', chance: 0.3, min: 1, max: 2 }],
   },
-  sparkDrone: {
-    key: 'sparkDrone', name: 'Spark Drone', hp: 36, damage: 12, speed: 90, behavior: 'flyer',
-    biomes: ['mesh'], time: 'any', color: '#c8d0d8', color2: '#ff8a3a', w: 16, h: 14, kbResist: 0.15,
+  sporeDrone: {
+    key: 'sporeDrone', name: 'Spore Drone', hp: 40, damage: 12, speed: 92, behavior: 'flyer',
+    biomes: ['mesh'], time: 'any', color: '#c07a5a', color2: '#e8b070', w: 18, h: 14, kbResist: 0.15,
     aggroRange: 20, loseRange: 34, memory: 5, telegraph: 0.35,
-    drops: [{ item: 'emberDust', chance: 0.45, min: 1, max: 2 }],
+    drops: [{ item: 'meshSinew', chance: 0.6, min: 1, max: 2 }],
   },
-  ironHusk: {
-    key: 'ironHusk', name: 'Iron Husk', hp: 72, damage: 18, speed: 34, behavior: 'walker',
-    biomes: ['mesh'], time: 'any', color: '#6a7078', color2: '#3a4048', w: 18, h: 26, kbResist: 0.55,
+  gristleHusk: {
+    key: 'gristleHusk', name: 'Gristle Husk', hp: 86, damage: 19, speed: 34, behavior: 'walker',
+    biomes: ['mesh'], time: 'any', color: '#6b4348', color2: '#9aa0a4', w: 20, h: 28, kbResist: 0.6,
     aggroRange: 16, loseRange: 30, memory: 7, telegraph: 0.5,
-    drops: [{ item: 'stone', chance: 0.6, min: 1, max: 3 }, { item: 'stoneironOre', chance: 0.12, min: 1, max: 1 }],
+    drops: [{ item: 'meshSinew', chance: 0.8, min: 2, max: 4 }, { item: 'stoneironOre', chance: 0.12, min: 1, max: 1 }],
   },
   wireSerpent: {
-    key: 'wireSerpent', name: 'Wire Serpent', hp: 48, damage: 14, speed: 70, behavior: 'hopper',
-    biomes: ['mesh', 'whirringOcean'], time: 'night', color: '#c45a2a', color2: '#5a2a18', w: 20, h: 12, kbResist: 0.25,
+    key: 'wireSerpent', name: 'Wire Serpent', hp: 52, damage: 15, speed: 74, behavior: 'hopper',
+    biomes: ['mesh', 'whirringOcean'], time: 'night', color: '#c45a2a', color2: '#5a2a18', w: 22, h: 12, kbResist: 0.25,
     aggroRange: 17, loseRange: 30, memory: 5, telegraph: 0.3, hazard: true,
-    drops: [{ item: 'emberDust', chance: 0.5, min: 1, max: 2 }],
+    drops: [{ item: 'meshSinew', chance: 0.65, min: 1, max: 2 }, { item: 'emberDust', chance: 0.4, min: 1, max: 2 }],
+  },
+  // The Mesh's ranged answer: a knot of tissue on a spool that spits a live
+  // strand. Slow, fragile, and the reason you cannot simply stand at range.
+  strandSpitter: {
+    key: 'strandSpitter', name: 'Strand Spitter', hp: 46, damage: 13, speed: 30, behavior: 'caster',
+    biomes: ['mesh', 'whirringOcean'], time: 'any', color: '#a85a54', color2: '#8fd8e8', w: 18, h: 22, kbResist: 0.25,
+    aggroRange: 22, loseRange: 36, memory: 6, telegraph: 0.5, fireRate: 2.1,
+    projectile: { kind: 'strandSpit', damage: 12, speed: 235, color: '#c8f2ff' },
+    drops: [{ item: 'meshSinew', chance: 0.7, min: 1, max: 3 }],
+  },
+  // The heavy. It only shows up once Vespera is down, which is exactly when a
+  // player starts farming the Mesh for Woven Nexus components.
+  meshBrute: {
+    key: 'meshBrute', name: 'Mesh Brute', hp: 210, damage: 26, speed: 44, behavior: 'charger',
+    biomes: ['mesh'], time: 'any', color: '#7d3f46', color2: '#d0705a', w: 30, h: 32, kbResist: 0.7,
+    aggroRange: 20, loseRange: 38, memory: 9, telegraph: 0.55, requiresBoss: 'vespera',
+    drops: [
+      { item: 'meshSinew', chance: 1, min: 3, max: 6 },
+      { item: 'healGreater', chance: 0.25, min: 1, max: 1 },
+    ],
   },
   modulineDevil: {
     key: 'modulineDevil', name: 'Moduline Devil', hp: 420, damage: 22, speed: 54, behavior: 'caster',

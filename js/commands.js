@@ -1,11 +1,11 @@
 // Summoner Realms — Demo Commands console (testing only).
-import { ITEMS, DEMO_GIVE_ALL, allItemIds, isItemEnabled } from './data/items.js?v=who-invited-grok-1';
-import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=who-invited-grok-1';
-import { BOSS_KEYS, BOSSES } from './data/bosses.js?v=who-invited-grok-1';
-import { TRACKS } from './engine/music.js?v=who-invited-grok-1';
-import { FAUNA } from './data/fauna.js?v=who-invited-grok-1';
-import { ACHIEVEMENTS } from './systems/achievements.js?v=who-invited-grok-1';
-import { TILE, LIQUID_MAX } from './config.js?v=who-invited-grok-1';
+import { ITEMS, DEMO_GIVE_ALL, allItemIds, isItemEnabled } from './data/items.js?v=deep-and-divided-1';
+import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=deep-and-divided-1';
+import { BOSS_KEYS, SUMMONABLE_BOSS_KEYS, BOSSES } from './data/bosses.js?v=deep-and-divided-1';
+import { TRACKS } from './engine/music.js?v=deep-and-divided-1';
+import { FAUNA } from './data/fauna.js?v=deep-and-divided-1';
+import { ACHIEVEMENTS } from './systems/achievements.js?v=deep-and-divided-1';
+import { TILE, LIQUID_MAX } from './config.js?v=deep-and-divided-1';
 
 const $ = (id) => document.getElementById(id);
 
@@ -365,9 +365,11 @@ export class CommandConsole {
   }
 
   _summonItem(a) {
-    const id = this._resolve(BOSS_KEYS, a[0], BOSSNAMES());
-    if (!id) return err(`No boss matching "${a[0] || ''}".`);
+    // Only bosses you can actually summon: a Choir husk has no summon item.
+    const id = this._resolve(SUMMONABLE_BOSS_KEYS, a[0], BOSSNAMES());
+    if (!id) return err(`No boss matching "${a[0] || ''}". Options: ${SUMMONABLE_BOSS_KEYS.join(', ')}`);
     const itemId = BOSSES[id].summonItem;
+    if (!itemId) return err(`${BOSSES[id].name} has no summon item.`);
     this.game.localPlayer.inventory.add(itemId, 3);
     return ok(`Gave 3× ${ITEMS[itemId].name}.`);
   }

@@ -13,7 +13,139 @@ menu or in the pause menu. Keep this file in sync with
 > several "bugs" are automation/focus artifacts of driving a canvas game through
 > Playwright, not defects in the game. Those are called out below.
 
-Version: **4.1 — Quality of Realms · 2026-07**
+Version: **4.2 — The Deep and the Divided · 2026-08**
+
+---
+
+## 4.2 — The Deep and the Divided
+
+Three things: the oceans were a flat blue slab, the Mesh was an empty shelf next
+to the Corruption's thickets, and slot five was missing. All three turned out to
+have the same shape of cause — a system that was *described* but never given the
+parts that make it read.
+
+### The oceans
+
+The ocean was one flat rectangle of `#2f6fbf` at 72% alpha with a one-pixel
+highlight on the top row. Two separate faults, one in the generator and one in
+the renderer:
+
+- **The sea had no single level.** `fillOceans` chose a per-column water top of
+  `s - 10 - ((x * 3) % 4)` — a four-column sawtooth. The surface stepped up and
+  down three tiles every few columns, so any depth-based shading reset at every
+  step and the whole body read as vertical stripes. Each ocean band now floods
+  to one flat row, chosen from the shallowest seabed in that band.
+- **Columns were missing entirely.** The old support test walked down from a
+  cell and bailed on the *first non-air tile*, so any column with a reed or a
+  shrub standing on the seabed was left completely dry — a wall of water with
+  slices cut out of it. Support is now decided by whether the column reaches
+  solid seabed at all, and submerged ground cover is cleared so the column
+  floods cleanly.
+
+With the terrain fixed, the water is drawn as a body of water
+(`js/engine/water.js`): columns scanned into runs and filled with a depth ramp
+keyed to each column's own free surface; a wavy crest with sheen and foam that
+appears on the tops of the swell; god rays cast from a world-space lattice
+wherever open water actually sits under open sky, leaning with the sun and
+drifting on their own cycles; caustics on the seabed; suspended motes and rising
+bubbles from a hash rather than stored particles; shoreline foam; and a
+screen-space cast, vignette and shimmer while submerged.
+
+One deliberate design note on the rays: the first version emitted from *every*
+open column, which at noon produced evenly spaced vertical bars. Light has to
+arrive from somewhere — "everywhere at once, straight down" reads as striping,
+not as sun. They now sit on a sparse lattice and always keep a standing tilt.
+
+### The Mesh
+
+The Mesh was rust and scrap: bare plating, two kinds of ground cover, four
+enemies that were re-coloured cave mobs, and none of them with any art of their
+own — every one fell through to the generic "rounded box with a white pixel for
+an eye" fallback. That is what "no custom enemies" meant literally.
+
+It is now the *living* evil, the Corruption's opposite number rather than its
+poor relation: muscle grown over machinery.
+
+- **A real find.** Surface undergrowth is gated on a whitelist of ground tiles
+  and Mesh Membrane was not in it, so every Mesh column rolled its ground cover,
+  looked at the wrong ground tile and grew nothing. That single missing entry is
+  most of why the biome looked bare.
+- **New tissue.** Mesh Flesh as the sub-layer, Raw Sinew and Sinew Clumps on the
+  floor, Gut Strands off every ceiling, and Mesh Pods — the biome's only natural
+  light, so a Mesh cave is navigable before you spend torches on it. Ground
+  cover now runs as dense as the Jungle's.
+- **Six creatures, all with their own art**: Sinew Crawler, Spore Drone, Gristle
+  Husk, Wire Serpent, Strand Spitter and — post-Vespera — the Mesh Brute. They
+  share one grammar so they belong to each other: dark wet meat, one bone-pale
+  mechanical remnant, and a hot core that brightens on the wind-up. All of them
+  drop Mesh Sinew, so the biome funds its own boss.
+
+### Slot five: a fork, not a step
+
+A realm generates exactly one evil biome, so slot five is two encounters that
+are alternatives rather than a chain. Neither lists the other as a prerequisite;
+both sit behind Vespera and behind their own biome. The gate enforces itself
+through ingredients — Blightstone only exists in a Corruption world and Mesh
+Sinew only in a Mesh world — so nothing has to check a flag to know which fight
+your realm can reach.
+
+**The Hollowed Choir** (Corruption) — 12,000 HP, 12 defense, 33 contact. Phase
+one is one hulking mass: Reaching Grasp (arms that stretch out of the mound
+toward where you are standing), Choir Wail (a ring of spores with real gaps in
+it), and Lurch Charge (a committed dash that smears corrupted ground behind it).
+At 55% it comes apart into three husks — separate bodies sharing one health bar
+— that bite, pop for spore damage when they die, and *re-fuse and heal* if two
+of them are left huddled together for three seconds. That last rule is the whole
+fight: focus one husk down while the other two regroup and you lose ground.
+
+**The Weave** (Mesh) — 12,000 HP, 12 defense, 33 contact. Four geared nodes in a
+diamond joined by tissue strands. Strand Lash snaps a strand taut, Node Pulse
+bursts from every node at once, and Reform pulls any node below a quarter of its
+share back into the formation to knit itself up — so focus fire is the slowest
+way to kill it. At 50% a node is absorbed (its health moves into the survivors,
+never wasted) and the remaining three go faster, sweep their tendrils in a
+rotating arc, and add homing spores to every pulse.
+
+### Balance, measured rather than guessed
+
+The brief quoted movement in tiles per second (1.8 / 2.5 / 3.0). Taken literally
+that is 29–48 px/s against a player who runs at ~150, which would make both
+fights pure kiting, so the *tiers* were kept and mapped onto this engine's
+scale. Three findings from instrumented playtests drove the rest:
+
+- **The Weave could not hit a grounded player at all.** Both of its phase-one
+  attacks are close-range by design, and the formation was hovering 108 px up
+  and 146 px to the side — out of reach of both. It now comes down onto you.
+- **Strand Lash landed on nothing.** A taut line between two fixed points is a
+  line the player is almost never standing on. A whip does not stay between its
+  ends: the strand now bows *through* the point it is aimed at when the target
+  is within its capture radius, and the drawn curve is exactly the path that was
+  tested for damage.
+- **A grounded boss can be walked away from forever.** The Choir's arms reach
+  further than its body can travel, its wail outruns a sprint, its smear takes
+  the lane away rather than chasing, and it declares a tighter 26-tile arena so
+  the standoff where nothing reaches you is also where it starts to enrage.
+
+Measured against a stationary player in full Royal Chitin (28 defense), damage
+taken per second: **Vespera 5.5**, **The Weave 19.9**, **The Hollowed Choir
+29.5**. A player who moves and reads the wind-ups takes a small fraction of
+that — at a 220 px engagement the Choir landed two hits in fifty seconds, but
+either of them was half a health bar. Both fights run about two and a half
+minutes on tier-11 gear.
+
+One consequence worth recording: flat defense subtracts before the hit lands, so
+Vespera's 13–16 damage projectiles do **1** to a player in her own drop set.
+These two are the first bosses whose projectiles are worth dodging.
+
+### Drops
+
+The Choir gives Choir Remnants, the Hollowed Plate set and **The Hollow** (the
+tier-12 mage weapon). The Weave gives Woven Tissue, the Frayed Plate set and
+**The Mesh** (tier-12 ranged). The two armour sets are deliberately not the same
+armour in two colours: Hollowed Plate completes into raw survivability
+(+6 defense, +20 max health) and Frayed Plate into reach and footwork
+(+10% ranged, +14% speed, an extra jump). Which evil your world rolled changes
+how you fight, not just what colour you are.
 
 ---
 

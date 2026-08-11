@@ -9,9 +9,9 @@
 // top, a shadowed underside and rimmed sides. That neighbour awareness — plus
 // grass fringing down onto dirt and trunk/canopy shading — is most of what makes
 // terrain read as terrain instead of a grid of coloured squares.
-import { T, TILES, tileMat, isTree, isLeaf } from '../world/tiles.js?v=who-invited-grok-1';
-import { W, WALLS } from '../world/walls.js?v=who-invited-grok-1';
-import { mulberry32 } from '../utils.js?v=who-invited-grok-1';
+import { T, TILES, tileMat, isTree, isLeaf } from '../world/tiles.js?v=deep-and-divided-1';
+import { W, WALLS } from '../world/walls.js?v=deep-and-divided-1';
+import { mulberry32 } from '../utils.js?v=deep-and-divided-1';
 
 function makeCanvas(w, h) {
   const c = document.createElement('canvas');
@@ -366,6 +366,23 @@ class SpriteBank {
       ctx.fillStyle = shade(base, -0.3);
       ctx.fillRect(3, 3, 4, 3); ctx.fillRect(9, 8, 5, 4); ctx.fillRect(2, 10, 3, 3);
     }
+    // Mesh stone is muscle with cabling run through it. The pale strands are
+    // what stop the biome's solids from reading as plain brown rock.
+    if (id === T.MESHSTONE || id === T.MESHFLESH || id === T.MESHGRASS) {
+      ctx.strokeStyle = shade(base, -0.34); ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-1, 11); ctx.quadraticCurveTo(6, 7, TS + 1, 12);
+      ctx.moveTo(-1, 6); ctx.quadraticCurveTo(8, 10, TS + 1, 5);
+      ctx.stroke();
+      ctx.strokeStyle = shade(base, 0.30); ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(-1, 10.4); ctx.quadraticCurveTo(6, 6.4, TS + 1, 11.4);
+      ctx.stroke();
+      if (id === T.MESHFLESH) {
+        ctx.fillStyle = shade(base, 0.42);
+        ctx.fillRect(4, 3, 1, 1); ctx.fillRect(11, 9, 1, 1);
+      }
+    }
     if (id === T.LOOT_CHEST) {
       ctx.clearRect(0, 0, TS, TS);
       // A compact, warmly lit chest that reads at tile scale without looking
@@ -515,6 +532,58 @@ class SpriteBank {
           const y = 2 + i * 3.6;
           ctx.fillStyle = i % 2 ? light : dark;
           ctx.fillRect(TS / 2 + (i % 2 ? 1 : -3), y, 3, 2);
+        }
+        break;
+      // ---- The Mesh: the living half of the biome ----
+      // Everything here is built the same way — a wet, dark base with one
+      // lighter wet highlight — so sinew, pods and guts read as the same
+      // organism even though they sit in different places in a room.
+      case T.MESHSINEW: {
+        // Ropes of tissue rising off the floor, thicker at the base.
+        for (let i = 0; i < 3; i++) {
+          const x = 3 + i * 4 + rand() * 1.5;
+          const h = 8 + rand() * 6;
+          ctx.strokeStyle = dark; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(x, TS);
+          ctx.quadraticCurveTo(x + (rand() - 0.5) * 4, TS - h * 0.5, x + (rand() - 0.5) * 5, TS - h);
+          ctx.stroke();
+          ctx.strokeStyle = base; ctx.lineWidth = 1.2;
+          ctx.stroke();
+        }
+        ctx.fillStyle = light;
+        ctx.fillRect(4, TS - 4, 1, 2); ctx.fillRect(10, TS - 6, 1, 2);
+        break;
+      }
+      case T.MESHPOD: {
+        // A swollen sac on a short stalk. This is the Mesh's only natural
+        // light, so the highlight is deliberately hot.
+        ctx.strokeStyle = shade(base, -0.45); ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.moveTo(TS / 2, TS); ctx.lineTo(TS / 2 - 1, TS - 5); ctx.stroke();
+        ctx.fillStyle = shade(base, -0.4);
+        ctx.beginPath(); ctx.ellipse(TS / 2 - 1, TS - 8, 4.6, 5.2, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = base;
+        ctx.beginPath(); ctx.ellipse(TS / 2 - 1, TS - 8, 3.6, 4.2, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = shade(base, 0.42);
+        ctx.beginPath(); ctx.ellipse(TS / 2 - 2, TS - 9.5, 1.6, 2, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffe6cf';
+        ctx.fillRect(TS / 2 - 3, TS - 10, 1, 1);
+        break;
+      }
+      case T.MESHGUT:
+        // Hangs from the ceiling like the vine, but heavier and beaded, so a
+        // Mesh ceiling never reads as a jungle one.
+        ctx.strokeStyle = dark; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(TS / 2, 0);
+        ctx.quadraticCurveTo(TS / 2 - 2, TS * 0.55, TS / 2 + 1, TS);
+        ctx.stroke();
+        ctx.strokeStyle = base; ctx.lineWidth = 1.3;
+        ctx.stroke();
+        for (let i = 0; i < 3; i++) {
+          const y = 3 + i * 4.4;
+          ctx.fillStyle = i % 2 ? light : shade(base, -0.14);
+          ctx.beginPath(); ctx.ellipse(TS / 2 - 1 + (i % 2 ? 1.5 : -1.5), y, 1.8, 1.4, 0, 0, Math.PI * 2); ctx.fill();
         }
         break;
       case T.MUSHROOM:

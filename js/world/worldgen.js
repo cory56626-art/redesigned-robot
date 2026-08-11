@@ -17,11 +17,11 @@
 //
 // Deterministic from a numeric seed. `tools/worldgen-check.mjs` asserts the
 // invariants this file is responsible for.
-import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE, LIQUID_MAX } from '../config.js?v=who-invited-grok-1';
-import { T, isSolid, isFlora } from './tiles.js?v=who-invited-grok-1';
-import { W } from './walls.js?v=who-invited-grok-1';
-import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=who-invited-grok-1';
-import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep, lerp } from '../utils.js?v=who-invited-grok-1';
+import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE, LIQUID_MAX } from '../config.js?v=deep-and-divided-1';
+import { T, isSolid, isFlora } from './tiles.js?v=deep-and-divided-1';
+import { W } from './walls.js?v=deep-and-divided-1';
+import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=deep-and-divided-1';
+import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep, lerp } from '../utils.js?v=deep-and-divided-1';
 
 // Half-width of the guaranteed flat, cave-free plain the player spawns on.
 const SPAWN_PLAIN = 13;
@@ -806,8 +806,13 @@ function decorate(tiles, w, h, surface, biome, rand, spawnTx) {
     // on exactly one tile type, which is why the overworld read as empty. Each
     // biome now gets its own weighted mix, so walking from the forest into the
     // dunes changes what is growing underfoot as well as what the ground is.
+    // The whitelist is the reason a biome looks planted or bare. Mesh Membrane
+    // was missing from it, so every Mesh column rolled its ground cover, found
+    // the wrong ground tile, and grew nothing — which is most of why the Mesh
+    // read as an empty grey shelf next to the Corruption's thickets.
     if (def.groundCover && rand() < def.groundCover.chance && tiles[idx(x, s - 1)] === T.AIR &&
-        (ground === T.GRASS || ground === T.BLIGHTGRASS || ground === T.SNOW || ground === T.SAND)) {
+        (ground === T.GRASS || ground === T.BLIGHTGRASS || ground === T.SNOW ||
+         ground === T.SAND || ground === T.MESHGRASS || ground === T.MESHFLESH)) {
       tiles[idx(x, s - 1)] = pickWeighted(def.groundCover.plants, rand);
     }
     if (def.iceChance && rand() < def.iceChance) {
@@ -820,9 +825,17 @@ function decorate(tiles, w, h, surface, biome, rand, spawnTx) {
     const key = BIOME_ORDER[biome.map[x]];
     if (key !== 'corrupt' && key !== 'mesh') continue;
     for (let y = surface[x] + 1; y < h - BEDROCK - 1; y++) {
-      if (tiles[idx(x, y)] === T.AIR && tiles[idx(x, y - 1)] !== T.AIR && rand() < 0.045) {
-        tiles[idx(x, y)] = key === 'mesh' ? T.MESHWIRE : T.THORNVINE;
+      if (tiles[idx(x, y)] !== T.AIR || tiles[idx(x, y - 1)] === T.AIR) continue;
+      const r = rand();
+      if (key !== 'mesh') {
+        if (r < 0.045) tiles[idx(x, y)] = T.THORNVINE;
+        continue;
       }
+      // The Mesh grows down off every ceiling it has: gut strands first, then
+      // wire, then the pods that light the place.
+      if (r < 0.055) tiles[idx(x, y)] = T.MESHGUT;
+      else if (r < 0.085) tiles[idx(x, y)] = T.MESHWIRE;
+      else if (r < 0.100) tiles[idx(x, y)] = T.MESHPOD;
     }
   }
 
@@ -835,14 +848,25 @@ function decorate(tiles, w, h, surface, biome, rand, spawnTx) {
       if (tiles[idx(x, y)] !== T.AIR) continue;
       const floor = tiles[idx(x, y + 1)] !== T.AIR;
       const ceiling = tiles[idx(x, y - 1)] !== T.AIR;
+      // A Mesh cave is dressed with the biome's own tissue rather than with
+      // mushrooms and stone teeth, so descending out of the Mesh surface into
+      // the caverns under it stays one continuous place.
+      const meshCave = BIOME_ORDER[biome.map[x]] === 'mesh' && y < UNDERGROUND_Y + 40;
       if (floor && !ceiling) {
         const r = rand();
-        if (r < 0.020) tiles[idx(x, y)] = T.STALAGMITE;
+        if (meshCave) {
+          if (r < 0.034) tiles[idx(x, y)] = T.MESHSINEW;
+          else if (r < 0.050) tiles[idx(x, y)] = T.MESHSCRAP;
+          else if (r < 0.062) tiles[idx(x, y)] = T.MESHPOD;
+        } else if (r < 0.020) tiles[idx(x, y)] = T.STALAGMITE;
         else if (r < 0.034) tiles[idx(x, y)] = T.MUSHROOM;
         else if (r < 0.042) tiles[idx(x, y)] = T.GLOWMOSS;
       } else if (ceiling && !floor) {
         const r = rand();
-        if (r < 0.018) tiles[idx(x, y)] = T.STALACTITE;
+        if (meshCave) {
+          if (r < 0.042) tiles[idx(x, y)] = T.MESHGUT;
+          else if (r < 0.056) tiles[idx(x, y)] = T.MESHPOD;
+        } else if (r < 0.018) tiles[idx(x, y)] = T.STALACTITE;
         else if (r < 0.030) tiles[idx(x, y)] = T.VINE;
         else if (r < 0.038) tiles[idx(x, y)] = T.GLOWMOSS;
       }
@@ -1163,27 +1187,65 @@ function placeTree(tiles, w, h, x, baseY, def, rand) {
   }
 }
 
-// Edge oceans: deep water columns over the ocean biome bands.
+// Edge oceans: one continuous body of water over the ocean biome bands.
+//
+// The old version picked a per-column water top of `s - 10 - ((x * 3) % 4)`,
+// which is a four-column sawtooth — a sea whose surface stepped up and down
+// three tiles every few columns, so the renderer's depth shading reset at every
+// step and the whole ocean read as vertical stripes. Worse, its "supported"
+// test bailed on the first non-air tile below a cell, so any column carrying a
+// reed or a shrub on the seabed was left completely dry: a wall of water with
+// missing slices cut out of it.
+//
+// A sea has *one* level. Each ocean band now floods to a single flat row, and
+// support is decided by whether the column reaches solid seabed at all rather
+// than by whatever decoration is standing on it. Waves are a rendering concern
+// (engine/water.js), not a terrain one.
 function fillOceans(tiles, liquid, w, h, surface, biome) {
   if (!liquid) return;
   const idx = (x, y) => y * w + x;
-  for (let x = 0; x < w; x++) {
-    const key = BIOME_ORDER[biome.map[x]];
-    const def = BIOMES[key];
-    if (!def || !def.ocean) continue;
-    const s = surface[x];
-    // Flood air above solid seafloor only — never leave water floating over void.
-    const waterTop = Math.max(2, s - 10 - ((x * 3) % 4));
-    for (let y = waterTop; y < s; y++) {
-      if (tiles[idx(x, y)] !== T.AIR) continue;
-      // Supported if anything solid sits below this cell down to the seafloor.
-      let supported = false;
-      for (let by = y + 1; by <= s + 2 && by < h - BEDROCK; by++) {
-        if (isSolid(tiles[idx(x, by)])) { supported = true; break; }
-        if (tiles[idx(x, by)] !== T.AIR) break;
-      }
-      if (supported) liquid[idx(x, y)] = LIQUID_MAX;
+
+  // Walk the map collecting contiguous ocean bands, so each sea gets its own
+  // level rather than every column inventing one.
+  let x = 0;
+  while (x < w) {
+    const def0 = BIOMES[BIOME_ORDER[biome.map[x]]];
+    if (!def0 || !def0.ocean) { x++; continue; }
+    let end = x;
+    while (end + 1 < w) {
+      const d = BIOMES[BIOME_ORDER[biome.map[end + 1]]];
+      if (!d || !d.ocean) break;
+      end++;
     }
+
+    // Sea level: a fixed offset under the *shallowest* seabed in the band, so
+    // the shoreline stays a shoreline and the deep stays deep. Clamped so a
+    // narrow band still holds real water.
+    let minSurface = Infinity;
+    for (let cx = x; cx <= end; cx++) minSurface = Math.min(minSurface, surface[cx]);
+    const seaLevel = Math.max(3, minSurface - 9);
+
+    for (let cx = x; cx <= end; cx++) {
+      const s = surface[cx];
+      if (s <= seaLevel) continue; // beach above the waterline
+      // Only flood a column that actually has seabed under it.
+      let seabed = -1;
+      for (let by = seaLevel; by <= s + 3 && by < h - BEDROCK; by++) {
+        if (isSolid(tiles[idx(cx, by)])) { seabed = by; break; }
+      }
+      if (seabed < 0) continue;
+      for (let y = seaLevel; y < seabed; y++) {
+        const t = tiles[idx(cx, y)];
+        // Submerged decoration (reeds, kelp-like ground cover) is cleared so the
+        // column floods cleanly instead of leaving a dry gap in the sea.
+        if (t !== T.AIR) {
+          if (isSolid(t)) break;
+          tiles[idx(cx, y)] = T.AIR;
+        }
+        liquid[idx(cx, y)] = LIQUID_MAX;
+      }
+    }
+    x = end + 1;
   }
 }
 

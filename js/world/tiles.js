@@ -82,6 +82,15 @@ export const T = {
   BERSERKMOSS: 68,
   SUMMONTHISTLE: 69,
   HOPS: 70,
+  // --- Mesh biome pass ---
+  // The Mesh was built out of rust and scrap, which made it read as a
+  // half-finished workshop rather than an evil biome. These are the living
+  // half: membrane over the plating, sinew you can harvest, pods that glow,
+  // and gut-strands hanging off every ceiling.
+  MESHSINEW: 71,
+  MESHPOD: 72,
+  MESHGUT: 73,
+  MESHFLESH: 74,
 };
 
 // The old ore IDs stay reserved so saves from the short-lived pre-reset build
@@ -144,11 +153,18 @@ export const TILES = {
 
   [T.BLIGHTWOOD]:   { name: 'Blightwood', solid: false, color: '#5a3a68', hardness: 30, minPower: 0, drop: 'wood', toolType: 'axe', tree: true, decor: true, mat: 'wood', blastResist: 1 },
   [T.BLIGHTLEAVES]: { name: 'Blight Leaves', solid: false, color: '#7a3a9a', hardness: 8, minPower: 0, toolType: 'axe', leaf: true, decor: true, mat: 'leaves', blastResist: 0 },
-  [T.MESHGRASS]:    { name: 'Mesh Plating', solid: true, color: '#5a6068', hardness: 40, minPower: 1, drop: 'stone', mat: 'mesh', grass: '#8a9098', blastResist: 1 },
-  [T.MESHSTONE]:    { name: 'Iron Mesh', solid: true, color: '#4a4e56', hardness: 95, minPower: 2, drop: 'stone', toolType: 'pickaxe', mat: 'mesh', blastResist: 2 },
-  [T.MESHWIRE]:     { name: 'Living Wire', solid: false, color: '#c45a2a', hardness: 8, minPower: 0, drop: 'emberDust', dropChance: 0.35, decor: true, sway: 0.6, flora: true, hazard: 2, blastResist: 0 },
-  [T.MESHSCRAP]:    { name: 'Scrap Heap', solid: false, color: '#6a5548', hardness: 12, minPower: 0, drop: 'stone', dropChance: 0.4, decor: true, sway: 0.2, flora: true, blastResist: 0 },
-  [T.MESHSPIRE]:    { name: 'Mesh Spire', solid: false, color: '#6a7078', hardness: 34, minPower: 0, drop: 'stone', toolType: 'axe', tree: true, decor: true, mat: 'mesh', blastResist: 1 },
+  [T.MESHGRASS]:    { name: 'Mesh Membrane', solid: true, color: '#5f4246', hardness: 40, minPower: 1, drop: 'dirt', mat: 'mesh', grass: '#8f5a62', blastResist: 1 },
+  [T.MESHSTONE]:    { name: 'Knotted Mesh', solid: true, color: '#4a3c40', hardness: 95, minPower: 2, drop: 'stone', toolType: 'pickaxe', mat: 'mesh', blastResist: 2 },
+  [T.MESHWIRE]:     { name: 'Living Wire', solid: false, color: '#c45a2a', hardness: 8, minPower: 0, drop: 'meshSinew', dropChance: 0.55, decor: true, sway: 0.6, flora: true, hazard: 2, blastResist: 0 },
+  [T.MESHSCRAP]:    { name: 'Sinew Clump', solid: false, color: '#8a4a48', hardness: 12, minPower: 0, drop: 'meshSinew', dropChance: 0.7, decor: true, sway: 0.2, flora: true, blastResist: 0 },
+  [T.MESHSPIRE]:    { name: 'Mesh Spire', solid: false, color: '#6a5a58', hardness: 34, minPower: 0, drop: 'meshSinew', dropChance: 0.5, toolType: 'axe', tree: true, decor: true, mat: 'mesh', blastResist: 1 },
+  // The living half of the Mesh. Sinew and guts are harvested by hand; pods
+  // are the biome's only natural light, which is what makes a Mesh cave
+  // navigable without carpeting it in torches.
+  [T.MESHSINEW]:    { name: 'Raw Sinew', solid: false, color: '#a85a54', hardness: 8, minPower: 0, drop: 'meshSinew', dropChance: 1, decor: true, sway: 0.75, flora: true, blastResist: 0 },
+  [T.MESHPOD]:      { name: 'Mesh Pod', solid: false, color: '#d0705a', hardness: 10, minPower: 0, drop: 'meshSinew', dropChance: 0.85, decor: true, sway: 0.3, flora: true, light: 0.5, blastResist: 0 },
+  [T.MESHGUT]:      { name: 'Gut Strand', solid: false, color: '#7d3f46', hardness: 9, minPower: 0, drop: 'meshSinew', dropChance: 0.6, decor: true, sway: 0.85, flora: true, anchor: 'ceiling', blastResist: 0 },
+  [T.MESHFLESH]:    { name: 'Mesh Flesh', solid: true, color: '#6b4348', hardness: 55, minPower: 1, drop: 'meshSinew', dropChance: 0.5, toolType: 'pickaxe', mat: 'mesh', blastResist: 1 },
   [T.BREWERY]:      { name: 'Brewery', solid: false, color: '#8a5a3a', hardness: 30, minPower: 0, drop: 'brewery', station: 'brewery', decor: true, blastResist: 0 },
   [T.BLOODROOT]:    { name: 'Bloodroot', solid: false, color: '#b03030', hardness: 4, minPower: 0, drop: 'bloodroot', dropChance: 1, decor: true, sway: 0.7, flora: true, blastResist: 0 },
   [T.CALMLEAF]:     { name: 'Calmleaf', solid: false, color: '#6ab0a0', hardness: 4, minPower: 0, drop: 'calmleaf', dropChance: 1, decor: true, sway: 0.8, flora: true, blastResist: 0 },

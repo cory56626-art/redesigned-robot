@@ -13,11 +13,11 @@
 //                the recipe list and boss loot tables, so a new item is
 //                explained correctly the day it's added without anyone writing
 //                a paragraph for it.
-import { ITEMS, item as getItem } from './items.js?v=who-invited-grok-1';
-import { RECIPES } from './recipes.js?v=who-invited-grok-1';
-import { BOSSES } from './bosses.js?v=who-invited-grok-1';
-import { ENEMIES } from './enemies.js?v=who-invited-grok-1';
-import { TILE } from '../config.js?v=who-invited-grok-1';
+import { ITEMS, item as getItem } from './items.js?v=deep-and-divided-1';
+import { RECIPES } from './recipes.js?v=deep-and-divided-1';
+import { BOSSES } from './bosses.js?v=deep-and-divided-1';
+import { ENEMIES } from './enemies.js?v=deep-and-divided-1';
+import { TILE } from '../config.js?v=deep-and-divided-1';
 
 const CLASS_LABEL = { melee: 'Melee', ranged: 'Ranged', mage: 'Mage', summon: 'Summoner' };
 
@@ -28,6 +28,9 @@ function bossBiomeLabel(biome) {
   if (biome === 'jungle') return 'the <b>Verdant Jungle</b>';
   if (biome === 'dunes') return 'the <b>Sunken Dunes</b>';
   if (biome === 'corrupt') return 'the <b>Corrupted Lands</b>';
+  if (biome === 'mesh') return 'the <b>Mesh</b>';
+  if (biome === 'frostpine') return '<b>Frostpine Hollow</b>';
+  if (biome === 'snowyTaiga') return 'the <b>Snowy Taiga</b>';
   return `the <b>${biome}</b>`;
 }
 
@@ -35,7 +38,10 @@ function bossBiomeLabel(biome) {
 // handwritten list. Adding another active boss automatically gives the Guide
 // a correct gate, crafting cost, location, and summon item.
 function bossSummonGuide(g) {
-  return Object.entries(BOSSES).map(([key, boss], index) => {
+  // Encounter-internal bosses (the Choir's husks) are not summonable and must
+  // never appear here as a step of their own.
+  const entries = Object.entries(BOSSES).filter(([, boss]) => !boss.hidden);
+  const lines = entries.map(([key, boss], index) => {
     const itemDef = getItem(boss.summonItem);
     const recipe = RECIPES.find(r => r.out.item === boss.summonItem);
     const gate = boss.requiresBoss ? BOSSES[boss.requiresBoss] : null;
@@ -49,8 +55,15 @@ function bossSummonGuide(g) {
     const placePrep = boss.biome === 'surface' ? 'on' : 'in';
     const prep = boss.summonGuide?.prep || `Use it in ${bossBiomeLabel(boss.biome)}.`;
     const reward = boss.summonGuide?.reward || 'Its rewards are dropped when it is defeated.';
-    return `<b>${index + 1}. ${boss.name}</b> — craft a <b>${itemDef?.name || boss.summonItem}</b> ${recipe ? `at a <b>${station}</b> from ${cost}` : `from ${cost}`}.${gateText} Then use it ${placePrep} ${bossBiomeLabel(boss.biome)}. ${prep} ${reward}`;
+    // Slot five is a fork rather than a step: a realm generates one evil biome
+    // and can only ever reach the boss that belongs to it, so both entries are
+    // numbered the same and labelled with which world they are for.
+    const label = boss.evilBiome
+      ? `<b>${index === entries.length - 1 ? index : index + 1}${boss.evilBiome === 'mesh' ? 'b' : 'a'}. ${boss.name}</b> <i>(Mesh and Corruption realms are alternatives — your world has one of them)</i>`
+      : `<b>${index + 1}. ${boss.name}</b>`;
+    return `${label} — craft a <b>${itemDef?.name || boss.summonItem}</b> ${recipe ? `at a <b>${station}</b> from ${cost}` : `from ${cost}`}.${gateText} Then use it ${placePrep} ${bossBiomeLabel(boss.biome)}. ${prep} ${reward}`;
   });
+  return lines;
 }
 
 // ---------------------------------------------------------------------------
