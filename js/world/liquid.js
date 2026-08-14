@@ -15,9 +15,9 @@
 //      tick, so a change propagates outward until everything settles.
 //
 // Mining into a pool drains it because World.set wakes the tile it changed.
-import { LIQUID_MAX, LIQUID_TICK, LIQUID_BUDGET, TILE } from '../config.js?v=deep-and-divided-1';
-import { isSolid } from './tiles.js?v=deep-and-divided-1';
-import { SH, shapeContains } from './shapes.js?v=deep-and-divided-1';
+import { LIQUID_MAX, LIQUID_TICK, LIQUID_BUDGET, TILE } from '../config.js?v=tides-1';
+import { isSolid } from './tiles.js?v=tides-1';
+import { SH, shapeContains } from './shapes.js?v=tides-1';
 
 export class LiquidGrid {
   constructor(world) {
@@ -126,7 +126,7 @@ export class LiquidGrid {
     let level = this.levels[this.index(tx, ty)];
     if (level <= 0) return;
 
-    // 1) Fall.
+    // 1) Fall straight down.
     const belowCap = this.capacity(tx, ty + 1);
     if (belowCap > 0) {
       const below = this.get(tx, ty + 1);
@@ -134,6 +134,24 @@ export class LiquidGrid {
       if (room > 0) {
         const move = Math.min(room, level);
         this.set(tx, ty + 1, below + move);
+        level -= move;
+        this.set(tx, ty, level);
+        if (level <= 0) return;
+      }
+    }
+
+    // 1b) Diagonal fall — Terraria's "water finds a hole one tile over".
+    if (this.capacity(tx, ty + 1) <= this.get(tx, ty + 1)) {
+      for (const dx of Math.random() < 0.5 ? [-1, 1] : [1, -1]) {
+        const dcap = this.capacity(tx + dx, ty + 1);
+        if (dcap <= 0) continue;
+        const dhave = this.get(tx + dx, ty + 1);
+        const room = dcap - dhave;
+        if (room <= 0) continue;
+        // Only drop through if the side cell itself is not a solid wall.
+        if (this._blocked(tx + dx, ty) && this.capacity(tx + dx, ty) <= 0) continue;
+        const move = Math.min(room, level);
+        this.set(tx + dx, ty + 1, dhave + move);
         level -= move;
         this.set(tx, ty, level);
         if (level <= 0) return;
@@ -249,5 +267,24 @@ export class LiquidGrid {
     if (levels && levels.length === this.levels.length) this.levels.set(levels);
     this.recording = true;
     this.active.clear();
+    this.wakeUnstable();
+  }
+
+  // Wake any cell that can still fall or spill so generated water actually
+  // flows instead of hanging in mid-air until something else touches it.
+  wakeUnstable() {
+    for (let y = 0; y < this.h - 1; y++) {
+      for (let x = 0; x < this.w; x++) {
+        const lv = this.get(x, y);
+        if (!lv) continue;
+        const belowRoom = this.capacity(x, y + 1) - this.get(x, y + 1);
+        if (belowRoom > 0) { this.wake(x, y); continue; }
+        const left = this.capacity(x - 1, y) - this.get(x - 1, y);
+        const right = this.capacity(x + 1, y) - this.get(x + 1, y);
+        if ((left > 0 && lv > this.get(x - 1, y) + 1) || (right > 0 && lv > this.get(x + 1, y) + 1)) {
+          this.wake(x, y);
+        }
+      }
+    }
   }
 }

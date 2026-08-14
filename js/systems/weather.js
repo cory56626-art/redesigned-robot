@@ -2,8 +2,8 @@
 //
 // Wind blows from exactly one side at a time — never both — and is re-rolled on
 // a slow, seeded cadence so a day has calm stretches and gales rather than
-// constant noise. It sways foliage, drives the ambient wind loop, and applies a
-// deliberately gentle drag to surface movement.
+// constant noise. It sways foliage and drives the ambient wind loop. It used
+// to also push the player; that shove was removed because it fought movement.
 //
 // It stops at the surface. Underground there is no wind at all, which is both
 // physically obvious and the thing that keeps the effect from becoming
@@ -11,8 +11,8 @@
 import {
   WIND_MIN_INTERVAL, WIND_MAX_INTERVAL, WIND_SHIFT_TIME,
   WIND_GUST_RATE, WIND_GUST_AMOUNT, WIND_DEPTH_FADE, TILE,
-} from '../config.js?v=deep-and-divided-1';
-import { mulberry32, clamp, lerp, smoothstep } from '../utils.js?v=deep-and-divided-1';
+} from '../config.js?v=tides-1';
+import { mulberry32, clamp, lerp, smoothstep } from '../utils.js?v=tides-1';
 
 // Named bands for the HUD readout, from the absolute wind strength.
 const BANDS = [

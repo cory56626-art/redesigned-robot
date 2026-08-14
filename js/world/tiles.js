@@ -91,6 +91,7 @@ export const T = {
   MESHPOD: 72,
   MESHGUT: 73,
   MESHFLESH: 74,
+  WOOD_PLATFORM: 75,
 };
 
 // The old ore IDs stay reserved so saves from the short-lived pre-reset build
@@ -208,6 +209,7 @@ export const TILES = {
   [T.LOOT_CHEST]: { name: 'Cave Chest', solid: false, color: '#a36a32', hardness: 1, minPower: 0, decor: true, chest: true, blastResist: 3 },
   [T.POISON_DART_TRAP_LEFT]: { name: 'Poison Dart Trap', solid: false, color: '#52674f', hardness: 20, minPower: 1, drop: 'stone', dropChance: 0.4, toolType: 'pickaxe', decor: true, dartTrap: -1, blastResist: 0 },
   [T.POISON_DART_TRAP_RIGHT]: { name: 'Poison Dart Trap', solid: false, color: '#52674f', hardness: 20, minPower: 1, drop: 'stone', dropChance: 0.4, toolType: 'pickaxe', decor: true, dartTrap: 1, blastResist: 0 },
+  [T.WOOD_PLATFORM]: { name: 'Wood Platform', solid: false, color: '#b8894a', hardness: 16, minPower: 0, drop: 'woodPlatform', decor: true, platform: true, blastResist: 0 },
 };
 
 export function tileDef(id) { return TILES[id] || TILES[T.AIR]; }
@@ -224,6 +226,7 @@ export function swayWeight(id) {
   return d.leaf ? 1 : 0;
 }
 export function isFlora(id) { return !!(TILES[id] && TILES[id].flora); }
+export function isPlatform(id) { return !!(TILES[id] && TILES[id].platform); }
 export function isOreTile(id) { return ORE_TILE_IDS.has(id); }
 export function isLegacyOreTile(id) { return LEGACY_ORE_TILE_IDS.has(id); }
 // 'floor' | 'ceiling' | 'any' — which edge the plant is rooted to, and so

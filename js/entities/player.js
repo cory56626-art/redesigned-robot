@@ -4,16 +4,16 @@ import {
   MANA_REGEN, HP_REGEN, TILE,
   HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN,
   CAST_REGEN_DELAY, CAST_REGEN_MULT, RESPAWN_DELAY, RESPAWN_DELAY_BOSS,
-  SWIM_DRAG, SWIM_STROKE, WIND_PLAYER_PUSH,
-  FALL_SAFE_SPEED, FALL_DAMAGE_PER_100,
-} from '../config.js?v=deep-and-divided-1';
-import { tileDef } from '../world/tiles.js?v=deep-and-divided-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=deep-and-divided-1';
-import { Inventory } from '../systems/inventory.js?v=deep-and-divided-1';
-import { item as getItem } from '../data/items.js?v=deep-and-divided-1';
-import * as combat from '../systems/combat.js?v=deep-and-divided-1';
-import * as fishing from '../systems/fishing.js?v=deep-and-divided-1';
-import { clamp } from '../utils.js?v=deep-and-divided-1';
+  SWIM_DRAG, FALL_SAFE_SPEED, FALL_DAMAGE_PER_100,
+  OXYGEN_MAX, OXYGEN_RECOVER, DROWN_DAMAGE, DROWN_TICK,
+} from '../config.js?v=tides-1';
+import { tileDef } from '../world/tiles.js?v=tides-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=tides-1';
+import { Inventory } from '../systems/inventory.js?v=tides-1';
+import { item as getItem } from '../data/items.js?v=tides-1';
+import * as combat from '../systems/combat.js?v=tides-1';
+import * as fishing from '../systems/fishing.js?v=tides-1';
+import { clamp } from '../utils.js?v=tides-1';
 
 export class Player {
   constructor(id, opts = {}) {
@@ -55,6 +55,11 @@ export class Player {
     this.swing = null; // {time, dur, dir, item}
     this.fishing = null; // active cast: {tx,ty,x,y,timer,biting,...}
     this.submerged = false;
+    this.oxygen = OXYGEN_MAX;
+    this.airHud = 0;
+    this.drownTimer = 0;
+    this.swimJumpsLeft = 1;
+    this.dropThrough = false;
     this.inventory = new Inventory();
     this.cheats = { fly: false, godmode: false };
     this.selectedId = null; // for remote render
@@ -133,13 +138,8 @@ export class Player {
       this.kbTimer -= dt; // knockback owns velocity briefly
     } else {
       this.vx = moveX * speed;
-      // Wind pushes you along the surface. Deliberately small — enough to feel
-      // the weather, never enough to fight it — and zero underground, where the
-      // wind does not reach and precision matters most.
-      if (!this.submerged && game.weather) {
-        const wind = game.weather.windAt(game.world, this.x + this.w / 2, this.y + this.h / 2);
-        this.vx += wind * MOVE_SPEED * WIND_PLAYER_PUSH;
-      }
+      // Wind still sways foliage and drives the ambient bed, but it no longer
+      // shoves the player. The push fought precise movement on the surface.
     }
     if (moveX < -0.1) this.facing = -1; else if (moveX > 0.1) this.facing = 1;
 
@@ -162,14 +162,13 @@ export class Player {
       }
       else this.coyoteTimer = Math.max(0, this.coyoteTimer - dt);
 
-      if (canAct && this.submerged && input.jumpHeld) {
-        // Swimming: holding jump strokes upward repeatedly rather than needing
-        // a fresh press per stroke, which is what makes crossing a pool feel
-        // like swimming instead of like failing to jump.
-        this.vy = Math.min(this.vy, -SWIM_STROKE);
-        // Near the surface, a press also vaults you free so water never traps.
-        if (input.jumpPressed) {
-          this.vy = -JUMP_VELOCITY * 0.72 * jumpMul;
+      this.dropThrough = !!(input.downHeld);
+      if (canAct && this.submerged && input.jumpPressed) {
+        // Terraria-style: one slower kick in water, then you sink until you
+        // stand on the bottom (or leave the water). Holding jump does nothing.
+        if (this.swimJumpsLeft > 0) {
+          this.vy = -JUMP_VELOCITY * 0.48 * jumpMul;
+          this.swimJumpsLeft--;
           game.input.consumeJumpPress();
           game.audio?.jump();
         }
@@ -227,11 +226,14 @@ export class Player {
         }
         this.fallSpeedPeak = 0;
         this.jumpsLeft = extraJumps;
+        this.swimJumpsLeft = 1;
         this.flightLeft = Math.max(0, st.flightTime || 0);
       } else if (this.submerged) {
         this.fallSpeedPeak = 0;
       }
     }
+
+    this._tickBreath(dt, game);
 
     if (Math.abs(this.vx) > 5) this.walkAnim += dt * 12; else this.walkAnim = 0;
 
@@ -382,6 +384,30 @@ export class Player {
           this.useTimer = 0.22;
         }
       }
+    }
+  }
+
+  _tickBreath(dt, game) {
+    if (this.cheats.godmode || this.cheats.fly || !this.alive) {
+      this.oxygen = OXYGEN_MAX;
+      this.drownTimer = 0;
+      if (!this.submerged) this.airHud = Math.max(0, this.airHud - dt * 2);
+      return;
+    }
+    if (this.submerged) {
+      this.oxygen = Math.max(0, this.oxygen - dt);
+      this.airHud = Math.min(1, this.airHud + dt * 2.4);
+      if (this.oxygen <= 0) {
+        this.drownTimer += dt;
+        if (this.drownTimer >= DROWN_TICK) {
+          this.drownTimer -= DROWN_TICK;
+          this.takeDamage(DROWN_DAMAGE, 0, game, 'drown');
+        }
+      }
+    } else {
+      this.drownTimer = 0;
+      this.oxygen = Math.min(OXYGEN_MAX, this.oxygen + dt * OXYGEN_RECOVER);
+      if (this.oxygen >= OXYGEN_MAX - 0.05) this.airHud = Math.max(0, this.airHud - dt * 1.8);
     }
   }
 

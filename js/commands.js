@@ -1,11 +1,11 @@
 // Summoner Realms — Demo Commands console (testing only).
-import { ITEMS, DEMO_GIVE_ALL, allItemIds, isItemEnabled } from './data/items.js?v=deep-and-divided-1';
-import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=deep-and-divided-1';
-import { BOSS_KEYS, SUMMONABLE_BOSS_KEYS, BOSSES } from './data/bosses.js?v=deep-and-divided-1';
-import { TRACKS } from './engine/music.js?v=deep-and-divided-1';
-import { FAUNA } from './data/fauna.js?v=deep-and-divided-1';
-import { ACHIEVEMENTS } from './systems/achievements.js?v=deep-and-divided-1';
-import { TILE, LIQUID_MAX } from './config.js?v=deep-and-divided-1';
+import { ITEMS, DEMO_GIVE_ALL, allItemIds, isItemEnabled } from './data/items.js?v=tides-1';
+import { ENEMY_KEYS, ENEMIES } from './data/enemies.js?v=tides-1';
+import { BOSS_KEYS, SUMMONABLE_BOSS_KEYS, BOSSES } from './data/bosses.js?v=tides-1';
+import { TRACKS } from './engine/music.js?v=tides-1';
+import { FAUNA } from './data/fauna.js?v=tides-1';
+import { ACHIEVEMENTS } from './systems/achievements.js?v=tides-1';
+import { TILE, LIQUID_MAX } from './config.js?v=tides-1';
 
 const $ = (id) => document.getElementById(id);
 

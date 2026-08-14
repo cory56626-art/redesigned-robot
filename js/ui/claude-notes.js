@@ -7,14 +7,36 @@
 //
 // Keep this in sync with CLAUDE_NOTES.md when either changes.
 
-export const CLAUDE_NOTES_VERSION = '4.2 — The Deep and the Divided · 2026-08';
+export const CLAUDE_NOTES_VERSION = '4.3 — Who Invited Grok?! · atmosphere pass · 2026-08';
 
 export function claudeNotesHTML() {
   return `
-  <p class="cn-intro">Developer notes. The first section covers <b>4.2 — The Deep and the Divided</b>;
-  then 4.1, the previous overhaul, and the original point-by-point answers to the ChatGPT stress-test review —
+  <p class="cn-intro">Developer notes. The first section is the <b>4.3 atmosphere pass</b>;
+  then 4.2, 4.1, and the original point-by-point answers to the ChatGPT stress-test review —
   each saying whether it was a <b>real bug</b> (now fixed), a <b>misunderstanding</b>, or <b>working as intended</b>.
   Version: <code>${CLAUDE_NOTES_VERSION}</code>.</p>
+
+  <h4>◆ Atmosphere pass (4.3)</h4>
+  <p class="cn-intro">A look-and-feel pass. Combat, worldgen, items and spawn tables were left alone.</p>
+  <ul>
+    <li><b class="cn-bad">The live sky had no sun or moon.</b> Real gap — filled. Screen-space sun and a
+      glowing blue crescent moon (jumping no longer bounces them). Night lighting bleaches canopy crowns
+      and throws long ground shadows.</li>
+    <li><b class="cn-bad">Lighting was a flashlight glued to the player.</b> Real bug — fixed. The player
+      is not a light. Illumination is a multiply colour map (cool sky light vs warm block light) with
+      ambient occlusion. Hold or place Emberlight to make a warm pool.
+      <code>DayNight.brightness</code> and <code>isDay</code> are unchanged.</li>
+    <li><b class="cn-bad">Zoom stepped.</b> Real complaint — fixed. <kbd>+</kbd>/<kbd>−</kbd>, Ctrl+wheel
+      and pinch wrote <code>zoom ± 0.1</code> and the camera jumped. The camera now eases toward a target;
+      wheel and pinch are continuous.</li>
+    <li><b>Wind shoved the player.</b> Requested removal. Foliage still sways and the wind bed still plays;
+      <code>vx</code> no longer gets a weather term. Test: stand in a gale on the surface and do not hold a
+      direction — you stay put.</li>
+    <li><b>Night insects are visual only.</b> They are not Emberflies. You cannot catch them and they do
+      not drop bait.</li>
+    <li><b>Birds / grasshoppers.</b> Occasional 4–9s bursts on the surface, never looped, never underground,
+      ducked under music. Atmosphere can be turned off in Settings (sun/moon/lighting stay).</li>
+  </ul>
 
   <h4>◆ 4.2 — The Deep and the Divided</h4>
   <p class="cn-intro">The oceans were a flat blue slab, the Mesh was an empty shelf next to the Corruption's

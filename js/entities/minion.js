@@ -1,12 +1,12 @@
 // Summoner Realms — minion entity. Owned by a player; the owner's client
 // simulates it and reports damage to the host. Remote players' minions are
 // drawn as lightweight ghosts (see renderer).
-import { minionDef } from '../data/minions.js?v=deep-and-divided-1';
-import { initAidanState, updateAidanState } from './aidan.js?v=deep-and-divided-1';
-import { dist2, aabb, angleTo } from '../utils.js?v=deep-and-divided-1';
-import { TILE } from '../config.js?v=deep-and-divided-1';
-import { Projectile } from './projectile.js?v=deep-and-divided-1';
-import * as AI from '../systems/ai.js?v=deep-and-divided-1';
+import { minionDef } from '../data/minions.js?v=tides-1';
+import { initAidanState, updateAidanState } from './aidan.js?v=tides-1';
+import { dist2, aabb, angleTo } from '../utils.js?v=tides-1';
+import { TILE } from '../config.js?v=tides-1';
+import { Projectile } from './projectile.js?v=tides-1';
+import * as AI from '../systems/ai.js?v=tides-1';
 
 let MINION_SEQ = 1;
 

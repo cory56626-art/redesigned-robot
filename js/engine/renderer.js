@@ -1,16 +1,21 @@
 // Summoner Realms — canvas renderer. Draws sky, walls, world, lighting,
 // entities and effects.
-import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H } from '../config.js?v=deep-and-divided-1';
-import { T, isSolid, isTree, isLeaf, tileDef, swayWeight, floraAnchor } from '../world/tiles.js?v=deep-and-divided-1';
-import { SH } from '../world/shapes.js?v=deep-and-divided-1';
-import { W, hasWall } from '../world/walls.js?v=deep-and-divided-1';
-import { BIOMES } from '../world/biomes.js?v=deep-and-divided-1';
-import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=deep-and-divided-1';
-import { item as getItem } from '../data/items.js?v=deep-and-divided-1';
-import { canPlaceAt } from '../systems/combat.js?v=deep-and-divided-1';
-import { clamp, mulberry32 } from '../utils.js?v=deep-and-divided-1';
-import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=deep-and-divided-1';
-import { WaterRenderer } from './water.js?v=deep-and-divided-1';
+import { TILE, UNDERGROUND_Y, CAVERN_Y, WORLD_H, OXYGEN_MAX, OXYGEN_BUBBLES } from '../config.js?v=tides-1';
+import { T, isSolid, isTree, isLeaf, tileDef, tileLight, swayWeight, floraAnchor } from '../world/tiles.js?v=tides-1';
+import { SH } from '../world/shapes.js?v=tides-1';
+import { W, hasWall } from '../world/walls.js?v=tides-1';
+import { BIOMES } from '../world/biomes.js?v=tides-1';
+import { Sprites, framingMask, N, E, S, WBIT } from '../art/sprites.js?v=tides-1';
+import { item as getItem } from '../data/items.js?v=tides-1';
+import { canPlaceAt } from '../systems/combat.js?v=tides-1';
+import { clamp, mulberry32 } from '../utils.js?v=tides-1';
+import { drawAidan, drawAidanEffects } from '../entities/aidan.js?v=tides-1';
+import { WaterRenderer } from './water.js?v=tides-1';
+import {
+  celestialState, drawSkyDecor, drawNearBloom,
+  drawLightGlows, drawMoonlightCatch, drawMoonShadows,
+} from './sky.js?v=tides-1';
+import { collectLightSources, drawIllumination } from './lighting.js?v=tides-1';
 
 // Fallback appearance for players without a character record (remote players
 // on an older client, or a world loaded before characters existed).
@@ -72,7 +77,7 @@ export class Renderer {
     const shake = game.fx ? game.fx.offset() : { x: 0, y: 0 };
     const camX = cam.x + shake.x, camY = cam.y + shake.y;
 
-    this._drawSky(game, W2, H, camX, camY);
+    this._celestial = this._drawSky(game, W2, H, camX, camY);
 
     ctx.save();
     ctx.translate(W2 / 2 - camX * cam.scale, H / 2 - camY * cam.scale);
@@ -98,6 +103,7 @@ export class Renderer {
     this._drawThrown(game, ctx);
     this._drawProjectiles(game, ctx);
     this._drawPlayers(game, ctx);
+    this._drawOxygen(game, ctx);
     this._drawFishingLines(game, ctx);
     this._drawAimHighlight(game, ctx);
     // Ordinary particles sit under the lighting; glowing ones are drawn after it
@@ -118,11 +124,16 @@ export class Renderer {
     ctx.save();
     ctx.translate(W2 / 2 - camX * cam.scale, H / 2 - camY * cam.scale);
     ctx.scale(cam.scale, cam.scale);
+    if (this._celestial && this._celestial.sky) {
+      drawMoonShadows(game, ctx, tx0, ty0, tx1, ty1, this._celestial.sky, cam, W2);
+      drawMoonlightCatch(game, ctx, tx0, ty0, tx1, ty1, this._celestial.sky);
+    }
     // Keep the Diamond Heart's telegraph and beam above the lighting pass so
     // the three warning lanes stay readable in daylight and at night.
     this._drawDiamondBeamTelegraphs(game, ctx);
     drawAidanEffects(game, ctx);
     this._drawParticles(game, ctx, true);
+    if (game.ambiance) game.ambiance.draw(ctx);
     this._drawRings(game, ctx);
     ctx.restore();
 
@@ -252,28 +263,33 @@ export class Renderer {
     g.addColorStop(1, bot);
     ctx.fillStyle = g; ctx.fillRect(0, 0, W2, H);
 
-    // How far below the surface line the view is, 0 at ground level, 1 well
-    // underground. Drives stars fading out and the cave backdrop fading in.
-    const depthT = clamp((botWorldTy - surfRow) / 34, 0, 1);
+    // View depth (camera) still drives the cave backdrop. Sky depth is the
+    // *player* vs the surface, so jumping does not fade or bounce the sun.
+    const viewDepth = clamp((botWorldTy - surfRow) / 34, 0, 1);
+    const playerTy = game.localPlayer
+      ? (game.localPlayer.y + game.localPlayer.h) / TILE
+      : camY / TILE;
+    const skyDepth = clamp((playerTy - surfRow) / 16, 0, 1);
+    const horizonY = (surfRow * TILE - camY) * cam.scale + H / 2;
+    const celestial = celestialState(game, W2, H);
+    drawSkyDecor(game, ctx, W2, H, camX, skyDepth, celestial);
 
     // Terraria-like biome parallax silhouettes, cross-faded at seams.
-    if (depthT < 0.85) this._drawBiomeBackdrop(game, W2, H, camX, camY, cam.scale, depthT, camTx);
-
-    if (depthT < 0.8) this._drawStars(game, W2, H, camX, depthT);
-    if (depthT > 0.15) {
+    if (viewDepth < 0.85) this._drawBiomeBackdrop(game, W2, H, camX, camY, cam.scale, viewDepth, camTx);
+    if (viewDepth > 0.15) {
       // Clip the backdrop to the part of the screen that is actually below
       // ground, otherwise the parallax rock shows through the sky whenever the
       // bottom of the view is underground — which is most of the time.
-      const horizonY = (surfRow * TILE - camY) * cam.scale + H / 2;
       if (horizonY < H) {
         ctx.save();
         ctx.beginPath();
         ctx.rect(0, Math.max(0, horizonY), W2, H - Math.max(0, horizonY));
         ctx.clip();
-        this._drawCaveBackdrop(ctx, W2, H, camX, camY, cam.scale, depthT);
+        this._drawCaveBackdrop(ctx, W2, H, camX, camY, cam.scale, viewDepth);
         ctx.restore();
       }
     }
+    return { sky: celestial, depthT: skyDepth, horizonY };
   }
 
   // Soft parallax hills/silhouettes per surface biome, blended across seams.
@@ -385,20 +401,6 @@ export class Renderer {
       }
     }
     return rgb(stops[stops.length - 1].c);
-  }
-
-  _drawStars(game, W2, H, camX, depthT) {
-    const b = game.time.brightness;
-    if (b >= 0.45) return;
-    const ctx = this.ctx;
-    const alpha = (0.45 - b) * 1.6 * (1 - depthT / 0.8);
-    if (alpha <= 0.01) return;
-    ctx.fillStyle = `rgba(255,255,255,${alpha})`;
-    for (let i = 0; i < 60; i++) {
-      const sx = (i * 137.5 - camX * 0.2) % W2;
-      const sy = (i * 89.3) % (H * 0.6);
-      ctx.fillRect((sx + W2) % W2, sy, 2, 2);
-    }
   }
 
   // Slow-parallax rock silhouettes behind the tiles, so caves have visible depth
@@ -3231,6 +3233,10 @@ export class Renderer {
     if (!n || !n.alive) return;
     const x = n.x, y = n.y + Math.sin(n.bob) * 0.7, w = n.w, h = n.h;
     const legSwing = Math.sin(n.walkAnim) * 3;
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, n.y + n.h, w * 0.4, 1.5, 0, 0, Math.PI * 2);
+    ctx.fill();
     // legs
     ctx.fillStyle = '#3a2f4a';
     ctx.fillRect(x + 1, y + h - 8 + Math.max(0, legSwing), 4, 8 - Math.max(0, legSwing));
@@ -5100,6 +5106,37 @@ export class Renderer {
     if (b.invuln > 0) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, 34, 0, Math.PI * 2); ctx.stroke(); }
     ctx.restore();
   }
+  _drawOxygen(game, ctx) {
+    const p = game.localPlayer;
+    if (!p || !p.alive || !(p.airHud > 0.02)) return;
+    const max = OXYGEN_MAX;
+    const n = OXYGEN_BUBBLES;
+    const filled = (p.oxygen / max) * n;
+    const cx = p.x + p.w / 2;
+    const y = p.y - 9;
+    ctx.save();
+    ctx.globalAlpha = p.airHud;
+    const start = cx - (n * 3.8) / 2;
+    for (let i = 0; i < n; i++) {
+      const frac = Math.max(0, Math.min(1, filled - i));
+      if (frac <= 0.04) continue;
+      const bx = start + i * 3.9;
+      const s = 0.55 + frac * 0.85;
+      ctx.fillStyle = `rgba(170, 214, 255,${0.22 + frac * 0.4})`;
+      ctx.strokeStyle = 'rgba(230, 246, 255, 0.9)';
+      ctx.lineWidth = 0.55;
+      ctx.beginPath();
+      ctx.ellipse(bx, y, 1.55 * s, 1.75 * s, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.beginPath();
+      ctx.ellipse(bx - 0.45 * s, y - 0.55 * s, 0.45 * s, 0.35 * s, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   _drawPlayers(game, ctx) {
     for (const p of game.players.values()) {
       if (!p.alive) continue; // hidden while dead
@@ -5123,6 +5160,12 @@ export class Renderer {
     const eq = p.inventory ? p.inventory.equip : null;
 
     const pose = this._playerPose(p);
+    // Contact shadow, same language the critters already speak, so the
+    // summoner sits on the ground instead of hovering over it.
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h, w * 0.42, 1.7, 0, 0, Math.PI * 2);
+    ctx.fill();
     ctx.save();
     ctx.translate(x + w / 2, y + h);
     ctx.scale(p.facing, 1);
@@ -5306,8 +5349,15 @@ export class Renderer {
     let armAngle = pose.armFront;
     if (p.swing) {
       const k = this._swingProgress(p);
-      // Local angle relative to the (already flipped) body.
-      armAngle = -1.1 + k * 2.2;
+      if (p.swing.toolSwing) {
+        // Raise, then snap down through the tile. Ease-in on the strike.
+        const raise = k < 0.38;
+        armAngle = raise
+          ? -1.45 + k * 0.4
+          : -1.3 + ((k - 0.38) / 0.62) * ((k - 0.38) / 0.62) * 2.8;
+      } else {
+        armAngle = -1.1 + k * 2.2;
+      }
     } else if (p.fishing) {
       armAngle = -0.5;
     }
@@ -5319,27 +5369,38 @@ export class Renderer {
     ctx.fillRect(-1.5, 0, 3, 8);
     ctx.fillStyle = app.skin;
     ctx.fillRect(-1.5, 7, 3, 2.5);
-    // Terraria-like: weapons only appear while used. Tools/blocks stay visible
-    // when selected so mining/building still read clearly.
+    // Axes and pickaxes only exist in the hand while they are being swung.
+    // Hammers, blocks and held lights stay visible when selected.
+    const toolKind = sel && sel.tool && sel.tool.kind;
+    const hideAtRest = toolKind === 'axe' || toolKind === 'pickaxe';
     const showHeld = sel && (
       p.swing ||
       p.usePose ||
       p.aiming ||
-      sel.category === 'tool' ||
-      sel.category === 'block' ||
-      sel.category === 'station' ||
-      sel.place != null
+      (!hideAtRest && (
+        sel.category === 'tool' ||
+        sel.category === 'block' ||
+        sel.category === 'station' ||
+        sel.place != null
+      ))
     );
     if (showHeld) {
-      const icon = Sprites.getIcon(sel);
+      const held = (p.swing && p.swing.toolSwing && p.swing.item)
+        ? getItem(p.swing.item) : sel;
+      const icon = Sprites.getIcon(held || sel);
       if (icon) {
         ctx.save();
         ctx.translate(0, 9);
         if (p.aiming || p.usePose === 'ranged') {
-          // Two-hand aim: flatten the weapon toward the cursor direction.
           const aim = p.aimAngle != null ? p.aimAngle : (p.facing > 0 ? 0 : Math.PI);
           ctx.rotate(p.facing > 0 ? aim : Math.PI - aim);
           ctx.drawImage(icon, -4, -10, 14, 14);
+        } else if (p.swing && (p.swing.toolSwing || hideAtRest)) {
+          // Chop: the head leads the hand through a downward arc.
+          const k = this._swingProgress(p);
+          const strike = k < 0.38 ? -0.35 + k * 0.4 : -0.2 + (k - 0.38) * 2.6;
+          ctx.rotate(strike);
+          ctx.drawImage(icon, -7, -13, 14, 14);
         } else {
           ctx.rotate(p.swing ? 0.5 : 0.9);
           ctx.drawImage(icon, -6, -11, 12, 12);
@@ -5416,6 +5477,23 @@ export class Renderer {
 
     ctx.save();
     ctx.lineCap = 'round';
+
+    if (p.swing.toolSwing) {
+      // Axe / pick chop: a short falling streak, not a sword fan.
+      const wind = Math.min(1, k / 0.38);
+      const strike = k < 0.38 ? 0 : (k - 0.38) / 0.62;
+      const a = base - 0.9 * p.facing + (k < 0.38 ? -0.15 * wind : strike * 1.7) * p.facing;
+      const ext = reach * (0.55 + strike * 0.45);
+      const tipX = cx + Math.cos(a) * ext, tipY = cy + Math.sin(a) * ext;
+      ctx.globalAlpha = k < 0.38 ? 0.2 : 0.55 * (1 - strike);
+      const chop = p.swing.kind === 'axe';
+      ctx.strokeStyle = chop ? 'rgba(255,210,140,0.7)' : 'rgba(210,220,230,0.7)';
+      ctx.lineWidth = chop ? 3.2 : 2.4;
+      ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * 6, cy + Math.sin(a) * 6); ctx.lineTo(tipX, tipY); ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+      return;
+    }
 
     if (kind === 'spear') {
       // A thrust: out fast, back slower, with a straight streak.
@@ -5549,49 +5627,15 @@ export class Renderer {
   _drawLighting(game, tx0, ty0, tx1, ty1, W2, H, camX, camY) {
     const cols = tx1 - tx0 + 1, rows = ty1 - ty0 + 1;
     if (cols <= 0 || rows <= 0) return;
-    const extra = [];
-    const p = game.localPlayer;
-    if (p) extra.push({ tx: Math.floor((p.x + p.w / 2) / TILE), ty: Math.floor((p.y + p.h / 2) / TILE), level: 0.5 });
-    for (const pl of game.players.values()) if (!pl.isLocal) extra.push({ tx: Math.floor((pl.x + pl.w / 2) / TILE), ty: Math.floor((pl.y + pl.h / 2) / TILE), level: 0.35 });
-    // Live explosives light the room they're about to redecorate.
-    if (game.thrown) {
-      for (const t of game.thrown) {
-        if (!t.light) continue;
-        extra.push({ tx: Math.floor(t.x / TILE), ty: Math.floor(t.y / TILE), level: t.light });
-      }
-    }
-    // Glowing bugs. A drifting glowmoth is often the only thing lighting a deep
-    // cave before you have torches, which is exactly why it is worth catching.
-    if (game.critters) {
-      for (const c of game.critters) {
-        if (!c.def || !c.def.light) continue;
-        extra.push({ tx: Math.floor((c.x + c.w / 2) / TILE), ty: Math.floor((c.y + c.h / 2) / TILE), level: c.def.light });
-      }
-    }
-    // Explosion flashes, fading out over their life.
-    if (game.flashes) {
-      for (const f of game.flashes) {
-        extra.push({ tx: Math.floor(f.x / TILE), ty: Math.floor(f.y / TILE), level: f.level * (f.life / f.max) });
-      }
-    }
-    const buf = game.world.computeLightWindow(tx0, ty0, cols, rows, game.time.brightness, extra);
-
-    if (this.lightCanvas.width !== cols || this.lightCanvas.height !== rows) {
-      this.lightCanvas.width = cols; this.lightCanvas.height = rows;
-    }
-    const img = this.lightCtx.createImageData(cols, rows);
-    for (let i = 0; i < buf.length; i++) {
-      const a = Math.round((1 - buf[i]) * 255);
-      img.data[i * 4] = 6; img.data[i * 4 + 1] = 8; img.data[i * 4 + 2] = 20; img.data[i * 4 + 3] = a;
-    }
-    this.lightCtx.putImageData(img, 0, 0);
-
-    const ctx = this.ctx; const cam = this.camera;
-    ctx.imageSmoothingEnabled = true;
-    const sx = (tx0 * TILE - camX) * cam.scale + W2 / 2;
-    const sy = (ty0 * TILE - camY) * cam.scale + H / 2;
-    ctx.drawImage(this.lightCanvas, sx, sy, cols * TILE * cam.scale, rows * TILE * cam.scale);
-    ctx.imageSmoothingEnabled = false;
+    const sources = collectLightSources(game, tx0, ty0, tx1, ty1);
+    const skyInfo = this._celestial && this._celestial.sky;
+    const moonLevel = skyInfo ? skyInfo.moonLevel : 0;
+    const buf = game.world.computeLightWindow(tx0, ty0, cols, rows, game.time.brightness, sources.extra, moonLevel);
+    drawIllumination(this, game, buf, sources, tx0, ty0, cols, rows, W2, H, camX, camY);
+    drawLightGlows(this.ctx, this.camera, W2, H, sources.glows);
+    const vis = this._celestial ? clamp(1 - this._celestial.depthT, 0, 1) : 1;
+    const atmosphere = !(game.settings && game.settings.atmosphere === false);
+    if (skyInfo) drawNearBloom(this.ctx, W2, H, skyInfo, vis, atmosphere);
   }
 
   _roundRect(ctx, x, y, w, h, r) {

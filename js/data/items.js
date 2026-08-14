@@ -1,7 +1,7 @@
 // Summoner Realms — item catalogue. All original names/designs.
 // Categories: weapon (melee/ranged/mage/summon), tool, armor, accessory,
 // potion, ammo, material, block, station, summonitem.
-import { T } from '../world/tiles.js?v=deep-and-divided-1';
+import { T } from '../world/tiles.js?v=tides-1';
 
 export const ITEMS = {};
 
@@ -23,7 +23,7 @@ export const FIRST_WORLD_ITEM_IDS = new Set([
   'leather', 'wool', 'feather',
   'cookedBeef', 'cookedPork', 'cookedMutton', 'cookedGame', 'cookedFish',
   'woodRod', 'worm', 'grub', 'cricket', 'beetle', 'firefly', 'glowmoth',
-  'woodCrate', 'huntersBoots',
+  'woodCrate', 'huntersBoots', 'woodPlatform',
 ]);
 
 // New pre-Hardmode content is intentionally listed separately from the starter
@@ -642,6 +642,11 @@ crate('aetherCrate', 'Aetherbound Crate', '#8ad9ff', '#3f7fa0', 3, 'Hums faintly
 // ---------- Blocks & stations (placeable) ----------
 const block = (id, name, tile, tier = 0) => def({ id, name, category: 'block', place: tile, color: (ITEMS.stone && '#888'), tier });
 def({ id: 'planks', name: 'Oaken Planks', category: 'block', place: T.PLANKS, color: '#a67c46' });
+def({
+  id: 'woodPlatform', name: 'Wood Platform', category: 'block', place: T.WOOD_PLATFORM,
+  color: '#b8894a', maxStack: 99,
+  desc: 'Stand on it. Hold down to drop through.',
+});
 def({ id: 'stoneBrick', name: 'Stone Brick', category: 'block', place: T.STONEBRICK, color: '#7c8296', tier: 1 });
 def({ id: 'torch', name: 'Emberlight', category: 'block', place: T.TORCH, color: '#ffb347', maxStack: 99, desc: 'Placeable light source.' });
 // stations

@@ -1,12 +1,12 @@
 // Summoner Realms — state synchronization & message handling (host-authoritative).
-import { MSG } from './protocol.js?v=deep-and-divided-1';
-import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=deep-and-divided-1';
-import { Player, assignColor } from '../entities/player.js?v=deep-and-divided-1';
-import { Projectile } from '../entities/projectile.js?v=deep-and-divided-1';
-import { ThrownItem } from '../entities/thrown.js?v=deep-and-divided-1';
-import { ITEMS, isItemEnabled } from '../data/items.js?v=deep-and-divided-1';
-import { ENEMIES } from '../data/enemies.js?v=deep-and-divided-1';
-import { BOSSES } from '../data/bosses.js?v=deep-and-divided-1';
+import { MSG } from './protocol.js?v=tides-1';
+import { NET_SNAPSHOT_HZ, NET_INPUT_HZ, TILE } from '../config.js?v=tides-1';
+import { Player, assignColor } from '../entities/player.js?v=tides-1';
+import { Projectile } from '../entities/projectile.js?v=tides-1';
+import { ThrownItem } from '../entities/thrown.js?v=tides-1';
+import { ITEMS, isItemEnabled } from '../data/items.js?v=tides-1';
+import { ENEMIES } from '../data/enemies.js?v=tides-1';
+import { BOSSES } from '../data/bosses.js?v=tides-1';
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 

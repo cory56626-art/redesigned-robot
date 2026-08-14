@@ -1,9 +1,9 @@
 // Summoner Realms — camera. Follows a target, clamps to world, computes zoom.
 import {
   TILE, WORLD_W, WORLD_H, TARGET_TILES_V,
-  ZOOM_MIN, ZOOM_MAX, ZOOM_DEFAULT, ZOOM_STEP,
-} from '../config.js?v=deep-and-divided-1';
-import { clamp, lerp } from '../utils.js?v=deep-and-divided-1';
+  ZOOM_MIN, ZOOM_MAX, ZOOM_DEFAULT, ZOOM_STEP, ZOOM_LERP,
+} from '../config.js?v=tides-1';
+import { clamp, lerp } from '../utils.js?v=tides-1';
 
 export class Camera {
   constructor() {
@@ -15,7 +15,12 @@ export class Camera {
     // Player-controlled zoom on top of the screen-derived base scale. Zooming
     // out is what makes a boss that flies far away (the Grovekeeper in phase
     // two) stay on screen instead of leaving the player guessing.
+    //
+    // `zoom` is what is on screen; `zoomTarget` is what the player asked for.
+    // Input writes the target and update() eases toward it, so a wheel flick
+    // or a +/- tap is a glide instead of a staircase.
     this.zoom = ZOOM_DEFAULT;
+    this.zoomTarget = ZOOM_DEFAULT;
     this._screenW = 0;
     this._screenH = 0;
   }
@@ -29,18 +34,50 @@ export class Camera {
     this.vh = screenH / this.scale;
   }
 
+  // Ease the displayed zoom toward the target. Called from the render path so
+  // a frozen sim (debug console) or a held settings slider still glides.
+  update(dt) {
+    const dest = this.zoomTarget;
+    const err = dest - this.zoom;
+    if (Math.abs(err) < 0.00015) {
+      if (this.zoom !== dest) {
+        this.zoom = dest;
+        if (this._screenW) this.resize(this._screenW, this._screenH);
+      }
+      return false;
+    }
+    const k = 1 - Math.exp(-ZOOM_LERP * Math.max(0, dt || 0));
+    this.zoom = this.zoom + err * k;
+    if (this._screenW) this.resize(this._screenW, this._screenH);
+    return true;
+  }
+
   setZoom(z) {
     const next = clamp(z, ZOOM_MIN, ZOOM_MAX);
-    if (Math.abs(next - this.zoom) < 0.0001) return false;
+    if (Math.abs(next - this.zoomTarget) < 0.0001) return false;
+    this.zoomTarget = next;
+    return true;
+  }
+
+  // Jump both the target and the displayed zoom. Used on load so a saved 150%
+  // does not animate in from the default.
+  snapZoom(z) {
+    const next = clamp(z, ZOOM_MIN, ZOOM_MAX);
+    this.zoomTarget = next;
     this.zoom = next;
     if (this._screenW) this.resize(this._screenW, this._screenH);
     return true;
   }
-  // dir > 0 zooms in, dir < 0 zooms out.
-  nudgeZoom(dir) {
-    return this.setZoom(this.zoom + dir * ZOOM_STEP);
+
+  zoomBy(delta) {
+    return this.setZoom(this.zoomTarget + delta);
   }
-  zoomPercent() { return Math.round(this.zoom * 100); }
+
+  // dir > 0 zooms in, dir < 0 zooms out. Keys still step; the view eases.
+  nudgeZoom(dir) {
+    return this.zoomBy(dir * ZOOM_STEP);
+  }
+  zoomPercent() { return Math.round(this.zoomTarget * 100); }
 
   follow(target, dt, snap = false) {
     const worldPxW = WORLD_W * TILE;

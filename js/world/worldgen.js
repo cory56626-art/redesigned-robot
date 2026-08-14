@@ -17,11 +17,11 @@
 //
 // Deterministic from a numeric seed. `tools/worldgen-check.mjs` asserts the
 // invariants this file is responsible for.
-import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE, LIQUID_MAX } from '../config.js?v=deep-and-divided-1';
-import { T, isSolid, isFlora } from './tiles.js?v=deep-and-divided-1';
-import { W } from './walls.js?v=deep-and-divided-1';
-import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=deep-and-divided-1';
-import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep, lerp } from '../utils.js?v=deep-and-divided-1';
+import { WORLD_W, WORLD_H, SURFACE_Y, UNDERGROUND_Y, CAVERN_Y, TILE, LIQUID_MAX } from '../config.js?v=tides-1';
+import { T, isSolid, isFlora } from './tiles.js?v=tides-1';
+import { W } from './walls.js?v=tides-1';
+import { BIOMES, BIOME_ORDER, buildBiomeMap, blendProp } from './biomes.js?v=tides-1';
+import { mulberry32, makeFbm1D, makeFbm2D, makeValueNoise2D, clamp, smoothstep, lerp } from '../utils.js?v=tides-1';
 
 // Half-width of the guaranteed flat, cave-free plain the player spawns on.
 const SPAWN_PLAIN = 13;
@@ -67,6 +67,7 @@ export function generateWorld(seed, opts = {}) {
   // left behind, so it can never be buried by a later decoration pass.
   const liquid = fillWater(tiles, w, h, surface, biome, seed, spawnTx);
   fillOceans(tiles, liquid, w, h, surface, biome);
+  settleWater(tiles, liquid, w, h);
   seedOres(tiles, liquid, w, h, surface, biome, seed, skyIslands);
   placeModulineChambers(tiles, liquid, w, h, surface, seed);
   // Chests and wall-mounted dart traps are placed after water has settled, so
@@ -1218,12 +1219,22 @@ function fillOceans(tiles, liquid, w, h, surface, biome) {
       end++;
     }
 
-    // Sea level: a fixed offset under the *shallowest* seabed in the band, so
-    // the shoreline stays a shoreline and the deep stays deep. Clamped so a
-    // narrow band still holds real water.
+    // Sea level must not sit above the adjacent beach. The old `minSurface - 9`
+    // put the waterline nine tiles above the highest sandbar, so the ocean
+    // became a floating wall next to lower land. Match the shoreline; deep
+    // columns still fill down to their own seabed.
     let minSurface = Infinity;
     for (let cx = x; cx <= end; cx++) minSurface = Math.min(minSurface, surface[cx]);
-    const seaLevel = Math.max(3, minSurface - 9);
+    // A little depth even on the highest sand, but never above the beach.
+    let seaLevel = Math.max(3, minSurface - 3);
+    if (x > 0) {
+      const left = BIOMES[BIOME_ORDER[biome.map[x - 1]]];
+      if (!left || !left.ocean) seaLevel = Math.max(seaLevel, surface[x - 1]);
+    }
+    if (end < w - 1) {
+      const right = BIOMES[BIOME_ORDER[biome.map[end + 1]]];
+      if (!right || !right.ocean) seaLevel = Math.max(seaLevel, surface[end + 1]);
+    }
 
     for (let cx = x; cx <= end; cx++) {
       const s = surface[cx];
@@ -1246,6 +1257,32 @@ function fillOceans(tiles, liquid, w, h, surface, biome) {
       }
     }
     x = end + 1;
+  }
+}
+
+// Gravity-only settle so a water tile never hangs over air. Sideways flow is
+// left to the runtime sim — spreading here would drain the ocean inland.
+function settleWater(tiles, liquid, w, h) {
+  if (!liquid) return;
+  const idx = (x, y) => y * w + x;
+  let changed = true, guard = h + 12;
+  while (changed && guard-- > 0) {
+    changed = false;
+    for (let y = h - 2; y >= 0; y--) {
+      for (let x = 0; x < w; x++) {
+        const i = idx(x, y);
+        if (!liquid[i]) continue;
+        if (isSolid(tiles[i])) { liquid[i] = 0; changed = true; continue; }
+        const b = idx(x, y + 1);
+        if (isSolid(tiles[b])) continue;
+        if (liquid[b] < LIQUID_MAX) {
+          const mv = Math.min(LIQUID_MAX - liquid[b], liquid[i]);
+          liquid[b] += mv;
+          liquid[i] -= mv;
+          changed = true;
+        }
+      }
+    }
   }
 }
 

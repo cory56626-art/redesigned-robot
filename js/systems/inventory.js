@@ -1,6 +1,6 @@
 // Summoner Realms — inventory, hotbar, equipment, and derived stats.
-import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=deep-and-divided-1';
-import { ITEMS, item as getItem, isItemEnabled } from '../data/items.js?v=deep-and-divided-1';
+import { HOTBAR_SIZE, INV_ROWS, INV_COLS, ACCESSORY_SLOTS } from '../config.js?v=tides-1';
+import { ITEMS, item as getItem, isItemEnabled } from '../data/items.js?v=tides-1';
 
 export const INV_SIZE = HOTBAR_SIZE + INV_ROWS * INV_COLS;
 

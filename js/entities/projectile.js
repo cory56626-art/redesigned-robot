@@ -1,7 +1,7 @@
 // Summoner Realms — projectiles for ranged/mage weapons, minions, enemies, bosses.
-import { GRAVITY, TILE } from '../config.js?v=deep-and-divided-1';
-import { aabb, dist2 } from '../utils.js?v=deep-and-divided-1';
-import { MSG } from '../net/protocol.js?v=deep-and-divided-1';
+import { GRAVITY, TILE } from '../config.js?v=tides-1';
+import { aabb, dist2 } from '../utils.js?v=tides-1';
+import { MSG } from '../net/protocol.js?v=tides-1';
 
 export class Projectile {
   constructor(opts) {

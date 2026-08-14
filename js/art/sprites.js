@@ -9,9 +9,9 @@
 // top, a shadowed underside and rimmed sides. That neighbour awareness — plus
 // grass fringing down onto dirt and trunk/canopy shading — is most of what makes
 // terrain read as terrain instead of a grid of coloured squares.
-import { T, TILES, tileMat, isTree, isLeaf } from '../world/tiles.js?v=deep-and-divided-1';
-import { W, WALLS } from '../world/walls.js?v=deep-and-divided-1';
-import { mulberry32 } from '../utils.js?v=deep-and-divided-1';
+import { T, TILES, tileMat, isTree, isLeaf } from '../world/tiles.js?v=tides-1';
+import { W, WALLS } from '../world/walls.js?v=tides-1';
+import { mulberry32 } from '../utils.js?v=tides-1';
 
 function makeCanvas(w, h) {
   const c = document.createElement('canvas');
@@ -86,10 +86,10 @@ class SpriteBank {
     ctx.drawImage(src, 0, 0);
 
     const open = (bit) => (mask & bit) === 0;
-    const lightEdge = shade(base, 0.26);
-    const brightEdge = shade(base, 0.42);
-    const darkEdge = shade(base, -0.34);
-    const deepEdge = shade(base, -0.5);
+    const lightEdge = shade(base, 0.32);
+    const brightEdge = shade(base, 0.52);
+    const darkEdge = shade(base, -0.40);
+    const deepEdge = shade(base, -0.58);
 
     // Only *exposed* faces get shading. Shading an internal join too would put a
     // dark band along the top of every buried tile, which tiles into visible
@@ -104,13 +104,21 @@ class SpriteBank {
     // shadowed underside and right face.
     if (open(N)) {
       ctx.fillStyle = brightEdge; ctx.fillRect(0, 0, TS, 1);
-      ctx.fillStyle = lightEdge; ctx.fillRect(0, 1, TS, 1);
+      ctx.fillStyle = lightEdge; ctx.fillRect(0, 1, TS, 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.10)'; ctx.fillRect(0, 0, TS, 3);
     }
-    if (open(WBIT)) { ctx.fillStyle = lightEdge; ctx.fillRect(0, 0, 1, TS); }
-    if (open(E)) { ctx.fillStyle = darkEdge; ctx.fillRect(TS - 1, 0, 1, TS); }
+    if (open(WBIT)) {
+      ctx.fillStyle = lightEdge; ctx.fillRect(0, 0, 2, TS);
+      ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(0, 0, 1, TS);
+    }
+    if (open(E)) {
+      ctx.fillStyle = darkEdge; ctx.fillRect(TS - 2, 0, 2, TS);
+      ctx.fillStyle = deepEdge; ctx.fillRect(TS - 1, 0, 1, TS);
+    }
     if (open(S)) {
-      ctx.fillStyle = darkEdge; ctx.fillRect(0, TS - 1, TS, 1);
-      ctx.fillStyle = deepEdge; ctx.fillRect(0, TS - 2, TS, 1);
+      ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.fillRect(0, TS - 4, TS, 4);
+      ctx.fillStyle = darkEdge; ctx.fillRect(0, TS - 2, TS, 2);
+      ctx.fillStyle = deepEdge; ctx.fillRect(0, TS - 1, TS, 1);
     }
 
     // Inner corners: where two sides merge but the diagonal between them does
@@ -211,10 +219,10 @@ class SpriteBank {
     // Cylinder shading: a horizontal light-to-dark ramp across the trunk.
     const x0 = 4, wdt = 8;
     const g = ctx.createLinearGradient(x0, 0, x0 + wdt, 0);
-    g.addColorStop(0, shade(base, -0.12));
-    g.addColorStop(0.28, shade(base, 0.24));
-    g.addColorStop(0.62, base);
-    g.addColorStop(1, shade(base, -0.38));
+    g.addColorStop(0, shade(base, -0.28));
+    g.addColorStop(0.22, shade(base, 0.32));
+    g.addColorStop(0.55, base);
+    g.addColorStop(1, shade(base, -0.48));
     ctx.fillStyle = g;
     ctx.fillRect(x0, 0, wdt, TS);
 
@@ -279,23 +287,26 @@ class SpriteBank {
 
     // Depth: light falls from the upper left, so foliage darkens down and right,
     // and fully enclosed foliage sits in the tree's own shadow.
-    const lit = enclosed ? shade(base, -0.24) : shade(base, 0.16);
-    const dark = enclosed ? shade(base, -0.42) : shade(base, -0.2);
+    const lit = enclosed ? shade(base, -0.30) : shade(base, 0.22);
+    const dark = enclosed ? shade(base, -0.50) : shade(base, -0.28);
     const g = ctx.createLinearGradient(0, 0, TS, TS);
     g.addColorStop(0, lit);
-    g.addColorStop(0.55, enclosed ? shade(base, -0.3) : base);
+    g.addColorStop(0.45, enclosed ? shade(base, -0.36) : base);
     g.addColorStop(1, dark);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, TS, TS);
 
-    // Leaf clusters give the canopy internal texture instead of a flat wash.
+    // Leaf clusters: a dark underside plus a lit cap so each clump has volume.
     const rand = mulberry32(((id * 17 + variant * 613 + 3) * 2654435761) >>> 0);
-    for (let i = 0; i < 6; i++) {
-      const cx = 2 + ((rand() * (TS - 4)) | 0);
-      const cy = 2 + ((rand() * (TS - 4)) | 0);
-      ctx.fillStyle = rand() < 0.5 ? shade(base, 0.2) : shade(base, -0.22);
-      ctx.fillRect(cx, cy, 2, 2);
-      ctx.fillRect(cx + 1, cy + 1, 2, 1);
+    for (let i = 0; i < 7; i++) {
+      const cx = 1 + ((rand() * (TS - 5)) | 0);
+      const cy = 1 + ((rand() * (TS - 5)) | 0);
+      ctx.fillStyle = shade(base, -0.28);
+      ctx.fillRect(cx, cy + 1, 3, 2);
+      ctx.fillStyle = shade(base, enclosed ? -0.08 : 0.22);
+      ctx.fillRect(cx, cy, 3, 2);
+      ctx.fillStyle = shade(base, enclosed ? 0.05 : 0.38);
+      ctx.fillRect(cx + 1, cy, 1, 1);
     }
 
     // Ragged silhouette on every exposed face.
@@ -319,16 +330,28 @@ class SpriteBank {
     const base = def.color || '#888';
     // Flora is drawn as actual plants on a transparent tile rather than as a
     // filled square, so the ground shows through behind it.
+    if (def.platform) { this._platform(ctx, def); return c; }
     if (def.flora) { this._flora(ctx, id, def, base); return c; }
-    ctx.fillStyle = base;
+    const body = ctx.createLinearGradient(0, 0, 0, TS);
+    body.addColorStop(0, shade(base, 0.16));
+    body.addColorStop(0.45, base);
+    body.addColorStop(1, shade(base, -0.22));
+    ctx.fillStyle = body;
     ctx.fillRect(0, 0, TS, TS);
     const rand = mulberry32((id * 2654435761) >>> 0);
     // speckle texture
     for (let i = 0; i < 26; i++) {
       const x = (rand() * TS) | 0, y = (rand() * TS) | 0;
-      ctx.fillStyle = rand() < 0.5 ? shade(base, -0.18) : shade(base, 0.14);
+      ctx.fillStyle = rand() < 0.5 ? shade(base, -0.22) : shade(base, 0.16);
       ctx.fillRect(x, y, 1, 1);
     }
+    // Soft volume: a left highlight and a right/bottom shade so a buried
+    // tile still reads as a block, not a flat stamp.
+    ctx.fillStyle = 'rgba(255,255,255,0.07)';
+    ctx.fillRect(0, 0, 2, TS);
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    ctx.fillRect(TS - 2, 0, 2, TS);
+    ctx.fillRect(0, TS - 2, TS, 2);
     // Grass-topped tiles carry their grass colour across the top rows; the
     // framing pass gives them a ragged edge.
     if (def.grass) {
@@ -464,6 +487,18 @@ class SpriteBank {
   // tile id so every instance of a species looks the same — the *variation*
   // between neighbouring plants comes from the wind sway at draw time, not from
   // baking different sprites, which keeps the atlas tiny.
+  _platform(ctx, def) {
+    const wood = def.color || '#b8894a';
+    ctx.fillStyle = shade(wood, -0.35);
+    ctx.fillRect(0, 5, TS, 4);
+    ctx.fillStyle = wood;
+    ctx.fillRect(0, 3, TS, 3);
+    ctx.fillStyle = shade(wood, 0.28);
+    ctx.fillRect(0, 3, TS, 1);
+    ctx.fillStyle = shade(wood, -0.2);
+    for (let x = 2; x < TS; x += 5) ctx.fillRect(x, 3, 1, 4);
+  }
+
   _flora(ctx, id, def, base) {
     const rand = mulberry32(((id + 7) * 2654435761) >>> 0);
     const dark = shade(base, -0.28), light = shade(base, 0.26);

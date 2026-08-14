@@ -1,13 +1,13 @@
 // Summoner Realms — combat & interaction resolution (weapons, mining, placing).
-import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=deep-and-divided-1';
-import { T, tileDef, isTree, isLeaf } from '../world/tiles.js?v=deep-and-divided-1';
-import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=deep-and-divided-1';
-import { SH, nextShape } from '../world/shapes.js?v=deep-and-divided-1';
-import { W } from '../world/walls.js?v=deep-and-divided-1';
-import { item as getItem } from '../data/items.js?v=deep-and-divided-1';
-import { Projectile } from '../entities/projectile.js?v=deep-and-divided-1';
-import { ThrownItem } from '../entities/thrown.js?v=deep-and-divided-1';
-import { angleTo, aabb, clamp } from '../utils.js?v=deep-and-divided-1';
+import { TILE, REACH, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, POTION_BUFF_COOLDOWN, CAST_REGEN_DELAY, LIQUID_MAX } from '../config.js?v=tides-1';
+import { T, tileDef, isTree, isLeaf, isPlatform } from '../world/tiles.js?v=tides-1';
+import { trunkMask, leafMask, spriteVariant } from '../art/sprites.js?v=tides-1';
+import { SH, nextShape } from '../world/shapes.js?v=tides-1';
+import { W } from '../world/walls.js?v=tides-1';
+import { item as getItem } from '../data/items.js?v=tides-1';
+import { Projectile } from '../entities/projectile.js?v=tides-1';
+import { ThrownItem } from '../entities/thrown.js?v=tides-1';
+import { angleTo, aabb, clamp } from '../utils.js?v=tides-1';
 
 const MINE_RATE = 95;
 const MINE_SOUND_INTERVAL = 0.32;
@@ -664,6 +664,23 @@ export function mineAt(game, player, dt, source) {
   const rightTool = !need || haveKind === need;
   const factor = rightTool ? 1 : 0.25;
   const res = game.world.damageTile(tx, ty, power * MINE_RATE * factor * dt, rightTool ? power : 0);
+  if (res && !player.swing) {
+    const pc = player.center();
+    const aim = game.input && game.input.state;
+    const ang = aim
+      ? Math.atan2(aim.aimY - pc.y, aim.aimX - pc.x)
+      : (player.facing > 0 ? 0.55 : Math.PI - 0.55);
+    const held = (source && source.tool) || player.inventory.selectedItem();
+    player.swing = {
+      time: 0,
+      dur: 0.30,
+      angle: ang,
+      item: held && held.id,
+      reach: 20,
+      kind: haveKind || (held && held.tool && held.tool.kind) || 'pickaxe',
+      toolSwing: true,
+    };
+  }
   if (player.mineSoundTimer > 0) player.mineSoundTimer -= dt;
   if (res && !res.broken && player.mineSoundTimer <= 0) {
     const hitKind = haveKind || need;
@@ -893,8 +910,9 @@ export function canPlaceAt(game, player, tx, ty, sel) {
     const box = { x: tx * TILE, y: ty * TILE, w: TILE, h: TILE };
     for (const p of game.players.values()) if (p.alive && aabb(box, p)) return { ok: false, reason: "Can't place on a player" };
   }
-  const neighborSolid = game.world.isSolidAt(tx - 1, ty) || game.world.isSolidAt(tx + 1, ty) ||
-    game.world.isSolidAt(tx, ty - 1) || game.world.isSolidAt(tx, ty + 1);
+  const support = (x, y) => game.world.isSolidAt(x, y) || isPlatform(game.world.get(x, y));
+  const neighborSolid = support(tx - 1, ty) || support(tx + 1, ty) ||
+    support(tx, ty - 1) || support(tx, ty + 1);
   const pcx = (player.x + player.w / 2) / TILE, pcy = (player.y + player.h / 2) / TILE;
   const near = Math.abs(tx + 0.5 - pcx) < 3 && Math.abs(ty + 0.5 - pcy) < 3;
   if (!neighborSolid && !near) return { ok: false, reason: 'Needs a solid neighbour' };

@@ -1,7 +1,7 @@
 // Summoner Realms — crafting recipes.
 // station: null (hand) | 'bench' | 'smeltery' | 'forge' | 'altar'
 // requiresBoss: optional active-boss progression gate.
-import { isItemEnabled } from './items.js?v=deep-and-divided-1';
+import { isItemEnabled } from './items.js?v=tides-1';
 
 const ALL_RECIPES = [
   // --- Hand ---
@@ -12,6 +12,7 @@ const ALL_RECIPES = [
   { out: { item: 'woodAxe', count: 1 }, in: [{ item: 'wood', count: 6 }], station: null },
   { out: { item: 'flintArrow', count: 12 }, in: [{ item: 'stick', count: 2 }, { item: 'stone', count: 1 }], station: null },
   { out: { item: 'planks', count: 4 }, in: [{ item: 'wood', count: 2 }], station: null },
+  { out: { item: 'woodPlatform', count: 2 }, in: [{ item: 'wood', count: 1 }], station: null },
 
   // --- Bench: starter gear & gathering tools ---
   { out: { item: 'fiberHood', count: 1 }, in: [{ item: 'fiber', count: 8 }], station: 'bench' },

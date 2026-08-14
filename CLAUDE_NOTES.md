@@ -13,7 +13,35 @@ menu or in the pause menu. Keep this file in sync with
 > several "bugs" are automation/focus artifacts of driving a canvas game through
 > Playwright, not defects in the game. Those are called out below.
 
-Version: **4.2 — The Deep and the Divided · 2026-08**
+Version: **4.3 — Who Invited Grok?! · atmosphere pass · 2026-08**
+
+---
+
+## Atmosphere pass (4.3)
+
+A look-and-feel pass. Combat, worldgen, items and spawn tables were left alone.
+
+- **The live sky had no sun or moon.** The title screen already had a full
+  day/night vista; in-game `_drawSky` was a biome gradient and sixty white
+  pixels. There is now a sun and a glowing blue *crescent* moon on opposite
+  arcs. The sky is screen-space: jumping does not bounce the sun or clouds.
+  Night lighting bleaches canopy crowns and throws long ground shadows.
+- **Lighting was a flat navy overlay, then a flashlight glued to the player.**
+  The player is no longer a light. Illumination is a multiply colour map
+  (cool sky light vs warm block light) with a little ambient occlusion. Hold
+  or place Emberlight to make a warm pool. `DayNight.brightness` and `isDay`
+  are unchanged.
+- **Zoom stepped.** `+/-`, Ctrl+wheel and pinch wrote `zoom ± 0.1` and the
+  camera jumped. The camera now eases toward a target; wheel and pinch are
+  continuous.
+- **Wind shoved the player.** Requested removal. Foliage still sways and the
+  wind bed still plays; `vx` no longer gets a weather term. Test: stand in a
+  gale on the surface and do not hold a direction — you stay put.
+- **Night insects are visual only.** They are not Emberflies. You cannot catch
+  them and they do not drop bait.
+- **Birds / grasshoppers.** Occasional 4–9s bursts on the surface, never
+  looped, never underground, ducked under music. Atmosphere can be turned off
+  in Settings (sun/moon/lighting stay).
 
 ---
 

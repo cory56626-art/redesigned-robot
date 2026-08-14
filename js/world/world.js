@@ -1,12 +1,12 @@
 // Summoner Realms — runtime world: tile grid, wall grid, collision, mining,
 // lighting, and the edit diffs that get saved.
-import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=deep-and-divided-1';
-import { T, tileDef, isSolid, tileLight, isLegacyOreTile } from './tiles.js?v=deep-and-divided-1';
-import { W, hasWall, wallBlastResist } from './walls.js?v=deep-and-divided-1';
-import { SH, shapeContains, surfaceOffset, fillsTop } from './shapes.js?v=deep-and-divided-1';
-import { LiquidGrid } from './liquid.js?v=deep-and-divided-1';
-import { BIOME_ORDER } from './biomes.js?v=deep-and-divided-1';
-import { generateWorld } from './worldgen.js?v=deep-and-divided-1';
+import { WORLD_H, TILE, UNDERGROUND_Y, CAVERN_Y } from '../config.js?v=tides-1';
+import { T, tileDef, isSolid, tileLight, isLegacyOreTile, isPlatform } from './tiles.js?v=tides-1';
+import { W, hasWall, wallBlastResist } from './walls.js?v=tides-1';
+import { SH, shapeContains, surfaceOffset, fillsTop } from './shapes.js?v=tides-1';
+import { LiquidGrid } from './liquid.js?v=tides-1';
+import { BIOME_ORDER } from './biomes.js?v=tides-1';
+import { generateWorld } from './worldgen.js?v=tides-1';
 
 export class World {
   constructor(seed, opts = {}) {
@@ -157,6 +157,25 @@ export class World {
   }
 
   isSolidAt(tx, ty) { return isSolid(this.get(tx, ty)); }
+  isPlatformAt(tx, ty) { return isPlatform(this.get(tx, ty)); }
+
+  // Top pixel of a platform the entity just crossed while falling, or null.
+  platformTopUnder(e, prevBottom) {
+    const feet = e.y + e.h;
+    const tx0 = Math.floor(e.x / TILE), tx1 = Math.floor((e.x + e.w - 0.001) / TILE);
+    let best = null;
+    for (let tx = tx0; tx <= tx1; tx++) {
+      const ty = Math.floor((feet - 0.01) / TILE);
+      for (const cand of [ty, ty - 1, ty + 1]) {
+        if (!this.isPlatformAt(tx, cand)) continue;
+        const top = cand * TILE + 4;
+        if (prevBottom <= top + 2 && feet >= top) {
+          if (best == null || top < best) best = top;
+        }
+      }
+    }
+    return best;
+  }
 
   // Solid *and* shaped full, i.e. a tile that blocks its whole cell. Used where
   // a cheap conservative answer is wanted (navigation, spawning).
@@ -302,7 +321,7 @@ export class World {
 
   // Compute a light buffer for a viewport window. dayLevel 0..1, extraLights list
   // of {tx,ty,level}. Returns Float32Array(cols*rows), AMBIENT_FLOOR..1.
-  computeLightWindow(tx0, ty0, cols, rows, dayLevel, extraLights) {
+  computeLightWindow(tx0, ty0, cols, rows, dayLevel, extraLights, moonLevel = 0) {
     const n = cols * rows;
     if (this._lightBuf.length !== n) this._lightBuf = new Float32Array(n);
     const buf = this._lightBuf;
@@ -326,6 +345,10 @@ export class World {
             const islandCeiling = surface != null && top < surface - 6;
             if (ty < top || (islandCeiling && ty < surface)) {
               seed = Math.max(seed, dayLevel);
+              // Moonlight reaches the same open-sky cells daylight does, so a
+              // night surface is blue-lit rather than cave-dark. Caves, walls
+              // and buried tiles never see this seed.
+              if (moonLevel > 0) seed = Math.max(seed, moonLevel);
             }
           }
         } else if (ty < 0) {
@@ -362,8 +385,7 @@ export class World {
       }
     }
     // AMBIENT_FLOOR keeps unlit terrain dimly visible instead of pure black.
-    // Torches (light 0.95) and the player's own glow are still clearly brighter,
-    // so lighting the dark still matters — you just aren't blind without it.
+    // The player is not a light — only placed/held lights punch above this.
     const AMBIENT_FLOOR = 0.14;
     for (let k = 0; k < n; k++) buf[k] = Math.max(AMBIENT_FLOOR, Math.min(1, buf[k]));
     return buf;

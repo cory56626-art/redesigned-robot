@@ -25,7 +25,8 @@
 //
 // Everything is deterministic from (tile, index, time): no per-particle state,
 // no allocation in the draw path, and identical output on every client.
-import { TILE, LIQUID_MAX, UNDERGROUND_Y } from '../config.js?v=deep-and-divided-1';
+import { TILE, LIQUID_MAX, UNDERGROUND_Y } from '../config.js?v=tides-1';
+import { celestialLean } from './sky.js?v=tides-1';
 
 // Depth ramps, in tiles below the free surface, per water flavour. Inland pools
 // borrow the ocean ramp but never get deep enough to reach its floor colour.
@@ -245,6 +246,23 @@ export class WaterRenderer {
       ctx.fillStyle = rgba(pal.deep, 0.28);
       ctx.fillRect(x, y + 0.6, TILE, 1);
 
+      // Specular: a travelling gleam that leans with the sun/moon so the
+      // new lighting actually reads on the water, not just in the sky.
+      const phase = game.time ? game.time.phase : 0.25;
+      const shine = game.time
+        ? Math.max(0, game.time.sunAltitude, game.time.moonAltitude * 0.55)
+        : 0.6;
+      if (shine > 0.08) {
+        const gleam = Math.sin(r.tx * 0.22 - (phase - 0.25) * Math.PI * 8 + t * 0.35);
+        if (gleam > 0.45) {
+          const a = (gleam - 0.45) / 0.55;
+          ctx.fillStyle = rgba([255, 252, 240], (0.22 + 0.38 * day) * a * shine);
+          ctx.fillRect(x + 2, y - 2, 7, 1.6);
+          ctx.fillStyle = rgba(pal.foam, 0.18 * a * shine);
+          ctx.fillRect(x + 1, y - 1, 10, 1);
+        }
+      }
+
       // Foam speckles ride the crests of the travelling wave only, so foam
       // appears and dissolves as the swell passes instead of sitting still.
       const crest = this._waveCrest(r.tx, t);
@@ -284,11 +302,8 @@ export class WaterRenderer {
     if (day <= 0.02) return;
     const world = game.world;
     const liq = world.liquid;
-    // The sun swings across the sky over the day and the shafts lean with it,
-    // but they keep a standing tilt so they are never perfectly vertical.
-    const phase = game.time ? game.time.phase : 0.25;
-    const swing = Math.sin((phase - 0.25) * Math.PI * 2);
-    const lean = 0.30 * Math.sign(swing || 1) + swing * 0.42;
+    // Shared with air shafts so the sea and the sky agree on the sun.
+    const lean = celestialLean(game);
 
     // Visible span, from the runs we already scanned.
     let minTx = Infinity, maxTx = -Infinity;

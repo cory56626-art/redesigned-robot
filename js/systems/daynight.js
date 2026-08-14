@@ -1,5 +1,5 @@
 // Summoner Realms — day / night cycle.
-import { DAY_LENGTH } from '../config.js?v=deep-and-divided-1';
+import { DAY_LENGTH } from '../config.js?v=tides-1';
 
 export class DayNight {
   constructor(t = DAY_LENGTH * 0.15, day = 1) {
@@ -24,6 +24,13 @@ export class DayNight {
   get phase() { return this.t / DAY_LENGTH; } // 0..1 (noon ~0.25, midnight ~0.75)
   get brightness() { return 0.56 + 0.44 * Math.cos((this.phase - 0.25) * Math.PI * 2); }
   get isDay() { return this.brightness > 0.5; }
+  // 0 at midday, 1 in deep night. Visual only — spawn tables still use isDay.
+  get nightAmount() {
+    return Math.max(0, Math.min(1, (0.62 - this.brightness) / 0.38));
+  }
+  // 1 at noon, 0 on the horizon, -1 at midnight.
+  get sunAltitude() { return Math.cos((this.phase - 0.25) * Math.PI * 2); }
+  get moonAltitude() { return -this.sunAltitude; }
   get label() {
     const p = this.phase;
     if (p < 0.12) return '☀ Morning';

@@ -2,7 +2,7 @@
 // Produces a platform-agnostic InputState so PC and mobile drive gameplay and
 // networking identically. Keyboard/mouse and touch joysticks both feed the same
 // intents: move, jump, aim, primary-use, mine, place, consume.
-import { REACH, TILE } from '../config.js?v=deep-and-divided-1';
+import { REACH, TILE, ZOOM_STEP } from '../config.js?v=tides-1';
 
 export class Input {
   constructor(canvas) {
@@ -23,7 +23,9 @@ export class Input {
       placeHeld: false,
       placePressed: false,
       consumePressed: false,
+      downHeld: false,
     };
+    this._stickDown = false;
 
     this.keys = new Set();
 
@@ -211,6 +213,8 @@ export class Input {
       x += 1;
     }
 
+    this.state.downHeld = this.keys.has('s') || this.keys.has('arrowdown') || this._stickDown;
+
     if (x !== 0) {
       // Normal held-key movement.
       this.state.moveX = x;
@@ -281,12 +285,9 @@ export class Input {
         if (e.ctrlKey) {
           // Ctrl+wheel is zoom, matching every other canvas app. Plain wheel
           // stays on the hotbar so the common action needs no modifier.
-          this._zoomAccum += notches;
-          while (Math.abs(this._zoomAccum) >= 1) {
-            const step = Math.sign(this._zoomAccum);
-            this.fire('zoom', -step); // wheel up (negative delta) zooms in
-            this._zoomAccum -= step;
-          }
+          // Fractional deltas write the zoom *target*; the camera eases to it
+          // so a trackpad glide is continuous instead of a 10% staircase.
+          if (notches) this.fire('zoomBy', -notches * ZOOM_STEP);
           return;
         }
 
@@ -327,10 +328,12 @@ export class Input {
       if (active.size !== 2 || !this._pinchDist) return;
       const d = dist();
       const ratio = d / this._pinchDist;
-      // A 12% change is one zoom step, so a pinch scales smoothly rather than
-      // snapping the whole range at once.
-      if (ratio > 1.12) { this.fire('zoom', 1); this._pinchDist = d; }
-      else if (ratio < 0.89) { this.fire('zoom', -1); this._pinchDist = d; }
+      if (ratio > 0.01 && Math.abs(ratio - 1) > 0.004) {
+        // log(ratio) is 0 at rest and scales naturally with finger distance,
+        // so a pinch is one continuous glide instead of 12% stair steps.
+        this.fire('zoomBy', Math.log(ratio) * 0.85);
+        this._pinchDist = d;
+      }
     });
     const end = (e) => {
       active.delete(e.pointerId);
@@ -347,6 +350,7 @@ export class Input {
       document.getElementById('joyMove'),
       (vx, vy, active) => {
         this.state.moveX = active ? clampAxis(vx) : 0;
+        this._stickDown = active && vy > 0.45;
 
         // The movement stick is movement only. Jump is an explicit action on
         // mobile; mapping upward drift to jump caused accidental bunny-hops

@@ -1,8 +1,8 @@
 // Summoner Realms — crafting logic.
-import { TILE } from '../config.js?v=deep-and-divided-1';
-import { RECIPES } from '../data/recipes.js?v=deep-and-divided-1';
-import { tileDef } from '../world/tiles.js?v=deep-and-divided-1';
-import { item as getItem } from '../data/items.js?v=deep-and-divided-1';
+import { TILE } from '../config.js?v=tides-1';
+import { RECIPES } from '../data/recipes.js?v=tides-1';
+import { tileDef } from '../world/tiles.js?v=tides-1';
+import { item as getItem } from '../data/items.js?v=tides-1';
 
 // Which crafting stations are within reach of the player? (null = by hand)
 export function nearbyStations(game, player) {

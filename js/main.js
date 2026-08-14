@@ -2,50 +2,51 @@
 import {
   TILE, UNDERGROUND_Y, CAVERN_Y, SIM_DT, AUTOSAVE_INTERVAL, SAVE_VERSION,
   HOTBAR_SIZE, MAX_PROJECTILES, MAX_THROWN, normalizeDifficulty, ZOOM_DEFAULT, REACH,
-} from './config.js?v=deep-and-divided-1';
-import { hashString, mulberry32, dist2, uid } from './utils.js?v=deep-and-divided-1';
-import { World } from './world/world.js?v=deep-and-divided-1';
-import { T, tileDef } from './world/tiles.js?v=deep-and-divided-1';
-import { Sprites } from './art/sprites.js?v=deep-and-divided-1';
-import { Camera } from './engine/camera.js?v=deep-and-divided-1';
-import { Input } from './engine/input.js?v=deep-and-divided-1';
-import { AudioManager } from './engine/audio.js?v=deep-and-divided-1';
-import { Renderer } from './engine/renderer.js?v=deep-and-divided-1';
-import { Fx } from './engine/fx.js?v=deep-and-divided-1';
-import { DayNight } from './systems/daynight.js?v=deep-and-divided-1';
-import { Weather } from './systems/weather.js?v=deep-and-divided-1';
-import { Spawner } from './systems/spawner.js?v=deep-and-divided-1';
-import { Progression } from './systems/progression.js?v=deep-and-divided-1';
-import { starterInventory } from './systems/inventory.js?v=deep-and-divided-1';
-import * as craftSys from './systems/crafting.js?v=deep-and-divided-1';
-import { applyPotion } from './systems/combat.js?v=deep-and-divided-1';
-import * as fishing from './systems/fishing.js?v=deep-and-divided-1';
-import { Critter } from './entities/critter.js?v=deep-and-divided-1';
-import { FAUNA } from './data/fauna.js?v=deep-and-divided-1';
-import { smartTarget } from './systems/smartcursor.js?v=deep-and-divided-1';
-import { Player, assignColor } from './entities/player.js?v=deep-and-divided-1';
-import { Enemy } from './entities/enemy.js?v=deep-and-divided-1';
-import { Boss } from './entities/boss.js?v=deep-and-divided-1';
-import { Minion } from './entities/minion.js?v=deep-and-divided-1';
-import { Npc } from './entities/npc.js?v=deep-and-divided-1';
-import { Projectile } from './entities/projectile.js?v=deep-and-divided-1';
-import { DropItem } from './entities/droppeditem.js?v=deep-and-divided-1';
-import { FallingTree } from './entities/fallingtree.js?v=deep-and-divided-1';
-import { ThrownItem } from './entities/thrown.js?v=deep-and-divided-1';
-import { ENEMIES } from './data/enemies.js?v=deep-and-divided-1';
-import { BOSSES, rollMechSpecialDrop, rollVesperaWeaponDrop } from './data/bosses.js?v=deep-and-divided-1';
-import { item as getItem, isItemEnabled } from './data/items.js?v=deep-and-divided-1';
-import { HUD } from './ui/hud.js?v=deep-and-divided-1';
-import { Minimap } from './ui/minimap.js?v=deep-and-divided-1';
-import { Menus } from './ui/menus.js?v=deep-and-divided-1';
-import { NpcDialog } from './ui/npcdialog.js?v=deep-and-divided-1';
-import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=deep-and-divided-1';
-import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=deep-and-divided-1';
-import { Achievements, craftAchievement } from './systems/achievements.js?v=deep-and-divided-1';
-import { CommandConsole } from './commands.js?v=deep-and-divided-1';
-import { Net } from './net/net.js?v=deep-and-divided-1';
-import { MSG } from './net/protocol.js?v=deep-and-divided-1';
-import * as sync from './net/sync.js?v=deep-and-divided-1';
+} from './config.js?v=tides-1';
+import { hashString, mulberry32, dist2, uid } from './utils.js?v=tides-1';
+import { World } from './world/world.js?v=tides-1';
+import { T, tileDef } from './world/tiles.js?v=tides-1';
+import { Sprites } from './art/sprites.js?v=tides-1';
+import { Camera } from './engine/camera.js?v=tides-1';
+import { Input } from './engine/input.js?v=tides-1';
+import { AudioManager } from './engine/audio.js?v=tides-1';
+import { Renderer } from './engine/renderer.js?v=tides-1';
+import { Fx } from './engine/fx.js?v=tides-1';
+import { Ambiance } from './engine/ambiance.js?v=tides-1';
+import { DayNight } from './systems/daynight.js?v=tides-1';
+import { Weather } from './systems/weather.js?v=tides-1';
+import { Spawner } from './systems/spawner.js?v=tides-1';
+import { Progression } from './systems/progression.js?v=tides-1';
+import { starterInventory } from './systems/inventory.js?v=tides-1';
+import * as craftSys from './systems/crafting.js?v=tides-1';
+import { applyPotion } from './systems/combat.js?v=tides-1';
+import * as fishing from './systems/fishing.js?v=tides-1';
+import { Critter } from './entities/critter.js?v=tides-1';
+import { FAUNA } from './data/fauna.js?v=tides-1';
+import { smartTarget } from './systems/smartcursor.js?v=tides-1';
+import { Player, assignColor } from './entities/player.js?v=tides-1';
+import { Enemy } from './entities/enemy.js?v=tides-1';
+import { Boss } from './entities/boss.js?v=tides-1';
+import { Minion } from './entities/minion.js?v=tides-1';
+import { Npc } from './entities/npc.js?v=tides-1';
+import { Projectile } from './entities/projectile.js?v=tides-1';
+import { DropItem } from './entities/droppeditem.js?v=tides-1';
+import { FallingTree } from './entities/fallingtree.js?v=tides-1';
+import { ThrownItem } from './entities/thrown.js?v=tides-1';
+import { ENEMIES } from './data/enemies.js?v=tides-1';
+import { BOSSES, rollMechSpecialDrop, rollVesperaWeaponDrop } from './data/bosses.js?v=tides-1';
+import { item as getItem, isItemEnabled } from './data/items.js?v=tides-1';
+import { HUD } from './ui/hud.js?v=tides-1';
+import { Minimap } from './ui/minimap.js?v=tides-1';
+import { Menus } from './ui/menus.js?v=tides-1';
+import { NpcDialog } from './ui/npcdialog.js?v=tides-1';
+import { detectDefaultMode, applyControlMode } from './ui/controls-mode.js?v=tides-1';
+import { SaveManager, CharacterManager, setSaveIndicator, defaultAppearance } from './save.js?v=tides-1';
+import { Achievements, craftAchievement } from './systems/achievements.js?v=tides-1';
+import { CommandConsole } from './commands.js?v=tides-1';
+import { Net } from './net/net.js?v=tides-1';
+import { MSG } from './net/protocol.js?v=tides-1';
+import * as sync from './net/sync.js?v=tides-1';
 
 class Game {
   constructor() {
@@ -121,8 +122,10 @@ class Game {
       musicVolume: s.musicVolume != null ? s.musicVolume : 0.55,
       sfxVolume: s.sfxVolume != null ? s.sfxVolume : 0.9,
       zoom: s.zoom != null ? s.zoom : ZOOM_DEFAULT,
+      atmosphere: s.atmosphere !== false,
     };
-    this.camera.setZoom(this.settings.zoom);
+    this.camera.snapZoom(this.settings.zoom);
+    this.ambiance = new Ambiance(this);
     this.smartTarget = null;
 
     this.ui = { hud: null, menus: null, npcDialog: null, minimap: null };
@@ -180,6 +183,7 @@ class Game {
     inp.on('interact', () => this.interact());
     inp.on('smartToggle', () => { /* the input layer owns the latch; nothing else to do */ });
     inp.on('zoom', (dir) => this.nudgeZoom(dir));
+    inp.on('zoomBy', (d) => this.zoomBy(d));
     inp.on('minimap', () => { if (this.state === 'playing') this.ui.minimap.cycle(); });
     inp.on('zoomTo', (z) => this.setZoom(z));
   }
@@ -257,6 +261,7 @@ class Game {
       }
 
       if (this.state === 'playing') {
+        this.camera.update(dt);
         this.renderer.draw(this);
         this.ui.minimap.reveal(dt);
         this.ui.minimap.draw();
@@ -308,6 +313,7 @@ class Game {
     this.achievements.update(dt);
     this.world.liquid.update(dt);
     this.audio.update(this, dt);
+    if (this.ambiance) this.ambiance.update(dt);
 
     // Players
     for (const p of [...this.players.values()]) p.update(dt, this);
@@ -677,14 +683,18 @@ class Game {
     if (!this.camera.nudgeZoom(dir)) return;
     this._onZoomChanged();
   }
+  zoomBy(delta) {
+    if (!this.camera.zoomBy(delta)) return;
+    this._onZoomChanged();
+  }
   setZoom(z) {
     if (!this.camera.setZoom(z)) return;
     this._onZoomChanged();
   }
   _onZoomChanged() {
-    this.settings.zoom = this.camera.zoom;
-    this.saveSettings();
-    if (this.localPlayer) this.camera.follow(this.localPlayer, 0, true);
+    this.settings.zoom = this.camera.zoomTarget;
+    clearTimeout(this._zoomSaveT);
+    this._zoomSaveT = setTimeout(() => this.saveSettings(), 280);
     this.ui.hud.showZoom(this.camera.zoomPercent());
   }
 

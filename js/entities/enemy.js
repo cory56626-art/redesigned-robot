@@ -3,12 +3,12 @@
 // Each enemy runs the same loop: perceive (do I know where the player is?),
 // decide (idle / approach / attack / retreat), then act. Perception, pathing and
 // steering live in systems/ai.js so every creature reasons the same way.
-import { TILE, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=deep-and-divided-1';
-import { ENEMIES } from '../data/enemies.js?v=deep-and-divided-1';
-import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=deep-and-divided-1';
-import { aabb } from '../utils.js?v=deep-and-divided-1';
-import { Projectile } from './projectile.js?v=deep-and-divided-1';
-import * as AI from '../systems/ai.js?v=deep-and-divided-1';
+import { TILE, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=tides-1';
+import { ENEMIES } from '../data/enemies.js?v=tides-1';
+import { moveAndCollide, applyGravity, clampToWorld } from './physics.js?v=tides-1';
+import { aabb } from '../utils.js?v=tides-1';
+import { Projectile } from './projectile.js?v=tides-1';
+import * as AI from '../systems/ai.js?v=tides-1';
 
 export class Enemy {
   constructor(key, x, y, netId, difficulty = 'normal') {

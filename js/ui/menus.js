@@ -1,15 +1,15 @@
 // Summoner Realms — menu & overlay controller (main menu, dialogs, inventory,
 // crafting, multiplayer sidebar, chat, confirm, death screen).
-import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=deep-and-divided-1';
-import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=deep-and-divided-1';
-import { Sprites } from '../art/sprites.js?v=deep-and-divided-1';
-import { item as getItem } from '../data/items.js?v=deep-and-divided-1';
-import { availableRecipes } from '../systems/crafting.js?v=deep-and-divided-1';
-import { claudeNotesHTML } from './claude-notes.js?v=deep-and-divided-1';
-import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=deep-and-divided-1';
-import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=deep-and-divided-1';
-import { drawCharacterPreview } from '../art/charpreview.js?v=deep-and-divided-1';
-import { TitleScreen } from './titlescreen.js?v=deep-and-divided-1';
+import { HOTBAR_SIZE, HEAL_COOLDOWN, MANA_POTION_COOLDOWN, difficultyForIndex, difficultyInfo } from '../config.js?v=tides-1';
+import { INV_SIZE, SET_BONUS_DESC, SET_LABEL } from '../systems/inventory.js?v=tides-1';
+import { Sprites } from '../art/sprites.js?v=tides-1';
+import { item as getItem } from '../data/items.js?v=tides-1';
+import { availableRecipes } from '../systems/crafting.js?v=tides-1';
+import { claudeNotesHTML } from './claude-notes.js?v=tides-1';
+import { LOOK_PALETTES, HAIR_STYLES, defaultAppearance } from '../save.js?v=tides-1';
+import { ACHIEVEMENT_BY_ID } from '../systems/achievements.js?v=tides-1';
+import { drawCharacterPreview } from '../art/charpreview.js?v=tides-1';
+import { TitleScreen } from './titlescreen.js?v=tides-1';
 
 // Rarity tiers → label + colour, so tooltips read clearly.
 const RARITY = [
@@ -156,10 +156,12 @@ export class Menus {
 
     // ---- Settings ----
     $('settingsClose').onclick = () => { this.hide('settingsDialog'); };
-    for (const [segId, key] of [['smartCursorSeg', 'smartCursor'], ['screenShakeSeg', 'screenShake']]) {
-      $(segId).querySelectorAll('.seg-btn').forEach(b => {
+    for (const [segId, key] of [['smartCursorSeg', 'smartCursor'], ['screenShakeSeg', 'screenShake'], ['atmosphereSeg', 'atmosphere']]) {
+      const seg = $(segId);
+      if (!seg) continue;
+      seg.querySelectorAll('.seg-btn').forEach(b => {
         b.onclick = () => {
-          const v = key === 'screenShake' ? b.dataset.mode === 'on' : b.dataset.mode;
+          const v = (key === 'screenShake' || key === 'atmosphere') ? b.dataset.mode === 'on' : b.dataset.mode;
           g.setSetting(key, v);
           this._syncSettings();
         };
@@ -751,10 +753,13 @@ export class Menus {
     const g = this.game;
     const st = g.settings;
     const setSeg = (id, value) => {
-      $(id).querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === value));
+      const el = $(id);
+      if (!el) return;
+      el.querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === value));
     };
     setSeg('smartCursorSeg', st.smartCursor);
     setSeg('screenShakeSeg', st.screenShake ? 'on' : 'off');
+    setSeg('atmosphereSeg', st.atmosphere !== false ? 'on' : 'off');
     setSeg('settingsControlSeg', g.controlMode);
     const slider = (id, outId, v) => {
       const el = $(id);
@@ -770,7 +775,7 @@ export class Menus {
     // reusing the 0-100 mapping the volume sliders use.
     {
       const el = $('setZoom');
-      el.value = Math.round(g.camera.zoom * 100);
+      el.value = Math.round(g.camera.zoomTarget * 100);
       el.style.setProperty('--fill', ((el.value - 60) / 1.4) + '%');
       $('setZoomOut').textContent = el.value + '%';
     }

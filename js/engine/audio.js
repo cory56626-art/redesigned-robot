@@ -1,7 +1,8 @@
 // Summoner Realms — authored procedural game audio.
 // Uses authored OGG sample assets for the primary sound, with the procedural
 // layers kept as a graceful fallback if a browser blocks asset loading.
-import { Music } from './music.js?v=deep-and-divided-1';
+import { Music } from './music.js?v=tides-1';
+import { AMBIENT_BURST_GAIN } from '../config.js?v=tides-1';
 
 const AudioContextCtor = () => window.AudioContext || window.webkitAudioContext;
 
@@ -29,7 +30,14 @@ export class AudioManager {
       playerHurt: 'player-hurt', jump: 'jump', pickup: 'pickup',
       coin: 'coin', ui: 'ui-click', place: 'block-place',
       break: 'block-break', forest: 'forest', cave: 'cave', wind: 'wind',
+      ocean: 'ocean',
     };
+    // Wildlife calls. Short authored beds, played as one-shots — never looped.
+    this.burstFiles = { birds: 'birds', grasshoppers: 'grasshoppers' };
+    this.bursts = Object.create(null);
+    this._burstSource = null;
+    this._burstGain = null;
+    this.oceanGain = null;
   }
 
   attach() {
@@ -119,6 +127,76 @@ export class AudioManager {
     await Promise.all(jobs);
     this.samplesLoading = false;
     this._startSampleAmbience();
+    this._startOceanBed();
+    this._loadBurstBeds();
+  }
+
+  _startOceanBed() {
+    if (!this._ready() || this.oceanGain || !this.samples.ocean) return;
+    const source = this.ctx.createBufferSource();
+    const gain = this.ctx.createGain();
+    source.buffer = this.samples.ocean;
+    source.loop = true;
+    gain.gain.value = 0;
+    source.connect(gain).connect(this.master);
+    source.start();
+    this.oceanGain = gain;
+  }
+
+  async _loadBurstBeds() {
+    if (!this._ready()) return;
+    const jobs = Object.entries(this.burstFiles).map(async ([key, file]) => {
+      try {
+        const response = await fetch(`./assets/audio/${file}.ogg`);
+        if (!response.ok) return;
+        const data = await response.arrayBuffer();
+        this.bursts[key] = await this.ctx.decodeAudioData(data);
+      } catch (_) {
+        // Optional: a missing bed just means that call never plays.
+      }
+    });
+    await Promise.all(jobs);
+  }
+
+  /**
+   * Play a short, faded window of a wildlife bed. Returns false if a burst
+   * is already running or the buffer is missing, so the scheduler can wait.
+   */
+  playAmbienceBurst(key, duration = 6, peak = AMBIENT_BURST_GAIN) {
+    if (!this._ready()) return false;
+    if (this._burstSource) return false;
+    const buffer = this.bursts[key];
+    if (!buffer) return false;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const dur = Math.max(2.5, Math.min(duration, buffer.duration * 0.9));
+    const maxStart = Math.max(0, buffer.duration - dur - 0.05);
+    const offset = maxStart > 0.2 ? Math.random() * maxStart : 0;
+    const source = ctx.createBufferSource();
+    const gain = ctx.createGain();
+    source.buffer = buffer;
+    // A hair of random rate so two bursts in a row don't sound identical.
+    source.playbackRate.value = 0.97 + Math.random() * 0.06;
+    const fadeIn = 0.85;
+    const fadeOut = 1.25;
+    const duck = this.music && this.music.current ? 0.4 : 1;
+    const peakGain = Math.max(0.0001, peak * duck);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(peakGain, now + fadeIn);
+    gain.gain.setValueAtTime(peakGain, now + Math.max(fadeIn, dur - fadeOut));
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    // Onto master, not the SFX bus — a cricket should not punch with the sword.
+    source.connect(gain).connect(this.master);
+    try { source.start(now, offset, dur + 0.05); } catch { return false; }
+    this._burstSource = source;
+    this._burstGain = gain;
+    source.onended = () => {
+      if (this._burstSource === source) {
+        this._burstSource = null;
+        this._burstGain = null;
+      }
+    };
+    return true;
   }
 
   _sample(key, volume = 1, delay = 0, rate = 1) {
@@ -274,6 +352,7 @@ export class AudioManager {
     if (!this.ctx || this.ctx.state === 'suspended') return;
     this.music.update(game, dt);
     if (!this.ambientStarted) return;
+    this._mixBeds(game);
     this.ambientTimer -= dt;
     if (this.ambientTimer > 0) return;
     this.ambientTimer = 4.8 + Math.random() * 3.5;
@@ -282,33 +361,16 @@ export class AudioManager {
     const p = game.localPlayer;
     const world = game.world;
     if (!p || !world) return;
+    if (this.music && this.music.current) return;
 
     const tx = Math.floor((p.x + p.w / 2) / 16);
     const ty = Math.floor((p.y + p.h / 2) / 16);
     const biome = world.biomeAt(tx, ty);
     const cave = biome === 'underground' || biome === 'cavern';
     const forest = biome === 'forest' && !cave;
-    // Wind ambience follows the actual weather rather than being a constant
-    // above-ground hiss: a calm day is quiet and a gale is loud, so the sound
-    // and the swaying foliage agree with each other.
     const strength = game.weather ? game.weather.strength() : 0.35;
     const wind = cave ? 0 : 0.03 + strength * 0.20;
-    const now = this.ctx.currentTime;
 
-    // A real soundtrack takes the foreground; the ambient beds duck under it
-    // rather than competing with it.
-    const duck = this.music && this.music.current ? 0.4 : 1;
-    const bed = this.sampleAmbient || this.ambient;
-    bed.forest.gain.setTargetAtTime(forest ? 0.16 * duck : 0, now, 0.9);
-    bed.cave.gain.setTargetAtTime(cave ? 0.18 * duck : 0, now, 0.9);
-    bed.wind.gain.setTargetAtTime(wind * duck, now, 0.9);
-    if (this.sampleAmbient) {
-      this.ambient.forest.gain.setTargetAtTime(0, now, 0.9);
-      this.ambient.cave.gain.setTargetAtTime(0, now, 0.9);
-      this.ambient.wind.gain.setTargetAtTime(0, now, 0.9);
-    }
-
-    if (this.music && this.music.current) return; // a track is playing; no motifs
     if (forest) {
       this._forestMotif();
       if (Math.random() < 0.6) this._noise(0.8, 0.018, 1200, { filterType: 'bandpass', endFilter: 500, smooth: 0.9 });
@@ -317,6 +379,42 @@ export class AudioManager {
       if (Math.random() < 0.55) this._noise(0.6, 0.014, 420, { filterType: 'lowpass', endFilter: 170, smooth: 0.95 });
     } else if (wind) {
       this._noise(0.9, 0.02, 950, { filterType: 'bandpass', endFilter: 240, smooth: 0.88 });
+    }
+  }
+
+  // Beds track the player every frame so the ocean can sit under everything
+  // and duck the moment a bird/cricket burst starts.
+  _mixBeds(game) {
+    const p = game.localPlayer;
+    const world = game.world;
+    if (!p || !world) return;
+    const tx = Math.floor((p.x + p.w / 2) / 16);
+    const ty = Math.floor((p.y + p.h / 2) / 16);
+    const biome = world.biomeAt(tx, ty);
+    const cave = biome === 'underground' || biome === 'cavern';
+    const forest = biome === 'forest' && !cave;
+    const oceanBiome = biome === 'ocean' || biome === 'infestedOcean' || biome === 'whirringOcean';
+    const strength = game.weather ? game.weather.strength() : 0.35;
+    const wind = cave ? 0 : 0.03 + strength * 0.20;
+    const now = this.ctx.currentTime;
+    const duck = this.music && this.music.current ? 0.4 : 1;
+    const bed = this.sampleAmbient || this.ambient;
+    if (bed && bed.forest) {
+      bed.forest.gain.setTargetAtTime(forest ? 0.16 * duck : 0, now, 0.9);
+      bed.cave.gain.setTargetAtTime(cave ? 0.18 * duck : 0, now, 0.9);
+      bed.wind.gain.setTargetAtTime(wind * duck, now, 0.9);
+    }
+    if (this.sampleAmbient && this.ambient) {
+      this.ambient.forest.gain.setTargetAtTime(0, now, 0.9);
+      this.ambient.cave.gain.setTargetAtTime(0, now, 0.9);
+      this.ambient.wind.gain.setTargetAtTime(0, now, 0.9);
+    }
+    if (this.oceanGain) {
+      const bursting = !!this._burstSource;
+      let ocean = 0;
+      if (!cave) ocean = oceanBiome ? 0.095 : 0.042;
+      if (bursting) ocean *= 0.4;
+      this.oceanGain.gain.setTargetAtTime(ocean * duck, now, 0.55);
     }
   }
 

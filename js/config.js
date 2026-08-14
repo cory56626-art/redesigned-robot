@@ -4,7 +4,7 @@
 // Single build stamp for every cache-busted module import. Bump this once per
 // release instead of editing per-module `?build=` strings (which drifted out of
 // sync and could ship a half-updated module graph).
-export const BUILD = 'deep-and-divided-1';
+export const BUILD = 'tides-1';
 
 // Release identity, surfaced on the main menu and in Claude's Notes.
 export const VERSION = '4.3';
@@ -147,21 +147,35 @@ export const ZOOM_MIN = 0.6;
 export const ZOOM_MAX = 2.0;
 export const ZOOM_DEFAULT = 1.0;
 export const ZOOM_STEP = 0.1;
+// Exponential lerp rate toward zoomTarget. Higher is snappier; 12 eases a
+// 0.1 step in well under a third of a second without feeling like a snap.
+export const ZOOM_LERP = 12;
 
 // ---- Wind / weather (4.1) ----
 // Wind blows from one side only and is re-rolled on a slow cadence. It sways
-// foliage and applies a deliberately mild drag to surface movement; it never
-// reaches underground.
+// foliage and drives the wind bed; it never reaches underground and no longer
+// pushes the player.
 export const WIND_MIN_INTERVAL = 22;   // seconds before the wind may change again
 export const WIND_MAX_INTERVAL = 70;
 export const WIND_SHIFT_TIME = 6;      // seconds to ease from one state to the next
 export const WIND_GUST_RATE = 0.23;    // gust oscillation speed
 export const WIND_GUST_AMOUNT = 0.22;  // how much of the strength a gust can add
-// Fraction of MOVE_SPEED a full gale can push the player by. Kept small on
-// purpose: strong enough to feel, never strong enough to fight.
-export const WIND_PLAYER_PUSH = 0.12;
+// Wind no longer pushes the player (requested: the shove fought movement).
+// Foliage sway and the wind bed still read the weather. The constant is kept
+// so an older module that imports it does not explode mid-stamp.
+export const WIND_PLAYER_PUSH = 0;
 // Tiles below the surface line at which wind has fully died away.
 export const WIND_DEPTH_FADE = 6;
+
+// ---- Atmosphere (visual / audio, no gameplay) ----
+// Open-sky moonlight seed, 0..1. Caves never receive this; torches stay brighter.
+export const MOON_LEVEL = 0.78;
+// Occasional wildlife calls. Short bursts, long gaps, quiet on purpose.
+export const AMBIENT_BURST_GAIN = 0.08;
+export const AMBIENT_BURST_MIN = 18;
+export const AMBIENT_BURST_MAX = 40;
+export const MAX_AMBIENT_MOTES = 14;
+export const FIREFLY_MAX = 8;
 
 // ---- Liquids (4.1) ----
 // Water is stored as a per-tile level 0..LIQUID_MAX and simulated with an
@@ -171,8 +185,14 @@ export const LIQUID_TICK = 1 / 12;     // seconds between flow updates
 export const LIQUID_BUDGET = 3000;     // max cells processed per flow update
 export const SWIM_GRAVITY = 0.22;      // gravity multiplier while submerged
 export const SWIM_MAX_FALL = 100;      // terminal velocity in water
-export const SWIM_DRAG = 0.62;         // horizontal speed multiplier in water
-export const SWIM_STROKE = 220;        // upward impulse from jumping in water
+export const SWIM_DRAG = 0.55;         // horizontal speed multiplier in water
+export const SWIM_STROKE = 220;        // unused: hold-to-swim was removed
+// Breath: seconds of air, bubble count, drown tick.
+export const OXYGEN_MAX = 12;
+export const OXYGEN_BUBBLES = 8;
+export const OXYGEN_RECOVER = 4;       // seconds of air restored per second on the surface
+export const DROWN_DAMAGE = 12;
+export const DROWN_TICK = 1;
 // Fall damage: impact when landing faster than the safe threshold (px/s).
 export const FALL_SAFE_SPEED = 520;
 export const FALL_DAMAGE_PER_100 = 14; // damage per 100 px/s over the safe speed

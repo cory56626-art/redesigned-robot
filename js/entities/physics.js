@@ -4,8 +4,8 @@
 // hammer slopes present a real surface, so a ramp you can see is a ramp you can
 // walk up rather than a wall you bump into. Full blocks — everything natural
 // terrain generates — take the same fast path they always did.
-import { TILE, GRAVITY, MAX_FALL, SWIM_GRAVITY, SWIM_MAX_FALL } from '../config.js?v=deep-and-divided-1';
-import { SH } from '../world/shapes.js?v=deep-and-divided-1';
+import { TILE, GRAVITY, MAX_FALL, SWIM_GRAVITY, SWIM_MAX_FALL } from '../config.js?v=tides-1';
+import { SH } from '../world/shapes.js?v=tides-1';
 
 // Slopes are climbed by snapping to their surface rather than by the ledge
 // step-up, so the motion is continuous instead of a stair of 2px hops.
@@ -41,6 +41,7 @@ export function moveAndCollide(e, world, dt) {
   } else e.hitWallX = false;
 
   // Vertical
+  const prevBottom = e.y + e.h;
   e.y += e.vy * dt;
   if (world.rectHitsSolid(e.x, e.y, e.w, e.h)) {
     if (e.vy > 0) { e.y = _restOnFloor(e, world); e.onGround = true; }
@@ -51,6 +52,16 @@ export function moveAndCollide(e, world, dt) {
     // step and falls the rest of the way, which reads as juddering.
     const snapped = _snapDownToSlope(e, world, wasGrounded);
     if (snapped != null) { e.y = snapped; e.onGround = true; e.vy = 0; }
+  }
+
+  // One-way platforms: land from above, hold down to fall through.
+  if (!e.dropThrough && e.vy >= 0 && world.platformTopUnder) {
+    const top = world.platformTopUnder(e, prevBottom);
+    if (top != null) {
+      e.y = top - e.h - 0.01;
+      e.vy = 0;
+      e.onGround = true;
+    }
   }
 }
 

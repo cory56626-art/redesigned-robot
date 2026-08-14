@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1020" />
   <title>Summoner Realms</title>
-  <link rel="stylesheet" href="css/styles.css?v=deep-and-divided-1" />
+  <link rel="stylesheet" href="css/styles.css?v=tides-1" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230b1020'/%3E%3Crect x='5' y='2' width='6' height='6' fill='%237ee0c0'/%3E%3Crect x='6' y='9' width='4' height='5' fill='%23c58bff'/%3E%3C/svg%3E" />
 </head>
 <body>
@@ -341,7 +341,7 @@
         <input type="range" id="setZoom" min="60" max="200" step="5" />
         <output id="setZoomOut">100%</output>
       </div>
-      <p class="hint small">Also <kbd>+</kbd> / <kbd>&minus;</kbd>, Ctrl + wheel, or pinch. Zoom out to keep a flying boss on screen.</p>
+      <p class="hint small">Also <kbd>+</kbd> / <kbd>&minus;</kbd>, Ctrl + wheel, or pinch — the view eases instead of stepping. Zoom out to keep a flying boss on screen.</p>
       <div class="set-row">
         <label>Smart Cursor</label>
         <div class="seg" id="smartCursorSeg">
@@ -358,6 +358,14 @@
           <button data-mode="on" class="seg-btn">On</button>
         </div>
       </div>
+      <div class="set-row">
+        <label>Atmosphere</label>
+        <div class="seg" id="atmosphereSeg">
+          <button data-mode="off" class="seg-btn">Off</button>
+          <button data-mode="on" class="seg-btn">On</button>
+        </div>
+      </div>
+      <p class="hint small">God rays, fireflies and wildlife calls. The sun, moon and lighting stay on either way.</p>
       <div class="set-row">
         <label>Controls</label>
         <div class="seg" id="settingsControlSeg">
@@ -632,6 +640,6 @@
   <!-- The ?v= stamp is applied to every module by tools/stamp-build.mjs, driven
        by the BUILD constant in js/config.js, so a release can never ship a
        half-updated module graph out of the browser cache. -->
-  <script type="module" src="js/main.js?v=deep-and-divided-1"></script>
+  <script type="module" src="js/main.js?v=tides-1"></script>
 </body>
 </html>

@@ -1,8 +1,8 @@
 // Summoner Realms — natural enemy spawning (host only). Biome + day/night aware.
-import { TILE, UNDERGROUND_Y, MAX_ENEMIES, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=deep-and-divided-1';
-import { ENEMIES } from '../data/enemies.js?v=deep-and-divided-1';
-import { FAUNA } from '../data/fauna.js?v=deep-and-divided-1';
-import { aabb, dist2 } from '../utils.js?v=deep-and-divided-1';
+import { TILE, UNDERGROUND_Y, MAX_ENEMIES, normalizeDifficulty, ENEMY_DIFFICULTY_TUNING } from '../config.js?v=tides-1';
+import { ENEMIES } from '../data/enemies.js?v=tides-1';
+import { FAUNA } from '../data/fauna.js?v=tides-1';
+import { aabb, dist2 } from '../utils.js?v=tides-1';
 
 // Keep spawns off-screen-ish but not so far they never arrive (tiles).
 const MIN_SPAWN_DIST = 13;
