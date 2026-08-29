@@ -1,7 +1,9 @@
 # Gucci Morty — 16s beat-synced edit
 
-`gucci_morty_16s.mp4` — 16.000s, 60fps, 480x518, H.264 + AAC. Built by
-`render18.py`.
+Two cuts, both 16.000s, 60fps, 480x518, H.264 + AAC:
+
+- `gucci_morty_16s_phonk.mp4` — the graded cut (`render20.py`). **Current pick.**
+- `gucci_morty_16s.mp4` — clean, ungraded (`render18.py`).
 
 Morty's original 29-frame animation is used **exactly as authored** — no warping,
 resampling or frame blending. The only edit is *when* each frame is shown. Every
@@ -117,6 +119,33 @@ eyeballing it:
   measurements the profile is built from.
 - The pop scales him up about his planted base, so the sprite canvas needs
   headroom. Without padding, the top of his head was clipped on the pop frames.
+
+## Phonk pass (`render20.py`)
+
+Pure post-processing on top of the clean cut — the frame-selection code is
+byte-identical to `render18.py`, so his animation and its timing are untouched.
+
+- **Grade**: black crush, mids pulled down (gamma 1.20), contrast biased dark,
+  purple-cast shadows (B up, G down), mild saturation. Mean frame brightness goes
+  128 -> 86.
+- **Bloom** off the windows, deliberately restrained (threshold 0.80, 14%).
+- **Vignette**, and half-res film grain so it reads filmic rather than per-pixel.
+- **On every kick**: zoom punch, a downward frame shake that reinforces the head
+  snap, and a chromatic (RGB) split.
+- Effect intensity ramps ~0.78 -> 1.18 across the 16s, because the song itself is
+  flat (every bar within 6% RMS) and gives the edit no arc of its own.
+
+Two things were wrong on the first attempt and are worth not repeating:
+
+- The kick impulses used a symmetric Gaussian, so the chroma split *anticipated*
+  each kick and fringed almost constantly. Impacts need an asymmetric envelope —
+  near-zero before, decaying after (`hit()` vs `imp()`).
+- The first grade *brightened* the image (bloom at 33%, threshold 0.72), which
+  read as hazy and washed out rather than moody.
+
+Verified non-destructive: the graded cut's 28 largest per-frame changes coincide
+28/28 with the clean cut's snap frames, and the snaps get *stronger* (mean
+inter-frame delta 12.48 vs 8.36) because the shake and chroma reinforce them.
 
 ## Verification
 
