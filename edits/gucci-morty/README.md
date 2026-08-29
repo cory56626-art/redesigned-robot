@@ -2,7 +2,8 @@
 
 Two cuts, both 16.000s, 60fps, 480x518, H.264 + AAC:
 
-- `gucci_morty_16s_phonk.mp4` — the graded cut (`render20.py`). **Current pick.**
+- `gucci_morty_16s_clones.mp4` — the duplication cut (`render22.py`). **Current pick.**
+- `gucci_morty_16s_phonk.mp4` — graded, single Morty (`render20.py`).
 - `gucci_morty_16s.mp4` — clean, ungraded (`render18.py`).
 
 Morty's original 29-frame animation is used **exactly as authored** — no warping,
@@ -119,6 +120,38 @@ eyeballing it:
   measurements the profile is built from.
 - The pop scales him up about his planted base, so the sprite canvas needs
   headroom. Without padding, the top of his head was clipped on the pop frames.
+
+## Duplication (`permatte4.py` + `render22.py`)
+
+He multiplies: copies pop in on each bar line, 1 -> 15 Mortys over the 16s,
+arranged in four receding rows with real perspective (vanishing point ~y=250,
+scale = (feet_y - 250) / 250) and a touch of atmospheric haze on the far rows.
+Every copy pops in with a scale overshoot on the beat.
+
+All copies read a single per-frame source index, so they cannot desync — they all
+snap together on the kick. The real Morty is re-composited last so he stays
+frontmost, and the crowd amplifies the hits: mean inter-frame delta at a snap is
+30.65 against 5.09 elsewhere, roughly 6x the single-Morty cut.
+
+### Getting a matte on all 29 frames
+
+The copies need Morty cut out of *every* frame, not just frame 1. Two approaches
+failed first, both worth not repeating:
+
+- **Difference against the background plate.** Outside the plate's inpainted hole
+  the difference is exactly zero, so this looks ideal — but inside the hole, where
+  Morty has moved away, the real background differs from the smeared inpaint and
+  registers as false foreground. It produced ragged spurs off his right side.
+- **GrabCut per frame.** Unstable frame to frame: matte area swung **38.3%** and it
+  dropped his arms on later frames, which would make the copies visibly flicker.
+
+What works is a hybrid. Morty's *shape* is constant — only his pose deforms — so
+the validated frame-1 matte is warped by his measured per-row displacement (the
+same head/body profile above) to form a shape prior, and that prior is intersected
+with the plate difference. The prior kills the spurs; the difference keeps the
+silhouette literal per frame. Area spread drops to **4.8%**, IoU against the
+hand-built frame-1 matte is **0.947**, and the gap between his legs stays open on
+every frame.
 
 ## Phonk pass (`render20.py`)
 
