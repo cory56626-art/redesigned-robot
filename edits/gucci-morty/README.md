@@ -1,11 +1,16 @@
 # Gucci Morty — 16s beat-synced edit
 
-`gucci_morty_spidey_16s.mp4` — 16.000s, 60fps, 480x518, H.264 + AAC.
+`gucci_morty_16s.mp4` — 16.000s, 60fps, 480x518, H.264 + AAC. Built by
+`render18.py`.
 
 Morty's original 29-frame animation is used **exactly as authored** — no warping,
-resampling or frame blending. The only edit is *when* each frame is shown.
-Spider-Man is cut out of a rooftop photo and drops in at 6.25s, bobbing on the
-same beats.
+resampling or frame blending. The only edit is *when* each frame is shown. Every
+output frame is byte-for-byte one of the 29 source frames (verified: worst
+mean-abs-diff 2.39/255, which is h264 alone).
+
+Spider-Man was added and then removed at the client's request. The pipeline that
+produced him is kept below and still runs — `render17.py` rebuilds that cut — but
+he is not in the current deliverable.
 
 ## What the source animation actually does
 
@@ -59,7 +64,7 @@ Holding is invisible because frame 29 is already at rest, and it means the
 animation itself is never stretched or resampled — every frame the source
 contains is shown at its authored duration.
 
-## Spider-Man
+## Spider-Man (removed from the current cut)
 
 Cut out with GrabCut from a single rect, which got the figure in one pass
 including the gaps under the extended arm and between the legs. The matte is
