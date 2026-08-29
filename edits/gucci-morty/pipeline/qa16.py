@@ -1,5 +1,5 @@
 import cv2, numpy as np, json, librosa
-J=json.load(open('render16.json')); PER=J['PER']; T0=J['T0']; DUR=J['DUR']; TE=J['T_ENTER']
+J=json.load(open('render17.json')); PER=J['PER']; T0=J['T0']; DUR=J['DUR']; TE=J['T_ENTER']
 cap=cv2.VideoCapture('out/gucci_morty_spidey_16s.mp4')
 fs=[]
 while True:

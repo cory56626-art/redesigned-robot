@@ -70,11 +70,33 @@ He is composited at 275px tall with his base on Morty's floor line, so both sit 
 the same ground plane. Because he is a fresh cutout laid over the classroom, there
 is no old pose to erase and no background plate is needed.
 
-His bob is driven by **Morty's own measured curve** (`CURVE` in `render16.py`,
-normalised from the 14px face travel above), so the two are locked together — the
-head tracks of the two characters correlate at **r=+0.966**. The warp is
-base-anchored and height-weighted (`u^1.4`), amplitude 4% of his height (11px),
-matching Morty's 14px-on-391px proportion.
+His bob is a **replica of Morty's measured motion**, not a generic bounce. The
+first attempt used a smooth height-weighted warp (`u^1.4`) and read as the whole
+body bouncing up and down, because it got Morty's motion wrong in three ways.
+What Morty actually does, measured directly by colour with no tracker:
+
+| part | frame 1 -> 29 |
+|------|---------------|
+| face | **right 14px, up 14px** |
+| jeans (both edges) | **left 10px** |
+| shoes | left 7px |
+
+So the head swings **diagonally up-and-right** while the body **counter-slides
+left** — a weight shift, not a vertical bob. Dense optical flow over horizontal
+bands adds the third piece: a **sharp cliff at the neck** (y~225), where the head
+moves 15-19px and everything below moves ~2px. A smooth falloff spreads that
+motion down the torso and destroys the effect.
+
+`render17.py` rebuilds it from those numbers: a 45-degree diagonal head swing, a
+narrow neck transition scaled to his own anatomy (his head is 84 of 450 sprite px,
+vs Morty's 123 of 391), and a body-slide profile interpolated from Morty's
+measurements. Measured back out of the render, his head travels 8px in x and 8px
+in y — **ratio 1.00, matching Morty's 14/14** — with dx/dy correlation -0.990 and
+the head and body counter-sliding. Timing comes from Morty's own easing curve, so
+the two head tracks correlate at **r=+0.956**.
+
+Amplitude is 16% of his head height against Morty's 11%; the extra 45% is
+deliberate, so the bob still reads at his smaller head size.
 
 He enters on the first kick at or after 6s (6.2506s) with a short scale pop.
 
@@ -84,6 +106,10 @@ eyeballing it:
 - `cv2.remap` samples the *source*, so pushing content **down** means sampling
   from `y - d`, not `y + d`. The sign was inverted at first, which made Spider-Man
   bob *up* on the kick — exactly out of phase with Morty.
+- Phase correlation is useless on these low-texture cartoon bands (responses near
+  zero, dx estimates of +42 and -34px). Dense optical flow and direct per-colour
+  centroids are what actually work here; `flowprof.py` and `rowprof.py` are the
+  measurements the profile is built from.
 - The pop scales him up about his planted base, so the sprite canvas needs
   headroom. Without padding, the top of his head was clipped on the pop frames.
 
